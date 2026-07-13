@@ -1,18 +1,14 @@
 "use client";
 
-// Seller performance chart — dot + line chart with seller filter.
-// Shows daily values (calls made / answer % / interested) for up to 2 sellers
-// selected via toggle buttons. Replaces the SellerTrendTable which was too
-// abstract when the prior period had no data.
+// Seller performance chart — professional dot+line SVG chart with seller
+// filter (up to 2) and metric tabs. Theme-aware: all colors via CSS variables
+// so it works in both light and dark mode.
 
 import { useState, useMemo } from "react";
 import { C } from "@/lib/design";
 
 const OUTFIT = "var(--font-outfit), system-ui, sans-serif";
-
-// Two contrast colors: gold (brand) and sky blue. A third seller would get
-// green — but we cap at 2 active at once for readability.
-const PALETTE = ["#C9A83A", "#38BDF8", "#22C55E"];
+const PALETTE = ["#C9A83A", "#38BDF8"];
 
 type DayCounts = {
   made: number; answered: number; interested: number;
@@ -27,24 +23,23 @@ type SellerStats = {
   interested: number;
   byDay: Record<string, DayCounts>;
 };
-
 type MetricKey = "made" | "answerPct" | "interested" | "badTiming" | "voicemail";
 
 const METRICS: { key: MetricKey; label: string }[] = [
-  { key: "made",      label: "Calls" },
-  { key: "answerPct", label: "Answer %" },
-  { key: "interested",label: "Interested" },
-  { key: "badTiming", label: "Bad timing" },
-  { key: "voicemail", label: "Voicemail" },
+  { key: "made",       label: "Calls made"  },
+  { key: "answerPct",  label: "Answer %"    },
+  { key: "interested", label: "Interested"  },
+  { key: "badTiming",  label: "Bad timing"  },
+  { key: "voicemail",  label: "Voicemail"   },
 ];
 
-function dayValue(d: DayCounts | undefined, metric: MetricKey): number {
-  if (!d) return 0;
-  if (metric === "made")      return d.made;
-  if (metric === "answerPct") return d.made === 0 ? 0 : Math.round((d.answered / d.made) * 100);
-  if (metric === "interested")return d.interested;
-  if (metric === "badTiming") return d.badTiming;
-  if (metric === "voicemail") return d.voicemail;
+function dayValue(d: DayCounts | undefined, metric: MetricKey): number | null {
+  if (d === undefined) return null; // no data this day → gap in line
+  if (metric === "made")       return d.made;
+  if (metric === "answerPct")  return d.made === 0 ? 0 : Math.round((d.answered / d.made) * 100);
+  if (metric === "interested") return d.interested;
+  if (metric === "badTiming")  return d.badTiming;
+  if (metric === "voicemail")  return d.voicemail;
   return 0;
 }
 
@@ -53,50 +48,89 @@ function fmtAxisDay(iso: string): string {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
 
-// Chart dimensions (viewBox units, not pixels)
-const VW = 700;
-const VH = 220;
-const PAD = { top: 20, right: 16, bottom: 40, left: 38 };
+// Build an SVG path string that jumps to M on null segments (gap handling)
+function buildLinePath(
+  values: (number | null)[],
+  xOf: (i: number) => number,
+  yOf: (v: number) => number,
+): string {
+  let path = "";
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v === null) continue;
+    const x = xOf(i).toFixed(1);
+    const y = yOf(v).toFixed(1);
+    if (path === "" || values[i - 1] === null) path += `M ${x} ${y}`;
+    else path += ` L ${x} ${y}`;
+  }
+  return path;
+}
+
+// Build a filled area path (only segments with contiguous non-null values)
+function buildAreaPath(
+  values: (number | null)[],
+  xOf: (i: number) => number,
+  yOf: (v: number) => number,
+  yBottom: number,
+): string {
+  let path = "";
+  let segStart = -1;
+  const flush = (end: number) => {
+    if (segStart < 0) return;
+    const top = values
+      .slice(segStart, end + 1)
+      .map((v, j) => `${xOf(segStart + j).toFixed(1)},${yOf(v as number).toFixed(1)}`)
+      .join(" L ");
+    const x0 = xOf(segStart).toFixed(1);
+    const x1 = xOf(end).toFixed(1);
+    path += ` M ${x0},${yBottom.toFixed(1)} L ${top} L ${x1},${yBottom.toFixed(1)} Z`;
+    segStart = -1;
+  };
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] !== null) {
+      if (segStart < 0) segStart = i;
+    } else {
+      flush(i - 1);
+    }
+  }
+  flush(values.length - 1);
+  return path.trim();
+}
+
+// ── Chart layout constants ────────────────────────────────────────────────────
+const VW  = 800;
+const VH  = 290;
+const PAD = { top: 28, right: 90, bottom: 52, left: 52 };
 const CW  = VW - PAD.left - PAD.right;
 const CH  = VH - PAD.top  - PAD.bottom;
 
-export default function SellerPerformanceChart({
-  rows,
-}: {
-  rows: SellerStats[];
-}) {
-  const activeSellers = rows.filter(r => r.active !== false);
-  const allSellers    = rows; // inactive ones still selectable
+export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }) {
+  const allSellers = rows;
 
   const [selected, setSelected] = useState<string[]>(() =>
-    activeSellers.slice(0, Math.min(2, activeSellers.length)).map(r => r.sellerId),
+    allSellers
+      .filter(r => r.active !== false)
+      .slice(0, Math.min(2, allSellers.length))
+      .map(r => r.sellerId),
   );
   const [metric, setMetric] = useState<MetricKey>("made");
 
   const toggle = (id: string) => {
     setSelected(prev => {
-      if (prev.includes(id)) {
-        // Always keep at least 1 selected
-        return prev.length > 1 ? prev.filter(x => x !== id) : prev;
-      }
-      if (prev.length >= 2) {
-        // Replace the oldest selection
-        return [prev[1], id];
-      }
+      if (prev.includes(id)) return prev.length > 1 ? prev.filter(x => x !== id) : prev;
+      if (prev.length >= 2) return [prev[1], id];
       return [...prev, id];
     });
   };
 
   const selectedRows = allSellers.filter(r => selected.includes(r.sellerId));
 
-  // Collect all days present in any selected seller's data, sorted ascending
   const allDays: string[] = useMemo(() => {
     const s = new Set<string>();
     for (const r of selectedRows) Object.keys(r.byDay).forEach(d => s.add(d));
     return Array.from(s).sort();
   }, [selectedRows]);
 
-  // Build per-seller series
   const series = selectedRows.map((r, idx) => ({
     id:     r.sellerId,
     name:   r.sellerName,
@@ -104,29 +138,33 @@ export default function SellerPerformanceChart({
     values: allDays.map(d => dayValue(r.byDay[d], metric)),
   }));
 
-  const allValues  = series.flatMap(s => s.values);
-  const maxVal     = Math.max(...allValues, 1);
-  const isSingle   = allDays.length <= 1;
-  const isPct      = metric === "answerPct";
-  const yMax       = isPct ? Math.max(maxVal, 10) : Math.max(maxVal, 2);
+  const allNonNull = series.flatMap(s => s.values.filter((v): v is number => v !== null));
+  const maxVal = Math.max(...allNonNull, metric === "answerPct" ? 20 : 5);
+  const yMax   = metric === "answerPct" ? Math.min(100, Math.ceil(maxVal / 10) * 10) : Math.ceil(maxVal * 1.15);
+
+  const isPct  = metric === "answerPct";
+  const isSolo = allDays.length <= 1;
 
   const xOf = (i: number) =>
-    PAD.left + (isSingle ? CW / 2 : (i / (allDays.length - 1)) * CW);
+    PAD.left + (isSolo ? CW / 2 : (i / (allDays.length - 1)) * CW);
   const yOf = (v: number) =>
-    PAD.top + CH - (v / yMax) * CH;
+    PAD.top + CH - Math.max(0, Math.min(1, v / yMax)) * CH;
 
-  // Y-axis grid lines: 4 evenly spaced ticks
-  const ticks = [0, 1, 2, 3].map(i => Math.round((yMax * i) / 3));
+  const yBottom = PAD.top + CH;
 
-  // X-axis labels: max ~8 visible
-  const xLabelStep = allDays.length <= 8 ? 1 : Math.ceil(allDays.length / 8);
+  // Y-axis: 5 ticks
+  const yTicks = Array.from({ length: 6 }, (_, i) => Math.round(yMax * i / 5));
+
+  // X-axis: max ~9 labels
+  const xStep = allDays.length <= 9 ? 1 : Math.ceil(allDays.length / 9);
 
   if (allSellers.length === 0) return null;
 
   return (
-    <div>
-      {/* Metric tabs */}
-      <div className="flex items-center gap-1 px-4 pt-4 pb-3 flex-wrap">
+    <div style={{ padding: "20px 20px 4px" }}>
+
+      {/* ── Metric tabs ──────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {METRICS.map(m => {
           const active = metric === m.key;
           return (
@@ -134,12 +172,13 @@ export default function SellerPerformanceChart({
               key={m.key}
               onClick={() => setMetric(m.key)}
               style={{
-                fontSize: 11, fontWeight: 700, padding: "4px 11px", borderRadius: 6,
-                background: active ? "rgba(201,168,58,0.14)" : "transparent",
-                color:      active ? "#C9A83A" : "rgba(255,255,255,0.35)",
-                border:     active ? "1px solid rgba(201,168,58,0.3)" : "1px solid transparent",
-                cursor: "pointer", transition: "all .12s",
                 fontFamily: OUTFIT,
+                fontSize: 12, fontWeight: 700,
+                padding: "6px 14px", borderRadius: 8,
+                cursor: "pointer", transition: "all .12s",
+                background: active ? "rgba(201,168,58,0.12)" : "transparent",
+                color:      active ? "#C9A83A" : C.textMuted,
+                border:     active ? "1.5px solid rgba(201,168,58,0.35)" : `1.5px solid ${C.border}`,
               }}
             >
               {m.label}
@@ -148,73 +187,95 @@ export default function SellerPerformanceChart({
         })}
       </div>
 
-      {/* Seller toggles */}
-      <div className="flex flex-wrap gap-2 px-4 pb-4">
+      {/* ── Seller toggles ───────────────────────────────────────────────── */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+        <span style={{ fontFamily: OUTFIT, fontSize: 11, fontWeight: 700, color: C.textMuted, alignSelf: "center", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Sellers:
+        </span>
         {allSellers.map(r => {
-          const isOn    = selected.includes(r.sellerId);
-          const selIdx  = selected.indexOf(r.sellerId);
-          const color   = isOn ? PALETTE[selIdx % PALETTE.length] : undefined;
+          const isOn   = selected.includes(r.sellerId);
+          const selIdx = selected.indexOf(r.sellerId);
+          const color  = isOn ? PALETTE[selIdx % PALETTE.length] : undefined;
           return (
             <button
               key={r.sellerId}
               onClick={() => toggle(r.sellerId)}
               style={{
-                display: "flex", alignItems: "center", gap: 6,
-                fontSize: 12, fontWeight: 600, padding: "5px 13px", borderRadius: 8,
-                background: isOn ? `${color}18` : "transparent",
-                color:      isOn ? color : "rgba(255,255,255,0.35)",
-                border:     `1px solid ${isOn ? `${color}45` : "rgba(255,255,255,0.1)"}`,
-                cursor: "pointer", transition: "all .15s",
                 fontFamily: OUTFIT,
+                display: "flex", alignItems: "center", gap: 7,
+                fontSize: 13, fontWeight: 700,
+                padding: "7px 16px", borderRadius: 8,
+                cursor: "pointer", transition: "all .15s",
+                background: isOn ? `${color}14` : "transparent",
+                color:      isOn ? color : C.textBody,
+                border:     `2px solid ${isOn ? `${color}55` : C.border}`,
                 opacity: r.active === false ? 0.5 : 1,
+                boxShadow: isOn ? `0 0 0 3px ${color}18` : "none",
               }}
             >
               <span style={{
-                width: 9, height: 9, borderRadius: "50%",
-                background: isOn ? color : "rgba(255,255,255,0.2)",
+                width: 10, height: 10, borderRadius: "50%",
+                background: isOn ? color : C.textDim,
                 display: "inline-block", flexShrink: 0,
-                transition: "background .15s",
+                boxShadow: isOn ? `0 0 6px ${color}80` : "none",
+                transition: "all .15s",
               }} />
               {r.sellerName}
-              {r.active === false && (
-                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginLeft: 2 }}>left</span>
-              )}
             </button>
           );
         })}
         {selected.length >= 2 && (
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", alignSelf: "center", fontFamily: OUTFIT }}>
-            max 2
+          <span style={{ fontFamily: OUTFIT, fontSize: 11, color: C.textDim, alignSelf: "center" }}>
+            (máx. 2)
           </span>
         )}
       </div>
 
-      {/* SVG chart */}
+      {/* ── SVG chart ────────────────────────────────────────────────────── */}
       {allDays.length === 0 ? (
-        <div className="px-4 pb-6 text-center">
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", fontFamily: OUTFIT }}>No data for the selected period</p>
+        <div style={{ padding: "32px 0 24px", textAlign: "center" }}>
+          <p style={{ fontFamily: OUTFIT, fontSize: 13, color: C.textMuted }}>
+            Sin datos para el período seleccionado
+          </p>
         </div>
       ) : (
-        <div className="px-2 pb-4">
+        <div style={{ overflowX: "auto" }}>
           <svg
             viewBox={`0 0 ${VW} ${VH}`}
-            style={{ width: "100%", height: "auto", display: "block" }}
+            style={{ width: "100%", minWidth: 420, height: "auto", display: "block" }}
           >
-            {/* Y-axis grid lines + labels */}
-            {ticks.map(tick => (
+            {/* ── Axis lines ─────────────────────────────────────────────── */}
+            {/* Y axis */}
+            <line
+              x1={PAD.left} y1={PAD.top}
+              x2={PAD.left} y2={yBottom}
+              style={{ stroke: C.border }} strokeWidth={1.5}
+            />
+            {/* X axis */}
+            <line
+              x1={PAD.left} y1={yBottom}
+              x2={PAD.left + CW} y2={yBottom}
+              style={{ stroke: C.border }} strokeWidth={1.5}
+            />
+
+            {/* ── Y-axis grid + labels ────────────────────────────────────── */}
+            {yTicks.map(tick => (
               <g key={tick}>
-                <line
-                  x1={PAD.left} y1={yOf(tick)}
-                  x2={PAD.left + CW} y2={yOf(tick)}
-                  stroke="rgba(255,255,255,0.07)"
-                  strokeWidth={0.5}
-                  strokeDasharray="4 4"
-                />
+                {tick > 0 && (
+                  <line
+                    x1={PAD.left} y1={yOf(tick)}
+                    x2={PAD.left + CW} y2={yOf(tick)}
+                    style={{ stroke: C.border }}
+                    strokeDasharray="5 5"
+                    strokeWidth={0.75}
+                  />
+                )}
                 <text
-                  x={PAD.left - 7} y={yOf(tick) + 3.5}
+                  x={PAD.left - 10} y={yOf(tick) + 4}
                   textAnchor="end"
-                  fontSize={10}
-                  fill="rgba(255,255,255,0.3)"
+                  fontSize={11}
+                  fontWeight={500}
+                  style={{ fill: C.textMuted }}
                   fontFamily="system-ui, sans-serif"
                 >
                   {tick}{isPct ? "%" : ""}
@@ -222,24 +283,17 @@ export default function SellerPerformanceChart({
               </g>
             ))}
 
-            {/* X-axis baseline */}
-            <line
-              x1={PAD.left} y1={PAD.top + CH}
-              x2={PAD.left + CW} y2={PAD.top + CH}
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth={0.5}
-            />
-
-            {/* X-axis day labels */}
+            {/* ── X-axis labels ───────────────────────────────────────────── */}
             {allDays.map((day, i) => {
-              if (i % xLabelStep !== 0 && i !== allDays.length - 1) return null;
+              if (i % xStep !== 0 && i !== allDays.length - 1) return null;
               return (
                 <text
                   key={day}
-                  x={xOf(i)} y={VH - PAD.bottom + 15}
+                  x={xOf(i)} y={yBottom + 20}
                   textAnchor="middle"
-                  fontSize={9.5}
-                  fill="rgba(255,255,255,0.3)"
+                  fontSize={11}
+                  fontWeight={500}
+                  style={{ fill: C.textMuted }}
                   fontFamily="system-ui, sans-serif"
                 >
                   {fmtAxisDay(day)}
@@ -247,80 +301,107 @@ export default function SellerPerformanceChart({
               );
             })}
 
-            {/* Series lines + dots */}
+            {/* ── Area fills (behind lines) ───────────────────────────────── */}
             {series.map(s => {
-              const pts = allDays.map((_, i) => `${xOf(i).toFixed(1)},${yOf(s.values[i]).toFixed(1)}`);
+              const areaPath = buildAreaPath(s.values, xOf, yOf, yBottom);
+              if (!areaPath) return null;
               return (
-                <g key={s.id}>
-                  {/* Connecting line */}
-                  {!isSingle && (
-                    <polyline
-                      points={pts.join(" ")}
-                      fill="none"
-                      stroke={s.color}
+                <path
+                  key={`area-${s.id}`}
+                  d={areaPath}
+                  fill={s.color}
+                  opacity={0.09}
+                />
+              );
+            })}
+
+            {/* ── Lines ──────────────────────────────────────────────────── */}
+            {series.map(s => {
+              const linePath = buildLinePath(s.values, xOf, yOf);
+              if (!linePath) return null;
+              return (
+                <path
+                  key={`line-${s.id}`}
+                  d={linePath}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={2.5}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  opacity={0.9}
+                />
+              );
+            })}
+
+            {/* ── Dots ───────────────────────────────────────────────────── */}
+            {series.map(s =>
+              allDays.map((_, i) => {
+                const v = s.values[i];
+                if (v === null) return null;
+                const cx = xOf(i);
+                const cy = yOf(v);
+                return (
+                  <g key={`dot-${s.id}-${i}`}>
+                    {/* Outer glow ring */}
+                    <circle cx={cx} cy={cy} r={7} fill={s.color} opacity={0.15} />
+                    {/* Dot */}
+                    <circle
+                      cx={cx} cy={cy} r={4.5}
+                      fill={s.color}
+                      style={{ stroke: C.bg }}
                       strokeWidth={2}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      opacity={0.75}
                     />
-                  )}
+                  </g>
+                );
+              })
+            )}
 
-                  {/* Dots */}
-                  {allDays.map((_, i) => {
-                    const v = s.values[i];
-                    const cx = xOf(i);
-                    const cy = yOf(v);
-                    return (
-                      <g key={i}>
-                        {/* Halo for readability */}
-                        <circle cx={cx} cy={cy} r={5.5} fill={s.color} opacity={0.15} />
-                        {/* Dot */}
-                        <circle
-                          cx={cx} cy={cy} r={v > 0 ? 4 : 2.5}
-                          fill={v > 0 ? s.color : "rgba(255,255,255,0.15)"}
-                          stroke={v > 0 ? "rgba(0,0,0,0.4)" : "none"}
-                          strokeWidth={1}
-                        />
-                        {/* Value label above dot (only if > 0 and not too crowded) */}
-                        {v > 0 && allDays.length <= 14 && (
-                          <text
-                            x={cx} y={cy - 8}
-                            textAnchor="middle"
-                            fontSize={10}
-                            fontWeight="700"
-                            fill={s.color}
-                            fontFamily="system-ui, sans-serif"
-                          >
-                            {v}{isPct ? "%" : ""}
-                          </text>
-                        )}
-                      </g>
-                    );
-                  })}
+            {/* ── Value labels above dots ─────────────────────────────────── */}
+            {allDays.length <= 16 && series.map(s =>
+              allDays.map((_, i) => {
+                const v = s.values[i];
+                if (v === null || v === 0) return null;
+                return (
+                  <text
+                    key={`lbl-${s.id}-${i}`}
+                    x={xOf(i)} y={yOf(v) - 12}
+                    textAnchor="middle"
+                    fontSize={11}
+                    fontWeight={700}
+                    fill={s.color}
+                    fontFamily="system-ui, sans-serif"
+                  >
+                    {v}{isPct ? "%" : ""}
+                  </text>
+                );
+              })
+            )}
 
-                  {/* Legend label at the last dot */}
-                  {(() => {
-                    const lastIdx = allDays.length - 1;
-                    const lx = xOf(lastIdx) + 7;
-                    const ly = yOf(s.values[lastIdx]) + 3;
-                    // Prevent label from going off right edge
-                    const anchor = lx + 60 > VW ? "end" : "start";
-                    const lxFinal = anchor === "end" ? xOf(lastIdx) - 7 : lx;
-                    return (
-                      <text
-                        x={lxFinal} y={ly}
-                        textAnchor={anchor}
-                        fontSize={10.5}
-                        fontWeight="700"
-                        fill={s.color}
-                        fontFamily="system-ui, sans-serif"
-                        opacity={0.9}
-                      >
-                        {s.name}
-                      </text>
-                    );
-                  })()}
-                </g>
+            {/* ── Seller name tag at last visible dot ─────────────────────── */}
+            {series.map(s => {
+              let lastIdx = -1;
+              for (let i = s.values.length - 1; i >= 0; i--) {
+                if (s.values[i] !== null) { lastIdx = i; break; }
+              }
+              if (lastIdx === -1) return null;
+              const lastVal = s.values[lastIdx] as number;
+              const cx = xOf(lastIdx);
+              const cy = yOf(lastVal);
+              const rightEdge = cx + 8;
+              const anchor = rightEdge + 70 > VW ? "end" : "start";
+              const lx = anchor === "end" ? cx - 10 : cx + 10;
+              return (
+                <text
+                  key={`tag-${s.id}`}
+                  x={lx} y={cy + 4}
+                  textAnchor={anchor}
+                  fontSize={12}
+                  fontWeight={700}
+                  fill={s.color}
+                  fontFamily="system-ui, sans-serif"
+                >
+                  {s.name}
+                </text>
               );
             })}
           </svg>

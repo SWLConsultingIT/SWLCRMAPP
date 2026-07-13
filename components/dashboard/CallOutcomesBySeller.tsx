@@ -145,7 +145,7 @@ function SellerRow({ s }: { s: SellerCallStats }) {
   const [open, setOpen] = useState(false);
   const days     = Object.entries(s.byDay).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   const inactive = s.active === false;
-  const colCount = 1 + COLS.length;
+  const totalCols = 1 + COLS.length;
   return (
     <>
       <tr
@@ -186,37 +186,45 @@ function SellerRow({ s }: { s: SellerCallStats }) {
         ))}
       </tr>
 
+      {/* Expanded per-day detail — single colSpan row per day, no duplicate number columns */}
       {open && days.map(([day, counts]) => (
         <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-          <td className="px-4 py-2 pl-14">
-            <div className="flex flex-col gap-1.5">
-              <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, fontFamily: OUTFIT }}>
-                {fmtDay(day)}
-              </span>
-              <DayOutcomeChips counts={counts} />
-              {counts.campaigns && counts.campaigns.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {counts.campaigns.map(name => (
-                    <span key={name} style={{
-                      fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 10,
-                      background: "rgba(201,168,58,.1)", color: "#C9A83A",
-                      border: "1px solid rgba(201,168,58,.2)",
-                    }}>
-                      {name}
-                    </span>
-                  ))}
+          <td colSpan={totalCols} style={{ padding: "10px 16px 10px 60px" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
+              {/* Date */}
+              <div style={{ minWidth: 88, flexShrink: 0, paddingTop: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, fontFamily: OUTFIT }}>
+                  {fmtDay(day)}
+                </span>
+              </div>
+              {/* Summary + chips */}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.textBody, fontFamily: OUTFIT }}>
+                    {counts.made} calls
+                  </span>
+                  <span style={{ color: C.textDim, fontSize: 10 }}>·</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#38BDF8", fontFamily: OUTFIT }}>
+                    {answerPctOf(counts)}% answered
+                  </span>
                 </div>
-              )}
+                <DayOutcomeChips counts={counts} />
+                {counts.campaigns && counts.campaigns.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                    {counts.campaigns.map(name => (
+                      <span key={name} style={{
+                        fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 10,
+                        background: "rgba(201,168,58,.1)", color: "#C9A83A",
+                        border: "1px solid rgba(201,168,58,.2)", fontFamily: OUTFIT,
+                      }}>
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </td>
-          {COLS.map(c => {
-            const v = valueOf(counts as any, c.key);
-            return (
-              <td key={c.key} className="text-center px-2 py-2 tabular-nums">
-                <span style={{ fontSize: 12, color: v > 0 ? C.textBody : C.textDim }}>{v}</span>
-              </td>
-            );
-          })}
         </tr>
       ))}
     </>
