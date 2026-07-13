@@ -148,6 +148,7 @@ const EMPTY_DASHBOARD = {
     email: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
     call: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
   } as Record<string, number[][]>,
+  heatmapCalls: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
 };
 
 // Pages through a PostgREST query 1000 rows at a time until the tail is
@@ -295,14 +296,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   type CallRow = {
     id: string; lead_id: string | null; status: string | null;
     duration: number | null; classification: string | null; started_at: string | null;
-    dialed_by_user_id: string | null; phone_number: string | null;
+    dialed_by_user_id: string | null; phone_number: string | null; coach_score: number | null;
   };
   let allCalls: CallRow[] = [];
   try {
     const makeCallsQ = () => {
       const q = supabase
         .from("calls")
-        .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, leads!inner(company_bio_id)");
+        .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, coach_score, leads!inner(company_bio_id)");
       return bioId ? q.eq("leads.company_bio_id", bioId) : q;
     };
     allCalls = await fetchAllRows<CallRow>(makeCallsQ);
@@ -656,14 +657,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
   }
 
-  type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string; phone: string | null; campaignName: string | null };
+  type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string; hour: number; phone: string | null; campaignName: string | null; duration: number; coachScore: number | null };
   const callGroups = new Map<string, CallGroup>();
   for (const c of callsInPeriod) {
     const key = `${c.lead_id ?? "?"}|${(c.started_at ?? "").slice(0, 16)}`;
-    const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: toArgDay(c.started_at), phone: c.phone_number ?? null, campaignName: c.lead_id ? (leadToCampaignName.get(c.lead_id) ?? null) : null };
+    const argHour = c.started_at ? new Date(new Date(c.started_at).getTime() - 3 * 60 * 60 * 1000).getUTCHours() : 0;
+    const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: toArgDay(c.started_at), hour: argHour, phone: c.phone_number ?? null, campaignName: c.lead_id ? (leadToCampaignName.get(c.lead_id) ?? null) : null, duration: 0, coachScore: null };
     if (!g.dialer && c.dialed_by_user_id) g.dialer = c.dialed_by_user_id;
     if (!g.classification && c.classification) g.classification = c.classification;
-    if ((c.duration ?? 0) > 0) g.answered = true;
+    if ((c.duration ?? 0) > 0) { g.answered = true; if ((c.duration ?? 0) > g.duration) g.duration = c.duration ?? 0; }
+    if (c.coach_score != null && g.coachScore == null) g.coachScore = c.coach_score;
     if (!g.day && c.started_at) g.day = toArgDay(c.started_at);
     if (!g.phone && c.phone_number) g.phone = c.phone_number;
     if (!g.campaignName && c.lead_id) g.campaignName = leadToCampaignName.get(c.lead_id) ?? null;
@@ -689,6 +692,8 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         if (!master.phone && g.phone) master.phone = g.phone;
         if (!master.classification && g.classification) master.classification = g.classification;
         if (g.answered) master.answered = true;
+        if (g.duration > master.duration) master.duration = g.duration;
+        if (master.coachScore == null && g.coachScore != null) master.coachScore = g.coachScore;
         toRemove.add(key);
       } else if (!existing) {
         phoneMinuteIndex.set(pmKey, key);
@@ -737,7 +742,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
 
   type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number };
   type DayCounts = CallOutcomeCounts & { campaigns: string[] };
-  type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; active: boolean; byDay: Record<string, DayCounts> };
+  type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; active: boolean; byDay: Record<string, DayCounts>; totalDuration: number; coachScoreSum: number; coachScoreCount: number; avgDurationSecs: number; avgCoachScore: number | null };
   const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 });
   const blankDayCounts = (): DayCounts => ({ ...blankCounts(), campaigns: [] });
   const callSellerAgg = new Map<string, SellerCallStats>();
@@ -754,7 +759,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (sellerSet && !sellerSet.has(sid)) continue; // seller filter (by sellers.id)
     let agg = callSellerAgg.get(sid);
     const sellerActive = allSellers.find(s => s.id === sid)?.active ?? true;
-    if (!agg) { agg = { sellerId: sid, sellerName: sname, active: sellerActive, ...blankCounts(), byDay: {} }; callSellerAgg.set(sid, agg); }
+    if (!agg) { agg = { sellerId: sid, sellerName: sname, active: sellerActive, ...blankCounts(), byDay: {}, totalDuration: 0, coachScoreSum: 0, coachScoreCount: 0, avgDurationSecs: 0, avgCoachScore: null }; callSellerAgg.set(sid, agg); }
     const day = agg.byDay[g.day] ?? (agg.byDay[g.day] = blankDayCounts());
     const cl = g.classification ?? "";
     const bump = (k: keyof CallOutcomeCounts) => { agg![k]++; day[k]++; };
@@ -766,6 +771,12 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     else if (cl === "negative") bump("notInterested");
     else if (cl === "wrong_number") bump("wrongNumber");
     if (g.campaignName && !day.campaigns.includes(g.campaignName)) day.campaigns.push(g.campaignName);
+    agg.totalDuration += g.duration;
+    if (g.coachScore != null) { agg.coachScoreSum += g.coachScore; agg.coachScoreCount++; }
+  }
+  for (const s of callSellerAgg.values()) {
+    s.avgDurationSecs = s.answered > 0 ? Math.round(s.totalDuration / s.answered) : 0;
+    s.avgCoachScore = s.coachScoreCount > 0 ? Math.round(s.coachScoreSum / s.coachScoreCount) : null;
   }
   const callOutcomesBySeller = Array.from(callSellerAgg.values())
     .sort((a, b) => b.made - a.made || a.sellerName.localeCompare(b.sellerName));
@@ -1396,6 +1407,18 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
   }
 
+  // ── Call timing heatmap — best hours to call ───────────────────────────
+  // Mirrors the reply heatmap but uses CALLS with a positive outcome (answered
+  // or classified as positive/meeting_intent). Lets the manager see at a glance
+  // which day × hour combinations actually result in conversations.
+  const heatmapCalls = Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]);
+  for (const g of callGroups.values()) {
+    if (!g.answered && g.classification !== "positive" && g.classification !== "meeting_intent") continue;
+    if (!g.day) continue;
+    const weekday = new Date(`${g.day}T12:00:00Z`).getUTCDay(); // 0=Sun, 6=Sat in Arg date
+    heatmapCalls[weekday][g.hour]++;
+  }
+
   // ── Time-to-first-reply (median minutes) ────────────────────────────────
   // For every lead that replied, how many minutes elapsed between the lead's
   // FIRST sent campaign_message and the lead's FIRST reply? Median is more
@@ -1694,6 +1717,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       text: `${stagnant.length} campaign${stagnant.length === 1 ? "" : "s"} with 0% conversion and ≥10 leads — review or pause.`,
     });
   }
+  // Health signal insights — surface the three computed-but-never-shown
+  // signals from the health block so they reach the InsightPanel on the page.
+  if (saturationRate !== null && saturationRate > 25) {
+    insights.push({ tone: "warning", kind: "saturation", vars: { n: saturationRate }, text: `${saturationRate}% of sequences finished with 0 replies — ICPs may be saturated.` });
+  }
+  if (atRiskCount > 2) {
+    insights.push({ tone: "warning", kind: "atRisk", vars: { n: atRiskCount }, text: `${atRiskCount} campaigns paused or stalled for 7+ days — review or relaunch.` });
+  }
+  if (channelMismatchRate !== null && channelMismatchRate > 15) {
+    insights.push({ tone: "warning", kind: "channelMismatch", vars: { n: channelMismatchRate }, text: `${channelMismatchRate}% of replies arrived on the wrong channel — check routing config.` });
+  }
 
   return {
     period: { from: filters.from, to: filters.to, days: Math.round(periodMs / 86_400_000) },
@@ -1964,6 +1998,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     },
     heatmap, // [7][24] — Sun..Sat × 0..23h (aggregate across channels)
     heatmapByChannel,
+    heatmapCalls, // [7][24] — calls that were answered or classified positive
   };
 }
 
@@ -2053,7 +2088,7 @@ export async function getSellerActivity(bioId: string | null): Promise<Map<strin
     // Simone/Sara who have seller records under other companies but work for SWL).
     const { data: sellers } = await supabase
       .from("sellers")
-      .select("id, user_id")
+      .select("id, user_id, linkedin_status, linkedin_status_note")
       .eq("active", true);
 
     const userIds = ((sellers ?? []).map(s => (s as { user_id: string | null }).user_id).filter(Boolean)) as string[];
@@ -2093,11 +2128,13 @@ export async function getSellerActivity(bioId: string | null): Promise<Map<strin
 
     return new Map(
       (sellers ?? []).map(s => {
-        const row = s as { id: string; user_id: string | null };
+        const row = s as { id: string; user_id: string | null; linkedin_status: string | null; linkedin_status_note: string | null };
         return [row.id, {
           userId: row.user_id ?? null,
           lastSeenAt: row.user_id ? (profileMap[row.user_id] ?? null) : null,
           displayName: row.user_id ? (displayNameMap[row.user_id] ?? null) : null,
+          linkedinStatus: row.linkedin_status ?? null,
+          linkedinStatusNote: row.linkedin_status_note ?? null,
         }];
       })
     );

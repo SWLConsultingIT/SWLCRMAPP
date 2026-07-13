@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
-import { Phone, Clock, Users, PhoneCall } from "lucide-react";
+import { Phone, Clock, Users, PhoneCall, MessageSquare, ThumbsUp, AlertTriangle } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -16,6 +16,10 @@ type SellerInput = {
   callsToday: number;
   callsPeriod: number;
   pendingCalls: number;
+  repliedPeriod: number;
+  positivePeriod: number;
+  linkedinStatus: string | null;
+  linkedinStatusNote: string | null;
 };
 
 type PresenceMeta = { user_id: string; name: string };
@@ -138,12 +142,12 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
             {activeSellers > 0 ? (
               <>
                 <span className="text-[11px] font-semibold" style={{ color: onTrack === activeSellers ? "#22C55E" : onTrack > 0 ? "#C9A83A" : "#EF4444" }}>
-                  {onTrack}/{activeSellers} active sellers on track
+                  {onTrack}/{activeSellers} active on track
                 </span>
-                <span className="text-[11px]" style={{ color: "#8B9EB7" }}>· goal: {dailyTarget}+ calls/day</span>
+                <span className="text-[11px]" style={{ color: "#8B9EB7" }}>· goal {dailyTarget}+ calls · replied · positives · queue</span>
               </>
             ) : (
-              <span className="text-[11px]" style={{ color: "#8B9EB7" }}>Last login · last call · calls today · calls this period · queue</span>
+              <span className="text-[11px]" style={{ color: "#8B9EB7" }}>Last login · last call · calls today · calls this period · replied · positives · queue</span>
             )}
           </div>
         </div>
@@ -166,14 +170,16 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last seen</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last call</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Today</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>Period</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>Calls</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Replied</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Positive</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">In queue</th>
           </tr>
         </thead>
         <tbody>
           {sellers.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>
+              <td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>
                 No sellers found.
               </td>
             </tr>
@@ -201,10 +207,24 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
                       {initials(row.name)}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[12.5px] font-semibold truncate leading-tight" style={{ color: C.textPrimary }}>
-                        {row.name}
-                        {row.isMe && <span className="ml-1.5 text-[9.5px] font-normal" style={{ color: C.textDim }}>(you)</span>}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-[12.5px] font-semibold truncate leading-tight" style={{ color: C.textPrimary }}>
+                          {row.name}
+                          {row.isMe && <span className="ml-1.5 text-[9.5px] font-normal" style={{ color: C.textDim }}>(you)</span>}
+                        </p>
+                        {row.linkedinStatus === "banned" && (
+                          <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                            style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }}>
+                            <AlertTriangle size={8} /> LI banned
+                          </span>
+                        )}
+                        {(row.linkedinStatus === "restricted" || row.linkedinStatus === "warning") && (
+                          <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                            style={{ backgroundColor: "rgba(245,158,11,0.15)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>
+                            <AlertTriangle size={8} /> LI {row.linkedinStatus}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -280,6 +300,26 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
                   <span className="text-[12px] font-semibold tabular-nums" style={{ color: row.callsPeriod > 0 ? C.textBody : C.textDim }}>
                     {row.callsPeriod > 0 ? row.callsPeriod : "—"}
                   </span>
+                </td>
+
+                {/* Replied in period */}
+                <td className="px-3 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {row.repliedPeriod > 0 && <MessageSquare size={9} style={{ color: "#0EA5E9" }} />}
+                    <span className="text-[12px] font-semibold tabular-nums" style={{ color: row.repliedPeriod > 0 ? "#0EA5E9" : C.textDim }}>
+                      {row.repliedPeriod > 0 ? row.repliedPeriod : "—"}
+                    </span>
+                  </div>
+                </td>
+
+                {/* Positives in period */}
+                <td className="px-3 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {row.positivePeriod > 0 && <ThumbsUp size={9} style={{ color: C.green }} />}
+                    <span className="text-[12px] font-bold tabular-nums" style={{ color: row.positivePeriod > 0 ? C.green : C.textDim }}>
+                      {row.positivePeriod > 0 ? row.positivePeriod : "—"}
+                    </span>
+                  </div>
                 </td>
 
                 {/* In queue */}

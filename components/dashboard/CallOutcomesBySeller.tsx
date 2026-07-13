@@ -20,11 +20,12 @@ type Counts = {
 type DayCounts = Counts & { campaigns?: string[] };
 type SellerCallStats = Counts & {
   sellerId: string; sellerName: string; active?: boolean; byDay: Record<string, DayCounts>;
+  avgDurationSecs?: number; avgCoachScore?: number | null;
 };
 
 // Column key = a Counts field OR the derived "unclassified" (made minus the
 // five logged outcomes), so Total calls always reconciles with the columns.
-type ColKey = keyof Counts | "unclassified" | "classifiedPct";
+type ColKey = keyof Counts | "unclassified" | "classifiedPct" | "answerPct" | "avgDurationSecs" | "avgCoachScore";
 
 // Unclassified = calls made but with no outcome logged yet. Clamped at 0 in
 // case of any data skew. This is what makes the row add up: Total calls =
@@ -33,20 +34,37 @@ const unclassifiedOf = (c: Counts) =>
   Math.max(0, c.made - c.interested - c.badTiming - c.voicemail - c.notInterested - c.wrongNumber);
 const classifiedPctOf = (c: Counts) =>
   c.made === 0 ? 100 : Math.round(((c.made - unclassifiedOf(c)) / c.made) * 100);
-const valueOf = (c: Counts, key: ColKey): number =>
-  key === "unclassified" ? unclassifiedOf(c) : key === "classifiedPct" ? classifiedPctOf(c) : c[key];
+const answerPctOf = (c: Counts) =>
+  c.made === 0 ? 0 : Math.round((c.answered / c.made) * 100);
+const fmtDuration = (secs: number) => {
+  if (secs === 0) return "—";
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+};
+const valueOf = (c: Counts | SellerCallStats, key: ColKey): number => {
+  if (key === "unclassified") return unclassifiedOf(c as Counts);
+  if (key === "classifiedPct") return classifiedPctOf(c as Counts);
+  if (key === "answerPct") return answerPctOf(c as Counts);
+  if (key === "avgDurationSecs") return (c as SellerCallStats).avgDurationSecs ?? 0;
+  if (key === "avgCoachScore") return (c as SellerCallStats).avgCoachScore ?? 0;
+  return (c as Counts)[key as keyof Counts];
+};
 
 // Column definitions — label + key + accent colour. "Answered" dropped
 // 2026-06-11 (Fran, unreliable). "Sin clasificar" added so the math closes.
 const COLS: { key: ColKey; label: string; color: string }[] = [
-  { key: "made",          label: "Total calls",   color: C.textPrimary },
-  { key: "interested",    label: "Interested",    color: C.green },
-  { key: "badTiming",     label: "Bad timing",    color: "#D97706" },
-  { key: "voicemail",     label: "Voicemail",     color: "#0EA5E9" },
-  { key: "notInterested", label: "Not interested",color: C.red },
-  { key: "wrongNumber",   label: "Wrong #",       color: C.textMuted },
-  { key: "unclassified",  label: "Unclassified",  color: C.red },
-  { key: "classifiedPct", label: "Classified %",  color: C.green },
+  { key: "made",            label: "Total calls",   color: C.textPrimary },
+  { key: "answerPct",       label: "Answer %",      color: "#0EA5E9" },
+  { key: "interested",      label: "Interested",    color: C.green },
+  { key: "badTiming",       label: "Bad timing",    color: "#D97706" },
+  { key: "voicemail",       label: "Voicemail",     color: "#0EA5E9" },
+  { key: "notInterested",   label: "Not interested",color: C.red },
+  { key: "wrongNumber",     label: "Wrong #",       color: C.textMuted },
+  { key: "unclassified",    label: "Unclassified",  color: C.red },
+  { key: "classifiedPct",   label: "Classified %",  color: C.green },
+  { key: "avgDurationSecs", label: "Avg duration",  color: C.textMuted },
+  { key: "avgCoachScore",   label: "Coach score",   color: "#C9A83A" },
 ];
 
 function fmtDay(iso: string): string {
@@ -55,11 +73,37 @@ function fmtDay(iso: string): string {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
 }
 
-function Cell({ n, color, colKey, total }: { n: number; color: string; colKey: ColKey; total?: number }) {
-  const isPct = colKey === "classifiedPct";
+function Cell({ n, color, colKey, total, row }: { n: number; color: string; colKey: ColKey; total?: number; row?: SellerCallStats }) {
+  const isPct = colKey === "classifiedPct" || colKey === "answerPct";
+  const isClassifiedPct = colKey === "classifiedPct";
+  const isAnswerPct = colKey === "answerPct";
+  const isDuration = colKey === "avgDurationSecs";
+  const isCoach = colKey === "avgCoachScore";
   const isUnclassified = colKey === "unclassified";
+
   const highUnclassified = isUnclassified && total && total > 0 && n / total > 0.4;
-  const lowClassified = isPct && n < 60;
+  const lowClassified = isClassifiedPct && n < 60;
+  const lowAnswer = isAnswerPct && total && total > 0 && n < 30;
+
+  if (isDuration) {
+    const text = row ? fmtDuration(row.avgDurationSecs ?? 0) : fmtDuration(n);
+    return (
+      <td className="text-center px-2 py-2 tabular-nums">
+        <span className="text-[11px]" style={{ color: n > 0 ? C.textMuted : C.textDim, fontFamily: OUTFIT }}>{text}</span>
+      </td>
+    );
+  }
+  if (isCoach) {
+    const score = row?.avgCoachScore ?? null;
+    if (score == null) return <td className="text-center px-2 py-2"><span style={{ color: C.textDim }}>—</span></td>;
+    const scoreColor = score >= 80 ? C.green : score >= 60 ? "#D97706" : C.red;
+    return (
+      <td className="text-center px-2 py-2 tabular-nums">
+        <span className="text-[12px] font-bold" style={{ color: scoreColor, fontFamily: OUTFIT }}>{score}</span>
+      </td>
+    );
+  }
+
   const displayVal = isPct ? `${n}%` : String(n);
   return (
     <td className="text-center px-2 py-2 tabular-nums">
@@ -67,7 +111,7 @@ function Cell({ n, color, colKey, total }: { n: number; color: string; colKey: C
         <span className="text-[11px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#EF4444" }}>
           {displayVal} ⚠
         </span>
-      ) : lowClassified ? (
+      ) : lowClassified || lowAnswer ? (
         <span className="text-[13px] font-bold" style={{ color: "#EF4444", fontFamily: OUTFIT }}>{displayVal}</span>
       ) : (
         <span className="text-[13px] font-bold" style={{ color: (isPct ? n < 100 : n > 0) ? color : C.textDim, fontFamily: OUTFIT }}>{displayVal}</span>
@@ -96,7 +140,7 @@ function SellerRow({ s }: { s: SellerCallStats }) {
             )}
           </span>
         </td>
-        {COLS.map(c => <Cell key={c.key} n={valueOf(s, c.key)} color={c.color} colKey={c.key} total={s.made} />)}
+        {COLS.map(c => <Cell key={c.key} n={valueOf(s, c.key)} color={c.color} colKey={c.key} total={s.made} row={s} />)}
       </tr>
       {open && days.map(([day, counts]) => (
         <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
@@ -173,8 +217,11 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
                 <tr style={{ borderTop: `2px solid ${C.border}`, backgroundColor: C.bg }}>
                   <td className="px-3 py-2.5 text-[12px] font-bold" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>Total · {rows.length} sellers</td>
                   {COLS.map(c => {
+                    if (c.key === "avgDurationSecs" || c.key === "avgCoachScore") {
+                      return <td key={c.key} className="text-center px-2 py-2.5"><span style={{ color: C.textDim }}>—</span></td>;
+                    }
                     const v = valueOf(totals, c.key);
-                    const display = c.key === "classifiedPct" ? `${v}%` : String(v);
+                    const display = (c.key === "classifiedPct" || c.key === "answerPct") ? `${v}%` : String(v);
                     return (
                       <td key={c.key} className="text-center px-2 py-2.5 tabular-nums">
                         <span className="text-[13px] font-bold" style={{ color: v > 0 ? c.color : C.textDim, fontFamily: OUTFIT }}>{display}</span>

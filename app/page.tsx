@@ -43,6 +43,7 @@ import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";
 import CallOutcomesBySeller from "@/components/dashboard/CallOutcomesBySeller";
 import SellerPulseTable from "@/components/dashboard/SellerPulseTable";
+import InsightPanel from "@/components/dashboard/InsightPanel";
 import DimWhileLoading from "@/components/DimWhileLoading";
 import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
@@ -1808,10 +1809,14 @@ export default async function DashboardPage({
         // sellers.id OR user_id for non-seller dialers like super_admin).
         const callsRowBySellerId = new Map<string, typeof data.callOutcomesBySeller[0]>();
         for (const row of data.callOutcomesBySeller) callsRowBySellerId.set(row.sellerId, row);
-        // Pending calls indexed by sellers.id
+        // Pending calls, replied, positive indexed by sellers.id
         const pendingBySellerId = new Map<string, number>();
-        for (const s of data.sellerPerformance as Array<{ id: string; pendingCalls: number }>) {
+        const repliedBySellerId = new Map<string, number>();
+        const positiveBySellerId = new Map<string, number>();
+        for (const s of data.sellerPerformance as Array<{ id: string; pendingCalls: number; replied: number; positive: number }>) {
           pendingBySellerId.set(s.id, s.pendingCalls);
+          repliedBySellerId.set(s.id, s.replied);
+          positiveBySellerId.set(s.id, s.positive);
         }
         // Show all team members (not just those with a sellers row)
         const sellers = teamMembers.map(m => {
@@ -1819,25 +1824,25 @@ export default async function DashboardPage({
           const callsRow = (m.sellerId ? callsRowBySellerId.get(m.sellerId) : null)
             ?? callsRowBySellerId.get(m.userId);
           const callsToday = callsRow?.byDay?.[todayStr]?.made ?? 0;
-          // Calls in the SELECTED period — use row.made (the exact same source
-          // and window as the "Calls by user" table) so the two tables always
-          // agree. Was a hardcoded rolling-7-day sum over byDay that ignored the
-          // dashboard period filter, so it dropped the period's boundary day
-          // (e.g. Jun 24 on a "7 days" filter) → the two tables disagreed.
           const callsPeriod = callsRow?.made ?? 0;
-          // Most recent day with at least one call (byDay keys are YYYY-MM-DD in UTC-3).
           const lastCallAt = callsRow?.byDay
             ? Object.keys(callsRow.byDay).filter(d => (callsRow.byDay[d]?.made ?? 0) > 0).sort().at(-1) ?? null
             : null;
+          // LinkedIn status from sellerActivity (enriched in getSellerActivity)
+          const activity = m.sellerId ? sellerActivity.get(m.sellerId) : null;
           return {
-            id:           m.userId,
-            name:         m.displayName,
-            userId:       m.userId,
-            lastSeenAt:   m.lastSeenAt,
+            id:                 m.userId,
+            name:               m.displayName,
+            userId:             m.userId,
+            lastSeenAt:         m.lastSeenAt,
             lastCallAt,
             callsToday,
             callsPeriod,
-            pendingCalls: m.sellerId ? (pendingBySellerId.get(m.sellerId) ?? 0) : 0,
+            pendingCalls:       m.sellerId ? (pendingBySellerId.get(m.sellerId) ?? 0) : 0,
+            repliedPeriod:      m.sellerId ? (repliedBySellerId.get(m.sellerId) ?? 0) : 0,
+            positivePeriod:     m.sellerId ? (positiveBySellerId.get(m.sellerId) ?? 0) : 0,
+            linkedinStatus:     (activity as any)?.linkedinStatus ?? null,
+            linkedinStatusNote: (activity as any)?.linkedinStatusNote ?? null,
           };
         });
         return <section><SellerPulseTable sellers={sellers} periodLabel={periodLabel} /></section>;
@@ -1860,6 +1865,45 @@ export default async function DashboardPage({
           <CallOutcomesBySeller rows={data.callOutcomesBySeller} bare />
         </Panel>
       </section>
+
+      {/* ── AI Insights + Call timing heatmap ────────────────────────────────
+          Surfaces the computed insights (seller perf, channel mix, health signals)
+          alongside a "best hours to call" heatmap (answered/positive calls only). */}
+      {(data.insights.length > 0 || data.heatmapCalls.some(row => row.some(v => v > 0))) && (
+        <section>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {data.insights.length > 0 && (
+              <InsightPanel
+                title="Performance signals for this period"
+                insights={data.insights}
+                emptyText="No notable signals yet — keep running campaigns."
+              />
+            )}
+            {data.heatmapCalls.some(row => row.some(v => v > 0)) && (
+              <Panel
+                title="Best hours to call"
+                subtitle="Days and times when calls get answered or convert"
+                glow
+              >
+                <Heatmap
+                  matrix={data.heatmapCalls}
+                  byChannel={{ all: data.heatmapCalls, linkedin: data.heatmapCalls, email: data.heatmapCalls, call: data.heatmapCalls }}
+                  days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
+                  unitLabel="calls"
+                  legendMin="Few"
+                  legendMax="Most"
+                  channelLabels={{ all: "All calls", linkedin: "", email: "", call: "" }}
+                  bestWindowLabel="Best window"
+                  bestWindowSubtitle="Most connected calls"
+                  bestWindowEmpty="Not enough data yet"
+                  peakLabel="Peak hour"
+                  timezoneLabel="Argentina time"
+                />
+              </Panel>
+            )}
+          </div>
+        </section>
+      )}
 
       <section>
         {(() => {
