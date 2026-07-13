@@ -17,31 +17,36 @@ type Counts = {
   made: number; answered: number; interested: number;
   badTiming: number; voicemail: number; notInterested: number; wrongNumber: number;
 };
+type DayCounts = Counts & { campaigns?: string[] };
 type SellerCallStats = Counts & {
-  sellerId: string; sellerName: string; byDay: Record<string, Counts>;
+  sellerId: string; sellerName: string; active?: boolean; byDay: Record<string, DayCounts>;
 };
 
 // Column key = a Counts field OR the derived "unclassified" (made minus the
 // five logged outcomes), so Total calls always reconciles with the columns.
-type ColKey = keyof Counts | "unclassified";
+type ColKey = keyof Counts | "unclassified" | "classifiedPct";
 
 // Unclassified = calls made but with no outcome logged yet. Clamped at 0 in
 // case of any data skew. This is what makes the row add up: Total calls =
 // Interested + Bad timing + Voicemail + Not interested + Wrong # + Sin clasificar.
 const unclassifiedOf = (c: Counts) =>
   Math.max(0, c.made - c.interested - c.badTiming - c.voicemail - c.notInterested - c.wrongNumber);
-const valueOf = (c: Counts, key: ColKey): number => key === "unclassified" ? unclassifiedOf(c) : c[key];
+const classifiedPctOf = (c: Counts) =>
+  c.made === 0 ? 100 : Math.round(((c.made - unclassifiedOf(c)) / c.made) * 100);
+const valueOf = (c: Counts, key: ColKey): number =>
+  key === "unclassified" ? unclassifiedOf(c) : key === "classifiedPct" ? classifiedPctOf(c) : c[key];
 
 // Column definitions — label + key + accent colour. "Answered" dropped
 // 2026-06-11 (Fran, unreliable). "Sin clasificar" added so the math closes.
 const COLS: { key: ColKey; label: string; color: string }[] = [
-  { key: "made",         label: "Total calls",    color: C.textPrimary },
-  { key: "interested",   label: "Interested",     color: C.green },
-  { key: "badTiming",    label: "Bad timing",     color: "#D97706" },
-  { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
-  { key: "notInterested",label: "Not interested", color: C.red },
-  { key: "wrongNumber",  label: "Wrong #",        color: C.textMuted },
-  { key: "unclassified", label: "Unclassified", color: C.red },
+  { key: "made",          label: "Total calls",   color: C.textPrimary },
+  { key: "interested",    label: "Interested",    color: C.green },
+  { key: "badTiming",     label: "Bad timing",    color: "#D97706" },
+  { key: "voicemail",     label: "Voicemail",     color: "#0EA5E9" },
+  { key: "notInterested", label: "Not interested",color: C.red },
+  { key: "wrongNumber",   label: "Wrong #",       color: C.textMuted },
+  { key: "unclassified",  label: "Unclassified",  color: C.red },
+  { key: "classifiedPct", label: "Classified %",  color: C.green },
 ];
 
 function fmtDay(iso: string): string {
@@ -50,10 +55,23 @@ function fmtDay(iso: string): string {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
 }
 
-function Cell({ n, color }: { n: number; color: string }) {
+function Cell({ n, color, colKey, total }: { n: number; color: string; colKey: ColKey; total?: number }) {
+  const isPct = colKey === "classifiedPct";
+  const isUnclassified = colKey === "unclassified";
+  const highUnclassified = isUnclassified && total && total > 0 && n / total > 0.4;
+  const lowClassified = isPct && n < 60;
+  const displayVal = isPct ? `${n}%` : String(n);
   return (
     <td className="text-center px-2 py-2 tabular-nums">
-      <span className="text-[13px] font-bold" style={{ color: n > 0 ? color : C.textDim, fontFamily: OUTFIT }}>{n}</span>
+      {highUnclassified ? (
+        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#EF4444" }}>
+          {displayVal} ⚠
+        </span>
+      ) : lowClassified ? (
+        <span className="text-[13px] font-bold" style={{ color: "#EF4444", fontFamily: OUTFIT }}>{displayVal}</span>
+      ) : (
+        <span className="text-[13px] font-bold" style={{ color: (isPct ? n < 100 : n > 0) ? color : C.textDim, fontFamily: OUTFIT }}>{displayVal}</span>
+      )}
     </td>
   );
 }
@@ -61,25 +79,41 @@ function Cell({ n, color }: { n: number; color: string }) {
 function SellerRow({ s }: { s: SellerCallStats }) {
   const [open, setOpen] = useState(false);
   const days = Object.entries(s.byDay).sort((a, b) => (a[0] < b[0] ? 1 : -1)); // most recent first
+  const inactive = s.active === false;
   return (
     <>
-      <tr className="border-t transition-colors hover:bg-black/[0.015] cursor-pointer" style={{ borderColor: C.border }} onClick={() => setOpen(o => !o)}>
+      <tr className="border-t transition-colors hover:bg-black/[0.015] cursor-pointer" style={{ borderColor: C.border, opacity: inactive ? 0.55 : 1 }} onClick={() => setOpen(o => !o)}>
         <td className="px-3 py-2.5">
           <span className="flex items-center gap-2">
             <ChevronRight size={13} style={{ color: C.textDim, transform: open ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
             <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-              style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+              style={{ background: inactive ? "#374151" : "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
               {(s.sellerName[0] ?? "?").toUpperCase()}
             </span>
             <span className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>{s.sellerName}</span>
+            {inactive && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ background: "rgba(107,114,128,0.15)", color: "#6B7280" }}>left</span>
+            )}
           </span>
         </td>
-        {COLS.map(c => <Cell key={c.key} n={valueOf(s, c.key)} color={c.color} />)}
+        {COLS.map(c => <Cell key={c.key} n={valueOf(s, c.key)} color={c.color} colKey={c.key} total={s.made} />)}
       </tr>
       {open && days.map(([day, counts]) => (
         <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
           <td className="px-3 py-1.5 pl-12">
-            <span className="text-[11px]" style={{ color: C.textMuted }}>{fmtDay(day)}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[11px]" style={{ color: C.textMuted }}>{fmtDay(day)}</span>
+              {counts.campaigns && counts.campaigns.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {counts.campaigns.map(name => (
+                    <span key={name} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full truncate max-w-[160px]"
+                      style={{ background: "rgba(201,168,58,.12)", color: "#C9A83A", border: "1px solid rgba(201,168,58,.25)" }}>
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </td>
           {COLS.map(c => {
             const v = valueOf(counts, c.key);

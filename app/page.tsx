@@ -1801,7 +1801,9 @@ export default async function DashboardPage({
           Server fetches last_seen_at per seller via sellers.user_id → user_profiles.
           Client only needs presence subscription (no name-match needed). */}
       {(() => {
-        const todayStr = new Date().toISOString().slice(0, 10);
+        // Argentina is UTC-3 — use the same offset as dashboard-data.ts so
+        // "today" matches local midnight, not UTC midnight.
+        const todayStr = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
         // Index call outcomes by sellerId (which after attribution fix can be
         // sellers.id OR user_id for non-seller dialers like super_admin).
         const callsRowBySellerId = new Map<string, typeof data.callOutcomesBySeller[0]>();
@@ -1823,11 +1825,16 @@ export default async function DashboardPage({
           // dashboard period filter, so it dropped the period's boundary day
           // (e.g. Jun 24 on a "7 days" filter) → the two tables disagreed.
           const callsPeriod = callsRow?.made ?? 0;
+          // Most recent day with at least one call (byDay keys are YYYY-MM-DD in UTC-3).
+          const lastCallAt = callsRow?.byDay
+            ? Object.keys(callsRow.byDay).filter(d => (callsRow.byDay[d]?.made ?? 0) > 0).sort().at(-1) ?? null
+            : null;
           return {
             id:           m.userId,
             name:         m.displayName,
             userId:       m.userId,
             lastSeenAt:   m.lastSeenAt,
+            lastCallAt,
             callsToday,
             callsPeriod,
             pendingCalls: m.sellerId ? (pendingBySellerId.get(m.sellerId) ?? 0) : 0,

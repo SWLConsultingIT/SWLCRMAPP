@@ -620,9 +620,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Aircall record); collapse by lead+minute and coalesce the dialer +
   // classification across both. Respects the period + seller filters.
   const leadToSellerId = new Map<string, string>();
+  const leadToCampaignName = new Map<string, string>();
   for (const c of allCampaigns) {
     if (c.lead_id && c.seller_id && !leadToSellerId.has(c.lead_id)) leadToSellerId.set(c.lead_id, c.seller_id);
+    if (c.lead_id && c.name && !leadToCampaignName.has(c.lead_id)) leadToCampaignName.set(c.lead_id, c.name);
   }
+  // Argentina is UTC-3 (no DST). All day-bucket keys use this offset so that
+  // "today" in the Seller Pulse table matches local midnight, not UTC midnight.
+  const toArgDay = (iso: string | null) => {
+    if (!iso) return "";
+    return new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  };
   const userToSeller = new Map<string, { id: string; name: string }>();
   for (const s of allSellers) if (s.user_id) userToSeller.set(s.user_id, { id: s.id, name: s.name });
 
@@ -648,16 +656,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
   }
 
-  type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string; phone: string | null };
+  type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string; phone: string | null; campaignName: string | null };
   const callGroups = new Map<string, CallGroup>();
   for (const c of callsInPeriod) {
     const key = `${c.lead_id ?? "?"}|${(c.started_at ?? "").slice(0, 16)}`;
-    const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: (c.started_at ?? "").slice(0, 10), phone: c.phone_number ?? null };
+    const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: toArgDay(c.started_at), phone: c.phone_number ?? null, campaignName: c.lead_id ? (leadToCampaignName.get(c.lead_id) ?? null) : null };
     if (!g.dialer && c.dialed_by_user_id) g.dialer = c.dialed_by_user_id;
     if (!g.classification && c.classification) g.classification = c.classification;
     if ((c.duration ?? 0) > 0) g.answered = true;
-    if (!g.day && c.started_at) g.day = c.started_at.slice(0, 10);
+    if (!g.day && c.started_at) g.day = toArgDay(c.started_at);
     if (!g.phone && c.phone_number) g.phone = c.phone_number;
+    if (!g.campaignName && c.lead_id) g.campaignName = leadToCampaignName.get(c.lead_id) ?? null;
     callGroups.set(key, g);
   }
   // Secondary merge: webhook reconciliation sometimes creates an answered row for a
@@ -711,8 +720,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
 
   type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number };
-  type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; byDay: Record<string, CallOutcomeCounts> };
+  type DayCounts = CallOutcomeCounts & { campaigns: string[] };
+  type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; active: boolean; byDay: Record<string, DayCounts> };
   const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 });
+  const blankDayCounts = (): DayCounts => ({ ...blankCounts(), campaigns: [] });
   const callSellerAgg = new Map<string, SellerCallStats>();
   for (const g of callGroups.values()) {
     // Attribution rule: if we know who clicked "Call" (dialed_by_user_id),
@@ -726,8 +737,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const sname = dialerSeller?.name ?? (g.dialer ? (dialerIdentityMap.get(g.dialer) ?? "Unknown")   : (ownerSellerId ? sellerMap.get(ownerSellerId) : null) ?? "Unassigned");
     if (sellerSet && !sellerSet.has(sid)) continue; // seller filter (by sellers.id)
     let agg = callSellerAgg.get(sid);
-    if (!agg) { agg = { sellerId: sid, sellerName: sname, ...blankCounts(), byDay: {} }; callSellerAgg.set(sid, agg); }
-    const day = agg.byDay[g.day] ?? (agg.byDay[g.day] = blankCounts());
+    const sellerActive = allSellers.find(s => s.id === sid)?.active ?? true;
+    if (!agg) { agg = { sellerId: sid, sellerName: sname, active: sellerActive, ...blankCounts(), byDay: {} }; callSellerAgg.set(sid, agg); }
+    const day = agg.byDay[g.day] ?? (agg.byDay[g.day] = blankDayCounts());
     const cl = g.classification ?? "";
     const bump = (k: keyof CallOutcomeCounts) => { agg![k]++; day[k]++; };
     bump("made");
@@ -737,6 +749,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     else if (cl === "voicemail") bump("voicemail");
     else if (cl === "negative") bump("notInterested");
     else if (cl === "wrong_number") bump("wrongNumber");
+    if (g.campaignName && !day.campaigns.includes(g.campaignName)) day.campaigns.push(g.campaignName);
   }
   const callOutcomesBySeller = Array.from(callSellerAgg.values())
     .sort((a, b) => b.made - a.made || a.sellerName.localeCompare(b.sellerName));

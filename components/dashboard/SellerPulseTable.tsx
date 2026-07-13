@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
-import { Phone, Clock, Users } from "lucide-react";
+import { Phone, Clock, Users, PhoneCall } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -12,6 +12,7 @@ type SellerInput = {
   name: string;
   userId: string | null;
   lastSeenAt: string | null;
+  lastCallAt: string | null;
   callsToday: number;
   callsPeriod: number;
   pendingCalls: number;
@@ -128,7 +129,7 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
             </span>
           </div>
           <p className="text-[11px] mt-0.5" style={{ color: "#8B9EB7" }}>
-            Last login · calls today · calls this period · queue
+            Last login · last call · calls today · calls this period · queue
           </p>
         </div>
         <a href="/admin"
@@ -148,6 +149,7 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
             <th className="px-4 py-2 text-left font-semibold">Seller</th>
             <th className="px-3 py-2 text-left font-semibold">Status</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last seen</th>
+            <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last call</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Today</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>Period</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">In queue</th>
@@ -156,7 +158,7 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
         <tbody>
           {sellers.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>
+              <td colSpan={7} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>
                 No sellers found.
               </td>
             </tr>
@@ -214,6 +216,18 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
                       {row.status === "live" ? "now" : timeAgo(row.lastSeenAt)}
                     </span>
                   </div>
+                </td>
+
+                {/* Last call */}
+                <td className="px-3 py-3">
+                  {row.lastCallAt ? (
+                    <div className="flex items-center gap-1.5" style={{ color: C.textMuted }}>
+                      <PhoneCall size={10} />
+                      <span className="text-[11px]">{timeAgo(row.lastCallAt + "T12:00:00Z")}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px]" style={{ color: C.textDim }}>—</span>
+                  )}
                 </td>
 
                 {/* Calls today */}
