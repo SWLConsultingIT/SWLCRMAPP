@@ -180,8 +180,22 @@ export default function FlowEditorPage() {
         }
         setSteps(normalizedSteps);
         setEmailAccount(campaign.email_account ?? "");
-        setLinkedinProfiles((campaign as any).linkedin_seller_ids ?? []);
-        setCallAssignees((campaign as any).call_seller_ids ?? []);
+        // Pre-populate from DB columns (new). Fall back to the flow manager
+        // for existing campaigns that pre-date these columns (linkedin_seller_ids = NULL).
+        const savedLinkedin = (campaign as any).linkedin_seller_ids as string[] | null;
+        const savedCalls    = (campaign as any).call_seller_ids    as string[] | null;
+        if (savedLinkedin && savedLinkedin.length > 0) {
+          setLinkedinProfiles(savedLinkedin);
+        } else if (campaign.seller_id) {
+          // Default: show the flow manager — they're the LinkedIn account in use
+          const mgr = (sellersList ?? []).find((s: Seller) => s.id === campaign.seller_id);
+          if (mgr?.unipile_account_id) setLinkedinProfiles([campaign.seller_id]);
+        }
+        if (savedCalls && savedCalls.length > 0) {
+          setCallAssignees(savedCalls);
+        } else if (campaign.seller_id) {
+          setCallAssignees([campaign.seller_id]);
+        }
       }
 
       // Build messages map and attachments map
