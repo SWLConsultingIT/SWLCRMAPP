@@ -180,6 +180,8 @@ export default function FlowEditorPage() {
         }
         setSteps(normalizedSteps);
         setEmailAccount(campaign.email_account ?? "");
+        setLinkedinProfiles((campaign as any).linkedin_seller_ids ?? []);
+        setCallAssignees((campaign as any).call_seller_ids ?? []);
       }
 
       // Build messages map and attachments map
@@ -324,6 +326,8 @@ export default function FlowEditorPage() {
           originalName,
           messages: messagesPayload,
           newMessages: newMessagesPayload,
+          linkedinSellerIds: linkedinProfiles.length > 0 ? linkedinProfiles : [],
+          callSellerIds: callAssignees.length > 0 ? callAssignees : [],
         }),
       });
       if (!r.ok) {
@@ -347,177 +351,185 @@ export default function FlowEditorPage() {
   const selectedSeller = sellers.find(s => s.id === flowManagerId);
 
   return (
-    <div className="p-6 w-full max-w-4xl mx-auto">
-      {/* Back to the flow detail (not the /campaigns index — label said
-          "Outreach Flow" but href went to the list, boss back-button
-          audit 2026-05-29). */}
-      <Link href={`/campaigns/${campaignId}`} className="flex items-center gap-2 text-sm font-medium mb-6 transition-colors hover:opacity-70 cursor-pointer"
-        style={{ color: C.textMuted }}>
-        <ArrowLeft size={16} /> Back to Outreach Flow
-      </Link>
-
-      {/* Header */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Flow Editor</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Edit Sequence</h1>
+    <div className="p-6 w-full">
+      {/* Top bar: back + header + actions */}
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <div>
+          <Link href={`/campaigns/${campaignId}`} className="flex items-center gap-1.5 text-xs font-medium mb-3 transition-colors hover:opacity-70 cursor-pointer"
+            style={{ color: C.textMuted }}>
+            <ArrowLeft size={14} /> Back to Outreach Flow
+          </Link>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: gold }}>Flow Editor</p>
+          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Edit Sequence</h1>
+        </div>
+        <div className="flex items-center gap-3 pt-8 shrink-0">
+          <Link href="/campaigns"
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-70 cursor-pointer"
+            style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
+            Cancel
+          </Link>
+          <SaveAsTemplateButton campaignId={campaignId} defaultName={flowName} />
+          <button onClick={handleSave} disabled={saving || !flowName.trim()}
+            className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold cursor-pointer disabled:opacity-40"
+            style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
       </div>
 
-      {/* Success / Error */}
+      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
+
+      {/* Alerts */}
       {saved && (
-        <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-6 text-sm font-medium fade-in"
+        <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-4 text-sm font-medium fade-in"
           style={{ backgroundColor: C.greenLight, color: C.green }}>
           <CheckCircle size={15} /> Changes saved successfully.
         </div>
       )}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-6 text-sm font-medium"
+        <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-4 text-sm font-medium"
           style={{ backgroundColor: C.redLight, color: C.red }}>
           <AlertCircle size={15} /> {error}
         </div>
       )}
 
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
+      {/* ── Two-column layout ── */}
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
 
-      {/* ── Section 1: Flow Name ── */}
-      <div className="rounded-xl p-5 mb-5" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-        <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Flow Name</label>
-        <input value={flowName} onChange={e => setFlowName(e.target.value)}
-          className="w-full rounded-lg px-4 py-3 text-base font-semibold focus:outline-none"
-          style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-          placeholder="E.g.: Crop Nutrition Outbound" />
-      </div>
+        {/* ── LEFT SIDEBAR: metadata ── */}
+        <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 4 }}>
 
-      {/* ── Section 2: Flow Manager + Accounts ── */}
-      <div className="rounded-xl p-5 mb-5" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-        <label className="block text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Flow Manager & Accounts</label>
-        <div className="grid grid-cols-2 gap-4">
-          {/* Flow Manager */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Flow Manager</label>
-            <div className="relative">
-              <select value={flowManagerId ?? ""} onChange={e => setFlowManagerId(e.target.value || null)}
-                className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none appearance-none cursor-pointer"
-                style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                <option value="">Unassigned</option>
-                {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <User size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
-            </div>
+          {/* Flow Name */}
+          <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Flow Name</label>
+            <input value={flowName} onChange={e => setFlowName(e.target.value)}
+              className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none"
+              style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+              placeholder="E.g.: Crop Nutrition Outbound" />
           </div>
 
-          {/* Email Account */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Email Account</label>
-            <div className="relative">
-              <select value={emailAccount} onChange={e => setEmailAccount(e.target.value)}
-                className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none appearance-none cursor-pointer"
-                style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                <option value="">Auto-assign</option>
-                {emailAccounts.map(a => <option key={a.id} value={a.email}>{a.email}{a.name ? ` (${a.name})` : ""}</option>)}
-              </select>
-              <Mail size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
-            </div>
-          </div>
-
-          {/* LinkedIn Profiles — modern multiselect */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>LinkedIn Profiles</label>
-            <div className="space-y-2">
-              {linkedinProfiles.length === 0 && (
-                <div className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5"
-                  style={{ backgroundColor: "#0A66C206", border: `1px dashed #0A66C230` }}>
-                  <Share2 size={14} style={{ color: "#0A66C2", opacity: 0.4 }} />
-                  <span className="text-xs" style={{ color: C.textDim }}>Auto-assign across all available profiles</span>
+          {/* Manager + Email */}
+          <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Accounts</label>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Flow Manager</label>
+                <div className="relative">
+                  <select value={flowManagerId ?? ""} onChange={e => setFlowManagerId(e.target.value || null)}
+                    className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
+                    style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+                    <option value="">Unassigned</option>
+                    {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <User size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
                 </div>
-              )}
-              {linkedinProfiles.map(id => {
-                const s = sellers.find(x => x.id === id);
-                return (
-                  <div key={id} className="flex items-center justify-between rounded-lg px-3.5 py-2.5"
-                    style={{ backgroundColor: "#0A66C208", border: "1px solid #0A66C220" }}>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        style={{ backgroundColor: "#0A66C215", color: "#0A66C2" }}>
-                        {s?.name?.[0] ?? "?"}
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Email Account</label>
+                <div className="relative">
+                  <select value={emailAccount} onChange={e => setEmailAccount(e.target.value)}
+                    className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
+                    style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+                    <option value="">Auto-assign</option>
+                    {emailAccounts.map(a => <option key={a.id} value={a.email}>{a.email}{a.name ? ` (${a.name})` : ""}</option>)}
+                  </select>
+                  <Mail size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* LinkedIn Profiles */}
+          <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>LinkedIn Profiles</label>
+            {linkedinProfiles.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
+                style={{ backgroundColor: "#0A66C206", border: "1px dashed #0A66C230" }}>
+                <Share2 size={12} style={{ color: "#0A66C2", opacity: 0.5 }} />
+                <span className="text-xs" style={{ color: C.textDim }}>Auto-assign — all available profiles</span>
+              </div>
+            ) : (
+              <div className="space-y-1.5 mb-2">
+                {linkedinProfiles.map(id => {
+                  const s = sellers.find(x => x.id === id);
+                  return (
+                    <div key={id} className="flex items-center justify-between rounded-lg px-3 py-2"
+                      style={{ backgroundColor: "#0A66C208", border: "1px solid #0A66C220" }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{ backgroundColor: "#0A66C215", color: "#0A66C2" }}>
+                          {s?.name?.[0] ?? "?"}
+                        </div>
+                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? "Unknown"}</span>
                       </div>
-                      <div>
-                        <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? "Unknown"}</p>
-                        <p className="text-[10px]" style={{ color: C.textDim }}>{s?.unipile_account_id ?? s?.linkedin_account_id ?? ""}</p>
-                      </div>
+                      <button onClick={() => setLinkedinProfiles(prev => prev.filter(p => p !== id))}
+                        className="p-1 rounded cursor-pointer hover:opacity-60">
+                        <Trash2 size={11} style={{ color: C.textMuted }} />
+                      </button>
                     </div>
-                    <button onClick={() => setLinkedinProfiles(prev => prev.filter(p => p !== id))}
-                      className="p-1 rounded cursor-pointer hover:bg-red-50 transition-colors">
-                      <Trash2 size={12} style={{ color: C.red }} />
-                    </button>
-                  </div>
-                );
-              })}
-              {sellers.filter(s => s.unipile_account_id && !linkedinProfiles.includes(s.id)).length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {sellers.filter(s => s.unipile_account_id && !linkedinProfiles.includes(s.id)).map(s => (
-                    <button key={s.id} onClick={() => setLinkedinProfiles(prev => [...prev, s.id])}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
-                      style={{ backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#0A66C2"; e.currentTarget.style.color = "#0A66C2"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}>
-                      <Plus size={10} /> {s.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {sellers.filter(s => s.unipile_account_id && !linkedinProfiles.includes(s.id)).map(s => (
+                <button key={s.id} onClick={() => setLinkedinProfiles(prev => [...prev, s.id])}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors hover:opacity-80"
+                  style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
+                  <Plus size={9} /> {s.name}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Call Assignment — modern multiselect */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Call Assignment</label>
-            <div className="space-y-2">
-              {callAssignees.length === 0 && (
-                <div className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5"
-                  style={{ backgroundColor: "#F9731606", border: `1px dashed #F9731630` }}>
-                  <Phone size={14} style={{ color: "#F97316", opacity: 0.4 }} />
-                  <span className="text-xs" style={{ color: C.textDim }}>Auto-assign to Flow Manager</span>
-                </div>
-              )}
-              {callAssignees.map(id => {
-                const s = sellers.find(x => x.id === id);
-                return (
-                  <div key={id} className="flex items-center justify-between rounded-lg px-3.5 py-2.5"
-                    style={{ backgroundColor: "#F9731608", border: "1px solid #F9731620" }}>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        style={{ backgroundColor: "#F9731615", color: "#F97316" }}>
-                        {s?.name?.[0] ?? "?"}
+          {/* Call Assignment */}
+          <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>Call Assignment</label>
+            {callAssignees.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
+                style={{ backgroundColor: "#F9731606", border: "1px dashed #F9731630" }}>
+                <Phone size={12} style={{ color: "#F97316", opacity: 0.5 }} />
+                <span className="text-xs" style={{ color: C.textDim }}>Auto-assign to Flow Manager</span>
+              </div>
+            ) : (
+              <div className="space-y-1.5 mb-2">
+                {callAssignees.map(id => {
+                  const s = sellers.find(x => x.id === id);
+                  return (
+                    <div key={id} className="flex items-center justify-between rounded-lg px-3 py-2"
+                      style={{ backgroundColor: "#F9731608", border: "1px solid #F9731620" }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{ backgroundColor: "#F9731615", color: "#F97316" }}>
+                          {s?.name?.[0] ?? "?"}
+                        </div>
+                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? "Unknown"}</span>
                       </div>
-                      <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? "Unknown"}</p>
+                      <button onClick={() => setCallAssignees(prev => prev.filter(p => p !== id))}
+                        className="p-1 rounded cursor-pointer hover:opacity-60">
+                        <Trash2 size={11} style={{ color: C.textMuted }} />
+                      </button>
                     </div>
-                    <button onClick={() => setCallAssignees(prev => prev.filter(p => p !== id))}
-                      className="p-1 rounded cursor-pointer hover:bg-red-50 transition-colors">
-                      <Trash2 size={12} style={{ color: C.red }} />
-                    </button>
-                  </div>
-                );
-              })}
-              {sellers.filter(s => !callAssignees.includes(s.id)).length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {sellers.filter(s => !callAssignees.includes(s.id)).map(s => (
-                    <button key={s.id} onClick={() => setCallAssignees(prev => [...prev, s.id])}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
-                      style={{ backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#F97316"; e.currentTarget.style.color = "#F97316"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}>
-                      <Plus size={10} /> {s.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {sellers.filter(s => !callAssignees.includes(s.id)).map(s => (
+                <button key={s.id} onClick={() => setCallAssignees(prev => [...prev, s.id])}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium cursor-pointer transition-colors hover:opacity-80"
+                  style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
+                  <Plus size={9} /> {s.name}
+                </button>
+              ))}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Section 3: Sequence ── */}
-      <div className="rounded-xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
+        {/* ── RIGHT MAIN: Sequence Steps ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="rounded-xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Sequence Steps</label>
@@ -757,21 +769,7 @@ export default function FlowEditorPage() {
           )}
         </div>
       </div>
-
-      {/* Bottom save bar */}
-      <div className="flex items-center justify-end gap-3 mt-6 pt-5 border-t" style={{ borderColor: C.border }}>
-        <Link href="/campaigns"
-          className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] cursor-pointer hover:shadow-sm"
-          style={{ backgroundColor: `${C.red}12`, color: C.red, border: `1px solid ${C.red}30` }}>
-          Cancel
-        </Link>
-        <SaveAsTemplateButton campaignId={campaignId} defaultName={flowName} />
-        <button onClick={handleSave} disabled={saving || !flowName.trim()}
-          className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] cursor-pointer hover:shadow-sm disabled:opacity-40"
-          style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
-          {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
+        </div>
       </div>
     </div>
   );

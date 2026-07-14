@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { flowName, flowManagerId, steps, emailAccount, originalName, messages, newMessages } = body;
+  const { flowName, flowManagerId, steps, emailAccount, originalName, messages, newMessages, linkedinSellerIds, callSellerIds } = body;
 
   if (!flowName || !Array.isArray(steps)) {
     return NextResponse.json({ error: "flowName + steps required" }, { status: 400 });
@@ -43,6 +43,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     name: flowName,
     seller_id: flowManagerId ?? null,
     sequence_steps: steps,
+    linkedin_seller_ids: Array.isArray(linkedinSellerIds) && linkedinSellerIds.length > 0 ? linkedinSellerIds : null,
+    call_seller_ids: Array.isArray(callSellerIds) && callSellerIds.length > 0 ? callSellerIds : null,
   };
   const { error: err1 } = await svc.from("campaigns").update(update).in("id", allCampaignIds);
   if (err1) return NextResponse.json({ error: err1.message }, { status: 500 });
