@@ -41,12 +41,41 @@ async function loadPickerData(profileId: string) {
     .order("created_at", { ascending: false })
     .limit(500);
   const allLeadIds = (rawLeads ?? []).map(r => r.id).filter(Boolean) as string[];
-  const inFlight = new Set<string>();
+
+  // Fetch all campaigns for these leads in one pass: active/paused → inFlight,
+  // closed → history. Combining avoids a second round-trip per chunk.
+  type CampaignRow = { lead_id: string | null; status: string; reason: string | null; updated_at: string };
+  const allCampaigns: CampaignRow[] = [];
   for (let i = 0; i < allLeadIds.length; i += 300) {
     const chunk = allLeadIds.slice(i, i + 300);
-    const { data: enrolled } = await supabase
-      .from("campaigns").select("lead_id").in("status", ["active", "paused"]).in("lead_id", chunk);
-    (enrolled ?? []).forEach(c => { if (c.lead_id) inFlight.add(c.lead_id); });
+    const { data } = await supabase
+      .from("campaigns")
+      .select("lead_id, status, reason, updated_at")
+      .in("lead_id", chunk)
+      .in("status", ["active", "paused", "closed_won", "closed_lost"]);
+    (data ?? []).forEach(r => allCampaigns.push(r as CampaignRow));
+  }
+
+  const inFlight = new Set<string>();
+  const lastCampaignMap = new Map<string, CampaignRow>();
+  for (const row of allCampaigns) {
+    if (!row.lead_id) continue;
+    if (row.status === "active" || row.status === "paused") {
+      inFlight.add(row.lead_id);
+    } else {
+      const existing = lastCampaignMap.get(row.lead_id);
+      if (!existing || row.updated_at > existing.updated_at) {
+        lastCampaignMap.set(row.lead_id, row);
+      }
+    }
+  }
+
+  function classifyHistory(leadId: string): "new" | "renurture" | "lost" | "won" {
+    const h = lastCampaignMap.get(leadId);
+    if (!h) return "new";
+    if (h.status === "closed_won") return "won";
+    if (h.reason === "no_reply") return "renurture";
+    return "lost";
   }
   const hydrated = (await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[])) as Array<Record<string, unknown> & { id: string }>;
   const eligible: PickableLead[] = hydrated
@@ -63,6 +92,7 @@ async function loadPickerData(profileId: string) {
       allow_linkedin: Boolean(l.allow_linkedin),
       allow_email: Boolean(l.allow_email),
       allow_call: Boolean(l.allow_call),
+      history: classifyHistory(l.id),
     }));
 
   return {

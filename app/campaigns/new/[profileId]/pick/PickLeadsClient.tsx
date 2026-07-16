@@ -22,6 +22,7 @@ export type PickableLead = {
   allow_linkedin: boolean;
   allow_email: boolean;
   allow_call: boolean;
+  history: "new" | "renurture" | "lost" | "won";
 };
 
 export default function PickLeadsClient({
@@ -33,6 +34,7 @@ export default function PickLeadsClient({
 }) {
   const router = useRouter();
   const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
+  const [historyFilter, setHistoryFilter] = useState<"all" | "new" | "renurture" | "lost" | "won">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAddToFlow, setShowAddToFlow] = useState(false);
   // Anchor for shift-click range selection (boss 2026-06-08: "selecting
@@ -46,6 +48,13 @@ export default function PickLeadsClient({
   const industryOptions = Array.from(new Set(leads.map(l => l.industry).filter(Boolean) as string[])).sort();
   const countryOptions  = Array.from(new Set(leads.map(l => l.country).filter(Boolean) as string[])).sort();
   const companyOptions  = Array.from(new Set(leads.map(l => l.company_name).filter(Boolean) as string[])).sort();
+
+  const historyCounts = {
+    new:      leads.filter(l => l.history === "new").length,
+    renurture: leads.filter(l => l.history === "renurture").length,
+    lost:     leads.filter(l => l.history === "lost").length,
+    won:      leads.filter(l => l.history === "won").length,
+  };
 
   // Apply the filter bar state. Same predicates as the campaign /add-leads
   // tab so behavior is consistent across the two pickers.
@@ -67,6 +76,7 @@ export default function PickLeadsClient({
       const band = s >= 80 ? "hot" : s >= 50 ? "warm" : "nurture";
       if (!filters.score.includes(band)) return false;
     }
+    if (historyFilter !== "all" && l.history !== historyFilter) return false;
     return true;
   })
     // Alphabetical by name (boss 2026-06-08) so the list is scannable.
@@ -174,6 +184,47 @@ export default function PickLeadsClient({
             showStatusPills={false}
             roleExcludeMode
           />
+
+          {/* History filter pills — only render rows that have leads in that category */}
+          {(historyCounts.renurture > 0 || historyCounts.lost > 0 || historyCounts.won > 0) && (
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              {(
+                [
+                  { key: "all",      label: "All",        count: leads.length,           color: C.textPrimary, bg: C.surface,                    border: C.border,                        activeBg: N.ink,        activeColor: "white",    activeBorder: N.ink },
+                  { key: "new",      label: "New",        count: historyCounts.new,      color: "#2563EB",     bg: "rgba(37,99,235,0.08)",         border: "rgba(37,99,235,0.22)",          activeBg: "#2563EB",    activeColor: "white",    activeBorder: "#2563EB" },
+                  { key: "renurture",label: "Re-nurture", count: historyCounts.renurture,color: "#D97706",     bg: "rgba(217,119,6,0.09)",         border: "rgba(217,119,6,0.28)",          activeBg: "#D97706",    activeColor: "white",    activeBorder: "#D97706" },
+                  { key: "lost",     label: "Lost",       count: historyCounts.lost,     color: "#DC2626",     bg: "rgba(220,38,38,0.08)",         border: "rgba(220,38,38,0.22)",          activeBg: "#DC2626",    activeColor: "white",    activeBorder: "#DC2626" },
+                  { key: "won",      label: "Won",        count: historyCounts.won,      color: "#16A34A",     bg: "rgba(22,163,74,0.08)",         border: "rgba(22,163,74,0.22)",          activeBg: "#16A34A",    activeColor: "white",    activeBorder: "#16A34A" },
+                ] as const
+              ).filter(p => p.key === "all" || p.count > 0).map(p => {
+                const active = historyFilter === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setHistoryFilter(p.key)}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-semibold transition-all hover:opacity-90"
+                    style={{
+                      backgroundColor: active ? p.activeBg : p.bg,
+                      color: active ? p.activeColor : p.color,
+                      border: `1.5px solid ${active ? p.activeBorder : p.border}`,
+                    }}
+                  >
+                    {p.label}
+                    <span
+                      className="text-[10px] font-bold tabular-nums px-1 rounded-full"
+                      style={{
+                        backgroundColor: active ? "rgba(255,255,255,0.20)" : p.bg,
+                        color: active ? p.activeColor : p.color,
+                      }}
+                    >
+                      {p.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div
             className="rounded-2xl border overflow-hidden"
@@ -324,7 +375,7 @@ export default function PickLeadsClient({
                       </div>
                     </div>
 
-                    {/* Right-side chip cluster — country, industry, score */}
+                    {/* Right-side chip cluster — country, industry, history badge, score */}
                     <div className="hidden md:flex items-center gap-1.5 shrink-0">
                       {l.country && (
                         <span
@@ -347,6 +398,21 @@ export default function PickLeadsClient({
                         </span>
                       )}
                     </div>
+                    {l.history !== "new" && (() => {
+                      const hMeta = {
+                        renurture: { label: "Re-nurture", color: "#D97706", bg: "rgba(217,119,6,0.10)", border: "rgba(217,119,6,0.28)" },
+                        lost:      { label: "Lost",       color: "#DC2626", bg: "rgba(220,38,38,0.10)", border: "rgba(220,38,38,0.22)" },
+                        won:       { label: "Won",        color: "#16A34A", bg: "rgba(22,163,74,0.10)", border: "rgba(22,163,74,0.22)" },
+                      }[l.history];
+                      return (
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0"
+                          style={{ backgroundColor: hMeta.bg, color: hMeta.color, border: `1px solid ${hMeta.border}` }}
+                        >
+                          {hMeta.label}
+                        </span>
+                      );
+                    })()}
                     {l.lead_score != null && (
                       <span
                         className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-md shrink-0"
