@@ -185,8 +185,8 @@ export default function PickLeadsClient({
             roleExcludeMode
           />
 
-          {/* History filter pills — only render rows that have leads in that category */}
-          {(historyCounts.renurture > 0 || historyCounts.lost > 0 || historyCounts.won > 0) && (
+          {/* History filter pills — always visible so seller knows what they're looking at */}
+          {leads.length > 0 && (
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               {(
                 [

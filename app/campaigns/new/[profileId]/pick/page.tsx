@@ -46,7 +46,7 @@ async function loadPickerData(profileId: string) {
   // Combining active+closed in one query inflates the result set and can
   // silently drop active campaigns from the page, letting enrolled leads
   // reappear as eligible.
-  type CampaignRow = { lead_id: string | null; status: string; reason: string | null; updated_at: string };
+  type CampaignRow = { lead_id: string | null; status: string; stop_reason: string | null; updated_at: string };
   const inFlight = new Set<string>();
   const lastCampaignMap = new Map<string, CampaignRow>();
 
@@ -64,7 +64,7 @@ async function loadPickerData(profileId: string) {
     // Query 2 — closed: build history map (latest campaign per lead).
     const { data: closedData } = await supabase
       .from("campaigns")
-      .select("lead_id, status, reason, updated_at")
+      .select("lead_id, status, stop_reason, updated_at")
       .in("lead_id", chunk)
       .in("status", ["closed_won", "closed_lost"]);
     (closedData ?? []).forEach(r => {
@@ -80,7 +80,9 @@ async function loadPickerData(profileId: string) {
     const h = lastCampaignMap.get(leadId);
     if (!h) return "new";
     if (h.status === "closed_won") return "won";
-    if (h.reason === "no_reply") return "renurture";
+    // stop_reason = null means sequence ran to completion with no reply (renurture).
+    // Any explicit stop_reason (lead_closed_lost, call_negative, etc.) = manually lost.
+    if (!h.stop_reason) return "renurture";
     return "lost";
   }
   const hydrated = (await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[])) as Array<Record<string, unknown> & { id: string }>;
