@@ -42,32 +42,38 @@ async function loadPickerData(profileId: string) {
     .limit(500);
   const allLeadIds = (rawLeads ?? []).map(r => r.id).filter(Boolean) as string[];
 
-  // Fetch all campaigns for these leads in one pass: active/paused → inFlight,
-  // closed → history. Combining avoids a second round-trip per chunk.
+  // Two separate queries to avoid the 1000-row Supabase cap.
+  // Combining active+closed in one query inflates the result set and can
+  // silently drop active campaigns from the page, letting enrolled leads
+  // reappear as eligible.
   type CampaignRow = { lead_id: string | null; status: string; reason: string | null; updated_at: string };
-  const allCampaigns: CampaignRow[] = [];
+  const inFlight = new Set<string>();
+  const lastCampaignMap = new Map<string, CampaignRow>();
+
   for (let i = 0; i < allLeadIds.length; i += 300) {
     const chunk = allLeadIds.slice(i, i + 300);
-    const { data } = await supabase
+
+    // Query 1 — active/paused: small result set, no cap risk.
+    const { data: activeData } = await supabase
+      .from("campaigns")
+      .select("lead_id")
+      .in("lead_id", chunk)
+      .in("status", ["active", "paused"]);
+    (activeData ?? []).forEach(r => { if (r.lead_id) inFlight.add(r.lead_id); });
+
+    // Query 2 — closed: build history map (latest campaign per lead).
+    const { data: closedData } = await supabase
       .from("campaigns")
       .select("lead_id, status, reason, updated_at")
       .in("lead_id", chunk)
-      .in("status", ["active", "paused", "closed_won", "closed_lost"]);
-    (data ?? []).forEach(r => allCampaigns.push(r as CampaignRow));
-  }
-
-  const inFlight = new Set<string>();
-  const lastCampaignMap = new Map<string, CampaignRow>();
-  for (const row of allCampaigns) {
-    if (!row.lead_id) continue;
-    if (row.status === "active" || row.status === "paused") {
-      inFlight.add(row.lead_id);
-    } else {
-      const existing = lastCampaignMap.get(row.lead_id);
-      if (!existing || row.updated_at > existing.updated_at) {
-        lastCampaignMap.set(row.lead_id, row);
+      .in("status", ["closed_won", "closed_lost"]);
+    (closedData ?? []).forEach(r => {
+      if (!r.lead_id) return;
+      const existing = lastCampaignMap.get(r.lead_id);
+      if (!existing || r.updated_at > existing.updated_at) {
+        lastCampaignMap.set(r.lead_id, r as CampaignRow);
       }
-    }
+    });
   }
 
   function classifyHistory(leadId: string): "new" | "renurture" | "lost" | "won" {
