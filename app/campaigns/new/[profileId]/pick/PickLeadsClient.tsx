@@ -10,6 +10,63 @@ import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
 
 const gold = "var(--brand, #c9a83a)";
 
+type HistoryKey = "all" | "new" | "renurture" | "lost" | "won";
+
+function HistoryPills({ counts, total, active, onChange }: {
+  counts: { new: number; renurture: number; lost: number; won: number };
+  total: number;
+  active: HistoryKey;
+  onChange: (v: HistoryKey) => void;
+}) {
+  type PillDef = { key: HistoryKey; label: string; count: number; color: string; bg: string; border: string };
+  const pills: PillDef[] = ([
+    { key: "all"       as HistoryKey, label: "All",        count: total,            color: "#6B7280", bg: "#F3F4F6",                   border: "#D1D5DB" },
+    { key: "new"       as HistoryKey, label: "New",        count: counts.new,       color: "#2563EB", bg: "rgba(37,99,235,0.08)",       border: "rgba(37,99,235,0.30)" },
+    { key: "renurture" as HistoryKey, label: "Re-nurture", count: counts.renurture, color: "#D97706", bg: "rgba(217,119,6,0.09)",       border: "rgba(217,119,6,0.35)" },
+    { key: "lost"      as HistoryKey, label: "Lost",       count: counts.lost,      color: "#DC2626", bg: "rgba(220,38,38,0.08)",       border: "rgba(220,38,38,0.30)" },
+    { key: "won"       as HistoryKey, label: "Won",        count: counts.won,       color: "#16A34A", bg: "rgba(22,163,74,0.08)",       border: "rgba(22,163,74,0.30)" },
+  ] as PillDef[]).filter(p => p.key === "all" || p.count > 0);
+
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+      {pills.map(p => {
+        const isActive = active === p.key;
+        return (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => onChange(p.key)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 12px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              border: `1.5px solid ${isActive ? p.color : p.border}`,
+              backgroundColor: isActive ? p.color : p.bg,
+              color: isActive ? "#fff" : p.color,
+            }}
+          >
+            {p.label}
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              backgroundColor: isActive ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.06)",
+              borderRadius: 999,
+              padding: "0 5px",
+            }}>
+              {p.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export type PickableLead = {
   id: string;
   first_name: string | null;
@@ -185,46 +242,13 @@ export default function PickLeadsClient({
             roleExcludeMode
           />
 
-          {/* History filter pills — always visible so seller knows what they're looking at */}
-          {leads.length > 0 && (
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              {(
-                [
-                  { key: "all",      label: "All",        count: leads.length,           color: C.textPrimary, bg: C.surface,                    border: C.border,                        activeBg: N.ink,        activeColor: "white",    activeBorder: N.ink },
-                  { key: "new",      label: "New",        count: historyCounts.new,      color: "#2563EB",     bg: "rgba(37,99,235,0.08)",         border: "rgba(37,99,235,0.22)",          activeBg: "#2563EB",    activeColor: "white",    activeBorder: "#2563EB" },
-                  { key: "renurture",label: "Re-nurture", count: historyCounts.renurture,color: "#D97706",     bg: "rgba(217,119,6,0.09)",         border: "rgba(217,119,6,0.28)",          activeBg: "#D97706",    activeColor: "white",    activeBorder: "#D97706" },
-                  { key: "lost",     label: "Lost",       count: historyCounts.lost,     color: "#DC2626",     bg: "rgba(220,38,38,0.08)",         border: "rgba(220,38,38,0.22)",          activeBg: "#DC2626",    activeColor: "white",    activeBorder: "#DC2626" },
-                  { key: "won",      label: "Won",        count: historyCounts.won,      color: "#16A34A",     bg: "rgba(22,163,74,0.08)",         border: "rgba(22,163,74,0.22)",          activeBg: "#16A34A",    activeColor: "white",    activeBorder: "#16A34A" },
-                ] as const
-              ).filter(p => p.key === "all" || p.count > 0).map(p => {
-                const active = historyFilter === p.key;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => setHistoryFilter(p.key)}
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-semibold transition-all hover:opacity-90"
-                    style={{
-                      backgroundColor: active ? p.activeBg : p.bg,
-                      color: active ? p.activeColor : p.color,
-                      border: `1.5px solid ${active ? p.activeBorder : p.border}`,
-                    }}
-                  >
-                    {p.label}
-                    <span
-                      className="text-[10px] font-bold tabular-nums px-1 rounded-full"
-                      style={{
-                        backgroundColor: active ? "rgba(255,255,255,0.20)" : p.bg,
-                        color: active ? p.activeColor : p.color,
-                      }}
-                    >
-                      {p.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/* History filter pills */}
+          <HistoryPills
+            counts={historyCounts}
+            total={leads.length}
+            active={historyFilter}
+            onChange={setHistoryFilter}
+          />
 
           <div
             className="rounded-2xl border overflow-hidden"
