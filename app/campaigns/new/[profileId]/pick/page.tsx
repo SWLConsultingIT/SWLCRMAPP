@@ -61,12 +61,13 @@ async function loadPickerData(profileId: string) {
       .in("status", ["active", "paused"]);
     (activeData ?? []).forEach(r => { if (r.lead_id) inFlight.add(r.lead_id); });
 
-    // Query 2 — closed: build history map (latest campaign per lead).
+    // Query 2 — closed/completed: build history map (latest campaign per lead).
+    // "completed" = ran all steps with no reply/close → renurture.
     const { data: closedData } = await supabase
       .from("campaigns")
       .select("lead_id, status, stop_reason, updated_at")
       .in("lead_id", chunk)
-      .in("status", ["closed_won", "closed_lost"]);
+      .in("status", ["closed_won", "closed_lost", "completed"]);
     (closedData ?? []).forEach(r => {
       if (!r.lead_id) return;
       const existing = lastCampaignMap.get(r.lead_id);
@@ -80,8 +81,9 @@ async function loadPickerData(profileId: string) {
     const h = lastCampaignMap.get(leadId);
     if (!h) return "new";
     if (h.status === "closed_won") return "won";
-    // stop_reason = null means sequence ran to completion with no reply (renurture).
-    // Any explicit stop_reason (lead_closed_lost, call_negative, etc.) = manually lost.
+    if (h.status === "completed") return "renurture";
+    // closed_lost: stop_reason=null → sequence ran out with no reply → renurture.
+    // Any explicit stop_reason (lead_closed_lost, call_negative, etc.) → lost.
     if (!h.stop_reason) return "renurture";
     return "lost";
   }
