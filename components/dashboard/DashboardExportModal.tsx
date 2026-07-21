@@ -145,9 +145,9 @@ export default function DashboardExportModal({
       a.href     = url;
       a.download = `GrowthAI-Report-${today}.xlsx`;
       document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // bubbles:false prevents Next.js App Router from intercepting the click
+      a.dispatchEvent(new MouseEvent("click", { bubbles: false, cancelable: true, view: window }));
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
     } finally {
       setCsvLoading(false);
     }
