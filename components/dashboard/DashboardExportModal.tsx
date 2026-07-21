@@ -147,8 +147,8 @@ export default function DashboardExportModal({
     iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
     iframe.src = `/api/dashboard/export-csv?${buildQs().toString()}`;
     document.body.appendChild(iframe);
-    // Reset loading after a generous delay (server query + xlsx generation)
-    setTimeout(() => setCsvLoading(false), 8000);
+    // Close modal + reset loading after generous delay (server query + xlsx gen)
+    setTimeout(() => { setCsvLoading(false); setOpen(false); }, 8000);
   }
 
   const totalItems = TABS.flatMap(t => t.items).length;

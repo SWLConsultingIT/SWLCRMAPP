@@ -61,8 +61,10 @@ async function getCallsDetail(bioId: string | null, from: string | null, to: str
     .order("started_at", { ascending: false });
 
   if (bioId) q = q.eq("leads.company_bio_id", bioId);
-  if (from)  q = q.gte("started_at", from);
-  if (to)    q = q.lte("started_at", to + "T23:59:59Z");
+  // Use explicit Argentina UTC-3 offset so PostgREST compares against
+  // midnight/end-of-day in Buenos Aires, not UTC.
+  if (from)  q = q.gte("started_at", from + "T00:00:00-03:00");
+  if (to)    q = q.lte("started_at", to   + "T23:59:59-03:00");
 
   const { data: callRows } = await q;
   if (!callRows?.length) return [];
@@ -71,15 +73,18 @@ async function getCallsDetail(bioId: string | null, from: string | null, to: str
   const leadIds = [...new Set((callRows as any[]).map((c: any) => c.lead_id).filter(Boolean))];
   const leadToCampaign = new Map<string, { name: string; sellerId: string | null }>();
   if (leadIds.length) {
-    let cq = (supabase as any)
-      .from("campaigns")
-      .select("lead_id, name, seller_id")
-      .in("lead_id", leadIds.slice(0, 900)); // stay under PostgREST limit
-    if (bioId) cq = cq.eq("company_bio_id", bioId);
-    const { data: campRows } = await cq;
-    for (const c of campRows ?? []) {
-      if (c.lead_id && !leadToCampaign.has(c.lead_id)) {
-        leadToCampaign.set(c.lead_id, { name: c.name ?? "—", sellerId: c.seller_id ?? null });
+    const BATCH = 500; // stay well under PostgREST 1000-row .in() limit
+    for (let i = 0; i < leadIds.length; i += BATCH) {
+      let cq = (supabase as any)
+        .from("campaigns")
+        .select("lead_id, name, seller_id")
+        .in("lead_id", leadIds.slice(i, i + BATCH));
+      if (bioId) cq = cq.eq("company_bio_id", bioId);
+      const { data: campRows } = await cq;
+      for (const c of campRows ?? []) {
+        if (c.lead_id && !leadToCampaign.has(c.lead_id)) {
+          leadToCampaign.set(c.lead_id, { name: c.name ?? "—", sellerId: c.seller_id ?? null });
+        }
       }
     }
   }
@@ -144,24 +149,17 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Brand palette (ARGB for ExcelJS)
-const GOLD       = "FFC9A83A";
-const DARK       = "FF0C0E1B";
-const ZEBRA      = "FFFFF8E8"; // very light warm tint
-const WHITE      = "FFFFFFFF";
-const BORDER_CLR = "FFD4B84A"; // slightly lighter gold for borders
-const GRAY_TEXT  = "FF6B6B6B";
+const GOLD      = "FFC9A83A";
+const DARK      = "FF0C0E1B";
+const ZEBRA     = "FFFFF8E8";
+const WHITE     = "FFFFFFFF";
+const GRAY_TEXT = "FF6B6B6B";
 
 function pct(n: number) { return `${n}%`; }
 
 type CellValue = string | number | null;
 
 const thinBorder: Partial<ExcelJS.Border> = { style: "thin", color: { argb: "FFD9D0BB" } };
-const tableBorder = {
-  top:    thinBorder,
-  left:   thinBorder,
-  bottom: thinBorder,
-  right:  thinBorder,
-};
 
 function addSection(
   ws: ExcelJS.Worksheet,
@@ -481,7 +479,8 @@ export async function GET(req: NextRequest) {
     const ws = wb.addWorksheet("Calls Detail", {
       properties: { tabColor: { argb: GOLD } },
     });
-    ws.views = [{ showGridLines: false, state: "frozen", xSplit: 0, ySplit: 4 }];
+    // ySplit:5 freezes rows 1-5: title + subtitle + spacer + section title + header
+    ws.views = [{ showGridLines: false, state: "frozen", xSplit: 0, ySplit: 5 }];
     addReportTitle(ws, "Calls Detail", periodStr);
 
     const callDetail = await getCallsDetail(bioId, sp.from ?? null, sp.to ?? null);
