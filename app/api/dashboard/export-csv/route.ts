@@ -1,11 +1,143 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDashboardData, getSellerActivity } from "@/lib/dashboard-data";
 import { getUserScope } from "@/lib/scope";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import ExcelJS from "exceljs";
 
 async function getBioId(): Promise<string | null> {
   const scope = await getUserScope();
   return scope.companyBioId ?? null;
+}
+
+// Argentina is UTC-3 (no DST)
+function toArgTime(iso: string | null) {
+  if (!iso) return { date: "", time: "" };
+  const d = new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000);
+  return {
+    date: d.toISOString().slice(0, 10),
+    time: d.toISOString().slice(11, 16),
+  };
+}
+
+function fmtDuration(secs: number | null) {
+  if (!secs || secs <= 0) return "—";
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function fmtClassification(cl: string | null) {
+  const map: Record<string, string> = {
+    positive:       "Interested",
+    meeting_intent: "Interested",
+    follow_up:      "Bad timing",
+    voicemail:      "Voicemail",
+    negative:       "Not interested",
+    wrong_number:   "Wrong number",
+    ambiguous:      "Ambiguous",
+  };
+  return cl ? (map[cl] ?? cl) : "Unclassified";
+}
+
+interface CallDetailRow {
+  date: string;
+  time: string;
+  lead: string;
+  company: string;
+  seller: string;
+  campaign: string;
+  answered: string;
+  outcome: string;
+  duration: string;
+}
+
+async function getCallsDetail(bioId: string | null, from: string | null, to: string | null): Promise<CallDetailRow[]> {
+  const supabase = await getSupabaseServer();
+
+  // Fetch calls with lead info
+  let q = (supabase as any)
+    .from("calls")
+    .select("id, lead_id, classification, duration, started_at, dialed_by_user_id, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id)")
+    .order("started_at", { ascending: false });
+
+  if (bioId) q = q.eq("leads.company_bio_id", bioId);
+  if (from)  q = q.gte("started_at", from);
+  if (to)    q = q.lte("started_at", to + "T23:59:59Z");
+
+  const { data: callRows } = await q;
+  if (!callRows?.length) return [];
+
+  // Fetch campaigns (lead_id → seller_id, name)
+  const leadIds = [...new Set((callRows as any[]).map((c: any) => c.lead_id).filter(Boolean))];
+  const leadToCampaign = new Map<string, { name: string; sellerId: string | null }>();
+  if (leadIds.length) {
+    let cq = (supabase as any)
+      .from("campaigns")
+      .select("lead_id, name, seller_id")
+      .in("lead_id", leadIds.slice(0, 900)); // stay under PostgREST limit
+    if (bioId) cq = cq.eq("company_bio_id", bioId);
+    const { data: campRows } = await cq;
+    for (const c of campRows ?? []) {
+      if (c.lead_id && !leadToCampaign.has(c.lead_id)) {
+        leadToCampaign.set(c.lead_id, { name: c.name ?? "—", sellerId: c.seller_id ?? null });
+      }
+    }
+  }
+
+  // Fetch sellers (id → name, user_id → name)
+  const sellerIdToName = new Map<string, string>();
+  const userIdToName   = new Map<string, string>();
+  {
+    let sq = (supabase as any).from("sellers").select("id, name, user_id");
+    if (bioId) sq = sq.eq("company_bio_id", bioId);
+    const { data: sellers } = await sq;
+    for (const s of sellers ?? []) {
+      if (s.id)      sellerIdToName.set(s.id, s.name ?? "—");
+      if (s.user_id) userIdToName.set(s.user_id, s.name ?? "—");
+    }
+  }
+
+  // Deduplicate by lead+minute (same call can appear as 2 DB rows)
+  const seen = new Set<string>();
+  const rows: CallDetailRow[] = [];
+
+  for (const c of callRows as any[]) {
+    const minute = (c.started_at ?? "").slice(0, 16);
+    const dedupKey = `${c.lead_id ?? "?"}|${minute}`;
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+
+    const lead       = c.leads as any;
+    const firstName  = lead?.primary_first_name ?? "";
+    const lastName   = lead?.primary_last_name  ?? "";
+    const leadName   = `${firstName} ${lastName}`.trim() || "—";
+    const company    = lead?.company_name ?? "—";
+    const camp       = leadToCampaign.get(c.lead_id ?? "");
+    const campName   = camp?.name ?? "—";
+
+    // Seller: prefer dialer, fall back to flow owner
+    const sellerName =
+      (c.dialed_by_user_id ? userIdToName.get(c.dialed_by_user_id) : undefined) ??
+      (camp?.sellerId       ? sellerIdToName.get(camp.sellerId)     : undefined) ??
+      "—";
+
+    const { date, time } = toArgTime(c.started_at);
+    const answered       = (c.duration ?? 0) > 0;
+
+    rows.push({
+      date,
+      time,
+      lead:     leadName,
+      company,
+      seller:   sellerName,
+      campaign: campName,
+      answered: answered ? "Yes" : "No",
+      outcome:  fmtClassification(c.classification),
+      duration: fmtDuration(c.duration),
+    });
+  }
+
+  return rows;
 }
 
 export const runtime = "nodejs";
@@ -341,6 +473,42 @@ export async function GET(req: NextRequest) {
     }
 
     autoWidth(ws);
+  }
+
+  // ── Sheet 5: Calls Detail ────────────────────────────────────────────────
+  // Always included — this is the main reason people export
+  {
+    const ws = wb.addWorksheet("Calls Detail", {
+      properties: { tabColor: { argb: GOLD } },
+    });
+    ws.views = [{ showGridLines: false, state: "frozen", xSplit: 0, ySplit: 4 }];
+    addReportTitle(ws, "Calls Detail", periodStr);
+
+    const callDetail = await getCallsDetail(bioId, sp.from ?? null, sp.to ?? null);
+
+    if (callDetail.length > 0) {
+      addSection(
+        ws,
+        "CALL LOG — one row per call",
+        ["Date", "Time", "Lead", "Company", "Seller", "Campaign", "Answered", "Outcome", "Duration"],
+        callDetail.map(r => [
+          r.date, r.time, r.lead, r.company, r.seller, r.campaign, r.answered, r.outcome, r.duration,
+        ]),
+      );
+    } else {
+      ws.addRow(["No calls found for the selected period."]);
+    }
+
+    // Widen columns: lead/company/campaign need more space
+    ws.columns.forEach((col, i) => {
+      const mins = [12, 7, 22, 22, 16, 30, 10, 16, 10];
+      let max = mins[i] ?? 10;
+      col.eachCell?.({ includeEmpty: false }, cell => {
+        const len = cell.value != null ? String(cell.value).length : 0;
+        if (len > max) max = len;
+      });
+      col.width = Math.min(max + 2, 50);
+    });
   }
 
   // ── Serialize ────────────────────────────────────────────────────────────
