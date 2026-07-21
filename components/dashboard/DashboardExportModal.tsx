@@ -132,25 +132,23 @@ export default function DashboardExportModal({
     setTimeout(() => { setLoading(false); setOpen(false); }, 1500);
   }
 
-  async function downloadCsv() {
+  function downloadCsv() {
     if (selected.size === 0 || csvLoading) return;
     setCsvLoading(true);
-    try {
-      const res = await fetch(`/api/dashboard/export-csv?${buildQs().toString()}`);
-      if (!res.ok) throw new Error("export failed");
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      const today = new Date().toISOString().slice(0, 10);
-      a.href     = url;
-      a.download = `GrowthAI-Report-${today}.xlsx`;
-      document.body.appendChild(a);
-      // bubbles:false prevents Next.js App Router from intercepting the click
-      a.dispatchEvent(new MouseEvent("click", { bubbles: false, cancelable: true, view: window }));
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-    } finally {
-      setCsvLoading(false);
-    }
+    // Use a hidden iframe — same pattern as printPdf — so the Next.js router
+    // never sees a navigation event. Content-Disposition: attachment makes the
+    // browser save the file without affecting the current page.
+    const ID = "growthai-xlsx-frame";
+    const prev = document.getElementById(ID);
+    if (prev) prev.remove();
+    const iframe = document.createElement("iframe");
+    iframe.id = ID;
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    iframe.src = `/api/dashboard/export-csv?${buildQs().toString()}`;
+    document.body.appendChild(iframe);
+    // Reset loading after a generous delay (server query + xlsx generation)
+    setTimeout(() => setCsvLoading(false), 8000);
   }
 
   const totalItems = TABS.flatMap(t => t.items).length;
