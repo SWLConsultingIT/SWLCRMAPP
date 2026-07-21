@@ -143,7 +143,7 @@ export default function DashboardExportModal({
       const a    = document.createElement("a");
       const today = new Date().toISOString().slice(0, 10);
       a.href     = url;
-      a.download = `GrowthAI-Report-${today}.csv`;
+      a.download = `GrowthAI-Report-${today}.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -340,7 +340,7 @@ export default function DashboardExportModal({
               >
                 {csvLoading
                   ? <><Loader2 size={14} className="animate-spin" /> Exportando...</>
-                  : <><FileSpreadsheet size={14} /> Descargar CSV</>
+                  : <><FileSpreadsheet size={14} /> Descargar Excel</>
                 }
               </button>
             </div>

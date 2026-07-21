@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDashboardData, getSellerActivity } from "@/lib/dashboard-data";
 import { getUserScope } from "@/lib/scope";
+import ExcelJS from "exceljs";
 
 async function getBioId(): Promise<string | null> {
   const scope = await getUserScope();
@@ -10,20 +11,64 @@ async function getBioId(): Promise<string | null> {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Escape a CSV cell value (quote if contains comma, newline, or quote)
-function cell(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-function row(...vals: unknown[]): string {
-  return vals.map(cell).join(",");
-}
+const GOLD  = "FFC9A83A";
+const DARK  = "FF0C0E1B";
+const ZEBRA = "FFF9F7F0";
 
 function pct(n: number) { return `${n}%`; }
+
+function addSection(
+  ws: ExcelJS.Worksheet,
+  title: string,
+  headers: string[],
+  rows: (string | number | null)[][],
+) {
+  const colCount = Math.max(headers.length, 2);
+
+  // Title row
+  const tRow = ws.addRow([title, ...Array(colCount - 1).fill("")]);
+  tRow.height = 22;
+  ws.mergeCells(tRow.number, 1, tRow.number, colCount);
+  const tCell = tRow.getCell(1);
+  tCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: DARK } };
+  tCell.font      = { bold: true, color: { argb: GOLD }, size: 11 };
+  tCell.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+
+  // Header row
+  const hRow = ws.addRow(headers);
+  hRow.height = 18;
+  headers.forEach((_, i) => {
+    const c = hRow.getCell(i + 1);
+    c.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: GOLD } };
+    c.font      = { bold: true, color: { argb: DARK }, size: 10 };
+    c.alignment = { vertical: "middle", horizontal: i === 0 ? "left" : "center" };
+    c.border    = { bottom: { style: "thin", color: { argb: DARK } } };
+  });
+
+  // Data rows with zebra striping
+  rows.forEach((rowData, idx) => {
+    const dRow = ws.addRow(rowData.map(v => v ?? ""));
+    dRow.height = 16;
+    dRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+      if (idx % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA } };
+      cell.font      = { size: 10 };
+      cell.alignment = { vertical: "middle", horizontal: colNum === 1 ? "left" : "center" };
+    });
+  });
+
+  ws.addRow([]); // spacer between sections
+}
+
+function autoWidth(ws: ExcelJS.Worksheet) {
+  ws.columns.forEach(col => {
+    let max = 8;
+    col.eachCell?.({ includeEmpty: false }, cell => {
+      const len = cell.value != null ? String(cell.value).length : 0;
+      if (len > max) max = len;
+    });
+    col.width = Math.min(max + 4, 50);
+  });
+}
 
 export async function GET(req: NextRequest) {
   const sp       = Object.fromEntries(req.nextUrl.searchParams.entries());
@@ -56,139 +101,188 @@ export async function GET(req: NextRequest) {
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  const lines: string[] = [];
-  const sep = () => lines.push("");
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "GrowthAI";
+  wb.created = new Date();
 
-  // ── Overview: Pipeline KPIs ──────────────────────────────────────────────
-  if (has("overview.kpis")) {
-    lines.push("OVERVIEW – PIPELINE KPIs");
-    lines.push(row("Metric", "Value"));
-    lines.push(row("Total leads", headline.totalLeads));
-    lines.push(row("Contacted", headline.contactedLeads));
-    lines.push(row("Connected (LinkedIn)", headline.connectedLeads));
-    lines.push(row("Replied", headline.repliedCount));
-    lines.push(row("Positive", headline.positiveCount));
-    lines.push(row("Won", headline.wonCount));
-    lines.push(row("Response rate", pct(headline.responseRate)));
-    lines.push(row("Conversion rate", pct(headline.conversionRate)));
-    sep();
-  }
+  // ── Sheet 1: Overview ────────────────────────────────────────────────────
+  if (has("overview.kpis") || has("overview.icps")) {
+    const ws = wb.addWorksheet("Overview", { properties: { tabColor: { argb: GOLD } } });
+    ws.views = [{ showGridLines: false }];
 
-  // ── Overview: ICP table ──────────────────────────────────────────────────
-  if (has("overview.icps") && icpPerformance.length > 0) {
-    lines.push("OVERVIEW – ICPs");
-    lines.push(row("ICP", "Leads", "Flows", "Contacted", "Replied", "Positive", "Won", "Response rate", "Conversion rate"));
-    for (const r of icpPerformance as Array<Record<string, unknown>>) {
-      lines.push(row(
-        r.name, r.leads, r.flows, r.contacted, r.replied, r.positive, r.won,
-        pct(Number(r.responseRate)), pct(Number(r.conversionRate)),
-      ));
+    if (has("overview.kpis")) {
+      addSection(ws, "PIPELINE KPIs", ["Metric", "Value"], [
+        ["Total leads",          headline.totalLeads],
+        ["Contacted",            headline.contactedLeads],
+        ["Connected (LinkedIn)", headline.connectedLeads],
+        ["Replied",              headline.repliedCount],
+        ["Positive",             headline.positiveCount],
+        ["Won",                  headline.wonCount],
+        ["Response rate",        pct(headline.responseRate)],
+        ["Conversion rate",      pct(headline.conversionRate)],
+      ]);
     }
-    sep();
-  }
 
-  // ── Outreach: Campaign performance ───────────────────────────────────────
-  if (has("outreach.campaigns") && campaignPerformance.length > 0) {
-    lines.push("OUTREACH – CAMPAIGN PERFORMANCE");
-    lines.push(row("Campaign", "ICP", "Status", "Leads", "Sent", "LinkedIn", "Email", "Calls", "Uncontacted", "Replied", "Positive", "Negative", "Response rate", "Conversion rate"));
-    for (const r of campaignPerformance as Array<Record<string, unknown>>) {
-      lines.push(row(
-        r.name, r.icp_profile_name ?? "—", r.status,
-        r.leads, r.sent, r.sentLinkedin, r.sentEmail, r.sentCall,
-        r.uncontactedLeads, r.replied, r.positive, r.negative,
-        pct(Number(r.responseRate)), pct(Number(r.conversionRate)),
-      ));
+    if (has("overview.icps") && icpPerformance.length > 0) {
+      addSection(
+        ws,
+        "ICP PERFORMANCE",
+        ["ICP", "Leads", "Flows", "Contacted", "Replied", "Positive", "Won", "Response rate", "Conversion rate"],
+        (icpPerformance as Array<Record<string, unknown>>).map(r => [
+          String(r.name ?? ""),
+          Number(r.leads ?? 0),
+          Number(r.flows ?? 0),
+          Number(r.contacted ?? 0),
+          Number(r.replied ?? 0),
+          Number(r.positive ?? 0),
+          Number(r.won ?? 0),
+          pct(Number(r.responseRate ?? 0)),
+          pct(Number(r.conversionRate ?? 0)),
+        ]),
+      );
     }
-    sep();
+
+    autoWidth(ws);
   }
 
-  // ── Outreach: Channel breakdown ───────────────────────────────────────────
-  if (has("outreach.channels") && channelBreakdown.length > 0) {
-    lines.push("OUTREACH – CHANNEL BREAKDOWN");
-    lines.push(row("Channel", "Sent", "Contacted", "Replied", "Positive", "Response rate", "Conversion rate"));
-    for (const r of channelBreakdown) {
-      lines.push(row(r.channel, r.sent, r.contacted, r.replied, r.positive, pct(r.responseRate), pct(r.conversionRate)));
+  // ── Sheet 2: Campaigns ───────────────────────────────────────────────────
+  if (has("outreach.campaigns") || has("outreach.channels")) {
+    const ws = wb.addWorksheet("Campaigns", { properties: { tabColor: { argb: GOLD } } });
+    ws.views = [{ showGridLines: false }];
+
+    if (has("outreach.campaigns") && campaignPerformance.length > 0) {
+      addSection(
+        ws,
+        "CAMPAIGN PERFORMANCE",
+        ["Campaign", "ICP", "Status", "Leads", "Sent", "LinkedIn", "Email", "Calls", "Uncontacted", "Replied", "Positive", "Negative", "Response rate", "Conversion rate"],
+        (campaignPerformance as Array<Record<string, unknown>>).map(r => [
+          String(r.name ?? ""),
+          String(r.icp_profile_name ?? "—"),
+          String(r.status ?? ""),
+          Number(r.leads ?? 0),
+          Number(r.sent ?? 0),
+          Number(r.sentLinkedin ?? 0),
+          Number(r.sentEmail ?? 0),
+          Number(r.sentCall ?? 0),
+          Number(r.uncontactedLeads ?? 0),
+          Number(r.replied ?? 0),
+          Number(r.positive ?? 0),
+          Number(r.negative ?? 0),
+          pct(Number(r.responseRate ?? 0)),
+          pct(Number(r.conversionRate ?? 0)),
+        ]),
+      );
     }
-    sep();
-  }
 
-  // ── Channels: individual breakdown ───────────────────────────────────────
-  const chMap: Record<string, (typeof channelBreakdown)[0]> = {};
-  for (const c of channelBreakdown) chMap[c.channel] = c;
-
-  if (has("channels.email") && chMap["email"]) {
-    const e = chMap["email"];
-    lines.push("CHANNELS – EMAIL");
-    lines.push(row("Sent", "Contacted", "Replied", "Positive", "Response rate", "Conversion rate"));
-    lines.push(row(e.sent, e.contacted, e.replied, e.positive, pct(e.responseRate), pct(e.conversionRate)));
-    sep();
-  }
-
-  if (has("channels.linkedin") && chMap["linkedin"]) {
-    const l = chMap["linkedin"];
-    lines.push("CHANNELS – LINKEDIN");
-    lines.push(row("Sent", "Contacted", "Replied", "Positive", "Response rate", "Conversion rate"));
-    lines.push(row(l.sent, l.contacted, l.replied, l.positive, pct(l.responseRate), pct(l.conversionRate)));
-    sep();
-  }
-
-  if (has("channels.calls") && callsBreakdown) {
-    const c = callsBreakdown as Record<string, number>;
-    lines.push("CHANNELS – CALLS");
-    lines.push(row("Metric", "Value"));
-    lines.push(row("Pending", c.pending));
-    lines.push(row("Made", c.made));
-    lines.push(row("Answered", c.answered));
-    lines.push(row("Positive", c.positive));
-    lines.push(row("Negative", c.negative));
-    sep();
-  }
-
-  // ── Sellers: activity / leaderboard ──────────────────────────────────────
-  const sellerRows = (sellerPerformance as Array<Record<string, unknown>>).map(s => {
-    const act = activityMap.get(String(s.id ?? ""));
-    const callOutcome = callOutcomesBySeller.find(x => x.sellerId === String(s.id ?? ""));
-    return {
-      name:        act?.displayName || String(s.name ?? "—"),
-      contacted:   Number(s.contacted ?? 0),
-      sent:        Number(s.sent ?? 0),
-      replied:     Number(s.replied ?? 0),
-      positive:    Number(s.positive ?? 0),
-      active:      Number(s.active ?? 0),
-      callsToday:  callOutcome?.byDay?.[todayStr]?.made ?? 0,
-      callsMade:   callOutcome?.made ?? 0,
-      callsAnswered: callOutcome?.answered ?? 0,
-      callsInterested: callOutcome?.interested ?? 0,
-    };
-  });
-
-  if ((has("sellers.activity") || has("sellers.table")) && sellerRows.length > 0) {
-    lines.push("SELLERS – LEADERBOARD");
-    lines.push(row("Seller", "Active campaigns", "Contacted", "Sent", "Replied", "Positive", "Calls today", "Calls (period)", "Answered", "Interested"));
-    for (const s of sellerRows) {
-      lines.push(row(s.name, s.active, s.contacted, s.sent, s.replied, s.positive, s.callsToday, s.callsMade, s.callsAnswered, s.callsInterested));
+    if (has("outreach.channels") && channelBreakdown.length > 0) {
+      addSection(
+        ws,
+        "CHANNEL BREAKDOWN",
+        ["Channel", "Sent", "Contacted", "Replied", "Positive", "Response rate", "Conversion rate"],
+        channelBreakdown.map(r => [
+          r.channel, r.sent, r.contacted, r.replied, r.positive,
+          pct(r.responseRate), pct(r.conversionRate),
+        ]),
+      );
     }
-    sep();
+
+    autoWidth(ws);
   }
 
-  if (has("sellers.calls") && callOutcomesBySeller.length > 0) {
-    lines.push("SELLERS – CALL OUTCOMES");
-    lines.push(row("Seller", "Made", "Answered", "Interested", "Not interested", "Bad timing", "Voicemail", "Wrong number"));
-    for (const r of callOutcomesBySeller) {
-      lines.push(row(r.sellerName, r.made, r.answered, r.interested, r.notInterested, r.badTiming, r.voicemail, r.wrongNumber));
+  // ── Sheet 3: Channels ────────────────────────────────────────────────────
+  if (has("channels.email") || has("channels.linkedin") || has("channels.calls")) {
+    const ws = wb.addWorksheet("Channels", { properties: { tabColor: { argb: GOLD } } });
+    ws.views = [{ showGridLines: false }];
+
+    const chMap: Record<string, typeof channelBreakdown[0]> = {};
+    for (const c of channelBreakdown) chMap[c.channel] = c;
+
+    if (has("channels.email") && chMap["email"]) {
+      const e = chMap["email"];
+      addSection(ws, "EMAIL", ["Sent", "Contacted", "Replied", "Positive", "Response rate", "Conversion rate"], [
+        [e.sent, e.contacted, e.replied, e.positive, pct(e.responseRate), pct(e.conversionRate)],
+      ]);
     }
-    sep();
+
+    if (has("channels.linkedin") && chMap["linkedin"]) {
+      const l = chMap["linkedin"];
+      addSection(ws, "LINKEDIN", ["Sent", "Contacted", "Replied", "Positive", "Response rate", "Conversion rate"], [
+        [l.sent, l.contacted, l.replied, l.positive, pct(l.responseRate), pct(l.conversionRate)],
+      ]);
+    }
+
+    if (has("channels.calls") && callsBreakdown) {
+      const c = callsBreakdown as Record<string, number>;
+      addSection(ws, "CALLS", ["Metric", "Value"], [
+        ["Pending",  c.pending  ?? 0],
+        ["Made",     c.made     ?? 0],
+        ["Answered", c.answered ?? 0],
+        ["Positive", c.positive ?? 0],
+        ["Negative", c.negative ?? 0],
+      ]);
+    }
+
+    autoWidth(ws);
   }
 
-  const csv = lines.join("\n");
-  const today = new Date().toISOString().slice(0, 10);
-  const filename = `GrowthAI-Report-${today}.csv`;
+  // ── Sheet 4: Sellers ─────────────────────────────────────────────────────
+  if (has("sellers.activity") || has("sellers.table") || has("sellers.calls")) {
+    const ws = wb.addWorksheet("Sellers", { properties: { tabColor: { argb: GOLD } } });
+    ws.views = [{ showGridLines: false }];
 
-  return new NextResponse(csv, {
+    const sellerRows = (sellerPerformance as Array<Record<string, unknown>>).map(s => {
+      const act         = activityMap.get(String(s.id ?? ""));
+      const callOutcome = callOutcomesBySeller.find(x => x.sellerId === String(s.id ?? ""));
+      return {
+        name:            act?.displayName || String(s.name ?? "—"),
+        contacted:       Number(s.contacted ?? 0),
+        sent:            Number(s.sent ?? 0),
+        replied:         Number(s.replied ?? 0),
+        positive:        Number(s.positive ?? 0),
+        active:          Number(s.active ?? 0),
+        callsToday:      callOutcome?.byDay?.[todayStr]?.made ?? 0,
+        callsMade:       callOutcome?.made ?? 0,
+        callsAnswered:   callOutcome?.answered ?? 0,
+        callsInterested: callOutcome?.interested ?? 0,
+      };
+    });
+
+    if ((has("sellers.activity") || has("sellers.table")) && sellerRows.length > 0) {
+      addSection(
+        ws,
+        "SELLERS LEADERBOARD",
+        ["Seller", "Active campaigns", "Contacted", "Sent", "Replied", "Positive", "Calls today", "Calls (period)", "Answered", "Interested"],
+        sellerRows.map(s => [
+          s.name, s.active, s.contacted, s.sent, s.replied, s.positive,
+          s.callsToday, s.callsMade, s.callsAnswered, s.callsInterested,
+        ]),
+      );
+    }
+
+    if (has("sellers.calls") && callOutcomesBySeller.length > 0) {
+      addSection(
+        ws,
+        "CALL OUTCOMES BY SELLER",
+        ["Seller", "Made", "Answered", "Interested", "Not interested", "Bad timing", "Voicemail", "Wrong number"],
+        callOutcomesBySeller.map(r => [
+          r.sellerName, r.made, r.answered, r.interested,
+          r.notInterested, r.badTiming, r.voicemail, r.wrongNumber,
+        ]),
+      );
+    }
+
+    autoWidth(ws);
+  }
+
+  // ── Serialize ────────────────────────────────────────────────────────────
+  const buffer = await wb.xlsx.writeBuffer();
+  const today  = new Date().toISOString().slice(0, 10);
+
+  return new NextResponse(buffer as ArrayBuffer, {
     status: 200,
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="GrowthAI-Report-${today}.xlsx"`,
     },
   });
 }
