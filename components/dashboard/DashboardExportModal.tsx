@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileDown, X, ChevronDown, ChevronRight, Loader2, Check, Minus } from "lucide-react";
+import { FileDown, FileSpreadsheet, X, ChevronDown, ChevronRight, Loader2, Check, Minus } from "lucide-react";
 import { printPdf } from "@/lib/print-pdf";
 import { C } from "@/lib/design";
 
@@ -84,8 +84,9 @@ export default function DashboardExportModal({
   const [open, setOpen]         = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set(TABS.map(t => t.id)));
   const [selected, setSelected] = useState<Set<string>>(allKeys());
-  const [loading, setLoading]   = useState(false);
-  const [lang, setLang]         = useState<"es" | "en">("es");
+  const [loading, setLoading]     = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [lang, setLang]           = useState<"es" | "en">("es");
 
   function toggleTab(tabId: string) {
     const items   = TABS.find(t => t.id === tabId)?.items ?? [];
@@ -111,9 +112,7 @@ export default function DashboardExportModal({
     setExpanded(next);
   }
 
-  function download() {
-    if (selected.size === 0 || loading) return;
-    setLoading(true);
+  function buildQs() {
     const qs = new URLSearchParams();
     qs.set("sections", [...selected].join(","));
     if (searchParams.from)     qs.set("from",     searchParams.from);
@@ -122,9 +121,36 @@ export default function DashboardExportModal({
     if (searchParams.seller)   qs.set("seller",    searchParams.seller);
     if (searchParams.icp)      qs.set("icp",       searchParams.icp);
     qs.set("lang", lang);
+    return qs;
+  }
+
+  function download() {
+    if (selected.size === 0 || loading) return;
+    setLoading(true);
     const today = new Date().toISOString().slice(0, 10);
-    printPdf(`/dashboard/print?${qs.toString()}`, `GrowthAI-Report-${today}`);
+    printPdf(`/dashboard/print?${buildQs().toString()}`, `GrowthAI-Report-${today}`);
     setTimeout(() => { setLoading(false); setOpen(false); }, 1500);
+  }
+
+  async function downloadCsv() {
+    if (selected.size === 0 || csvLoading) return;
+    setCsvLoading(true);
+    try {
+      const res = await fetch(`/api/dashboard/export-csv?${buildQs().toString()}`);
+      if (!res.ok) throw new Error("export failed");
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      const today = new Date().toISOString().slice(0, 10);
+      a.href     = url;
+      a.download = `GrowthAI-Report-${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setCsvLoading(false);
+    }
   }
 
   const totalItems = TABS.flatMap(t => t.items).length;
@@ -252,9 +278,9 @@ export default function DashboardExportModal({
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-4 shrink-0 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <div className="px-5 py-3 shrink-0 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
               {/* Language picker */}
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-3">
                 <span className="text-[10px] uppercase tracking-[0.12em] font-bold" style={{ color: C.textDim }}>
                   Idioma
                 </span>
@@ -299,6 +325,22 @@ export default function DashboardExportModal({
                 {loading
                   ? <><Loader2 size={14} className="animate-spin" /> Abriendo...</>
                   : <><FileDown size={14} /> Descargar PDF</>
+                }
+              </button>
+
+              <button
+                onClick={downloadCsv}
+                disabled={selected.size === 0 || csvLoading}
+                className="w-full mt-2 py-2.5 rounded-xl text-[12.5px] font-bold flex items-center justify-center gap-2 transition-opacity disabled:opacity-40 hover:opacity-80"
+                style={{
+                  background: "transparent",
+                  color: "var(--brand, #C9A83A)",
+                  border: `1.5px solid var(--brand, #C9A83A)`,
+                }}
+              >
+                {csvLoading
+                  ? <><Loader2 size={14} className="animate-spin" /> Exportando...</>
+                  : <><FileSpreadsheet size={14} /> Descargar CSV</>
                 }
               </button>
             </div>

@@ -8,8 +8,11 @@
 // A campaign contributes a pending call iff ALL hold:
 //   1. the campaign is active,
 //   2. its CURRENT step is a call step (sequence_steps[current_step].channel === 'call'),
-//   3. there's a `queued` call message at step_number = current_step + 1
-//      (the dispatcher-staged, actionable dial — draft/sent/skipped don't count),
+//   3. the call has NOT already been handled: no campaign_message with status
+//      'sent' or 'skipped' at step_number = current_step + 1. We use a block-list
+//      (exclude handled) rather than an allow-list (require queued) so that
+//      campaigns whose call message was never created by the dispatcher still
+//      surface — a missing message means "not yet dispatched", not "done".
 //   4. the lead has a phone on file and allow_call !== false,
 //   5. the lead has NOT replied on a non-call channel (answered leads are worked
 //      from the Inbox, not cold-called), and
@@ -58,13 +61,13 @@ function rollWeekendForward(ts: number): number {
 export function computePendingCalls(opts: {
   campaigns: PendingCallCampaign[];
   leadById: Map<string, PendingCallLead>;
-  /** campaignId → set of step_numbers that have a `queued` call message. */
-  queuedCallStepsByCampaign: Map<string, Set<number>>;
+  /** campaignId → set of step_numbers whose call message is already handled (sent or skipped). */
+  handledCallStepsByCampaign: Map<string, Set<number>>;
   /** lead ids that have replied on any channel OTHER than 'call'. */
   repliedNonCallLeadIds: Set<string>;
   now: number;
 }): Map<string, PendingCallInfo> {
-  const { campaigns, leadById, queuedCallStepsByCampaign, repliedNonCallLeadIds, now } = opts;
+  const { campaigns, leadById, handledCallStepsByCampaign, repliedNonCallLeadIds, now } = opts;
   const todayDow = new Date(now).getDay();
   const isTodayWeekend = todayDow === 0 || todayDow === 6;
 
@@ -82,8 +85,11 @@ export function computePendingCalls(opts: {
 
     if (repliedNonCallLeadIds.has(c.lead_id)) continue;
 
-    const queuedSteps = queuedCallStepsByCampaign.get(c.id);
-    if (!queuedSteps || !queuedSteps.has(idx + 1)) continue;
+    // Skip if the call was already handled (sent or skipped). A missing entry
+    // means the dispatcher hasn't created the message yet — that's still a
+    // pending call, not a resolved one.
+    const handledSteps = handledCallStepsByCampaign.get(c.id);
+    if (handledSteps?.has(idx + 1)) continue;
 
     const daysAfter = steps[idx]?.daysAfter ?? 0;
     const rawDueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86_400_000 : null;

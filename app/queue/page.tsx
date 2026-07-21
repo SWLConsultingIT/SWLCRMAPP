@@ -341,19 +341,21 @@ async function getQueueData() {
       if (lid) repliedLeadIds.add(lid);
     }
   }
-  const queuedCallStepsByCampaign = new Map<string, Set<number>>();
+  // Block-list: call messages already handled (sent = call was made, skipped =
+  // dispatcher decided to skip). A campaign with NO call message is still pending.
+  const handledCallStepsByCampaign = new Map<string, Set<number>>();
   if (candidateCampaignIds.length > 0) {
     const { data: callMsgRows } = await supabase
       .from("campaign_messages")
       .select("campaign_id, step_number")
       .in("campaign_id", candidateCampaignIds)
       .eq("channel", "call")
-      .eq("status", "queued");
+      .in("status", ["sent", "skipped"]);
     for (const m of callMsgRows ?? []) {
       const cid = (m as any).campaign_id as string;
-      const set = queuedCallStepsByCampaign.get(cid) ?? new Set<number>();
+      const set = handledCallStepsByCampaign.get(cid) ?? new Set<number>();
       set.add((m as any).step_number as number);
-      queuedCallStepsByCampaign.set(cid, set);
+      handledCallStepsByCampaign.set(cid, set);
     }
   }
 
@@ -369,7 +371,7 @@ async function getQueueData() {
   const pendingByCampaign = computePendingCalls({
     campaigns: pendingCallCandidates.map(x => x.c) as any,
     leadById: pendingLeadById,
-    queuedCallStepsByCampaign,
+    handledCallStepsByCampaign,
     repliedNonCallLeadIds: repliedLeadIds,
     now,
   });

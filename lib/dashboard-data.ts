@@ -1914,12 +1914,12 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       // drops replied / no-phone / allow_call=false / not-yet-due leads. That's
       // why Grupo IEB showed 7 here but 6 in the Inbox (2026-07-01). Same inputs,
       // same rule → the two numbers now always match.
-      const queuedCallStepsByCampaign = new Map<string, Set<number>>();
+      const handledCallStepsByCampaign = new Map<string, Set<number>>();
       for (const m of allMessages) {
-        if (m.channel !== "call" || m.status !== "queued" || !m.campaign_id) continue;
-        const set = queuedCallStepsByCampaign.get(m.campaign_id) ?? new Set<number>();
+        if (m.channel !== "call" || !["sent", "skipped"].includes(m.status ?? "") || !m.campaign_id) continue;
+        const set = handledCallStepsByCampaign.get(m.campaign_id) ?? new Set<number>();
         set.add(m.step_number as number);
-        queuedCallStepsByCampaign.set(m.campaign_id, set);
+        handledCallStepsByCampaign.set(m.campaign_id, set);
       }
       const repliedNonCallLeadIds = new Set<string>();
       for (const r of allReplies) {
@@ -1928,7 +1928,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       const pendingCallByCampaign = computePendingCalls({
         campaigns: allCampaigns as unknown as PendingCallCampaign[],
         leadById: leadById as unknown as Map<string, PendingCallLead>,
-        queuedCallStepsByCampaign,
+        handledCallStepsByCampaign,
         repliedNonCallLeadIds,
         now: Date.now(),
       });
