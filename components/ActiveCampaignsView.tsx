@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { C, N } from "@/lib/design";
+import { isTerminalCampaign } from "@/lib/campaign-status";
 import { useLocale } from "@/lib/i18n";
 import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus, Search, X, Trophy } from "lucide-react";
 
@@ -236,11 +237,14 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
     // group (they share the same flow). For each step idx, count how
     // many campaigns are past / at / before it.
     const sampleSequence = camps.find(c => Array.isArray(c.sequence_steps))?.sequence_steps ?? [];
+    // Only in-flow campaigns count toward the step funnel — a won/lost/cancelled
+    // lead has left the sequence, so it must not show as "pending" at a step.
+    const flowCamps = camps.filter(c => !isTerminalCampaign(c.status));
     const steps: CampaignGroup["steps"] = (sampleSequence as any[]).map((s, idx) => {
       const channel = typeof s === "string" ? s : (s?.channel ?? "email");
-      const sent = camps.filter(c => (c.current_step ?? 0) > idx).length;
-      const pending = camps.filter(c => (c.current_step ?? 0) === idx).length;
-      const scheduled = Math.max(0, camps.length - sent - pending);
+      const sent = flowCamps.filter(c => (c.current_step ?? 0) > idx).length;
+      const pending = flowCamps.filter(c => (c.current_step ?? 0) === idx).length;
+      const scheduled = Math.max(0, flowCamps.length - sent - pending);
       return { idx, channel, sent, pending, scheduled };
     });
 

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { Share2, Mail, Phone, CheckCircle, Flag, User, Send, SkipForward, X, AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
+import { isTerminalCampaign } from "@/lib/campaign-status";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -433,8 +434,14 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
       // tracked in Results / Lost now, not here. (Fran 2026-06-16)
       const rc = (c.reply_class ?? "").toLowerCase();
       if (rc === "positive" || rc === "negative") continue;
+      // Terminal campaigns (won / lost / cancelled) have LEFT the flow — they
+      // belong in Results / Lost, never in an active step column. Without this
+      // a closed_lost lead whose reply wasn't classified negative (e.g. an
+      // earlier "question") leaked into a step column. (Fran 2026-07-22)
+      if (isTerminalCampaign(c.status)) continue;
       const cs = c.current_step ?? 0;
-      if (cs > sequence.length) { done.push(c); continue; }
+      // `completed` finished the sequence normally → the Completed column.
+      if ((c.status ?? "").toLowerCase() === "completed" || cs > sequence.length) { done.push(c); continue; }
       // Column i = cs=i: "i steps done, step i+1 is next".
       // After step 1 fires (cs=1) the lead moves to column 1, not column 0.
       const idx = Math.min(cs, sequence.length - 1);
