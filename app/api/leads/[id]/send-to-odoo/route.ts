@@ -5,9 +5,10 @@
 //
 // SWL-tenant only. Ports the company/contact/seller/crm.lead logic from the n8n
 // "SWL - CRM - Create Odoo Lead" workflow (kept as the reference source) and adds
-// the custom-field mapping introspected from crm.lead. Odoo creds mirror the
-// workflow's (hardcoded there too); move to env/DB config when we onboard a 2nd
-// tenant's Odoo.
+// the custom-field mapping introspected from the live crm.lead schema.
+// Odoo creds read from env (ODOO_*) with the current SWL values as fallback so it
+// works before the env vars are set. TODO: move the key fully to env + rotate,
+// and add per-tenant Odoo config when we onboard a 2nd tenant.
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
@@ -18,11 +19,11 @@ export const maxDuration = 60;
 
 const SWL_BIO = "7c02e222-be59-416d-9434-acf4685f8590";
 const ODOO = {
-  url: "https://swlconsulting-swlodoosh.odoo.com/jsonrpc",
-  db: "juandevera92-swlodoo-main-29112709",
-  uid: 13,
-  key: "4726cf3709a64f6a0a954e271b69e08bb1e5f77b",
-  stageProspect: 9,
+  url: process.env.ODOO_URL ?? "https://swlconsulting-swlodoosh.odoo.com/jsonrpc",
+  db: process.env.ODOO_DB ?? "juandevera92-swlodoo-main-29112709",
+  uid: Number(process.env.ODOO_UID ?? 13),
+  key: process.env.ODOO_API_KEY ?? "7eb365ac9dbc92a3b8c575dd7d489fb3fa7d9490",
+  stageProspect: Number(process.env.ODOO_STAGE_PROSPECT ?? 9),
 };
 
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -51,16 +52,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: camp } = await sb.from("campaigns").select("seller_id, name, sellers(name)").eq("lead_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const sellerName = ((camp as any)?.sellers?.name as string) ?? null;
 
-  // Conversation (sent + inbound) → chronological HTML for the Emails tab.
+  // Conversation (sent + inbound), grouped per channel → one HTML thread per
+  // Growth Engine tab field (fields verified against the live crm.lead schema).
   const [{ data: sent }, { data: replies }] = await Promise.all([
     sb.from("campaign_messages").select("channel, content, sent_at, metadata").eq("lead_id", id).eq("status", "sent").order("sent_at", { ascending: true }),
     sb.from("lead_replies").select("channel, reply_text, received_at").eq("lead_id", id).order("received_at", { ascending: true }),
   ]);
-  const convo: Array<{ from: string; ch: string; text: string; at: string }> = [];
-  for (const m of sent ?? []) { const t = ((m as any).metadata?.rendered_content as string) || (m as any).content || ""; if (t) convo.push({ from: "Nosotros", ch: (m as any).channel ?? "", text: t, at: (m as any).sent_at ?? "" }); }
-  for (const r of replies ?? []) { if ((r as any).reply_text) convo.push({ from: "Lead", ch: (r as any).channel ?? "", text: (r as any).reply_text, at: (r as any).received_at ?? "" }); }
-  convo.sort((a, b) => a.at.localeCompare(b.at));
-  const convoHtml = convo.map(c => `<p><b>${c.from}</b> <i>(${esc(c.ch)})</i>: ${esc(c.text)}</p>`).join("") || false;
+  const sellerLabel = sellerName || "Seller";
+  type Ev = { from: string; text: string; at: string };
+  const byChannel: Record<string, Ev[]> = {};
+  for (const m of sent ?? []) { const ch = String((m as any).channel ?? "").toLowerCase(); const t = ((m as any).metadata?.rendered_content as string) || (m as any).content || ""; if (t) (byChannel[ch] ??= []).push({ from: `→ ${sellerLabel}`, text: t, at: (m as any).sent_at ?? "" }); }
+  for (const r of replies ?? []) { const ch = String((r as any).channel ?? "").toLowerCase(); if ((r as any).reply_text) (byChannel[ch] ??= []).push({ from: "← Lead", text: (r as any).reply_text, at: (r as any).received_at ?? "" }); }
+  // One rendered thread per channel: a Sent/Replies/Last header + the messages.
+  function renderThread(ch: string): string | false {
+    const ev = (byChannel[ch] || []).slice().sort((a, b) => a.at.localeCompare(b.at));
+    if (!ev.length) return false;
+    const sentN = ev.filter(e => e.from.startsWith("→")).length;
+    const repN = ev.filter(e => e.from.startsWith("←")).length;
+    const header = `<p><b>Sent:</b> ${sentN} · <b>Replies:</b> ${repN} · <b>Last:</b> ${esc(ev[ev.length - 1].at.slice(0, 10))}</p><hr/>`;
+    const rows = ev.map(e => `<p><b>${esc(e.from)}</b> <small>${esc(e.at.slice(0, 16))}</small><br/>${esc(e.text)}</p>`).join("");
+    return header + rows;
+  }
+  const callThread = renderThread("call"); // no dedicated Calls field on the Growth tab → folded into comm notes
   const lastAt = replies && replies.length ? (replies as any[])[replies.length - 1].received_at : (sent && sent.length ? (sent as any[])[sent.length - 1].sent_at : null);
   const lastDate = lastAt ? String(lastAt).slice(0, 10) : false;
 
@@ -135,11 +148,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // Discovery + Notes
       x_studio_lead_discovery: htmlPara(drafts.highlights),
       x_studio_related_field_4bc_1jplfb7lt: htmlPara(drafts.sellerComments),
-      // Emails & Communication (full thread)
-      x_studio_emails: convoHtml,
-      x_email_comm_notes: htmlPara(drafts.conversationSummary),
-      // Meetings & Calls
-      x_studio_calls_records: htmlPara(drafts.conversationSummary),
+      // Growth Engine tab — one thread per channel (LinkedIn/SMS/Wpp use the _1
+      // fields that are actually placed on the tab; the non-_1 twins are orphaned).
+      x_studio_emails: renderThread("email"),
+      x_studio_linkedin_1: renderThread("linkedin"),
+      x_studio_sms_1: renderThread("sms"),
+      x_studio_wpp_1: renderThread("whatsapp"),
+      // Comm notes = seller summary + calls thread (no Calls field exists on the tab).
+      x_email_comm_notes: (() => {
+        const parts = [htmlPara(drafts.conversationSummary) || "", callThread ? `<p><b>☎ Calls</b></p>${callThread}` : ""].filter(Boolean);
+        return parts.length ? parts.join("") : false;
+      })(),
       // Last contact
       ...(lastDate ? { x_studio_last: lastDate } : {}),
       // Source
