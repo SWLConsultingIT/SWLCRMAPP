@@ -128,6 +128,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       email_from: email || false,
       phone: phone || false,
       website: website || false,
+      type: "opportunity", // land in the Pipeline kanban (type='lead' only shows under the Leads menu)
       stage_id: ODOO.stageProspect,
       user_id: userId,
       description: descParts || false,
