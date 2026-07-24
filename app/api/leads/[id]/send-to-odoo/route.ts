@@ -6,9 +6,10 @@
 // SWL-tenant only. Ports the company/contact/seller/crm.lead logic from the n8n
 // "SWL - CRM - Create Odoo Lead" workflow (kept as the reference source) and adds
 // the custom-field mapping introspected from the live crm.lead schema.
-// Odoo creds read from env (ODOO_*) with the current SWL values as fallback so it
-// works before the env vars are set. TODO: move the key fully to env + rotate,
-// and add per-tenant Odoo config when we onboard a 2nd tenant.
+// Odoo creds from env: ODOO_API_KEY is REQUIRED (no hardcoded fallback — the
+// route errors clearly if it's missing). url/db/uid/stage keep the SWL defaults.
+// TODO: rotate the key that was previously committed (still in git history);
+// add per-tenant Odoo config when we onboard a 2nd tenant.
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
@@ -22,7 +23,7 @@ const ODOO = {
   url: process.env.ODOO_URL ?? "https://swlconsulting-swlodoosh.odoo.com/jsonrpc",
   db: process.env.ODOO_DB ?? "juandevera92-swlodoo-main-29112709",
   uid: Number(process.env.ODOO_UID ?? 13),
-  key: process.env.ODOO_API_KEY ?? "7eb365ac9dbc92a3b8c575dd7d489fb3fa7d9490",
+  key: process.env.ODOO_API_KEY ?? "",
   stageProspect: Number(process.env.ODOO_STAGE_PROSPECT ?? 9),
 };
 
@@ -32,6 +33,7 @@ const htmlPara = (s: unknown) => { const t = String(s ?? "").trim(); return t ? 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!ODOO.key) return NextResponse.json({ error: "Odoo not configured — set ODOO_API_KEY" }, { status: 500 });
   const { id } = await params;
 
   let body: any = {};
