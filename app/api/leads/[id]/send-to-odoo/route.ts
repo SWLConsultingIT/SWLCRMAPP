@@ -46,7 +46,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!lead) return NextResponse.json({ error: "lead not found" }, { status: 404 });
   const L = lead as any;
   if (L.company_bio_id !== SWL_BIO) return NextResponse.json({ error: "demo-only (SWL Consulting)" }, { status: 403 });
-  if (L.odoo_lead_id) return NextResponse.json({ ok: true, already: true, odooLeadId: L.odoo_lead_id });
+  // NOTE: an existing odoo_lead_id no longer short-circuits — we UPSERT below
+  // (update the same opportunity) so a re-push enriches instead of skipping.
 
   // Seller name (for Odoo salesperson match) from the lead's latest campaign.
   const { data: camp } = await sb.from("campaigns").select("seller_id, name, sellers(name)").eq("lead_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -132,14 +133,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       stage_id: ODOO.stageProspect,
       user_id: userId,
       description: descParts || false,
-      // Contact
+      // Contact tab
       x_studio_headline: htmlPara(L.primary_headline),
       x_studio_seniority: htmlPara(L.primary_seniority),
+      x_studio_career: htmlPara(L.primary_career),
       x_studio_linkedin_url: htmlPara(L.primary_linkedin_url),
-      // Enrichment
+      // Enrichment tab
       x_studio_company_overview: htmlPara(drafts.companySummary || L.organization_description),
       x_studio_description: htmlPara(L.organization_description),
+      x_studio_short_description: htmlPara(L.organization_short_desc),
+      x_studio_seo_description: htmlPara(L.organization_seo_desc),
+      x_studio_tagline: htmlPara(L.organization_tagline),
       x_studio_keywords: htmlPara(L.keywords),
+      x_studio_technologies: htmlPara(Array.isArray(L.organization_technologies) ? L.organization_technologies.join(", ") : L.organization_technologies),
+      x_studio_industry_trends: htmlPara(L.industry_trends),
+      x_studio_similar_organizations_1: htmlPara(L.similar_organization),
       ...(Number.isFinite(empl) && empl > 0 ? { x_studio_employees: empl } : {}),
       ...(Number.isFinite(rev) && rev > 0 ? { x_studio_monetary_field_5nb_1jl2cuqj2: rev } : {}),
       // Personalized Info
@@ -165,22 +173,46 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // Source
       x_studio_source: htmlPara(L.source_campaign_name || L.source_tool),
     };
-    // Drop false/empty custom fields so we never blank a field with junk.
+    // Drop false/empty fields so we never blank a value with junk.
     for (const k of Object.keys(leadPayload)) if (leadPayload[k] === false || leadPayload[k] === undefined) delete leadPayload[k];
-    // Re-add the always-required standard fields (some legitimately false).
-    leadPayload.stage_id = ODOO.stageProspect;
-    leadPayload.name = `${fullName} - ${companyName || "Lead"}`;
-    leadPayload.contact_name = fullName;
-    if (contactId) leadPayload.partner_id = contactId;
-    leadPayload.user_id = userId;
 
-    const odooLeadId = await odoo("crm.lead", "create", [leadPayload]);
-    if (!odooLeadId) throw new Error("crm.lead create returned no id");
+    // UPSERT: reuse an existing crm.lead (known odoo_lead_id, else match by email)
+    // so a re-push enriches the same opportunity instead of creating a duplicate.
+    let existingId: number | null = L.odoo_lead_id ? Number(L.odoo_lead_id) : null;
+    if (existingId) {
+      const chk = await odoo("crm.lead", "search_read", [[["id", "=", existingId]]], { fields: ["id"], context: { active_test: false } });
+      if (!chk?.[0]) existingId = null; // deleted in Odoo → recreate
+    }
+    if (!existingId && email) {
+      const found = await odoo("crm.lead", "search_read", [[["email_from", "=ilike", email]]], { fields: ["id"], limit: 1, context: { active_test: false } });
+      if (found?.[0]?.id) existingId = found[0].id;
+    }
 
-    // 5) flag transferred → kanban moves the card to "Sent to Odoo"
+    let odooLeadId: number;
+    if (existingId) {
+      // Enrich the existing opportunity: push ONLY the custom fields + contact link.
+      // Never touch stage/type/owner/name — the seller may have advanced the deal.
+      const updatePayload: Record<string, unknown> = {};
+      for (const k of Object.keys(leadPayload)) if (k.startsWith("x_")) updatePayload[k] = leadPayload[k];
+      if (contactId) updatePayload.partner_id = contactId;
+      await odoo("crm.lead", "write", [[existingId], updatePayload]);
+      odooLeadId = existingId;
+    } else {
+      // Create a fresh opportunity in PROSPECT with all standard + custom fields.
+      leadPayload.type = "opportunity";
+      leadPayload.stage_id = ODOO.stageProspect;
+      leadPayload.name = `${fullName} - ${companyName || "Lead"}`;
+      leadPayload.contact_name = fullName;
+      if (contactId) leadPayload.partner_id = contactId;
+      leadPayload.user_id = userId;
+      odooLeadId = await odoo("crm.lead", "create", [leadPayload]);
+      if (!odooLeadId) throw new Error("crm.lead create returned no id");
+    }
+
+    // Flag transferred → Results kanban moves the card to "Sent to Odoo".
     await svc.from("leads").update({ odoo_lead_id: odooLeadId, transferred_to_odoo_at: new Date().toISOString() }).eq("id", id);
 
-    return NextResponse.json({ ok: true, odooLeadId, companyId, contactId });
+    return NextResponse.json({ ok: true, odooLeadId, companyId, contactId, updated: !!existingId });
   } catch (e: any) {
     return NextResponse.json({ error: `Odoo push failed: ${e?.message ?? "unknown"}` }, { status: 502 });
   }
