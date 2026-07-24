@@ -53,6 +53,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: camp } = await sb.from("campaigns").select("seller_id, name, sellers(name)").eq("lead_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const sellerName = ((camp as any)?.sellers?.name as string) ?? null;
 
+  // ICP profile → feeds the Client Bios tab (Pain Points / Benefits).
+  const { data: icpRow } = L.icp_profile_id
+    ? await sb.from("icp_profiles").select("pain_points, solutions_offered").eq("id", L.icp_profile_id).maybeSingle()
+    : { data: null };
+  const ICP = (icpRow as any) ?? {};
+
   // Conversation (sent + inbound), grouped per channel → one HTML thread per
   // Growth Engine tab field (fields verified against the live crm.lead schema).
   const [{ data: sent }, { data: replies }] = await Promise.all([
@@ -154,8 +160,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       x_studio_personalized_info_1: htmlPara(drafts.profileSummary || L.primary_headline),
       x_studio_personalized_info_2: htmlPara(drafts.highlights),
       x_studio_personalized_info_3: htmlPara(drafts.conversationSummary),
-      // Discovery + Notes
+      // Client Bios tab (sales-prep) — Pain Points/Benefits come from the ICP.
       x_studio_lead_discovery: htmlPara(drafts.highlights),
+      x_studio_discovery: htmlPara(L.organization_description),
+      x_studio_background: htmlPara(L.primary_career),
+      x_studio_pain_points: htmlPara(ICP.pain_points),
+      x_studio_benefits: htmlPara(ICP.solutions_offered),
+      x_studio_action_plan_1: htmlPara(drafts.nextAction),
+      // Notes
       x_studio_related_field_4bc_1jplfb7lt: htmlPara(drafts.sellerComments),
       // Growth Engine tab — one thread per channel (LinkedIn/SMS/Wpp use the _1
       // fields that are actually placed on the tab; the non-_1 twins are orphaned).

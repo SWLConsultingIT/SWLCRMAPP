@@ -4,10 +4,12 @@
 // (positive/meeting reply OR already in Odoo) into a working stage stored in
 // leads.opportunity_stage, plus a terminal "Sent to Odoo" column driven by
 // transferred_to_odoo_at. Drag a card between the working columns to advance it
-// — persists via PATCH /api/leads/[id]/stage. The Sent-to-Odoo column is
-// system-owned (set by the Send-to-Odoo action, never a manual drag).
+// — persists via PATCH /api/leads/[id]/stage. Dropping a card into the
+// "Sent to Odoo" column triggers the push (POST /api/leads/[id]/send-to-odoo);
+// once transferred the card is locked there.
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C, N } from "@/lib/design";
 import { Star, ChevronRight, Trophy, PhoneCall, MessageSquare, Loader2 } from "lucide-react";
@@ -28,6 +30,7 @@ const COLUMNS = [...OPP_STAGES, SENT_TO_ODOO];
 
 export default function ResultsPipeline({ leads, search }: { leads: OpportunityLead[]; search: string }) {
   const { locale } = useLocale();
+  const router = useRouter();
   const L = (en: string, es: string) => (locale === "es" ? es : en);
   // stageById holds the live column for each lead so drag-drop is instant.
   const [stageById, setStageById] = useState<Record<string, string>>(() => {
@@ -53,10 +56,25 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
   }, [filtered, stageById]);
 
   async function moveTo(leadId: string, colId: string) {
-    if (colId === SENT_TO_ODOO.id) return;           // terminal — only the Send-to-Odoo action lands here
     const current = stageById[leadId];
     if (current === SENT_TO_ODOO.id) return;          // already in Odoo → locked
     if (current === colId) return;
+
+    // Dropping into "Sent to Odoo" triggers the push (create/upsert the opportunity).
+    if (colId === SENT_TO_ODOO.id) {
+      setStageById(prev => ({ ...prev, [leadId]: colId }));
+      setSaving(prev => new Set(prev).add(leadId));
+      try {
+        const r = await fetch(`/api/leads/${leadId}/send-to-odoo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        if (!r.ok) throw new Error(await r.text());
+        router.refresh();
+      } catch {
+        // push failed → revert so the card doesn't look "sent"
+        setStageById(prev => ({ ...prev, [leadId]: normalizeStage(leads.find(l => l.id === leadId)?.opportunity_stage) }));
+      } finally { setSaving(prev => { const n = new Set(prev); n.delete(leadId); return n; }); }
+      return;
+    }
+
     setStageById(prev => ({ ...prev, [leadId]: colId }));
     setSaving(prev => new Set(prev).add(leadId));
     try {
@@ -79,12 +97,12 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
           {COLUMNS.map(col => {
             const cards = byColumn[col.id] ?? [];
             const isOdoo = col.id === SENT_TO_ODOO.id;
-            const isHover = hoverCol === col.id && !isOdoo && dragId != null;
+            const isHover = hoverCol === col.id && dragId != null;
             const share = total > 0 ? Math.round((cards.length / total) * 100) : 0;
             return (
               <div key={col.id} className="flex-1 min-w-[264px] flex flex-col rounded-2xl border overflow-hidden transition-[box-shadow,border-color]"
                 style={{ borderColor: isHover ? col.color : C.border, backgroundColor: C.bg, boxShadow: isHover ? `0 0 0 2px color-mix(in srgb, ${col.color} 40%, transparent), 0 10px 30px -12px color-mix(in srgb, ${col.color} 40%, transparent)` : "0 1px 2px rgba(11,15,26,0.04)" }}
-                onDragOver={e => { if (!isOdoo && dragId) { e.preventDefault(); setHoverCol(col.id); } }}
+                onDragOver={e => { if (dragId) { e.preventDefault(); setHoverCol(col.id); } }}
                 onDragLeave={() => setHoverCol(h => (h === col.id ? null : h))}
                 onDrop={e => { e.preventDefault(); const id = dragId ?? e.dataTransfer.getData("text/plain"); if (id) moveTo(id, col.id); setHoverCol(null); setDragId(null); }}
               >
@@ -106,7 +124,7 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
                 <div className="p-2 space-y-2 flex-1" style={{ minHeight: 160 }}>
                   {cards.length === 0 ? (
                     <div className="rounded-xl border border-dashed text-center text-[11px] py-10 select-none" style={{ borderColor: C.border, color: C.textDim }}>
-                      {isOdoo ? L("Fills in on Send to Odoo", "Se llena al enviar a Odoo") : L("Drag a lead here", "Arrastrá un lead acá")}
+                      {isOdoo ? L("Drag here to send to Odoo", "Arrastrá acá para enviar a Odoo") : L("Drag a lead here", "Arrastrá un lead acá")}
                     </div>
                   ) : cards.map(lead => {
                     const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "—";
