@@ -847,7 +847,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   //       timing / Wrong number — with date filters + recordings. Renamed from
   //       "Follow-ups" 2026-06-04 per boss: the team wants to review ALL calls
   //       made, not just the bad-timing ones queued for a redial.)
-  const [callSubTab, setCallSubTab] = useState<0 | 1 | 2 | 3>(0);
+  const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
+  const [showScheduled, setShowScheduled] = useState(false);
   const [search, setSearch] = useState("");
   // History sub-tab: which outcome bucket (or "all") + the date window.
   const [histClass, setHistClass] = useState<HistClass>("all");
@@ -996,9 +997,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
     r => !isReplyEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending"),
   ).length;
 
-  // "Needs attention now" = due To-Call + Awaiting Outcome. Excludes Scheduled
-  // (not due yet) so the tab badge / hero don't over-alarm.
-  const callsNeedingAttention = callsToMake.length + callsAwaitingOutcome.length;
+  // "Calls to make" for the tab badge / hero = due To-Call only (Awaiting are
+  // already dialed & need classifying; Scheduled aren't due yet).
+  const callsNeedingAttention = callsToMake.length;
   const totalCount = callsNeedingAttention + pendingReplyCount;
   const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
 
@@ -1153,7 +1154,6 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
               style={{ borderColor: C.border, backgroundColor: C.card }}>
               {([
                 { idx: 0 as const, label: t("queue.calls.sub.toCall"),   count: callsToMake.length,           icon: PhoneCall },
-                { idx: 3 as const, label: "Scheduled",                   count: callsScheduled.length,        icon: Calendar  },
                 { idx: 1 as const, label: t("queue.calls.sub.awaiting"), count: callsAwaitingOutcome.length,  icon: Clock     },
                 { idx: 2 as const, label: t("queue.calls.sub.history"),  count: callHistory.length,           icon: Phone     },
                 // Awaiting Outcome count = unclassified calls in the log (same
@@ -1195,6 +1195,39 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                   <button onClick={() => setCallSeller("all")} className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md font-semibold transition-colors hover:bg-black/[0.04]" style={{ color: C.textDim }}>
                     <X size={11} /> {t("queue.calls.clear")}
                   </button>
+                )}
+              </div>
+            )}
+
+            {/* Scheduled — discreet collapsible inside To Call. Pending calls
+                not due yet, shown with the date each becomes callable. */}
+            {callSubTab === 0 && callsScheduled.length > 0 && (
+              <div className="mb-3 rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                <button onClick={() => setShowScheduled(s => !s)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-black/[0.02]">
+                  <Calendar size={14} style={{ color: "#F97316" }} />
+                  <span className="text-xs font-semibold" style={{ color: C.textBody }}>{filteredCallsScheduled.length} scheduled</span>
+                  <span className="text-[11px]" style={{ color: C.textDim }}>· not due yet{filteredCallsScheduled[0]?.dueAt ? ` · next ${new Date(filteredCallsScheduled[0].dueAt as number).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}</span>
+                  <ChevronRight size={14} className="ml-auto" style={{ color: C.textDim, transform: showScheduled ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+                </button>
+                {showScheduled && (
+                  <div className="border-t px-2 py-2 space-y-1.5" style={{ borderColor: C.border }}>
+                    {filteredCallsScheduled.map(call => {
+                      const avail = call.dueAt ? new Date(call.dueAt as number).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "soon";
+                      return (
+                        <div key={call.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ backgroundColor: C.surface }}>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{call.leadName}</p>
+                            <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{call.role ? `${call.role} · ` : ""}{call.company ?? ""}</p>
+                          </div>
+                          <span className="text-[11px] font-bold shrink-0" style={{ color: "#F97316" }}>Available {avail}</span>
+                          <button onClick={() => router.push(`/leads/${call.leadId}`)}
+                            className="text-[11px] font-semibold px-2 py-1 rounded-md border shrink-0 transition-colors hover:bg-black/[0.03]"
+                            style={{ borderColor: C.border, color: C.textBody }}>Open</button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}
@@ -1245,48 +1278,6 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                     deleting={bulkDeleting}
                   />
                   {filteredCallsAwaiting.map(e => <CallHistoryRow key={e.id} e={e} selected={selectedCalls.has(e.id)} onToggleSelect={toggleCallSelect} />)}
-                </div>
-              )
-            ) : callSubTab === 3 ? (
-              // Scheduled — pending calls not due yet, read-only, with the date
-              // each becomes callable. They roll into "To Call" once due.
-              filteredCallsScheduled.length === 0 ? (
-                <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
-                  style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                    style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
-                    <CheckCircle size={22} style={{ color: C.green }} />
-                  </div>
-                  <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{search ? t("queue.empty.noCallsSearch") : "No scheduled calls"}</p>
-                  <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>Calls waiting for their cadence timer appear here with the date they become callable.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredCallsScheduled.map(call => {
-                    const avail = call.dueAt
-                      ? new Date(call.dueAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
-                      : "soon";
-                    return (
-                      <div key={call.id} className="rounded-2xl border flex items-center gap-4 px-5 py-3.5"
-                        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: "color-mix(in srgb, #F97316 12%, transparent)", color: "#F97316" }}>
-                          <Calendar size={18} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold truncate" style={{ color: C.textPrimary }}>{call.leadName}</p>
-                          <p className="text-xs truncate" style={{ color: C.textMuted }}>{call.role ? `${call.role} · ` : ""}{call.company ?? ""}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-[11px] font-bold" style={{ color: "#F97316" }}>Available {avail}</div>
-                          <div className="text-[10px]" style={{ color: C.textDim }}>Step {(call.currentStep ?? 0) + 1}/{call.totalSteps}</div>
-                        </div>
-                        <button onClick={() => router.push(`/leads/${call.leadId}`)}
-                          className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors hover:bg-black/[0.03]"
-                          style={{ borderColor: C.border, color: C.textBody }}>Open lead</button>
-                      </div>
-                    );
-                  })}
                 </div>
               )
             ) : activeList.length === 0 ? (
