@@ -45,6 +45,8 @@ type PendingCall = {
   lastStepAt: string | null;
   isOverdue?: boolean;
   overdueDays?: number;
+  isDue?: boolean;
+  dueAt?: number | null;
   aircallNumberId?: number | null;
   latestCall: {
     id: string;
@@ -845,7 +847,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   //       timing / Wrong number — with date filters + recordings. Renamed from
   //       "Follow-ups" 2026-06-04 per boss: the team wants to review ALL calls
   //       made, not just the bad-timing ones queued for a redial.)
-  const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
+  const [callSubTab, setCallSubTab] = useState<0 | 1 | 2 | 3>(0);
   const [search, setSearch] = useState("");
   // History sub-tab: which outcome bucket (or "all") + the date window.
   const [histClass, setHistClass] = useState<HistClass>("all");
@@ -949,8 +951,14 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const overduenessRank = (c: PendingCall) =>
     (c.isOverdue ? 1_000_000 : 0) + (c.overdueDays ?? 0);
   const callsToMake = pendingCalls
-    .filter(c => !c.latestCall)
+    .filter(c => !c.latestCall && c.isDue !== false)
     .sort((a, b) => overduenessRank(b) - overduenessRank(a));
+  // Scheduled = pending call not due yet (waiting its daysAfter business-day
+  // timer). Read-only, shown with the date it becomes callable, so sellers can
+  // see the calls exist and aren't lost — they roll into "To Call" once due.
+  const callsScheduled = pendingCalls
+    .filter(c => !c.latestCall && c.isDue === false)
+    .sort((a, b) => (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity));
   // Awaiting Outcome = every call that was MADE but has no outcome logged yet
   // (Fran 2026-06-11). Sourced from the real call log (callHistory), not from
   // pendingCalls — a call needs classifying whether or not its campaign is still
@@ -988,7 +996,10 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
     r => !isReplyEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending"),
   ).length;
 
-  const totalCount = pendingCalls.length + pendingReplyCount;
+  // "Needs attention now" = due To-Call + Awaiting Outcome. Excludes Scheduled
+  // (not due yet) so the tab badge / hero don't over-alarm.
+  const callsNeedingAttention = callsToMake.length + callsAwaitingOutcome.length;
+  const totalCount = callsNeedingAttention + pendingReplyCount;
   const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
 
   const applyCallSearch = (list: PendingCall[]) => !search ? list
@@ -1002,6 +1013,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   ].filter(Boolean) as string[])).sort();
 
   const filteredCallsToMake = applyCallSearch(callsToMake)
+    .filter(c => callSeller === "all" || c.sellerName === callSeller);
+  const filteredCallsScheduled = applyCallSearch(callsScheduled)
     .filter(c => callSeller === "all" || c.sellerName === callSeller);
   // Awaiting now holds CallHistoryEntry rows → its own search predicate.
   const filteredCallsAwaiting = (!search ? callsAwaitingOutcome
@@ -1023,7 +1036,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const tabs = [
     { id: 0, label: t("queue.tab.replies"), count: pendingReplyCount,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false, dot: false },
     { id: 2, label: t("queue.tab.chat"),    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false, dot: chatUnread > 0 },
-    { id: 1, label: t("queue.tab.calls"),   count: pendingCalls.length, color: "#F97316", reviewCount: 0,                dividerBefore: true,  dot: false },
+    { id: 1, label: t("queue.tab.calls"),   count: callsNeedingAttention, color: "#F97316", reviewCount: 0,                dividerBefore: true,  dot: false },
   ];
 
   return (
@@ -1036,7 +1049,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
         accentColor={C.orange}
         status={{ label: totalCount > 0 ? t("queue.hero.status.pending").replace("{n}", String(totalCount)) : t("queue.hero.status.clear"), active: totalCount > 0 }}
         stats={[
-          { label: t("queue.hero.stat.calls"), value: pendingCalls.length, tone: pendingCalls.length > 0 ? "warning" : "neutral" },
+          { label: t("queue.hero.stat.calls"), value: callsNeedingAttention, tone: callsNeedingAttention > 0 ? "warning" : "neutral" },
           { label: t("queue.hero.stat.replies"), value: pendingReplyCount, tone: pendingReplyCount > 0 ? "positive" : "neutral" },
           { label: t("queue.hero.stat.review"), value: needsReviewCount, tone: needsReviewCount > 0 ? "danger" : "neutral" },
         ]}
@@ -1140,6 +1153,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
               style={{ borderColor: C.border, backgroundColor: C.card }}>
               {([
                 { idx: 0 as const, label: t("queue.calls.sub.toCall"),   count: callsToMake.length,           icon: PhoneCall },
+                { idx: 3 as const, label: "Scheduled",                   count: callsScheduled.length,        icon: Calendar  },
                 { idx: 1 as const, label: t("queue.calls.sub.awaiting"), count: callsAwaitingOutcome.length,  icon: Clock     },
                 { idx: 2 as const, label: t("queue.calls.sub.history"),  count: callHistory.length,           icon: Phone     },
                 // Awaiting Outcome count = unclassified calls in the log (same
@@ -1231,6 +1245,48 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                     deleting={bulkDeleting}
                   />
                   {filteredCallsAwaiting.map(e => <CallHistoryRow key={e.id} e={e} selected={selectedCalls.has(e.id)} onToggleSelect={toggleCallSelect} />)}
+                </div>
+              )
+            ) : callSubTab === 3 ? (
+              // Scheduled — pending calls not due yet, read-only, with the date
+              // each becomes callable. They roll into "To Call" once due.
+              filteredCallsScheduled.length === 0 ? (
+                <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
+                  style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                    style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
+                    <CheckCircle size={22} style={{ color: C.green }} />
+                  </div>
+                  <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{search ? t("queue.empty.noCallsSearch") : "No scheduled calls"}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>Calls waiting for their cadence timer appear here with the date they become callable.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredCallsScheduled.map(call => {
+                    const avail = call.dueAt
+                      ? new Date(call.dueAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+                      : "soon";
+                    return (
+                      <div key={call.id} className="rounded-2xl border flex items-center gap-4 px-5 py-3.5"
+                        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: "color-mix(in srgb, #F97316 12%, transparent)", color: "#F97316" }}>
+                          <Calendar size={18} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold truncate" style={{ color: C.textPrimary }}>{call.leadName}</p>
+                          <p className="text-xs truncate" style={{ color: C.textMuted }}>{call.role ? `${call.role} · ` : ""}{call.company ?? ""}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-[11px] font-bold" style={{ color: "#F97316" }}>Available {avail}</div>
+                          <div className="text-[10px]" style={{ color: C.textDim }}>Step {(call.currentStep ?? 0) + 1}/{call.totalSteps}</div>
+                        </div>
+                        <button onClick={() => router.push(`/leads/${call.leadId}`)}
+                          className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors hover:bg-black/[0.03]"
+                          style={{ borderColor: C.border, color: C.textBody }}>Open lead</button>
+                      </div>
+                    );
+                  })}
                 </div>
               )
             ) : activeList.length === 0 ? (

@@ -374,6 +374,7 @@ async function getQueueData() {
     handledCallStepsByCampaign,
     repliedNonCallLeadIds: repliedLeadIds,
     now,
+    includeScheduled: true,
   });
 
   const pendingCalls: any[] = [];
@@ -409,6 +410,8 @@ async function getQueueData() {
       talkingPoints: (lead as any)?.call_talking_points ?? null,
       callAdvanceMode: ((c as any)?.call_advance_mode as "auto" | "manual" | undefined) ?? "auto",
       lastStepAt: c.last_step_at,
+      isDue: info.isDue,
+      dueAt: info.dueAt,
       isOverdue,
       overdueDays,
       aircallNumberId: (c as any).aircall_number_id ?? null,

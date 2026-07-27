@@ -40,6 +40,7 @@ export type PendingCallInfo = {
   leadId: string;
   currentStepIdx: number;
   dueAt: number | null;
+  isDue: boolean;
   isOverdue: boolean;
   overdueDays: number;
 };
@@ -66,8 +67,11 @@ export function computePendingCalls(opts: {
   /** lead ids that have replied on any channel OTHER than 'call'. */
   repliedNonCallLeadIds: Set<string>;
   now: number;
+  /** when true, also return calls that aren't due yet (isDue=false) so the UI
+   *  can show a "Scheduled" list. Default false = only actionable/due calls. */
+  includeScheduled?: boolean;
 }): Map<string, PendingCallInfo> {
-  const { campaigns, leadById, handledCallStepsByCampaign, repliedNonCallLeadIds, now } = opts;
+  const { campaigns, leadById, handledCallStepsByCampaign, repliedNonCallLeadIds, now, includeScheduled = false } = opts;
   const todayDow = new Date(now).getDay();
   const isTodayWeekend = todayDow === 0 || todayDow === 6;
 
@@ -94,12 +98,15 @@ export function computePendingCalls(opts: {
     const daysAfter = steps[idx]?.daysAfter ?? 0;
     const rawDueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86_400_000 : null;
     const dueAt = rawDueAt !== null ? rollWeekendForward(rawDueAt) : null;
-    const isDue = isTodayWeekend ? false : dueAt !== null ? now >= dueAt : daysAfter === 0;
-    if (!isDue) continue;
+    // null dueAt = last_step_at was never stamped → surface the call as due NOW
+    // instead of hiding it forever (the old `daysAfter === 0` fallback left such
+    // calls permanently invisible in "To Call"). Weekends are never due.
+    const isDue = isTodayWeekend ? false : dueAt !== null ? now >= dueAt : true;
+    if (!isDue && !includeScheduled) continue;
 
-    const isOverdue = dueAt !== null && now > dueAt;
+    const isOverdue = isDue && dueAt !== null && now > dueAt;
     const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86_400_000) : 0;
-    out.set(c.id, { leadId: c.lead_id, currentStepIdx: idx, dueAt, isOverdue, overdueDays });
+    out.set(c.id, { leadId: c.lead_id, currentStepIdx: idx, dueAt, isDue, isOverdue, overdueDays });
   }
   return out;
 }
