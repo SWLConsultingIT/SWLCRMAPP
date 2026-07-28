@@ -863,7 +863,7 @@ export default async function DashboardPage({
                 hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
                 vsPriorLabel={t("dashx.kpi.vsPrior")}
                 noPriorLabel={t("dashx.kpi.noPrior")}
-                href="/opportunities"
+                href="/results?tab=won"
               />
               <MicroKpi
                 label={t("dashx.kpi.lost")}
@@ -873,7 +873,7 @@ export default async function DashboardPage({
                 hint={t("dashx.kpi.lostHint")}
                 vsPriorLabel={t("dashx.kpi.vsPrior")}
                 noPriorLabel={t("dashx.kpi.noPrior")}
-                href="/leads/lost"
+                href="/results?tab=lost"
               />
             </div>
             {/* Rates column — 2 cards on a subtly different background so
@@ -898,7 +898,7 @@ export default async function DashboardPage({
                 hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
                 vsPriorLabel={t("dashx.kpi.vsPrior")}
                 noPriorLabel={t("dashx.kpi.noPrior")}
-                href="/opportunities"
+                href="/results?tab=won"
               />
             </div>
           </div>

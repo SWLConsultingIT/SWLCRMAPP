@@ -43,7 +43,7 @@ export default function LostLeadActions({ leadId }: Props) {
         body: JSON.stringify({ status: "closed_won" }),
       });
       setDone("won");
-      setTimeout(() => router.push("/opportunities"), 900);
+      setTimeout(() => router.push("/results?tab=won"), 900);
     } finally {
       setBusy(null);
     }

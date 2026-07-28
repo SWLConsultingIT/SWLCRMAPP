@@ -31,6 +31,23 @@ export default function SettingsLayout() {
   // Was a duplicate /api/auth/me fetch on mount — now reads from shared context.
   const user = useAuthUser();
 
+  // Deep-linkable sections via `?section=` — lets other surfaces link straight
+  // to e.g. /settings?section=integrations, and makes each tab bookmarkable and
+  // back-button aware. Read once on mount (client-only, so no Suspense boundary
+  // is required); clicks sync the URL via history.replaceState so there's no
+  // re-fetch or re-render cost, just a shareable address.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("section");
+    if (q && SECTIONS.some(s => s.id === q)) setActive(q as SectionId);
+  }, []);
+
+  function selectSection(id: SectionId) {
+    setActive(id);
+    try {
+      window.history.replaceState(null, "", id === "profile" ? "/settings" : `/settings?section=${id}`);
+    } catch { /* ignore */ }
+  }
+
   return (
     <div className="grid grid-cols-[220px_1fr] gap-6">
       {/* ═══ Sidebar interno ═══ */}
@@ -41,7 +58,7 @@ export default function SettingsLayout() {
           return (
             <button
               key={s.id}
-              onClick={() => setActive(s.id)}
+              onClick={() => selectSection(s.id)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={{
                 backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 7%, transparent)` : "transparent",

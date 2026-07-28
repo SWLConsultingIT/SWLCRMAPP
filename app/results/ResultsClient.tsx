@@ -20,9 +20,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import EmptyState from "@/components/EmptyState";
 import {
   Trophy, X, RefreshCw, Search, ChevronRight, Target,
   Star, CheckSquare, Square, Trash2, Flame, MessageCircle,
@@ -358,9 +359,21 @@ function Section<L>({
 export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, isSwl = false }: Props) {
   const { t, locale } = useLocale();
   const L = (en: string, es: string) => (locale === "es" ? es : en);
-  const [tab, setTab] = useState<Tab>(
-    isSwl ? "pipeline" : wonLeads.length > 0 ? "won" : lostLeads.length > 0 ? "lost" : "renurture",
-  );
+  // Deep-linked tab via `?tab=won|lost|renurture|pipeline` — the surfaces that
+  // redirect here (dashboard KPIs, /opportunities, Mark-as-Won) land on the
+  // right tab. `won` on an SWL tenant maps to its "pipeline" positives view (and
+  // vice-versa) since those tenants don't have a flat Won tab.
+  const searchParams = useSearchParams();
+  const initialTab: Tab = (() => {
+    const valid: Tab[] = isSwl ? ["pipeline", "lost", "renurture"] : ["won", "lost", "renurture"];
+    const raw = searchParams.get("tab");
+    const req = raw === "won" && isSwl ? "pipeline"
+      : raw === "pipeline" && !isSwl ? "won"
+      : raw;
+    if (req && (valid as string[]).includes(req)) return req as Tab;
+    return isSwl ? "pipeline" : wonLeads.length > 0 ? "won" : lostLeads.length > 0 ? "lost" : "renurture";
+  })();
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [search, setSearch] = useState("");
 
   // Lost-tab selection state (persists across ICP/campaign groupings).
@@ -565,7 +578,12 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
       <div className="results-acc">
         {tab === "won" && (
           wonGroups.length === 0 ? (
-            <EmptyState icon={Trophy} title={t("results.empty.won.title")} desc={t("results.empty.won.desc")} />
+            <EmptyState
+              icon={Trophy}
+              title={t("results.empty.won.title")}
+              description={t("results.empty.won.desc")}
+              primaryCta={{ label: L("Go to Lead Miner", "Ir a Lead Miner"), href: "/icp" }}
+            />
           ) : wonGroups.map(g => (
             <Section key={g.icp} group={g} t={t} renderRow={lead => <WonRow key={lead.id} lead={lead} t={t} />} />
           ))
@@ -573,7 +591,7 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
 
         {tab === "lost" && (
           lostGroups.length === 0 ? (
-            <EmptyState icon={X} title={t("results.empty.lost.title")} desc={t("results.empty.lost.desc")} />
+            <EmptyState icon={X} title={t("results.empty.lost.title")} description={t("results.empty.lost.desc")} />
           ) : lostGroups.map(g => {
             const groupIds = g.campaigns.flatMap(c => c.leads.map(l => l.id));
             const allSel = groupIds.length > 0 && groupIds.every(id => selected.has(id));
@@ -591,7 +609,7 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
 
         {tab === "renurture" && (
           renurGroups.length === 0 ? (
-            <EmptyState icon={RefreshCw} title={t("results.empty.renurture.title")} desc={t("results.empty.renurture.desc")} />
+            <EmptyState icon={RefreshCw} title={t("results.empty.renurture.title")} description={t("results.empty.renurture.desc")} />
           ) : renurGroups.map(g => (
             <Section key={g.icp} group={g} t={t} renderRow={lead => <RenurtureRow key={lead.id} lead={lead} t={t} />} />
           ))
@@ -643,16 +661,3 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
   );
 }
 
-function EmptyState({ icon: Icon, title, desc }: {
-  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties; className?: string }>;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <Icon size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-      <p className="text-sm font-medium" style={{ color: C.textBody }}>{title}</p>
-      <p className="text-xs mt-1" style={{ color: C.textMuted }}>{desc}</p>
-    </div>
-  );
-}

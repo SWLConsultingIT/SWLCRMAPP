@@ -4,10 +4,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import {
   Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2, Sparkles,
   LayoutDashboard, Users, Megaphone, Building2, Target, Shield, Bell,
-  Trophy, UserCircle, Settings,
+  Trophy, UserCircle, Settings, Sun, Moon, Languages,
 } from "lucide-react";
 
 type LeadResult = {
@@ -20,7 +21,10 @@ type NavCommand = {
   label: string;
   hint: string;
   icon: React.ElementType;
-  href: string;
+  /** Navigation target. Omit when the command runs an `action` instead. */
+  href?: string;
+  /** Client-side action (theme/language toggles, etc.) — runs instead of navigating. */
+  action?: () => void;
   group: "navigation" | "actions";
   keywords?: string[];
 };
@@ -35,7 +39,8 @@ const statusConfig: Record<string, { color: string; icon: React.ElementType }> =
 
 export default function CommandPalette() {
   const router = useRouter();
-  const { t, locale } = useLocale();
+  const { t, locale, setLocale } = useLocale();
+  const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [leadResults, setLeadResults] = useState<LeadResult[]>([]);
@@ -51,14 +56,19 @@ export default function CommandPalette() {
     { id: "campaigns",  label: "Outreach Flow™",      hint: locale === "es" ? "Crear y gestionar campañas" : "Create and manage campaigns", icon: Megaphone,       href: "/campaigns",     group: "navigation", keywords: ["outreach", "campaigns", "campañas"] },
     { id: "icp",        label: "Lead Miner™",         hint: locale === "es" ? "Perfiles ICP"        : "ICP profiles",                  icon: Target,          href: "/icp",           group: "navigation", keywords: ["icp", "miner", "profiles"] },
     { id: "accounts",   label: t("nav.accounts"),     hint: locale === "es" ? "Sellers y conexiones LinkedIn" : "Sellers and LinkedIn accounts", icon: UserCircle,      href: "/accounts",      group: "navigation", keywords: ["sellers", "linkedin", "unipile", "aircall"] },
-    { id: "ops",        label: t("nav.opportunities"), hint: locale === "es" ? "Leads convertidos"  : "Converted leads",               icon: Trophy,          href: "/opportunities", group: "navigation", keywords: ["wins", "won", "ganados"] },
+    { id: "ops",        label: t("nav.results"),      hint: locale === "es" ? "Ganados, perdidos y re-nurture" : "Won, lost & re-nurture",   icon: Trophy,          href: "/results",       group: "navigation", keywords: ["wins", "won", "ganados", "opportunities", "oportunidades", "results", "resultados", "lost", "perdidos", "converted"] },
     { id: "queue",      label: t("nav.queue"),        hint: locale === "es" ? "Tareas pendientes"  : "Pending tasks",                 icon: Bell,            href: "/queue",         group: "navigation", keywords: ["calls", "reviews", "replies"] },
     { id: "company",    label: t("nav.companyBio"),   hint: locale === "es" ? "Empresas"            : "Companies",                     icon: Building2,       href: "/company-bios",  group: "navigation", keywords: ["company", "empresa", "bios"] },
     { id: "admin",      label: t("nav.admin"),        hint: locale === "es" ? "Panel admin (interno)" : "Admin panel (internal)",      icon: Shield,          href: "/admin",         group: "navigation", keywords: ["admin", "internal"] },
     { id: "settings",   label: t("nav.settings"),     hint: locale === "es" ? "Tu cuenta"           : "Your account",                  icon: Settings,        href: "/settings",      group: "navigation", keywords: ["account", "preferences", "language"] },
     // Quick actions
     { id: "new-flow",  label: locale === "es" ? "Crear nuevo flow" : "Create New Flow",  hint: "Outreach Flow™",            icon: Megaphone, href: "/campaigns?tab=new",       group: "actions", keywords: ["flow", "campaign", "campaña", "outreach", "nuevo", "new", "create", "crear"] },
-  ], [t, locale]);
+    { id: "import-leads", label: locale === "es" ? "Importar leads" : "Import leads", hint: locale === "es" ? "Subir CSV/Excel" : "Upload CSV/Excel", icon: Users, href: "/leads/import", group: "actions", keywords: ["import", "importar", "csv", "excel", "upload", "subir", "leads"] },
+    // Real actions (client-side, no navigation) — turn ⌘K into a command runner,
+    // not just a jump list. Safe: theme/language are per-user prefs, no data writes.
+    { id: "toggle-theme", label: theme === "dark" ? (locale === "es" ? "Cambiar a modo claro" : "Switch to Light mode") : (locale === "es" ? "Cambiar a modo oscuro" : "Switch to Dark mode"), hint: locale === "es" ? "Cambiar apariencia" : "Change appearance", icon: theme === "dark" ? Sun : Moon, action: () => setTheme(theme === "dark" ? "light" : "dark"), group: "actions", keywords: ["theme", "tema", "dark", "light", "oscuro", "claro", "modo", "appearance"] },
+    { id: "toggle-lang", label: locale === "es" ? "Switch to English" : "Cambiar a Español", hint: locale === "es" ? "Cambiar idioma" : "Change language", icon: Languages, action: () => setLocale(locale === "es" ? "en" : "es"), group: "actions", keywords: ["language", "idioma", "english", "español", "inglés", "lang", "spanish"] },
+  ], [t, locale, theme, setTheme, setLocale]);
 
   // Filter nav commands by query (case-insensitive substring on label, hint, keywords).
   const filteredNav = useMemo(() => {
@@ -123,7 +133,10 @@ export default function CommandPalette() {
     if (!item) return;
     setOpen(false);
     if (item.kind === "copilot") router.push(`/copilot?q=${encodeURIComponent(item.data.q)}`);
-    else if (item.kind === "nav") router.push(item.data.href);
+    else if (item.kind === "nav") {
+      if (item.data.action) item.data.action();
+      else if (item.data.href) router.push(item.data.href);
+    }
     else router.push(`/leads/${item.data.id}`);
   }
 

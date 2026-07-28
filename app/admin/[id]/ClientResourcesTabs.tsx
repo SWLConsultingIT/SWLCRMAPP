@@ -123,7 +123,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
   const sharable = sellers.filter(s => s.company_bio_id !== companyBioId);
 
   if (sellers.length === 0) {
-    return <EmptyState icon={Share2} text="No sellers in the system yet" sub="Add sellers from the global Sellers view first." />;
+    return <TabEmptyState icon={Share2} text="No sellers in the system yet" sub="Add sellers from the global Sellers view first." />;
   }
 
   const renderRow = (seller: SellerRow, mode: "owned" | "share") => {
@@ -457,7 +457,7 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
   if (loading) return <Spinner />;
 
   const totalInboxes = sections.reduce((n, s) => n + s.inboxes.length, 0);
-  if (totalInboxes === 0) return <EmptyState icon={Mail} text="No Instantly inboxes available" sub="Register a workspace from /admin → Email Access first." />;
+  if (totalInboxes === 0) return <TabEmptyState icon={Mail} text="No Instantly inboxes available" sub="Register a workspace from /admin → Email Access first." />;
 
   return (
     <div className="space-y-4">
@@ -553,7 +553,7 @@ function Spinner() {
   return <div className="flex items-center justify-center py-12"><Loader2 size={18} className="animate-spin" style={{ color: C.textDim }} /></div>;
 }
 
-function EmptyState({ icon: Icon, text, sub }: { icon: any; text: string; sub?: string }) {
+function TabEmptyState({ icon: Icon, text, sub }: { icon: any; text: string; sub?: string }) {
   return (
     <div className="py-10 text-center">
       <Icon size={22} className="mx-auto mb-2" style={{ color: C.textDim }} />

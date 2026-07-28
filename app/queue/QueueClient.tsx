@@ -828,15 +828,17 @@ function CallHistoryPanel({
 export default function QueueClient({ pendingCalls, newReplies, callHistory }: Props) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
-  // Deep-linked tab via `?tab=calls` / `?tab=inbox` / `?tab=history`. Per
-  // boss feedback 2026-05-27, History is now the first tab — that's the
-  // surface sellers want when they open Notifications (positive replies +
-  // acceptances). Calls is second. Removed `?tab=reviews` / `?tab=updates`
-  // — those tabs were deleted; bookmarks land on History.
+  // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls, 2 = Team
+  // Chat. The default is 0 — the reply-triage surface sellers want when they
+  // open "Inbox" from the sidebar (matches the sidebar's pendingReplies badge).
+  // Deep-linked via `?tab=` — `calls` → 1, `chat` → 2, and `inbox`/`replies`
+  // → 0 (explicit so documented links resolve, not just fall through).
+  // Removed `?tab=reviews` / `?tab=updates` — those tabs were deleted.
   const initialTab = (() => {
     const t = searchParams.get("tab");
     if (t === "calls") return 1;
     if (t === "chat") return 2;
+    if (t === "inbox" || t === "replies") return 0;
     return 0;
   })();
   const [tab, setTab] = useState(initialTab);

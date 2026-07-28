@@ -30,6 +30,10 @@ type NavItem = {
   tag?: string;
   badgeKey?: "calls" | "pending" | "pendingReplies";
   adminOnly?: boolean;
+  // Single-letter chord shortcut (press G then this key). Chosen from the
+  // VISIBLE label's initial so the mnemonic is discoverable — surfaced as a
+  // key hint on hover and used to build the keyboard map below.
+  shortcut?: string;
 };
 
 // Sidebar — user-confirmed layout (Option A):
@@ -44,24 +48,27 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
   {
     labelKey: "nav.section.main",
     items: [
-      { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
-      { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2 },
-      { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "pendingReplies" },
+      { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, shortcut: "D" },
+      { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2, shortcut: "B" },
+      { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "pendingReplies", shortcut: "I" },
     ],
   },
   {
     labelKey: "nav.section.growth",
     items: [
-      { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI" },
-      { href: "/campaigns", labelKey: "", brandLabel: "Outreach Flow™", icon: Megaphone, tag: "AI" },
-      { href: "/leads", labelKey: "nav.leads", icon: Users },
-      { href: "/results", labelKey: "nav.results", icon: Trophy },
+      // "M" for Lead *M*iner — "L" belongs to Leads, so the Miner keeps the
+      // next-best mnemonic from its own name.
+      { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI", shortcut: "M" },
+      { href: "/campaigns", labelKey: "", brandLabel: "Outreach Flow™", icon: Megaphone, tag: "AI", shortcut: "O" },
+      { href: "/leads", labelKey: "nav.leads", icon: Users, shortcut: "L" },
+      { href: "/results", labelKey: "nav.results", icon: Trophy, shortcut: "R" },
     ],
   },
   {
     labelKey: "nav.section.operations",
     items: [
-      { href: "/accounts", labelKey: "nav.accounts", icon: UserCircle },
+      { href: "/accounts", labelKey: "nav.accounts", icon: UserCircle, shortcut: "A" },
+      // Admin has no chord — "A" is Accounts, and it's a gated, rarely-hopped-to surface.
       { href: "/admin", labelKey: "nav.admin", icon: Shield, badgeKey: "pending", adminOnly: true },
     ],
   },
@@ -106,21 +113,19 @@ export default function Sidebar() {
   }
 
   // Keyboard shortcuts — Linear/GitHub "G then <letter>" pattern. Press G,
-  // then within 1.2s press one of: D, B, N, I, O, L, A, S to jump. Ignored
-  // while typing in an input/textarea/contenteditable.
+  // then within 1.2s press the letter shown on hover next to each nav item.
+  // The map is built from the nav items' `shortcut` field (single source of
+  // truth with the hover hints) plus Settings, which lives in the footer.
+  // Ignored while typing in an input/textarea/contenteditable.
   useEffect(() => {
     let gPressedAt = 0;
     const TIMEOUT_MS = 1200;
-    const shortcuts: Record<string, string> = {
-      d: "/",
-      b: "/company-bios",
-      n: "/queue",
-      i: "/icp",
-      o: "/campaigns",
-      l: "/leads",
-      a: "/accounts",
-      s: "/settings",
-    };
+    const shortcuts: Record<string, string> = { s: "/settings" };
+    for (const section of sections) {
+      for (const item of section.items) {
+        if (item.shortcut) shortcuts[item.shortcut.toLowerCase()] = item.href;
+      }
+    }
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
@@ -355,7 +360,7 @@ export default function Sidebar() {
                 </button>
               )}
 
-              {(railOnly || !isCollapsed || hideHeader) && section.items.map(({ href, labelKey, brandLabel, icon: Icon, tag, badgeKey }) => {
+              {(railOnly || !isCollapsed || hideHeader) && section.items.map(({ href, labelKey, brandLabel, icon: Icon, tag, badgeKey, shortcut }) => {
                 // Active state: straightforward prefix match. The /overview
                 // detour was removed 2026-05-28 r11 — that page was
                 // redundant with /campaigns/[id] (the editable detail), so
@@ -372,7 +377,7 @@ export default function Sidebar() {
                     key={href}
                     href={href}
                     title={railOnly ? itemLabel : undefined}
-                    className={`flex items-center ${railOnly ? "justify-center" : "gap-2.5"} px-3 py-1.5 rounded-lg text-[13px] font-medium transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 relative`}
+                    className={`group flex items-center ${railOnly ? "justify-center" : "gap-2.5"} px-3 py-1.5 rounded-lg text-[13px] font-medium transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 relative`}
                     style={active ? {
                       background: `linear-gradient(90deg, color-mix(in srgb, ${GOLD} 18%, transparent) 0%, color-mix(in srgb, ${GOLD} 4%, transparent) 100%)`,
                       color: GOLD,
@@ -395,6 +400,18 @@ export default function Sidebar() {
                   >
                     <Icon size={15} style={{ color: active ? GOLD : TEXT_MUTED, transition: "color 0.15s", filter: active ? `drop-shadow(0 0 6px color-mix(in srgb, ${GOLD} 50%, transparent))` : undefined }} />
                     {!railOnly && <span className="flex-1">{itemLabel}</span>}
+
+                    {/* Chord hint — reveals on hover (Linear pattern). The
+                        letter matches the visible label so it's learnable. */}
+                    {!railOnly && shortcut && (
+                      <span
+                        aria-hidden
+                        className="text-[9px] font-semibold px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ backgroundColor: "rgba(255,255,255,0.07)", color: TEXT_MUTED, border: `1px solid ${BORDER}` }}
+                      >
+                        {shortcut}
+                      </span>
+                    )}
 
                     {!railOnly && tag && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"

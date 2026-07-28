@@ -1,104 +1,12 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope } from "@/lib/scope";
-import { hydrateClientLeads } from "@/lib/leads-crypto";
-import OpportunitiesClient from "./OpportunitiesClient";
+import { redirect } from "next/navigation";
 
+// The standalone Opportunities LIST duplicated the Results "Won" tab (same
+// derivation from lead_replies + Odoo transfers). Consolidated into /results
+// so there's a single home for lead outcomes. The DETAIL page
+// (/opportunities/[id]) stays untouched — it owns the unique Stage / Notes /
+// Next-Action editor and the Send-to-Odoo panel.
 export const dynamic = "force-dynamic";
 
-async function getOpportunities() {
-  const supabase = await getSupabaseServer();
-  const scope = await getUserScope();
-  const bioId = scope.isScoped ? scope.companyBioId! : null;
-
-  const repliesQ = supabase
-    .from("lead_replies")
-    .select("lead_id, classification, channel, reply_text, received_at, leads!inner(company_bio_id)")
-    .in("classification", ["positive", "meeting_intent"])
-    .order("received_at", { ascending: false });
-  const { data: positiveReplies } = await (bioId ? repliesQ.eq("leads.company_bio_id", bioId) : repliesQ) as any;
-
-  const odooQ = supabase.from("leads").select("id").not("transferred_to_odoo_at", "is", null);
-  const { data: odooLeads } = await (bioId ? odooQ.eq("company_bio_id", bioId) : odooQ);
-
-  const wonLeadIds = new Set([
-    ...(positiveReplies ?? []).map((r: any) => r.lead_id),
-    ...(odooLeads ?? []).map((l: any) => l.id),
-  ]);
-  if (wonLeadIds.size === 0) return { leads: [] };
-  const idArr = Array.from(wonLeadIds) as string[];
-
-  const [{ data: rawLeads }, { data: campaigns }, { data: profiles }] = await Promise.all([
-    supabase.from("leads")
-      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, is_priority, transferred_to_odoo_at, icp_profile_id, created_at")
-      .in("id", idArr),
-    supabase.from("campaigns")
-      .select("id, name, channel, lead_id, current_step, sequence_steps, created_at")
-      .in("lead_id", idArr),
-    supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved"),
-  ]);
-  // Decrypt client-source leads so the Opportunities table shows real names
-  // instead of "Unknown" for tenants whose PII lives in encrypted_payload
-  // (e.g. De Vera Grill — see project_devera_grill_onboarding).
-  const leads = await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[]);
-
-  const profileMap: Record<string, string> = {};
-  for (const p of profiles ?? []) profileMap[p.id] = p.profile_name;
-
-  const campByLead: Record<string, any> = {};
-  for (const c of campaigns ?? []) {
-    if (!campByLead[c.lead_id]) campByLead[c.lead_id] = c;
-  }
-
-  const replyByLead: Record<string, any> = {};
-  for (const r of positiveReplies ?? []) {
-    if (!replyByLead[r.lead_id]) replyByLead[r.lead_id] = r;
-  }
-
-  // Previously this filtered to `l => campByLead[l.id]`, requiring the lead
-  // to have a campaign. That hid leads that won via manual click-to-call
-  // (no campaign) — a real path where a seller calls a fresh lead, marks
-  // the call Positive, and expects them in Opportunities (Fran 2026-05-14).
-  // Now we show every lead with a positive lead_reply for the tenant;
-  // campaign fields just degrade to null when there isn't one.
-  const opportunityLeads = (leads as any[] ?? []).map(l => {
-    const camp = campByLead[l.id] ?? null;
-    const reply = replyByLead[l.id];
-    const steps = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps.length : 0;
-    const channels = camp ? [...new Set([camp.channel, ...(Array.isArray(camp.sequence_steps) ? camp.sequence_steps.map((s: any) => s.channel) : [])])] : (reply?.channel ? [reply.channel] : []);
-    const daysToConvert = reply?.received_at && l.created_at
-      ? Math.max(1, Math.round((new Date(reply.received_at).getTime() - new Date(l.created_at).getTime()) / 86400000))
-      : null;
-
-    return {
-      id: l.id,
-      first_name: l.primary_first_name,
-      last_name: l.primary_last_name,
-      company: l.company_name,
-      role: l.primary_title_role,
-      score: l.lead_score,
-      is_priority: l.is_priority,
-      transferred: !!l.transferred_to_odoo_at,
-      profile_name: l.icp_profile_id ? (profileMap[l.icp_profile_id] ?? null) : null,
-      campaign_name: camp?.name ?? null,
-      campaign_id: camp?.id ?? null,
-      win_channel: reply?.channel ?? camp?.channel ?? null,
-      win_text: reply?.reply_text ?? null,
-      win_classification: reply?.classification ?? "positive",
-      win_date: reply?.received_at ?? null,
-      channels,
-      steps_to_convert: camp?.current_step ?? 0,
-      total_steps: steps,
-      days_to_convert: daysToConvert,
-    };
-  }).sort((a, b) => {
-    if (a.win_date && b.win_date) return new Date(b.win_date).getTime() - new Date(a.win_date).getTime();
-    return 0;
-  });
-
-  return { leads: opportunityLeads };
-}
-
-export default async function OpportunitiesPage() {
-  const { leads } = await getOpportunities();
-  return <OpportunitiesClient leads={JSON.parse(JSON.stringify(leads))} />;
+export default function OpportunitiesPage() {
+  redirect("/results?tab=won");
 }

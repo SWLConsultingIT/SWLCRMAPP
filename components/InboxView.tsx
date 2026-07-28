@@ -311,6 +311,16 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
     return next;
   });
   const [working, setWorking] = useState(false);
+  // Optimistic clear — when a reply is classified, its row vanishes from the
+  // Pending list IMMEDIATELY (before the server round-trip + router.refresh),
+  // so rapid triage feels instant. Keyed by leadId (rows are per-lead). This is
+  // reconciled on every fresh server payload: the effect below wipes the set
+  // whenever `rawReplies` changes, so a successful classify stays gone (the
+  // refreshed props no longer list it as pending) and a failed one is restored
+  // by the rollback in quickClassify. Never touches the `working` serializer —
+  // the reply pipeline's safety net stays exactly as-is.
+  const [clearedLeadIds, setClearedLeadIds] = useState<Set<string>>(new Set());
+  useEffect(() => { setClearedLeadIds(new Set()); }, [rawReplies]);
   // Thread state — fetched on selection change. Lets the right pane show the
   // full back-and-forth (outbound + inbound) rather than a single isolated
   // reply line.
@@ -384,7 +394,11 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
 
   const filtered = useMemo(() => {
     let list = replies;
-    if (tab === "pending") list = list.filter(isPending);
+    if (tab === "pending") {
+      list = list.filter(isPending);
+      // Hide rows optimistically cleared by an in-flight classify.
+      if (clearedLeadIds.size > 0) list = list.filter(r => !clearedLeadIds.has(r.leadId));
+    }
     else if (tab === "history") list = list.filter(r => !isEvent(r) && !isPending(r));
     if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
     if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
@@ -402,7 +416,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
       );
     }
     return list;
-  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter, dateRange, dateCutoffMs]);
+  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter, dateRange, dateCutoffMs, clearedLeadIds]);
 
   // Ensure the currently-selected reply still belongs to the visible list; if
   // not (tab changed, search narrowed), jump to the first visible reply.
@@ -490,6 +504,10 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
   ) {
     if (working) return;
     setWorking(true);
+    // Optimistic: drop the row now so triage feels instant. Rolled back below
+    // if every review call fails; otherwise reconciled by router.refresh().
+    const optimisticLeadId = rawReplies.find(r => r.id === replyId)?.leadId ?? null;
+    if (optimisticLeadId) setClearedLeadIds(prev => new Set(prev).add(optimisticLeadId));
     // Default: send auto-reply for pos/neg, not for follow_up.
     const doSendAR = opts?.sendAutoReply ?? (classification !== "follow_up");
     try {
@@ -512,6 +530,8 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
         }).then(async r => { if (!r.ok) throw new Error(String(r.status)); return r.json().catch(() => ({})); });
       }));
       if (!results.some(r => r.status === "fulfilled")) {
+        // Total failure — restore the optimistically-hidden row.
+        if (optimisticLeadId) setClearedLeadIds(prev => { const n = new Set(prev); n.delete(optimisticLeadId); return n; });
         toast.show({ kind: "error", title: "Couldn't classify", description: "Try again." });
         return;
       }
@@ -523,11 +543,11 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
         : null;
       const ars = primary?.autoReplyStatus;
       const autoReplyDesc = classification === "follow_up" ? undefined
-        : !doSendAR ? "Sin auto-reply — respondé vos desde el composer cuando quieras."
-        : ars === "sent" ? "Auto-reply enviado al lead ✓ — mirá el thread en el lead."
-        : ars === "deduped" ? "Ya le habíamos respondido recién — no se duplicó el mensaje."
-        : ars === "no_template" ? "No salió mensaje — respondé desde el composer si querés."
-        : ars === "failed" ? "⚠ No se pudo enviar el auto-reply — respondé manualmente desde el composer."
+        : !doSendAR ? "No auto-reply — reply yourself from the composer whenever you want."
+        : ars === "sent" ? "Auto-reply sent to the lead ✓ — check the thread on the lead."
+        : ars === "deduped" ? "We already replied just now — the message wasn't duplicated."
+        : ars === "no_template" ? "No message went out — reply from the composer if you want."
+        : ars === "failed" ? "⚠ Couldn't send the auto-reply — reply manually from the composer."
         : undefined;
       // Mirror the API's cascade response: positive/negative now pause the
       // campaign + close the lead. Tell the seller so they don't expect

@@ -969,7 +969,7 @@ export default function NewCampaignWizard() {
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 6%, transparent)`, borderColor: `color-mix(in srgb, ${gold} 25%, transparent)` }}>
           <span className="text-xs font-semibold" style={{ color: gold }}>Draft restored</span>
           <span className="text-xs" style={{ color: C.textMuted }}>
-            Recuperamos tu trabajo en progreso. Si querés empezar de cero, descartá el borrador.
+            We restored your work in progress. To start fresh, discard the draft.
           </span>
           <button
             type="button"
@@ -992,7 +992,7 @@ export default function NewCampaignWizard() {
             className="ml-auto text-xs font-medium hover:underline"
             style={{ color: C.textMuted }}
           >
-            Descartar borrador
+            Discard draft
           </button>
         </div>
       )}

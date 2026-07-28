@@ -1180,7 +1180,7 @@ export const en: Dict = {
   "flows.chip.won": "Won",
   "flows.chip.lost": "Lost",
   "flows.empty.title": "No active flows yet",
-  "flows.empty.hint": "Open the Create New Flow tab to launch your first one.",
+  "flows.empty.hint": "Pick leads in Lead Miner to launch your first flow.",
   // Today's pulse strip (top of /campaigns)
   "flows.pulse.eyebrow": "Today's pulse",
   "flows.pulse.flowsRunning": "{n} flows running",
@@ -3183,7 +3183,7 @@ export const es: Dict = {
   "flows.chip.won": "Ganadas",
   "flows.chip.lost": "Perdidas",
   "flows.empty.title": "Aún no hay flows activos",
-  "flows.empty.hint": "Abrí la pestaña Crear nuevo flow para lanzar el primero.",
+  "flows.empty.hint": "Elegí leads en Lead Miner para lanzar tu primer flow.",
   // Today's pulse
   "flows.pulse.eyebrow": "Pulso de hoy",
   "flows.pulse.flowsRunning": "{n} flows corriendo",
