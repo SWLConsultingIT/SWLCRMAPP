@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { decryptLeadPayload, encryptLeadPayload, bufferFromSupabaseBytea, logDataAccess, ENCRYPTED_LEAD_COLUMNS } from "@/lib/leads-crypto";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
@@ -74,7 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const svc = getSupabaseService();
   const { data: lead, error: readErr } = await svc
     .from("leads")
-    .select("id, company_bio_id")
+    .select("id, company_bio_id, source, encrypted_payload")
     .eq("id", id)
     .maybeSingle();
   if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
@@ -83,17 +84,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  update.updated_at = new Date().toISOString();
-
   // Replacing a wrong-number flag: when the seller edits primary_phone
   // (or primary_secondary_phone) on a lead that had allow_call=false from
   // a "wrong number" post-call outcome, re-enable the channel automatically
   // so the next dispatch / Call button works without needing a separate
-  // admin step. Without this, sellers were updating the number, getting
-  // no feedback that the channel was still disabled, and discovering it
-  // again at the next call attempt. (2026-06-01.)
+  // admin step. (2026-06-01.)
   if ("primary_phone" in update || "primary_secondary_phone" in update) {
     update.allow_call = true;
+  }
+  update.updated_at = new Date().toISOString();
+
+  // Client-source leads keep PII (email, phone, name…) in encrypted_payload;
+  // the plain columns are NULL and reads come from the decrypted blob. Writing
+  // the plain column would silently NO-OP — the edit wouldn't show. So for those
+  // leads, round-trip the encrypted fields THROUGH encrypted_payload and keep
+  // them out of the plain update. (This also fixes the same latent bug the phone
+  // editor had for client tenants.) SWL-source leads stay on plain columns.
+  const encryptedEdits: Record<string, unknown> = {};
+  for (const k of Object.keys(update)) {
+    if (ENCRYPTED_LEAD_COLUMNS.includes(k)) encryptedEdits[k] = update[k];
+  }
+  const isClientEncrypted = (lead as any).source === "client" && !!(lead as any).encrypted_payload;
+  if (isClientEncrypted && Object.keys(encryptedEdits).length > 0) {
+    try {
+      const bioId = lead.company_bio_id as string;
+      const current = await decryptLeadPayload(bufferFromSupabaseBytea((lead as any).encrypted_payload), bioId);
+      const { ciphertext } = await encryptLeadPayload({ ...current, ...encryptedEdits }, bioId);
+      // bytea write MUST be the hex-escaped form — a raw Buffer corrupts the
+      // ciphertext through supabase-js (De Vera Grill incident, 2026-05).
+      update.encrypted_payload = "\\x" + ciphertext.toString("hex");
+      await logDataAccess({ companyBioId: bioId, leadId: id, caller: "client-app", reason: "inline field edit" });
+      // Don't also write the encrypted fields to the (unread) plain columns.
+      for (const k of Object.keys(encryptedEdits)) delete update[k];
+    } catch (e) {
+      return NextResponse.json({ error: "could not update encrypted field: " + (e as Error).message }, { status: 500 });
+    }
   }
 
   const { error } = await svc.from("leads").update(update).eq("id", id);

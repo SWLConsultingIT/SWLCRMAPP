@@ -23,6 +23,7 @@ import SyncAircallButton from "@/components/SyncAircallButton";
 import CallButton from "@/components/CallButton";
 import EditableLeadField from "@/components/EditableLeadField";
 import WrongNumberPill from "@/components/WrongNumberPill";
+import LogOutcomeButton from "@/components/LogOutcomeButton";
 import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSellerTags from "@/components/LeadSellerTags";
@@ -745,6 +746,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   )}
                 </div>
               )}
+              {/* Log outcome — record the result of a call made outside the
+                  app (personal phone). Opens the same outcome prompt as an
+                  in-app dial; no phone/Aircall call required. (Simo 2026-07-28) */}
+              <div className="flex-1 sm:flex-initial">
+                <LogOutcomeButton leadId={id} />
+              </div>
               {/* "View flow" — always visible when the lead has any
                   campaign linked (active OR completed). One click to the
                   campaign detail / flow view. Sits between the call
@@ -1419,24 +1426,35 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
               {/* Contact methods */}
               <div className="grid grid-cols-3 gap-3 mb-4">
-                {lead.primary_work_email && (() => {
+                {(() => {
                   // Email-health flag, mirroring the wrong-number pill on Mobile.
                   // primary_email_status is set by the Instantly verification pass
                   // and the bounce handler — surface it here so a dead address is
                   // visible right on the lead, not only in the funnel.
+                  // Always rendered (even with no email) so the seller can add or
+                  // fix it inline — same as the Mobile card. (Simo 2026-07-28)
                   const es = lead.primary_email_status as string | null;
-                  const label = es === "bounced" ? "Bounced — undeliverable"
+                  const hasEmail = !!lead.primary_work_email;
+                  const label = hasEmail ? (es === "bounced" ? "Bounced — undeliverable"
                     : es === "invalid" ? "Invalid address"
-                    : es === "catch_all" ? "Catch-all — risky" : null;
+                    : es === "catch_all" ? "Catch-all — risky" : null) : null;
                   const col = es === "catch_all" ? "#D97706" : C.red;
                   const bad = !!label;
                   return (
                   <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: bad ? `color-mix(in srgb, ${col} 10%, transparent)` : C.bg, border: bad ? `1px solid color-mix(in srgb, ${col} 32%, transparent)` : "none" }}>
                     <Mail size={14} style={{ color: bad ? col : C.email, marginTop: 2 }} />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Email</p>
-                      <a href={`mailto:${lead.primary_work_email}`} className="text-sm font-medium hover:underline block truncate"
-                        style={{ color: bad ? col : C.textBody }}>{lead.primary_work_email}</a>
+                      <EditableLeadField
+                        leadId={id}
+                        field="primary_work_email"
+                        value={lead.primary_work_email ?? null}
+                        placeholder="name@company.com"
+                        inputType="email"
+                        displayAs="email"
+                        ariaLabel="Edit work email"
+                        displayClassName="text-sm font-medium hover:underline block truncate"
+                      />
                       {label && (
                         <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: col, backgroundColor: `color-mix(in srgb, ${col} 14%, transparent)` }}>
                           ⚠ {label}
