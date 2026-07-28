@@ -175,9 +175,9 @@ ${companySection}
 ENRICHMENT DATA (use these specific signals)
 ${enrichmentDump || "(none)"}
 
-${icpContext ? `WHAT WE SELL
+${icpContext ? `OUR ANGLE (context only — this is what WE sell, NOT the lead's pain. Do NOT restate the line below as their pain; infer THEIR real pain from THEIR own profile/company above.)
 - Offering: ${icpContext.solutions_offered ?? ""}
-- Pain we solve: ${icpContext.pain_points ?? ""}` : ""}
+- Pain we typically solve for this segment: ${icpContext.pain_points ?? ""}` : ""}
 
 TASK
 Return ONLY a JSON array of objects {type, text}, one per type, in this order:
@@ -185,7 +185,7 @@ Return ONLY a JSON array of objects {type, text}, one per type, in this order:
   { "type": "snapshot",  "text": "<who they are in one line: current role @ company, ~tenure (infer from dates), seniority, location — ≤170 chars>" },
   { "type": "account",   "text": "<the ACCOUNT ANGLE: what THIS company does in one phrase + the single most relevant thing we could do for a company in their industry/size/stack, mapping OUR solutions. Concrete, e.g. 'construction developer → automate internal project & vendor workflows / score which bids to chase'. ≤210 chars>" },
   { "type": "read",      "text": "<HOW TO TALK TO THIS PERSON: a quick sales-psychology read from their role, seniority, background and tenure — what they likely care about, their communication style, and one DO + one DON'T. ≤210 chars>" },
-  { "type": "pain",      "text": "<the most likely problem THIS person fights, tied to their role/industry and a profile signal — a problem, not a feature, ≤190 chars>" },
+  { "type": "pain",      "text": "<the ONE concrete problem THIS company/person is most likely fighting RIGHT NOW, anchored in a SPECIFIC signal above (industry dynamics, company size/stage, tech stack, hiring, a recent post, or the real operational friction of their exact role). Phrase it as THEIR problem in plain terms — never our solution restated, never a generic industry truism. It must be specific enough that it would NOT read identically for a different lead. ≤190 chars>" },
   { "type": "fit",       "text": "<why our offering maps to that pain for them specifically — name our solution AND one of their signals, ≤190 chars>" },
   { "type": "hook",      "text": "<one concrete human detail to open rapport: a recent job change/tenure, a prior employer, their school, a notable skill/cert, or a recent post — name the exact detail, ≤190 chars>" },
   { "type": "opener",    "text": "<a verbatim opening line the seller says out loud that USES the hook above — natural, ends with a question, ≤190 chars>" },
@@ -194,6 +194,7 @@ Return ONLY a JSON array of objects {type, text}, one per type, in this order:
 
 Rules:
 - Ground EVERY line in the data above. Any fact you state (tenure, prior company, school, skill, tech stack) must come from the profile/company/enrichment — NEVER invent specifics or names.
+- PAIN must be real and specific — the seller acts on it, so a vague or repeated pain is worse than useless. Do NOT echo the "Pain we typically solve" line and do NOT use filler like "struggling to scale", "needs more efficiency" or "hard to find qualified leads". If you only have role + industry, name the concrete day-to-day friction of THAT exact role at a company of THIS size/industry — still specific, never boilerplate.
 - "account": map OUR solutions to THEIR industry, size and stack. Generic-by-industry is fine, but name what we'd actually do for a company like theirs — not a vague benefit.
 - "read": use real sales psychology. Adapt to seniority (Director/CxO = strategic, time-poor, outcome-driven; manager = execution/relief-driven), background (partnerships/sales = relationship-led; engineering/ops = detail & proof-led), and tenure (new in seat = wants quick wins to prove themselves). Make it actionable (a do + a don't), never fluffy.
 - If the current role started recently (under ~12 months per the dates), lead the hook with that "new in seat" angle — it's the strongest opener.
