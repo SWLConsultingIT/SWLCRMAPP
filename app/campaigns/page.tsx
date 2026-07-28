@@ -16,28 +16,50 @@ export const dynamic = "force-dynamic";
 
 const gold = "var(--brand, #c9a83a)";
 
+// Supabase caps a single response at ~1000 rows regardless of .range() — a bare
+// .range(0,99999) still returns only the first 1000 (same footgun /leads pages
+// around). Any query that can exceed 1000 on a large tenant must loop 1000-row
+// pages. Rebuilds the query per page (a Supabase builder is single-use).
+// 100k hard ceiling as a runaway guard.
+async function fetchAllRows(mkQuery: () => any): Promise<any[]> {
+  const PAGE = 1000;
+  const all: any[] = [];
+  for (let from = 0; from < 100000; from += PAGE) {
+    const { data, error } = await mkQuery().range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return all;
+}
+
 async function getData() {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
-  const campsQ = supabase.from("campaigns")
-    .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload, linkedin_connected, transferred_to_odoo_at), sellers(name)")
-    .in("status", ["active", "paused", "completed", "failed"])
-    // .limit(200) silently truncated the Pathway view on 2026-05-31 —
-    // 478 active campaign rows (228 Asset + 250 Invoice multichannel)
-    // got clipped to the 200 most recent, hiding the whole Asset flow
-    // under the wrong-ICP / 0-flows card. .range(0, 9999) gives us 10k
-    // rows of headroom; if any tenant ever crosses that we want a true
-    // paginated reader, not silent truncation.
-    .order("created_at", { ascending: false })
-    .range(0, 9999);
+  // Each of these can exceed 1000 rows on a large tenant. Previously they used
+  // a single-shot .range(0, 9999/99999), which the comments believed lifted the
+  // cap — but Supabase still returns only the first 1000, so tenants with >1000
+  // campaigns/leads had an INCOMPLETE "leads already in a flow" set (inflating
+  // "ready to launch") and a clipped campaign list (whole ICPs hidden). Same
+  // 2026-05-31 / 2026-06-16 truncation. Now paginated via fetchAllRows so the
+  // universe is complete regardless of tenant size. Builders are single-use →
+  // factories rebuild per page.
+  const mkCampsQuery = () => {
+    let q = supabase.from("campaigns")
+      .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload, linkedin_connected, transferred_to_odoo_at), sellers(name)")
+      .in("status", ["active", "paused", "completed", "failed"])
+      .order("created_at", { ascending: false });
+    if (bioId) q = q.eq("leads.company_bio_id", bioId);
+    return q;
+  };
 
-  // .range needed — a plain select caps at 1000 rows, so tenants with >1000
-  // active/paused/completed campaigns had an INCOMPLETE "leads already in a
-  // flow" set, which inflated the "ready to launch" / uncampaigned count
-  // (leads that DO have a flow were counted as available). 2026-06-16.
-  const campLeadsQ = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["active", "paused", "completed"]).range(0, 99999);
+  const mkCampLeadsQuery = () => {
+    let q = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["active", "paused", "completed"]);
+    if (bioId) q = q.eq("leads.company_bio_id", bioId);
+    return q;
+  };
 
   // Archived leads must not appear in the New Campaign picker. They were
   // showing up because the only filter was status; an admin operation that
@@ -45,33 +67,32 @@ async function getData() {
   // import that defaults archived to true) used to surface them as
   // selectable, then bite later when the wizard's channel coverage check
   // failed because allow_* flags were defaulted-false on archived rows.
-  const leadsQ = supabase.from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload")
-    .not("status", "in", "(closed_lost,qualified)")
-    .neq("archived", true)
-    .order("created_at", { ascending: false })
-    // .range needed — plain select caps at 1000; a tenant with >1000 eligible
-    // leads (SWL has 1215) had its universe clipped, undercounting "ready to
-    // launch" (showed 633 vs the real ~734). 2026-06-16.
-    .range(0, 99999);
+  const mkLeadsQuery = () => {
+    let q = supabase.from("leads")
+      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload")
+      .not("status", "in", "(closed_lost,qualified)")
+      .neq("archived", true)
+      .order("created_at", { ascending: false });
+    if (bioId) q = q.eq("company_bio_id", bioId);
+    return q;
+  };
+
+  const mkRepliesQuery = () => {
+    let q = supabase.from("lead_replies").select("lead_id, classification, campaign_id, received_at, leads!inner(company_bio_id)");
+    if (bioId) q = q.eq("leads.company_bio_id", bioId);
+    return q;
+  };
 
   const icpQ = supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("status", "approved");
 
-  const repliesQ = supabase.from("lead_replies").select("lead_id, classification, campaign_id, received_at, leads!inner(company_bio_id)").range(0, 9999);
-
-  const [
-    { data: campaigns },
-    { data: allReplies },
-    { data: campaignLeadIds },
-    { data: allLeadsRaw },
-    { data: icpProfiles },
-  ] = await Promise.all([
-    bioId ? campsQ.eq("leads.company_bio_id", bioId) : campsQ,
-    bioId ? repliesQ.eq("leads.company_bio_id", bioId) : repliesQ,
-    bioId ? campLeadsQ.eq("leads.company_bio_id", bioId) : campLeadsQ,
-    bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
+  const [campaigns, allReplies, campaignLeadIds, allLeadsRaw, icpRes] = await Promise.all([
+    fetchAllRows(mkCampsQuery),
+    fetchAllRows(mkRepliesQuery),
+    fetchAllRows(mkCampLeadsQuery),
+    fetchAllRows(mkLeadsQuery),
     bioId ? icpQ.eq("company_bio_id", bioId) : icpQ,
   ]) as any;
+  const icpProfiles = icpRes?.data;
 
   // Privacy pass: client-uploaded leads have PII inside encrypted_payload.
   // Same single-tenant decrypt as /leads/page.tsx — without it, every
