@@ -101,8 +101,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // them out of the plain update. (This also fixes the same latent bug the phone
   // editor had for client tenants.) SWL-source leads stay on plain columns.
   const encryptedEdits: Record<string, unknown> = {};
+  const encryptedCols = ENCRYPTED_LEAD_COLUMNS as readonly string[];
   for (const k of Object.keys(update)) {
-    if (ENCRYPTED_LEAD_COLUMNS.includes(k)) encryptedEdits[k] = update[k];
+    if (encryptedCols.includes(k)) encryptedEdits[k] = update[k];
   }
   const isClientEncrypted = (lead as any).source === "client" && !!(lead as any).encrypted_payload;
   if (isClientEncrypted && Object.keys(encryptedEdits).length > 0) {
