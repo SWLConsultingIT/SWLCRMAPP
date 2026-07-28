@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 // Undo a "won". Wins are signal-driven — a positive/meeting_intent lead_reply
@@ -6,8 +7,17 @@ import { NextRequest, NextResponse } from "next/server";
 // a lead out of Won we clear those signals. Used when a call/reply was marked
 // positive by mistake.
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const supabase = getSupabaseService();
   const { id } = await params;
+
+  // Tenant guard before mutating win signals.
+  const { data: guardRow } = await supabase.from("leads").select("company_bio_id").eq("id", id).maybeSingle();
+  if (!guardRow) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  const denied = assertTenant(g.scope, (guardRow as { company_bio_id: string | null }).company_bio_id);
+  if (denied) return denied;
 
   // 1) Drop the positive / meeting-intent replies (the win signal). Other
   //    replies (not_now, negative, call history) are left untouched.

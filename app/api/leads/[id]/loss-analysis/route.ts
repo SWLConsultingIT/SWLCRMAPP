@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
@@ -11,10 +15,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: lead } = await svc
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, icp_profile_id")
+    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, icp_profile_id, company_bio_id")
     .eq("id", id)
     .single();
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+  const denied = assertTenant(g.scope, (lead as any).company_bio_id as string | null);
+  if (denied) return denied;
 
   const [{ data: campaigns }, { data: replies }, { data: calls }] = await Promise.all([
     svc.from("campaigns")

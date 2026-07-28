@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 
 // Free company-site scraper for a lead — no Tavily/Apify. The server fetches the
 // company homepage (+ a couple of common About/Services subpages), strips the
@@ -26,13 +27,19 @@ const stripHtml = (raw: string): string => raw
   .trim();
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
   const { id } = await params;
   const svc = getSupabaseService();
-  const { data: lead } = await svc.from("leads").select("company_website, company_name, company_industry").eq("id", id).single();
+  const { data: lead } = await svc.from("leads").select("company_website, company_name, company_industry, company_bio_id").eq("id", id).single();
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+  const denied = assertTenant(g.scope, (lead as any).company_bio_id as string | null);
+  if (denied) return denied;
 
   const raw = (lead as any).company_website as string | null;
   if (!raw) return NextResponse.json({ error: "No company website on this lead" }, { status: 422 });

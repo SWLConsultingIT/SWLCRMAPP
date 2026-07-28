@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getUserScope } from "@/lib/scope";
+import { isPreviewNoAuth } from "@/lib/require-scope";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,8 +12,9 @@ const supabase = createClient(
 // Uses service key to bypass RLS — necessary because super_admin has no tenant
 // binding so browser-side updates are silently blocked by tenant-isolation policy.
 export async function POST(req: NextRequest) {
+  const preview = isPreviewNoAuth();
   const scope = await getUserScope();
-  if (!scope.tier) {
+  if (!preview && !scope.tier) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -21,9 +23,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "leadIds required" }, { status: 400 });
   }
 
+  // Tenant isolation: a scoped user may only recover leads in their own tenant.
+  // super_admin / all-tenant viewers (isScoped=false) and local preview keep the
+  // full requested set.
+  let allowedIds: string[] = leadIds;
+  if (!preview && scope.isScoped && scope.companyBioId) {
+    const { data: owned } = await supabase
+      .from("leads")
+      .select("id")
+      .in("id", leadIds)
+      .eq("company_bio_id", scope.companyBioId);
+    allowedIds = (owned ?? []).map((r) => (r as { id: string }).id);
+    if (allowedIds.length === 0) {
+      return NextResponse.json({ ok: true, leadsUpdated: 0, campaignsArchived: 0 });
+    }
+  }
+
   const [leadUpd, campUpd] = await Promise.all([
-    supabase.from("leads").update({ status: "new", responded: false }).in("id", leadIds).select("id"),
-    supabase.from("campaigns").update({ status: "archived" }).in("lead_id", leadIds).in("status", ["completed", "failed"]).select("id"),
+    supabase.from("leads").update({ status: "new", responded: false }).in("id", allowedIds).select("id"),
+    supabase.from("campaigns").update({ status: "archived" }).in("lead_id", allowedIds).in("status", ["completed", "failed"]).select("id"),
   ]);
 
   if (leadUpd.error || campUpd.error) {
@@ -33,7 +51,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Best-effort suppression cleanup
-  await supabase.from("lead_suppressions").delete().in("lead_id", leadIds);
+  await supabase.from("lead_suppressions").delete().in("lead_id", allowedIds);
 
   return NextResponse.json({ ok: true, leadsUpdated: leadUpd.data?.length ?? 0, campaignsArchived: campUpd.data?.length ?? 0 });
 }

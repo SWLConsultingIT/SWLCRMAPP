@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -8,12 +9,17 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id } = await params;
   const res = await fetch(
-    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,telegram_account_id&limit=1`,
+    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,telegram_account_id,company_bio_id&limit=1`,
     { headers: sbHeaders, cache: "no-store" }
   );
   const [seller] = await res.json().catch(() => []);
   if (!seller) return NextResponse.json({ connected: false });
+  const denied = assertTenant(g.scope, seller.company_bio_id ?? null);
+  if (denied) return denied;
   return NextResponse.json({ connected: !!seller.telegram_account_id });
 }

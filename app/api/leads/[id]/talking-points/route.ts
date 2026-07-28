@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
@@ -29,14 +30,19 @@ type TalkingPoint = { type: PointType; text: string };
 const POINT_ORDER: PointType[] = ["snapshot", "account", "read", "pain", "fit", "hook", "opener", "objection"];
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id } = await params;
   const svc = getSupabaseService();
   const { data: lead } = await svc
     .from("leads")
-    .select("call_talking_points, call_talking_points_at")
+    .select("call_talking_points, call_talking_points_at, company_bio_id")
     .eq("id", id)
     .single();
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  const denied = assertTenant(g.scope, (lead as any).company_bio_id as string | null);
+  if (denied) return denied;
   return NextResponse.json({
     points: (lead as any).call_talking_points,
     generatedAt: (lead as any).call_talking_points_at as string | null,
@@ -44,6 +50,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
@@ -58,6 +67,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: leadRow } = await svc.from("leads").select("*").eq("id", id).single();
   if (!leadRow) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+  const denied = assertTenant(g.scope, leadRow.company_bio_id as string | null);
+  if (denied) return denied;
 
   // Client-source leads keep PII (name, title, company, enrichment) in
   // encrypted_payload — the plain columns are NULL. Without decrypting, the

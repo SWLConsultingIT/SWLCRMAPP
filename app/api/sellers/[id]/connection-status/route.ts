@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -11,6 +12,7 @@ type Seller = {
   id: string;
   name: string;
   unipile_account_id: string | null;
+  company_bio_id: string | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -27,15 +29,21 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id } = await params;
 
   // 1. Fetch this seller
   const sellerRes = await fetch(
-    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,name,unipile_account_id,created_at,updated_at&limit=1`,
+    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,name,unipile_account_id,company_bio_id,created_at,updated_at&limit=1`,
     { headers: sbHeaders, cache: "no-store" }
   );
   const [seller] = (await sellerRes.json().catch(() => [])) as Seller[];
   if (!seller) return NextResponse.json({ connected: false, found: false });
+
+  const denied = assertTenant(g.scope, seller.company_bio_id);
+  if (denied) return denied;
 
   // 2. Already linked → done
   if (seller.unipile_account_id) {

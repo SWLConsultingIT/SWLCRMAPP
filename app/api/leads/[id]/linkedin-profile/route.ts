@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { fetchLinkedInProfileFull, linkedinIdentifier } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
 
@@ -9,6 +10,9 @@ import { resolveUnipileAccount } from "@/lib/unipile-account";
 // `linkedin_internal_id` is a plain column even on client-source leads, so no
 // decryption is needed just to resolve the identifier.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id } = await params;
   const svc = getSupabaseService();
 
@@ -18,6 +22,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .eq("id", id)
     .single();
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+  const denied = assertTenant(g.scope, lead.company_bio_id as string | null);
+  if (denied) return denied;
 
   const identifier = linkedinIdentifier(lead.linkedin_internal_id as string | null, lead.primary_linkedin_url as string | null);
   if (!identifier) return NextResponse.json({ profile: null, reason: "no_linkedin" });

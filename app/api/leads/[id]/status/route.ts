@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 const VALID = ["new", "contacted", "qualified", "cold", "closed_lost", "closed_won"];
@@ -11,11 +12,21 @@ const VALID = ["new", "contacted", "qualified", "cold", "closed_lost", "closed_w
 export const LOST_REASON_PREFIX = "[LOST_REASON] ";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const supabase = getSupabaseService();
   const { id } = await params;
   const body = (await req.json().catch(() => ({}))) as { status?: string; reason?: string };
   const { status, reason } = body;
   if (!status || !VALID.includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+
+  // Tenant guard before any mutation — a cross-tenant closed_won would forge a
+  // positive reply and push the lead to Odoo.
+  const { data: leadRow } = await supabase.from("leads").select("company_bio_id").eq("id", id).maybeSingle();
+  if (!leadRow) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  const denied = assertTenant(g.scope, (leadRow as { company_bio_id: string | null }).company_bio_id);
+  if (denied) return denied;
 
   const { error } = await supabase.from("leads").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

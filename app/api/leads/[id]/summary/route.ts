@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
@@ -18,6 +19,9 @@ import { resolveUnipileAccount } from "@/lib/unipile-account";
 type Section = { heading: string; body: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
@@ -32,6 +36,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: leadRow } = await svc.from("leads").select("*").eq("id", id).single();
   if (!leadRow) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+  const denied = assertTenant(g.scope, leadRow.company_bio_id as string | null);
+  if (denied) return denied;
 
   // Decrypt client-source PII so the dossier isn't blank for those tenants.
   let lead: Record<string, unknown> = leadRow;

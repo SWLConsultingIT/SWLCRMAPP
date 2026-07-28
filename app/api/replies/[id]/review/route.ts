@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getUserScope } from "@/lib/scope";
+import { isPreviewNoAuth } from "@/lib/require-scope";
 
 // Calls /api/inbox/reply internally (which now polls Unipile to confirm
 // delivery), so allow headroom beyond the default function timeout.
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // super_admin can mark anything. The join via leads enforces the tenant
   // because lead_replies has no company_bio_id of its own.
   const scope = await getUserScope();
+  if (!isPreviewNoAuth() && !scope.userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   if (scope.isScoped && scope.companyBioId) {
     const { data: rep } = await supabase
       .from("lead_replies")

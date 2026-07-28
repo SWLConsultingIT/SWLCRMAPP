@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/lib/scope";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -21,6 +22,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id: callId } = await params;
   const body = (await req.json()) as { classification: Classification; note?: string };
   const { classification, note } = body;
@@ -45,6 +49,17 @@ export async function POST(
   if (!call || !call.lead_id) {
     return NextResponse.json({ error: "Call or lead not found" }, { status: 404 });
   }
+
+  // Tenant guard — the call's lead must belong to the caller's tenant before we
+  // run the destructive outcome cascade (closes campaigns, flips lead status,
+  // inserts a lead_reply that can transfer the lead to Odoo).
+  const leadRes = await fetch(
+    `${SB_URL}/rest/v1/leads?id=eq.${call.lead_id}&select=company_bio_id&limit=1`,
+    { headers }
+  );
+  const [leadRow] = (await leadRes.json().catch(() => [])) as Array<{ company_bio_id: string | null }>;
+  const denied = assertTenant(g.scope, leadRow?.company_bio_id ?? null);
+  if (denied) return denied;
 
   // 2. Update call with classification (manual = ai_confidence 1)
   await fetch(`${SB_URL}/rest/v1/calls?id=eq.${callId}`, {

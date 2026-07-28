@@ -1,14 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser, assertTenant } from "@/lib/require-scope";
+import type { UserScope } from "@/lib/scope";
 
 const SB_URL = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const H = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
 
+/**
+ * Assert the seller exists and belongs to the caller's tenant. A seller can be
+ * SHARED across tenants (`shared_with_company_bio_ids`), but only the OWNING
+ * tenant (`company_bio_id`) may edit/delete it — so we scope on ownership, not
+ * shared access. Returns a NextResponse to short-circuit on 404/403, or null.
+ */
+async function guardSellerOwnership(scope: UserScope | null, id: string): Promise<NextResponse | null> {
+  const res = await fetch(`${SB_URL}/sellers?id=eq.${id}&select=company_bio_id`, { headers: H });
+  if (!res.ok) return NextResponse.json({ error: "lookup failed" }, { status: 500 });
+  const rows = (await res.json()) as Array<{ company_bio_id: string | null }>;
+  if (!rows.length) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return assertTenant(scope, rows[0].company_bio_id);
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id } = await params;
+
+  const denied = await guardSellerOwnership(g.scope, id);
+  if (denied) return denied;
+
   const body = await req.json();
   const allowed = [
     "name", "active",
@@ -41,7 +64,14 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id } = await params;
+
+  const denied = await guardSellerOwnership(g.scope, id);
+  if (denied) return denied;
+
   const res = await fetch(`${SB_URL}/sellers?id=eq.${id}`, {
     method: "DELETE",
     headers: { ...H, Prefer: "return=minimal" },

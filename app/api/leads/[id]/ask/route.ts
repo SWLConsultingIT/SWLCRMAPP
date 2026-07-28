@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Lead Copilot — a grounded Q&A chat about a single lead. The seller asks
@@ -23,14 +24,24 @@ type Turn = { role: "user" | "assistant"; text: string; at: string };
 const MAX_TURNS = 40;
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id } = await params;
   const svc = getSupabaseService();
-  const { data } = await svc.from("leads").select("ai_chat").eq("id", id).single();
+  const { data } = await svc.from("leads").select("ai_chat, company_bio_id").eq("id", id).single();
+  if (data) {
+    const denied = assertTenant(g.scope, (data as any).company_bio_id as string | null);
+    if (denied) return denied;
+  }
   const history = Array.isArray((data as any)?.ai_chat) ? (data as any).ai_chat as Turn[] : [];
   return NextResponse.json({ history });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
@@ -44,6 +55,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const svc = getSupabaseService();
   const { data: leadRow } = await svc.from("leads").select("*").eq("id", id).single();
   if (!leadRow) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+  const denied = assertTenant(g.scope, leadRow.company_bio_id as string | null);
+  if (denied) return denied;
 
   let lead: Record<string, unknown> = leadRow;
   if (leadRow.source === "client" && leadRow.encrypted_payload && leadRow.company_bio_id) {

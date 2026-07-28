@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { phoneSuffixMatch, ilikeDigitPattern } from "@/lib/phone-match";
+import { requireUser } from "@/lib/require-scope";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
@@ -76,6 +77,9 @@ async function findMarkerId(raw: string | null): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { limit = 50 } = await req.json().catch(() => ({ limit: 50 }));
 
   const res = await fetch(`https://api.aircall.io/v1/calls?per_page=${limit}&order=desc`, {

@@ -1,10 +1,14 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 const ALLOWED_STATUSES = ["not_started", "in_progress", "uploaded", "completed"] as const;
 type ExecStatus = typeof ALLOWED_STATUSES[number];
 
 export async function POST(req: NextRequest) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { id, status, leads_uploaded } = await req.json();
   if (!id || !ALLOWED_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Missing or invalid id/status" }, { status: 400 });
@@ -17,6 +21,13 @@ export async function POST(req: NextRequest) {
     patch.leads_uploaded = leads_uploaded;
   }
   const supabase = getSupabaseService();
+
+  // Tenant guard: the ICP must belong to the caller's tenant.
+  const { data: icpRow } = await supabase.from("icp_profiles").select("company_bio_id").eq("id", id).maybeSingle();
+  if (!icpRow) return NextResponse.json({ error: "ICP not found" }, { status: 404 });
+  const denied = assertTenant(g.scope, (icpRow as { company_bio_id: string | null }).company_bio_id);
+  if (denied) return denied;
+
   const { error } = await supabase.from("icp_profiles").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

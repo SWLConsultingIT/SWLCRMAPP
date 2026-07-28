@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireUser, assertTenant } from "@/lib/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 // Server-side defense for the "Add Leads" tab. Browser INSERTs bypassed RLS for
@@ -6,6 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
 // This endpoint resolves the campaign's tenant (campaign → seller → company_bio)
 // and rejects any lead that doesn't share the same company_bio_id.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const supabase = getSupabaseService();
   const { id: campaignId } = await params;
   const body = await req.json() as { leadIds?: string[] };
@@ -23,6 +27,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const tenantBioId =
     Array.isArray(sellerRel) ? sellerRel[0]?.company_bio_id ?? null : sellerRel?.company_bio_id ?? null;
   if (!tenantBioId) return NextResponse.json({ error: "Campaign has no tenant" }, { status: 400 });
+
+  // The CALLER must belong to the campaign's tenant (a scoped user must not be
+  // able to enrol leads into another tenant's campaign). super_admin bypasses.
+  const denied = assertTenant(g.scope, tenantBioId);
+  if (denied) return denied;
 
   const { data: leads } = await supabase
     .from("leads")
