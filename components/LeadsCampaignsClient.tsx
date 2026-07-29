@@ -1308,9 +1308,12 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         );
       })()}
 
-      <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {/* Scrollable table: caps to the viewport and scrolls its own rows with a
+          sticky header, so the last of 100+ leads is always reachable and the
+          column headers stay in view. (Simo 2026-07-29.) */}
+      <div className="rounded-xl border overflow-auto card-shadow" style={{ backgroundColor: C.card, borderColor: C.border, maxHeight: "calc(100vh - 300px)" }}>
         <table className="w-full text-left">
-          <thead>
+          <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg }}>
             <tr style={{ backgroundColor: C.bg }}>
               <th className="px-3 py-2.5 w-8">
                 <button onClick={toggleAllFiltered} className="block" aria-label={t("leadsPage.table.selectAllAria", { n: filteredIds.length })} title={t("leadsPage.table.selectAllTitle", { n: filteredIds.length })}>
@@ -1592,7 +1595,7 @@ function ProfileCard({ group, t }: { group: ProfileGroup; t: Tr }) {
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount }: Props) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   // Boss feedback 2026-05-27 (Leads rework):
   //   - Companies is a top-level tab (was sub-toggle inside All Leads).
   //   - Lead sub-tabs are FLAT (no "Results" wrapper): All / Without
@@ -1671,6 +1674,11 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           { label: t("leadsPage.stats.activeFlows"),      value: stats.activeCampaigns,    color: gold },
           { label: t("leadsPage.stats.responseRate"),     value: `${stats.responseRate}%`, color: C.blue },
           { label: t("leadsPage.stats.positiveReplies"), value: stats.positiveReplies,    color: C.green },
+          // Lost + Renurture surfaced here so TOTAL LEADS reads as the true grand
+          // total: in-flow + without-flow + lost + renurture all reconcile to it.
+          // (These live in /results too; shown here for a complete count.) Simo 2026-07-29.
+          { label: locale === "es" ? "Perdidos" : "Lost",       value: lostLeads.length,         color: C.red },
+          { label: "Renurture",                                 value: renurturingLeads.length,  color: "#D97706" },
         ].map((s, i, arr) => (
           <div key={s.label} className="flex items-center gap-3">
             <div className="flex items-baseline gap-1.5">
