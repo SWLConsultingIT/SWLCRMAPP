@@ -3,12 +3,13 @@
 // invite would keep the campaign in "active" forever and the lead would clog
 // pipeline reports as "still being worked."
 //
-// Why 10 days (not 21): pending invites consume LinkedIn's pending-invite
-// pool (typically capped at ~150-200 on cold accounts before throttling),
-// not the daily-send pool. For low-cap sellers like Graeme (10/day) the pool
-// fills up fast and slows new sends, so we recycle stale invites aggressively.
-// Industry "B2B cold" default is 21 days; we go more aggressive because the
-// pool size is the bottleneck, not the lead's accept window.
+// TTL = 21 days (raised from 10 on 2026-07-30, per Fran). Pending invites do
+// consume LinkedIn's pending-invite pool (~150-200 on cold accounts), so we
+// still recycle stale ones — but 10 days proved too aggressive: it withdraws
+// invites prospects might still accept, and the backlog that triggered this
+// review had piled up *because of a dispatch stall*, not because leads said no.
+// 21 days is the B2B cold standard and gives every invite a fair window now
+// that the engine is unstuck. Never mark a lead lost that never got a fair run.
 //
 // Side effects:
 //  - Unipile: DELETE pending invitation (best-effort — failures don't block close)
@@ -29,7 +30,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 
-const INVITE_TTL_DAYS = 10;
+// Withdrawing up to a full backlog of stale invites (one Unipile DELETE each)
+// can exceed the default function budget — give it room.
+export const maxDuration = 60;
+
+const INVITE_TTL_DAYS = 21;
 const SUPPRESSION_TTL_DAYS = 90;
 const CRON_SECRET = process.env.CRON_SECRET;
 const UNIPILE_BASE = process.env.UNIPILE_DSN
@@ -78,17 +83,39 @@ export async function GET(req: NextRequest) {
   // closed" cases for the response.
   // provider_message_id is the Unipile invitation_id we need to withdraw.
   // campaigns.seller_id chains to sellers.unipile_account_id, also required.
-  const { data: candidates, error: fetchErr } = await svc
-    .from("campaign_messages")
-    .select(`
-      id, campaign_id, lead_id, sent_at, provider_message_id,
-      campaigns!inner(id, status, stop_reason, seller_id, sequence_steps, current_step),
-      leads!inner(id, status, linkedin_connected)
-    `)
-    .eq("step_number", 0)
-    .eq("channel", "linkedin")
-    .eq("status", "sent")
-    .lt("sent_at", cutoffISO);
+  // NOTE (2026-07-30): this query previously had no pagination and no
+  // campaign-status / connected filter in SQL, so with >1000 sent step-0
+  // invites it hit PostgREST's 1000-row cap — and because the cap was spent
+  // mostly on invites whose campaign had ALREADY closed (their message stays
+  // status='sent'), it stopped reaching the still-open expirable ones. Result:
+  // expire-invites closed nothing after 2026-07-21 and ~241 stale flows sat
+  // "active" forever, clogging each seller's LinkedIn pending-invite pool and
+  // blocking new sends. Fix: filter campaign-open + not-connected in SQL (cuts
+  // the set to only real candidates) AND paginate 1000-row pages ordered by
+  // sent_at so the backlog always drains oldest-first.
+  const PAGE = 1000;
+  const candidates: any[] = [];
+  let fetchErr: { message: string } | null = null;
+  for (let from = 0; from < 50000; from += PAGE) {
+    const { data, error } = await svc
+      .from("campaign_messages")
+      .select(`
+        id, campaign_id, lead_id, sent_at, provider_message_id,
+        campaigns!inner(id, status, stop_reason, seller_id, sequence_steps, current_step),
+        leads!inner(id, status, linkedin_connected)
+      `)
+      .eq("step_number", 0)
+      .eq("channel", "linkedin")
+      .eq("status", "sent")
+      .lt("sent_at", cutoffISO)
+      .in("campaigns.status", ["active", "paused"])
+      .not("leads.linkedin_connected", "is", true)
+      .order("sent_at", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) { fetchErr = error; break; }
+    candidates.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
 
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
