@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await svc
       .from("campaign_messages")
       .select(`
-        id, campaign_id, lead_id, sent_at, provider_message_id,
+        id, campaign_id, lead_id, company_bio_id, sent_at, provider_message_id,
         campaigns!inner(id, status, stop_reason, seller_id, sequence_steps, current_step),
         leads!inner(id, status, linkedin_connected)
       `)
@@ -121,12 +121,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   }
 
+  // Safety guards (2026-07-30): never expire a lead that ENGAGED. A lead can sit
+  // in an active campaign with an unaccepted CR yet still have replied through
+  // another path (notably replies with campaign_id NULL that don't stop the
+  // flow) — expiring those would withdraw the invite + mark closed_lost on a
+  // LIVE opportunity. Also skip demo tenants. Build exclusion sets up front.
+  const candidateLeadIds = [...new Set((candidates ?? []).map((r: any) => r.lead_id).filter(Boolean))] as string[];
+  const repliedLeadIds = new Set<string>();
+  for (let i = 0; i < candidateLeadIds.length; i += 200) {
+    const chunk = candidateLeadIds.slice(i, i + 200);
+    const { data: reps } = await svc.from("lead_replies").select("lead_id").in("lead_id", chunk);
+    for (const r of reps ?? []) repliedLeadIds.add((r as { lead_id: string }).lead_id);
+  }
+  const { data: demoBios } = await svc.from("company_bios").select("id").eq("is_demo", true);
+  const demoBioIds = new Set((demoBios ?? []).map((b: any) => b.id as string));
+
   const expirable = (candidates ?? []).filter((row: any) => {
     const camp = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns;
     const lead = Array.isArray(row.leads) ? row.leads[0] : row.leads;
     if (!camp || !lead) return false;
     if (camp.status !== "active" && camp.status !== "paused") return false;
     if (lead.linkedin_connected) return false;
+    if (repliedLeadIds.has(lead.id)) return false;         // engaged — never expire
+    if (demoBioIds.has(row.company_bio_id)) return false;  // skip demo tenants
     return true;
   });
 
