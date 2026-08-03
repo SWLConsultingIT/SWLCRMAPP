@@ -208,6 +208,13 @@ function heuristicTargetFor(headerNorm: string): string | null {
   if (/(^|\b)name\b$/.test(h) && !/company|business|first|last/.test(h)) return "_fullname";
   if (/\bfirst ?name\b/.test(h)) return "primary_first_name";
   if (/\blast ?name\b/.test(h)) return "primary_last_name";
+  // Enrichment/summary columns frequently contain the word "linkedin" (e.g.
+  // "Summarize LinkedIn profile", "LinkedIn summary/headline/about") and would
+  // otherwise match the generic linkedin.*(profile|url) rule below — dumping AI
+  // summary text into primary_linkedin_url and clobbering the real /in/ URL
+  // (root cause of the 2026-08-03 De Vera "no LinkedIn slug" stall). These are
+  // not imported fields, so exclude them here before the LinkedIn rules run.
+  if (/summ|resumen|\babout\b|descrip|headline|\bbio\b|profile summary|enrich/.test(h)) return null;
   // LinkedIn — person vs company. Check COMPANY first: a header like
   // "Company Linkedin Url" also matches the generic "linkedin.*url" person
   // rule, so without this order it mapped to primary_linkedin_url and the
@@ -385,6 +392,16 @@ export function applyMappingToRow(
     } else if (m.target === "primary_seniority") {
       const s = normSeniority(value);
       if (s) out.primary_seniority = s; // unknown → leave null, never break the insert
+    } else if (m.target === "primary_linkedin_url" || m.target === "company_linkedin") {
+      // Value guard (2026-08-03): only store a real LinkedIn URL here. An
+      // ambiguous header ("Summarize LinkedIn profile", etc.) that slips past
+      // header matching would otherwise dump AI-summary text into the URL
+      // field, which the dispatcher then skips as "no LinkedIn slug" — freezing
+      // the flow. Drop anything that isn't a linkedin.com profile/company URL.
+      if (/linkedin\.com\/(in|company|pub|school)\//i.test(value) || /(^|\/)in\/[^/\s]+/i.test(value)) {
+        out[m.target] = value;
+      }
+      // else: leave null rather than persist garbage
     } else {
       out[m.target] = value;
     }
