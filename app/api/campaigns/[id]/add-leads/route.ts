@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // closed_lost leads back into the active flow (and queued LinkedIn invites to
   // them). Terminal-status leads are skipped here and hidden from the eligible
   // list in page.tsx.
-  const TERMINAL = new Set(["closed_lost", "closed_won", "won"]);
+  const TERMINAL = new Set(["closed_lost", "closed_won", "won", "qualified"]);
   const valid = tenantLeads.filter(l => !TERMINAL.has(l.status)).map(l => l.id);
   const closedSkipped = tenantLeads.filter(l => TERMINAL.has(l.status)).map(l => l.id);
   if (valid.length === 0) {

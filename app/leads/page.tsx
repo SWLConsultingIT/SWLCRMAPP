@@ -364,6 +364,10 @@ async function getData() {
     const leadReplies = repliesByLead[lead.id] ?? [];
     const hasPositive = leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
     if (hasPositive) continue;
+    // Qualified / won leads are an outcome, not a re-nurture candidate — even if
+    // their sequence also completed. A qualified-by-call lead has no positive
+    // reply row, so hasPositive alone misses it. (Fran 2026-08-06.)
+    if (lead.status === "qualified" || lead.status === "closed_won" || lead.status === "won") continue;
 
     const hasCompletedCampaign = leadCamps.some((c: any) => c.status === "completed" || c.status === "failed");
     const hasNegativeReply = leadReplies.some((r: any) => r.classification === "negative");

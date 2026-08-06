@@ -36,7 +36,7 @@ async function loadPickerData(profileId: string) {
   // "eligible".
   const { data: rawLeads } = await supabase
     .from("leads")
-    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id")
+    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, status")
     .eq("icp_profile_id", profileId)
     .order("created_at", { ascending: false })
     .limit(500);
@@ -77,7 +77,11 @@ async function loadPickerData(profileId: string) {
     });
   }
 
-  function classifyHistory(leadId: string): "new" | "renurture" | "lost" | "won" {
+  function classifyHistory(leadId: string, leadStatus: string | null): "new" | "renurture" | "lost" | "won" {
+    // A positive/qualified lead is WON — never re-nurture, no matter how its
+    // campaign ended. A qualified-by-call lead can have its sequence ALSO run to
+    // "completed"; without this it resurfaced in the Re-nurture tab. (Fran 2026-08-06.)
+    if (leadStatus === "qualified" || leadStatus === "closed_won" || leadStatus === "won") return "won";
     const h = lastCampaignMap.get(leadId);
     if (!h) return "new";
     if (h.status === "closed_won") return "won";
@@ -102,7 +106,7 @@ async function loadPickerData(profileId: string) {
       allow_linkedin: Boolean(l.allow_linkedin),
       allow_email: Boolean(l.allow_email),
       allow_call: Boolean(l.allow_call),
-      history: classifyHistory(l.id),
+      history: classifyHistory(l.id, (l.status as string | null) ?? null),
     }));
 
   return {
