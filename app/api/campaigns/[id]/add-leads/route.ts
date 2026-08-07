@@ -18,26 +18,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: campaign } = await supabase
     .from("campaigns")
-    .select("id, name, sequence_steps, seller_id, call_advance_mode, sellers(company_bio_id)")
+    .select("id, name, sequence_steps, seller_id, call_advance_mode, sellers(company_bio_id, shared_with_company_bio_ids)")
     .eq("id", campaignId)
     .single();
   if (!campaign) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
 
-  const sellerRel = (campaign.sellers as { company_bio_id?: string | null } | { company_bio_id?: string | null }[] | null);
-  const tenantBioId =
-    Array.isArray(sellerRel) ? sellerRel[0]?.company_bio_id ?? null : sellerRel?.company_bio_id ?? null;
+  type SellerRel = { company_bio_id?: string | null; shared_with_company_bio_ids?: string[] | null };
+  const sellerRel = campaign.sellers as SellerRel | SellerRel[] | null;
+  const seller = Array.isArray(sellerRel) ? sellerRel[0] : sellerRel;
+  const tenantBioId = seller?.company_bio_id ?? null;
   if (!tenantBioId) return NextResponse.json({ error: "Campaign has no tenant" }, { status: 400 });
 
-  // The CALLER must belong to the campaign's tenant (a scoped user must not be
-  // able to enrol leads into another tenant's campaign). super_admin bypasses.
-  const denied = assertTenant(g.scope, tenantBioId);
+  // A seller can be SHARED with client tenants via shared_with_company_bio_ids
+  // (agency model: an SWL seller runs a client's flow). Leads from any tenant
+  // the seller is shared with are legitimate for this flow, so the allowed set
+  // = owner bio + explicitly-shared bios. Ignoring the shared list rejected
+  // Arqy leads on a flow run by SWL's shared seller Lucia. (Fran 2026-08-06.)
+  const sharedBios = ((seller?.shared_with_company_bio_ids ?? []).filter(Boolean)) as string[];
+  const allowedBios = new Set<string>([tenantBioId, ...sharedBios]);
+
+  // The CALLER must belong to the campaign's tenant OR one of its shared tenants
+  // (a scoped user can't enrol into an unrelated tenant's flow). super_admin bypasses.
+  const denied = assertTenant(g.scope, tenantBioId, sharedBios);
   if (denied) return denied;
 
   const { data: leads } = await supabase
     .from("leads")
     .select("id, company_bio_id, status")
     .in("id", leadIds);
-  const tenantLeads = (leads ?? []).filter(l => l.company_bio_id === tenantBioId);
+  const tenantLeads = (leads ?? []).filter(l => !!l.company_bio_id && allowedBios.has(l.company_bio_id));
   const rejected = leadIds.filter(id => !tenantLeads.some(l => l.id === id));
   if (tenantLeads.length === 0) {
     return NextResponse.json({ error: "All leads belong to a different tenant", rejected }, { status: 403 });
