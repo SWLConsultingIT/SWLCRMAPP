@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
@@ -10,6 +10,7 @@ import {
   PlayCircle, Loader2, Pause, Play, Trash2, Send, Paperclip,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
   MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid, BarChart3, Search,
+  Trophy, RotateCcw,
 } from "lucide-react";
 import CampaignKanban from "@/components/CampaignKanban";
 import FlowMetricsPanel, { type FlowMetrics } from "@/components/FlowMetricsPanel";
@@ -71,7 +72,7 @@ export default function CampaignDetailClient({
   // "Add leads to this flow" CTA (slug: add-leads) on the /campaigns page.
   // Tab order: Metrics(0) · Leads(1) · Sequence(2) · Calls(3) · Add Leads(4).
   const slugToTab = (slug: string | null): number | null =>
-    slug === "metrics" ? 0 : slug === "leads" ? 1 : slug === "sequence" ? 2 : slug === "calls" ? 3 : slug === "add-leads" ? 4 : null;
+    slug === "metrics" ? 0 : slug === "leads" ? 1 : slug === "sequence" ? 2 : slug === "calls" ? 3 : slug === "add-leads" ? 4 : slug === "results" ? 5 : null;
   const initialTab = slugToTab(sp.get("tab")) ?? 0;
   const [tab, setTab] = useState(initialTab);
   useEffect(() => {
@@ -240,6 +241,26 @@ export default function CampaignDetailClient({
 
   const visibleCampaigns = allCampaigns.filter(c => c.status !== "completed" && c.status !== "failed");
 
+  // "Results" tab — the /results outcome view scoped to THIS flow. A lead is
+  // terminal (belongs here) once it either got a positive/negative reply or its
+  // campaign finished (completed/failed). Tag by outcome, same rule as global
+  // /results but per-flow: positive -> Won, negative -> Lost, otherwise (the
+  // sequence just ran out with no reply) -> Re-nurture (Fran D2 2026-08-07).
+  const resultBuckets = useMemo(() => {
+    const won: any[] = [], lost: any[] = [], renurture: any[] = [];
+    for (const c of allCampaigns) {
+      const rc = ((c as any).reply_class ?? "").toLowerCase();
+      const isTerminal = rc === "positive" || rc === "meeting_intent" || rc === "negative"
+        || c.status === "completed" || c.status === "failed";
+      if (!isTerminal) continue;
+      if (rc === "positive" || rc === "meeting_intent") won.push(c);
+      else if (rc === "negative") lost.push(c);
+      else renurture.push(c);
+    }
+    return { won, lost, renurture };
+  }, [allCampaigns]);
+  const resultsCount = resultBuckets.won.length + resultBuckets.lost.length + resultBuckets.renurture.length;
+
   // Leads-tab filters — shared across List + Pipeline.
   const [leadSearch, setLeadSearch] = useState("");
   const [leadSeller, setLeadSeller] = useState<string>("all");
@@ -307,6 +328,7 @@ export default function CampaignDetailClient({
     { label: "Sequence", icon: Megaphone, count: sequence.length },
     { label: "Calls", icon: PhoneCall, count: null },
     { label: "Add Leads", icon: UserPlus, count: leadGroups.reduce((s, g) => s + g.leads.length, 0) },
+    { label: "Results", icon: Trophy, count: resultsCount },
   ];
   // Default to "kanban" (Pipeline) — boss preference. The Pipeline view
   // groups leads into columns by current step, which is way more useful
@@ -524,6 +546,75 @@ export default function CampaignDetailClient({
               </tbody>
             </table>
           </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ TAB 5: RESULTS (per-flow outcomes — Won / Lost / Re-nurture) ═══ */}
+      {tab === 5 && (
+        <div className="p-4">
+          <p className="text-xs mb-3" style={{ color: C.textMuted }}>
+            Leads that finished this flow, tagged by outcome. Call them back from here. Global Results (all flows) stays in the sidebar.
+          </p>
+          {resultsCount === 0 ? (
+            <div className="text-center py-16 text-sm italic" style={{ color: C.textDim }}>
+              No finished leads yet — outcomes appear here as the flow completes.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {([
+                { key: "won",       label: "Won",        color: C.green,   bg: C.greenLight,                                       icon: CheckCircle2, rows: resultBuckets.won },
+                { key: "lost",      label: "Lost",       color: C.red,     bg: C.redLight,                                         icon: X,            rows: resultBuckets.lost },
+                { key: "renurture", label: "Re-nurture", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",     icon: RotateCcw,    rows: resultBuckets.renurture },
+              ] as const).map(col => {
+                const Icon = col.icon;
+                return (
+                  <div key={col.key} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+                    <div className="px-3 py-2.5 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ backgroundColor: col.bg }}>
+                          <Icon size={12} style={{ color: col.color }} />
+                        </div>
+                        <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{col.label}</p>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: col.bg, color: col.color }}>{col.rows.length}</span>
+                    </div>
+                    <div className="p-2 space-y-1.5 min-h-[120px] max-h-[600px] overflow-y-auto">
+                      {col.rows.length === 0 && <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>—</p>}
+                      {col.rows.map(c => {
+                        const l = (c as any).leads; if (!l) return null;
+                        const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown";
+                        const phone: string | null = l.primary_phone ?? null;
+                        const called = calledIds.has(l.id);
+                        return (
+                          <div key={c.id} className="rounded-lg border px-2.5 py-2 flex items-center justify-between gap-2" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                            <div className="min-w-0">
+                              <Link href={`/leads/${l.id}`} className="hover:underline"><p className="text-xs font-medium truncate" style={{ color: C.textPrimary }}>{nm}</p></Link>
+                              {(l.company_name || l.primary_title_role) && (
+                                <p className="text-[10px] truncate" style={{ color: C.textMuted }}>
+                                  {l.company_name ?? ""}{l.company_name && l.primary_title_role ? " · " : ""}{l.primary_title_role ?? ""}
+                                </p>
+                              )}
+                            </div>
+                            {phone && (
+                              <button
+                                onClick={() => handleDial(l.id, phone)}
+                                disabled={callingId === l.id}
+                                title={`Call ${phone}`}
+                                className="shrink-0 rounded-md p-1.5 disabled:opacity-50 transition-opacity hover:opacity-85"
+                                style={{ backgroundColor: called ? C.greenLight : "color-mix(in srgb, #F97316 13%, transparent)", color: called ? C.green : "#F97316" }}
+                              >
+                                {callingId === l.id ? <Loader2 size={12} className="animate-spin" /> : called ? <Check size={12} /> : <Phone size={12} />}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
