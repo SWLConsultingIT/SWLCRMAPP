@@ -471,9 +471,24 @@ async function skipAlreadyConnected(
   return { kind: "skipped_connected", msgId, leadId, nextEligibleAt: eligibleAt };
 }
 
+// The lead already has a PENDING invitation outstanding, so we must not send a
+// second one — but the flow still has to move. This mirrors what happens after
+// we send a CR ourselves: advance the cursor and queue the next step, which
+// then self-parks via parkAwaitingAcceptance until the invite is accepted (and
+// unpark-linkedin-on-accept releases it).
+//
+// Before 2026-08-10 this only stamped the message and returned. current_step
+// stayed put and step 1 stayed `draft` forever, so the campaign froze exactly
+// like the no-LinkedIn-slug skip did before 06f7c73a — this was the last
+// dead-end left in this dispatcher. It silently froze 15 De Vera Grill flows
+// from 2026-05-24 onward: the accept webhook flips leads.linkedin_connected,
+// but unpark-linkedin-on-accept only releases messages that are `queued`, so a
+// `draft` step 1 was unreachable even when the lead DID accept.
 async function markAlreadyInvited(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
+  campaignId: string, stepNumber: number,
+  sequenceSteps: Array<{ channel?: string; daysAfter?: number }> | null,
 ): Promise<DispatchOutcome> {
   const now = new Date().toISOString();
   const { data: existing } = await svc
@@ -491,6 +506,22 @@ async function markAlreadyInvited(
       awaiting_acceptance: true,
     },
   }).eq("id", msgId);
+
+  // Advance + queue the next step. Guarded exactly like parkAwaitingAcceptance:
+  // the cursor only moves forward from this step, and we only touch a `draft`
+  // row so a re-run can't disturb a step that already went out.
+  const steps = Array.isArray(sequenceSteps) ? sequenceSteps : [];
+  const nextIdx = stepNumber + 1;
+  if (nextIdx <= steps.length) {
+    await Promise.all([
+      svc.from("campaigns").update({ current_step: stepNumber, last_step_at: now })
+        .eq("id", campaignId).lt("current_step", stepNumber),
+      svc.from("campaign_messages").update({
+        status: "queued",
+        metadata: { eligible_at: now, queued_by: "cron-dispatch-queue:already-invited-advance" },
+      }).eq("campaign_id", campaignId).eq("step_number", nextIdx).eq("status", "draft"),
+    ]);
+  }
   return { kind: "skipped_invited", msgId, leadId };
 }
 
@@ -795,6 +826,8 @@ async function dispatchOneMessage(
       return await markAlreadyInvited(
         svc, candidate.id, candidate.lead_id,
         "preflight: lead has a pending SENT invitation outstanding (invitation.status=PENDING)",
+        candidate.campaign_id, candidate.step_number,
+        (campaign as any)?.sequence_steps ?? null,
       );
     }
   }
@@ -978,7 +1011,11 @@ async function dispatchOneMessage(
         );
       }
       if (isAlreadyInvitedError(errMsg)) {
-        return await markAlreadyInvited(svc, candidate.id, candidate.lead_id, errMsg);
+        return await markAlreadyInvited(
+          svc, candidate.id, candidate.lead_id, errMsg,
+          candidate.campaign_id, candidate.step_number,
+          (campaign as any)?.sequence_steps ?? null,
+        );
       }
     }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
