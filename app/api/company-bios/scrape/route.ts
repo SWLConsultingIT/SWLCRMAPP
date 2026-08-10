@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { requireUser } from "@/lib/require-scope";
 
 const LANG_MAP: Record<string, string> = {
   EN: "English", IT: "Italian", ES: "Spanish", FR: "French", DE: "German",
@@ -168,6 +169,11 @@ function extractSocialLinks(html: string, pageUrl: string): {
 }
 
 export async function POST(req: NextRequest) {
+  // Auth gate — called from the Company Bio / Demos screens (browser, logged in);
+  // was previously open to any request with only the middleware session.
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { url, lang = "EN" } = await req.json();
   const language = LANG_MAP[lang] ?? "English";
 

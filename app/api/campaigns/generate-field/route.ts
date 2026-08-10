@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { requireUser } from "@/lib/require-scope";
 
 // Proxies to the n8n workflow "SWL - CRM - Message Generator V8 Native".
 // Computes step_type_override per idx (the wizard knows which UI step the user clicked
@@ -99,6 +100,10 @@ function inferSequence(body: LegacyBody): SequenceEntry[] {
 }
 
 export async function POST(req: NextRequest) {
+  // Auth gate — the wizard (browser, authenticated) is the only caller; this
+  // route was previously open to any request with only the middleware session.
+  const g = await requireUser();
+  if (!g.ok) return g.response;
   // Wrap so ANY runtime crash returns a JSON body the wizard can show —
   // otherwise Next.js serves its generic HTML error page and the wizard
   // banner shows the useless "Internal Server Error" instead of the

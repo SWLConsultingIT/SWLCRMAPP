@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/require-scope";
 
 const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
 
 export async function POST(req: NextRequest) {
+  // Auth gate — proxies to an n8n LLM job; was previously reachable by any
+  // request with only the middleware session. Require a logged-in user.
+  const g = await requireUser();
+  if (!g.ok) return g.response;
+
   const { sequence, companyBio, icpProfile, lead, language, signals, sequence_id, template_id } = await req.json();
 
   // Build the payload for n8n
