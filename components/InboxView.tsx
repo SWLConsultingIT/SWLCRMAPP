@@ -244,7 +244,40 @@ function FilterPill({
   );
 }
 
-export default function InboxView({ replies: rawReplies }: { replies: InboxReply[] }) {
+const UNASSIGNED_SELLER = "__unassigned__";
+
+// Compact chip for the Pending-review per-seller breakdown bar. Clicking filters
+// the pending list to that seller (or All / My leads). Purely a client-side lens
+// over already access-scoped data — sellers only ever receive their own replies
+// from the server (queue/page.tsx seller-tier scoping), so this bar only appears
+// for users who see more than one seller (admins / managers).
+function SellerChip({ label, count, active, onClick, highlight }: {
+  label: string; count: number; active: boolean; onClick: () => void; highlight?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-full border text-[10px] font-semibold shrink-0 transition-[background-color,color] hover:opacity-85"
+      style={{
+        backgroundColor: active
+          ? "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)"
+          : highlight ? "color-mix(in srgb, var(--brand, #c9a83a) 6%, transparent)" : C.card,
+        borderColor: active ? "color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)" : C.border,
+        color: active ? "var(--brand, #c9a83a)" : C.textMuted,
+        paddingInline: "10px", paddingBlock: "4px",
+      }}
+    >
+      {label}
+      <span className="text-[9px] font-bold tabular-nums px-1.5 rounded-full"
+        style={{ backgroundColor: active ? "var(--brand, #c9a83a)" : C.surface, color: active ? "#04070d" : C.textDim }}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+export default function InboxView({ replies: rawReplies, mySellerNames = [] }: { replies: InboxReply[]; mySellerNames?: string[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -283,6 +316,10 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [icpFilter, setIcpFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>(initialChannel);
+  // Per-seller lens for the Pending tab: "all" (default — see everything),
+  // "mine" (the current user's own seller identities), or a specific seller
+  // name / UNASSIGNED_SELLER. Access is already server-scoped; this only slices.
+  const [sellerFilter, setSellerFilter] = useState<string>("all");
   // Date range lives inside this component (was previously in QueueClient
   // as a standalone toolbar dropdown that felt disconnected from the
   // sidebar filters). Default "30d" — most sellers only triage the last
@@ -392,6 +429,26 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
     [replies],
   );
 
+  // Per-seller PENDING counts for the breakdown bar. Keyed by seller name, with
+  // null seller (events like accepts/bounces have no campaign→seller) grouped
+  // under UNASSIGNED_SELLER. Sorted desc by count in the render.
+  const mySellerSet = useMemo(() => new Set(mySellerNames), [mySellerNames]);
+  const pendingSellerCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of replies) {
+      if (!isPending(r)) continue;
+      const key = r.sellerName ?? UNASSIGNED_SELLER;
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replies]);
+  const myPendingCount = useMemo(
+    () => replies.filter(r => isPending(r) && r.sellerName != null && mySellerSet.has(r.sellerName)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [replies, mySellerSet],
+  );
+
   const filtered = useMemo(() => {
     let list = replies;
     if (tab === "pending") {
@@ -403,6 +460,9 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
     if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
     if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
     if (channelFilter !== "all") list = list.filter(r => r.channel === channelFilter);
+    if (sellerFilter === "mine") list = list.filter(r => r.sellerName != null && mySellerSet.has(r.sellerName));
+    else if (sellerFilter === UNASSIGNED_SELLER) list = list.filter(r => !r.sellerName);
+    else if (sellerFilter !== "all") list = list.filter(r => r.sellerName === sellerFilter);
     if (dateRange !== "all") {
       list = list.filter(r => new Date(r.receivedAt).getTime() >= dateCutoffMs);
     }
@@ -416,7 +476,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
       );
     }
     return list;
-  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter, dateRange, dateCutoffMs, clearedLeadIds]);
+  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter, sellerFilter, mySellerSet, dateRange, dateCutoffMs, clearedLeadIds]);
 
   // Ensure the currently-selected reply still belongs to the visible list; if
   // not (tab changed, search narrowed), jump to the first visible reply.
@@ -712,6 +772,42 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
           );
         })}
       </div>
+
+      {/* Per-seller breakdown (Pending tab only). Appears only for users who
+          see more than one seller — a lone seller only ever receives their own
+          replies (server-scoped), so the bar would be redundant for them.
+          "All" is the default so the global view is never hidden. */}
+      {tab === "pending" && pendingSellerCounts.size > 1 && (
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2 border-b overflow-x-auto" style={{ borderColor: C.border }}>
+          <SellerChip
+            label={locale === "es" ? "Todos" : "All"}
+            count={counts.pending}
+            active={sellerFilter === "all"}
+            onClick={() => setSellerFilter("all")}
+          />
+          {mySellerNames.length > 0 && myPendingCount > 0 && (
+            <SellerChip
+              label={locale === "es" ? "Mis leads" : "My leads"}
+              count={myPendingCount}
+              active={sellerFilter === "mine"}
+              onClick={() => setSellerFilter("mine")}
+              highlight
+            />
+          )}
+          <span className="w-px h-4 shrink-0" style={{ backgroundColor: C.border }} />
+          {[...pendingSellerCounts.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, n]) => (
+              <SellerChip
+                key={name}
+                label={name === UNASSIGNED_SELLER ? (locale === "es" ? "Sin asignar" : "Unassigned") : name}
+                count={n}
+                active={sellerFilter === name}
+                onClick={() => setSellerFilter(name)}
+              />
+            ))}
+        </div>
+      )}
 
       {/* Split pane — fixed height so the inner list + thread can scroll
           independently without growing the page. The list panel collapses

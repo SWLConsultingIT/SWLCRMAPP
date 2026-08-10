@@ -65,6 +65,7 @@ type NewReply = {
   replyText: string | null;
   receivedAt: string;
   campaignName: string | null;
+  sellerName: string | null;
   icpProfileName?: string | null;
   requiresHumanReview?: boolean;
   // Persisted review state on the lead_replies row. The Inbox view reads
@@ -114,6 +115,7 @@ type Props = {
   pendingCalls: PendingCall[];
   newReplies: NewReply[];
   callHistory: CallHistoryEntry[];
+  mySellerNames?: string[];
 };
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -825,7 +827,7 @@ function CallHistoryPanel({
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function QueueClient({ pendingCalls, newReplies, callHistory }: Props) {
+export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [] }: Props) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
   // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls, 2 = Team
@@ -1469,6 +1471,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
             leadName: r.leadName,
             company: r.company,
             campaignName: r.campaignName ?? null,
+            sellerName: r.sellerName ?? null,
             icpProfileName: (r as any).icpProfileName ?? null,
             classification: r.classification,
             channel: r.channel,
@@ -1486,6 +1489,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
             // "Contactos detectados" block in the right pane never gets data.
             referredContacts: (r as any).referredContacts ?? [],
           }))}
+          mySellerNames={mySellerNames}
         />
       )}
 

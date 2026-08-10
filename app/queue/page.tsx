@@ -40,6 +40,16 @@ async function getQueueData() {
   // in the user's linked sellers. null → no extra filter.
   const sellerIds = await getMyAssignedSellerIds();
 
+  // The current user's own seller identities (by name) — powers the Inbox
+  // per-seller "My leads" quick filter. Empty for users with no seller row
+  // (most pure admins). Access itself is already enforced by the seller-tier
+  // reply scoping above; this is only for the UI breakdown.
+  const mySellerNames: string[] = await (async () => {
+    if (!scope.userId) return [];
+    const { data } = await getSupabaseService().from("sellers").select("name").eq("user_id", scope.userId);
+    return ((data ?? []).map((r: { name: string | null }) => r.name).filter(Boolean)) as string[];
+  })();
+
   // ICP profile IDs owned by this company (for request filtering)
   let scopedProfileIds: string[] | null = null;
   if (scopedCompanyBioId) {
@@ -545,7 +555,7 @@ async function getQueueData() {
     }),
   ].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
-  return { pendingCalls, newReplies, callHistory };
+  return { pendingCalls, newReplies, callHistory, mySellerNames };
 }
 
 export default async function QueuePage() {

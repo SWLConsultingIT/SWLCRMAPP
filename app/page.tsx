@@ -813,24 +813,24 @@ export default async function DashboardPage({
             href="/leads"
           />
           <MicroKpi
-            label={t("dashx.kpi.activeCampaigns")}
-            value={data.activeCampaignCount.toLocaleString(dateLoc)}
+            label={t("dashx.kpi.leadsInActive")}
+            value={data.leadsInActiveCampaigns.toLocaleString(dateLoc)}
             icon={Megaphone}
             accent={gold}
-            hint={t("dashx.kpi.activeCampaignsHintShort")}
+            hint={t("dashx.kpi.leadsInActiveHint")}
             vsPriorLabel={t("dashx.kpi.vsPrior")}
             noPriorLabel={t("dashx.kpi.noPrior")}
             href="/campaigns"
           />
           <MicroKpi
-            label={t("dashx.kpi.pausedCampaigns")}
-            value={data.pausedCampaignCount.toLocaleString(dateLoc)}
-            icon={Megaphone}
-            accent="#D97706"
-            hint={t("dashx.kpi.pausedCampaignsHint")}
+            label={t("dashx.kpi.leadsCompleted")}
+            value={data.leadsFinished.toLocaleString(dateLoc)}
+            icon={Users}
+            accent="#10B981"
+            hint={t("dashx.kpi.leadsCompletedHint")}
             vsPriorLabel={t("dashx.kpi.vsPrior")}
             noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/campaigns?status=paused"
+            href="/campaigns?status=completed"
           />
           </div>
         </div>
@@ -867,7 +867,7 @@ export default async function DashboardPage({
               />
               <MicroKpi
                 label={t("dashx.kpi.lost")}
-                value={headline.negativeCount.toLocaleString(dateLoc)}
+                value={headline.lostCount.toLocaleString(dateLoc)}
                 icon={AlertTriangle}
                 accent="#DC2626"
                 hint={t("dashx.kpi.lostHint")}

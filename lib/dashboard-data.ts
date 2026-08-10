@@ -101,7 +101,7 @@ function pctDelta(curr: number, prev: number): number | null {
 // renderable. Boss-feedback rule: live clients never see a blank 500.
 const EMPTY_DASHBOARD = {
   period: { from: null as string | null, to: null as string | null, days: 30 },
-  headline: { totalLeads: 0, contactedLeads: 0, connectedLeads: 0, repliedCount: 0, positiveCount: 0, negativeCount: 0, meetingCount: 0, wonCount: 0, responseRate: 0, conversionRate: 0 },
+  headline: { totalLeads: 0, contactedLeads: 0, connectedLeads: 0, repliedCount: 0, positiveCount: 0, negativeCount: 0, meetingCount: 0, wonCount: 0, lostCount: 0, responseRate: 0, conversionRate: 0 },
   deltas: { contacted: null as number | null, replied: null as number | null, positive: null as number | null },
   funnel: [
     { stage: "imported",          count: 0, prior: null as number | null, color: "neutral" },
@@ -127,6 +127,7 @@ const EMPTY_DASHBOARD = {
   completedCampaignCount: 0,
   leadsInActiveCampaigns: 0,
   leadsWithoutCampaign: 0,
+  leadsFinished: 0,
   todayLists: {
     replies: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
     positives: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
@@ -1759,6 +1760,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     headline: {
       totalLeads, contactedLeads, connectedLeads,
       repliedCount, positiveCount, negativeCount, meetingCount, wonCount,
+      lostCount,
       responseRate, positiveRate, conversionRate, acceptanceRate,
     },
     deltas,
@@ -1814,6 +1816,24 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         if (c.lead_id) withCampaign.add(c.lead_id);
       }
       return leads.filter(l => !withCampaign.has(l.id)).length;
+    })(),
+    // leadsFinished: of the period's leads, how many have at least one
+    // campaign but NONE currently active/paused (sequence completed, failed
+    // or cancelled). Together with leadsInActiveCampaigns (has ≥1 active/
+    // paused) and leadsWithoutCampaign (has 0 campaigns), these three
+    // partition `leads` exactly → the three Overview cards now sum to
+    // totalLeads. These are the leads that used to fall in a gap (counted in
+    // the total but in neither "in flow" nor "without flow"). Ties into the
+    // "completed bucket" work (leads shouldn't disappear when a flow ends).
+    leadsFinished: (() => {
+      const activeIds = new Set<string>();
+      const anyIds = new Set<string>();
+      for (const c of allCampaigns) {
+        if (!c.lead_id) continue;
+        anyIds.add(c.lead_id);
+        if (c.status === "active" || c.status === "paused") activeIds.add(c.lead_id);
+      }
+      return leads.filter(l => anyIds.has(l.id) && !activeIds.has(l.id)).length;
     })(),
     // Actionable lead lists for the "What to do today" hero. Capped at 8
     // each so the expanded panels stay scannable; full lists live on the
