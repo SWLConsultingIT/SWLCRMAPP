@@ -578,6 +578,14 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             style={{ backgroundColor: C.card, color: C.textBody, border: `1px solid ${C.border}` }}>
             <Download size={12} /> Download
           </button>
+          {leads.length > 0 && (
+            <a href={`/api/leads/by-icp/${profile.id}/export`}
+              title="Download this ICP's leads as a CSV (columns adapt to this ICP's data)"
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
+              <Download size={12} /> Leads CSV
+            </a>
+          )}
           {leads.length === 0 && (
             <button onClick={onEdit}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
