@@ -2,6 +2,19 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
+// Enrolling N leads used to run as single giant INSERTs (N campaigns + ~8N
+// messages) on the platform default timeout — a large "Add all compatible"
+// could time out mid-write. We now batch every write and bound the request.
+export const maxDuration = 60;
+const MAX_ADD = 2000;   // hard ceiling: reject (clear message) instead of crashing
+const CHUNK = 100;      // campaign-row insert batch
+const MSG_CHUNK = 500;  // campaign_messages insert batch
+function chunk<T>(arr: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
 // Server-side defense for the "Add Leads" tab. Browser INSERTs bypassed RLS for
 // admins, so a super-admin viewing a SWL campaign could attach Pathway leads.
 // This endpoint resolves the campaign's tenant (campaign → seller → company_bio)
@@ -78,6 +91,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (toAdd.length === 0) {
     return NextResponse.json({ ok: true, added: 0, skipped, rejected });
   }
+  if (toAdd.length > MAX_ADD) {
+    return NextResponse.json(
+      { error: `Too many leads in one request (${toAdd.length}). Add up to ${MAX_ADD} at a time.`, added: 0, skipped, rejected },
+      { status: 400 },
+    );
+  }
 
   const sequence = (campaign.sequence_steps as { channel: string; daysAfter: number }[] | null) ?? [];
   const firstChannel = sequence[0]?.channel ?? "linkedin";
@@ -121,9 +140,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     created_at: now,
   }));
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("campaigns").insert(rows).select("id, lead_id");
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  // Batched insert — one giant statement for a large add could exceed the
+  // timeout. On a mid-batch failure the dedup above ("already in this flow")
+  // makes a retry converge: already-inserted leads are skipped next time.
+  const inserted: { id: string; lead_id: string }[] = [];
+  for (const part of chunk(rows, CHUNK)) {
+    const { data, error: insertError } = await supabase
+      .from("campaigns").insert(part).select("id, lead_id");
+    if (insertError) return NextResponse.json({ error: insertError.message, added: inserted.length }, { status: 500 });
+    if (data) inserted.push(...data);
+  }
 
   // Seed campaign_messages per new lead from the template. Step 0 (the LinkedIn
   // CR) and a non-LinkedIn step 1 start `queued` so the dispatcher fires them
@@ -145,8 +171,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ...(t.subject ? { metadata: { subject: t.subject } } : {}),
       };
     }));
-    if (messageInserts.length > 0) {
-      const { error: msgErr } = await supabase.from("campaign_messages").insert(messageInserts);
+    for (const part of chunk(messageInserts, MSG_CHUNK)) {
+      const { error: msgErr } = await supabase.from("campaign_messages").insert(part);
       if (msgErr) return NextResponse.json({ error: `Leads added but messages failed: ${msgErr.message}` }, { status: 500 });
     }
   }
@@ -154,7 +180,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Set the channel only — let the dispatcher flip the lead to `contacted` once
   // Unipile confirms the invite actually sent (matches approve/route.ts; setting
   // contacted up-front produced ghost-contacted leads on Pathway).
-  await supabase.from("leads").update({ current_channel: firstChannel }).in("id", toAdd);
+  for (const part of chunk(toAdd, MSG_CHUNK)) {
+    await supabase.from("leads").update({ current_channel: firstChannel }).in("id", part);
+  }
 
   return NextResponse.json({ ok: true, added: toAdd.length, skipped, rejected, seededMessages: templates.length > 0 });
 }
