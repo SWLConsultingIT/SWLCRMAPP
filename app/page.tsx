@@ -169,6 +169,9 @@ function buildScopeLabel(
 // numbers. Memory: feedback_dashboard_no_cache — reliability surfaces and
 // every detail page already follow this; the main dashboard was missing it.
 export const dynamic = "force-dynamic";
+// Home dashboard aggregates the whole workspace in memory; give it headroom
+// over Vercel's default so big tenants (Pathway/SWL) never time out on login.
+export const maxDuration = 60;
 export const revalidate = 0;
 
 const DASHBOARD_TABS = ["today", "overview", "icps", "campaigns", "channels", "sellers", "portfolio"] as const;

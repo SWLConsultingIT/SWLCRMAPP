@@ -45,6 +45,8 @@ async function hydrateClientLeads<L extends { id?: string; source?: string | nul
 }
 
 export const dynamic = "force-dynamic";
+// Large flows (Pathway, 5000+ siblings) build heavy metrics in memory; headroom.
+export const maxDuration = 60;
 
 const gold = "var(--brand, #c9a83a)";
 

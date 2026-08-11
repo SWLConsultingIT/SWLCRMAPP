@@ -15,6 +15,8 @@ import ExportLeadsCSVButton from "@/components/ExportLeadsCSVButton";
 
 // Tenant-scoped + auth-gated → never static. Skip the optimization attempt.
 export const dynamic = "force-dynamic";
+// Aggregates all leads + campaigns + replies in memory; headroom for big tenants.
+export const maxDuration = 60;
 
 async function getData() {
   const supabase = await getSupabaseServer();

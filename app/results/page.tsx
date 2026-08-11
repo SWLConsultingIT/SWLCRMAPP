@@ -14,6 +14,9 @@ import { getT } from "@/lib/i18n-server";
 
 // Tenant-scoped + auth-gated → never static. Skip the optimization attempt.
 export const dynamic = "force-dynamic";
+// Big tenants (Pathway/SWL) aggregate a lot here; give the page real headroom
+// so it never dies on Vercel's default cap while the outcome set is built.
+export const maxDuration = 60;
 
 // Won + Lost lives outside /leads now (boss feedback 2026-05-28: "los results
 // están muy escondidos" hidden as a chip alongside in-flight statuses).
@@ -40,13 +43,19 @@ async function getData() {
   // exactly those, with no recency cap. Tenant scope is enforced on the final
   // leads fetch (company_bio_id + seller_id), so signal rows that don't belong
   // to the viewer's scope simply return no lead and drop out.
-  let repSigQ = supabase.from("lead_replies").select("lead_id, leads!inner(company_bio_id)").in("classification", ["positive", "meeting_intent", "negative"]);
-  let campSigQ = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["completed", "failed"]);
-  let odooSigQ = supabase.from("leads").select("id").not("transferred_to_odoo_at", "is", null);
-  if (bioId) {
-    repSigQ = repSigQ.eq("leads.company_bio_id", bioId);
-    campSigQ = campSigQ.eq("leads.company_bio_id", bioId);
-    odooSigQ = odooSigQ.eq("company_bio_id", bioId);
+  // Paginated signal fetches — a single PostgREST response caps at ~1000 rows,
+  // which silently truncated the WHOLE outcome set on big tenants (Pathway/SWL
+  // exceed 1000 lifetime positive/negative replies or completed campaigns), so
+  // Won/Lost/Re-nurture were undercounted. Page through until a short page.
+  async function fetchAllRows<T>(mkQuery: (from: number, to: number) => any): Promise<T[]> {
+    const out: T[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data } = (await mkQuery(from, from + 999)) as { data: T[] | null };
+      if (!data || data.length === 0) break;
+      out.push(...data);
+      if (data.length < 1000) break;
+    }
+    return out;
   }
   const profilesQ = supabase
     .from("icp_profiles")
@@ -54,16 +63,28 @@ async function getData() {
     .eq("status", "approved");
 
   const [repSig, campSig, odooSig, { data: profiles }] = await Promise.all([
-    repSigQ,
-    campSigQ,
-    odooSigQ,
+    fetchAllRows<{ lead_id?: string | null }>((f, t) => {
+      let q = supabase.from("lead_replies").select("lead_id, leads!inner(company_bio_id)").in("classification", ["positive", "meeting_intent", "negative"]);
+      if (bioId) q = q.eq("leads.company_bio_id", bioId);
+      return q.range(f, t);
+    }),
+    fetchAllRows<{ lead_id?: string | null }>((f, t) => {
+      let q = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["completed", "failed"]);
+      if (bioId) q = q.eq("leads.company_bio_id", bioId);
+      return q.range(f, t);
+    }),
+    fetchAllRows<{ id?: string | null }>((f, t) => {
+      let q = supabase.from("leads").select("id").not("transferred_to_odoo_at", "is", null);
+      if (bioId) q = q.eq("company_bio_id", bioId);
+      return q.range(f, t);
+    }),
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
   ]);
 
   const outcomeLeadIds = new Set<string>();
-  for (const r of (repSig.data ?? []) as Array<{ lead_id?: string | null }>) if (r.lead_id) outcomeLeadIds.add(r.lead_id);
-  for (const c of (campSig.data ?? []) as Array<{ lead_id?: string | null }>) if (c.lead_id) outcomeLeadIds.add(c.lead_id);
-  for (const l of (odooSig.data ?? []) as Array<{ id?: string | null }>) if (l.id) outcomeLeadIds.add(l.id);
+  for (const r of repSig) if (r.lead_id) outcomeLeadIds.add(r.lead_id);
+  for (const c of campSig) if (c.lead_id) outcomeLeadIds.add(c.lead_id);
+  for (const l of odooSig) if (l.id) outcomeLeadIds.add(l.id);
   const outcomeIds = [...outcomeLeadIds];
 
   // Fetch exactly the outcome leads (chunked — PostgREST .in lists get unwieldy
@@ -117,14 +138,20 @@ async function getData() {
   const leadIds = (allLeads ?? []).map(l => l.id);
 
   // Pull replies + campaigns for outcome derivation (same shape /leads uses).
-  const [{ data: replies }, { data: campaigns }] = await Promise.all([
-    leadIds.length > 0
-      ? supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", leadIds).order("received_at", { ascending: false })
-      : Promise.resolve({ data: [] as any[] }),
-    leadIds.length > 0
-      ? supabase.from("campaigns").select("id, name, channel, current_step, sequence_steps, status, lead_id").in("lead_id", leadIds)
-      : Promise.resolve({ data: [] as any[] }),
-  ]);
+  // Chunked by 300 lead ids: a single `.in(leadIds)` both truncates at ~1000
+  // rows and can build an oversized URL. Each lead sits in exactly one chunk,
+  // so per-lead ordering (used by the outcome logic) is preserved.
+  const replies: any[] = [];
+  const campaigns: any[] = [];
+  for (let i = 0; i < leadIds.length; i += 300) {
+    const idChunk = leadIds.slice(i, i + 300);
+    const [{ data: rp }, { data: cp }] = await Promise.all([
+      supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", idChunk).order("received_at", { ascending: false }),
+      supabase.from("campaigns").select("id, name, channel, current_step, sequence_steps, status, lead_id").in("lead_id", idChunk),
+    ]);
+    if (rp) replies.push(...rp);
+    if (cp) campaigns.push(...cp);
+  }
 
   const repliesByLead: Record<string, any[]> = {};
   for (const r of replies ?? []) {
