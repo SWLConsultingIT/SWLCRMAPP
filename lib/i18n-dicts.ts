@@ -1575,6 +1575,9 @@ export const en: Dict = {
   "dashx.reply.spam": "Spam",
   "dashx.reply.auto_reply": "Auto-reply",
   "dashx.reply.unclassified": "Unclassified",
+  "dashx.reply.out_of_office": "Out of office",
+  "dashx.reply.wrong_person": "Wrong person",
+  "dashx.reply.unknown": "Unknown",
   // Detail pages — shared
   "dashx.detail.back": "Back to dashboard",
   "dashx.detail.periodInherited": "Period inherited from dashboard — KPIs and breakdowns scoped to this window",
@@ -3580,6 +3583,9 @@ export const es: Dict = {
   "dashx.reply.spam": "Spam",
   "dashx.reply.auto_reply": "Auto-reply",
   "dashx.reply.unclassified": "Sin clasificar",
+  "dashx.reply.out_of_office": "Fuera de oficina",
+  "dashx.reply.wrong_person": "Persona equivocada",
+  "dashx.reply.unknown": "Desconocido",
   // Detail pages — shared
   "dashx.detail.back": "Volver al dashboard",
   "dashx.detail.periodInherited": "Período heredado del dashboard — KPIs y breakdowns scoped a esta ventana",

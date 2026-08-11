@@ -80,6 +80,11 @@ const classColors: Record<string, string> = {
   spam:           "#475569",   // dark slate — junk
   auto_reply:     "#94A3B8",   // slate — automated
   unclassified:   "#94A3B8",   // slate — unknown
+  // Categories the classifier (lib/classify-reply.ts) actually emits but that
+  // were missing here — without them the donut showed a grey slice + raw slug.
+  out_of_office:  "#94A3B8",   // slate — automated/neutral, like auto_reply
+  wrong_person:   "#3D5A8F",   // navy — referral/redirect (dialogue family, like question)
+  unknown:        "#94A3B8",   // slate — model couldn't decide
 };
 
 /** Small callout strip placed above each leaderboard that surfaces the
