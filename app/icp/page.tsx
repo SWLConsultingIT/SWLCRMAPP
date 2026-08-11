@@ -468,7 +468,35 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
   const [leadsTab, setLeadsTab] = useState<"unassigned" | "with_campaign">("unassigned");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [csvBusy, setCsvBusy] = useState(false);
   const router = useRouter();
+
+  // Download this ICP's leads as CSV via fetch+blob, NOT a plain <a href> — an
+  // anchor navigation triggers the app's route loader (LogoLoader) and hangs
+  // the page even though the file downloads. Blob download keeps the user put.
+  async function downloadLeadsCsv() {
+    if (csvBusy) return;
+    setCsvBusy(true);
+    try {
+      const res = await fetch(`/api/leads/by-icp/${profile.id}/export`);
+      if (!res.ok) throw new Error(`export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safe = (profile.profile_name || "leads").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "leads";
+      a.download = `ICP-${safe}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("[icp leads csv]", e);
+      alert("No se pudo generar el CSV. Probá de nuevo.");
+    } finally {
+      setCsvBusy(false);
+    }
+  }
 
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
@@ -579,12 +607,12 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             <Download size={12} /> Download
           </button>
           {leads.length > 0 && (
-            <a href={`/api/leads/by-icp/${profile.id}/export`}
+            <button onClick={downloadLeadsCsv} disabled={csvBusy}
               title="Download this ICP's leads as a CSV (columns adapt to this ICP's data)"
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-60"
               style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-              <Download size={12} /> Leads CSV
-            </a>
+              {csvBusy ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Leads CSV
+            </button>
           )}
           {leads.length === 0 && (
             <button onClick={onEdit}
