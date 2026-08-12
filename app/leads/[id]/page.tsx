@@ -704,9 +704,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   href={`/campaigns/${campaign.id}`}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-85"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${C.gold} 14%, transparent)`,
-                    color: C.gold ?? "#c9a83a",
-                    border: `1px solid color-mix(in srgb, ${C.gold} 30%, transparent)`,
+                    backgroundColor: C.bg,
+                    color: C.textBody,
+                    border: `1px solid ${C.border}`,
                   }}
                   title="Open this lead's flow"
                 >
@@ -723,9 +723,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap border transition-opacity hover:opacity-85"
                 style={{
-                  backgroundColor: `color-mix(in srgb, ${C.gold} 10%, transparent)`,
-                  color: C.gold ?? "#c9a83a",
-                  borderColor: `color-mix(in srgb, ${C.gold} 30%, transparent)`,
+                  backgroundColor: C.bg,
+                  color: C.textBody,
+                  borderColor: C.border,
                 }}
                 title="Export this lead to a PDF sheet"
               >
@@ -866,7 +866,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           })()}
           {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:py-1 rounded-full"
-              style={{ backgroundColor: gold, color: "#04070d" }}>
+              style={{ backgroundColor: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "#8a6b18", border: `1px solid color-mix(in srgb, ${gold} 34%, transparent)` }}>
               NEW
             </span>
           )}
