@@ -647,67 +647,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   <ExternalLink size={10} className="shrink-0" style={{ opacity: 0.6 }} />
                 </Link>
               )}
-              {/* Badges row — primary (status, score) always visible, secondary
-                  (added date, NEW, seller) hidden on small viewports to keep
-                  the header compact. They reappear at sm: width. */}
-              <div className="flex items-center gap-1.5 sm:gap-2 mt-2 flex-wrap">
-                <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
-                  style={{ color: st.color, backgroundColor: st.bg }}>
-                  {st.label.toUpperCase()}
-                </span>
-                <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
-                  style={{ color: score.color, backgroundColor: score.bg }}>
-                  {score.label}
-                </span>
-                {(() => {
-                  const tz = countryToTimeZone(lead.company_country);
-                  if (!tz) return null;
-                  const place = lead.company_city || lead.company_country || null;
-                  return <ProspectClock tz={tz} place={place} />;
-                })()}
-                {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:py-1 rounded-full"
-                    style={{ backgroundColor: gold, color: "#04070d" }}>
-                    NEW
-                  </span>
-                )}
-                {/* Created date — always visible (was conditional on <7d before
-                    the Lead Source card was removed). Sellers occasionally need
-                    to know the lead has been sitting for months. */}
-                {lead.created_at && (
-                  <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-                    title="When this lead was added"
-                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-                    Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                  </span>
-                )}
-                {lead.assigned_seller && (
-                  <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ backgroundColor: gold, fontSize: 9 }}>
-                      {lead.assigned_seller[0]}
-                    </div>
-                    {lead.assigned_seller}
-                  </span>
-                )}
-                {/* Source universe — segmentation context (e.g. "UK Real Estate").
-                    Surfaced as a header chip so the seller knows what bucket
-                    the lead came from. The upstream tool name is intentionally
-                    NOT shown to clients. */}
-                {lead.source_universe && (
-                  <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-                    title="Source universe / segment"
-                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-                    {lead.source_universe}
-                  </span>
-                )}
-              </div>
-
-              {/* Tagged teammates — loop colleagues in, with a reason on hover */}
-              <div className="mt-2.5">
-                <LeadSellerTags leadId={lead.id} compact />
-              </div>
+              {/* status/score/timezone/provenance chips + teammate tags moved
+                  out of this squeezed column into a full-width metadata strip
+                  below the identity+actions row (see "Metadata strip"). */}
             </div>
           </div>
 
@@ -900,6 +842,61 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <ScoreRing score={lead.lead_score} color={score.color} />
               )}
             </div>
+          </div>
+        </div>
+
+        {/* ═══ METADATA STRIP — full-width so status/score/timezone/provenance
+            chips + teammate tags lay out in a clean row instead of stacking in
+            the squeezed identity column (Fran 2026-08-12: "el hero está muy
+            colapsado y desprolijo"). ═══ */}
+        <div className="px-4 sm:px-6 pb-5 flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
+            style={{ color: st.color, backgroundColor: st.bg }}>
+            {st.label.toUpperCase()}
+          </span>
+          <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
+            style={{ color: score.color, backgroundColor: score.bg }}>
+            {score.label}
+          </span>
+          {(() => {
+            const tz = countryToTimeZone(lead.company_country);
+            if (!tz) return null;
+            const place = lead.company_city || lead.company_country || null;
+            return <ProspectClock tz={tz} place={place} />;
+          })()}
+          {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:py-1 rounded-full"
+              style={{ backgroundColor: gold, color: "#04070d" }}>
+              NEW
+            </span>
+          )}
+          {lead.created_at && (
+            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+              title="When this lead was added"
+              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+              Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            </span>
+          )}
+          {lead.assigned_seller && (
+            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+              <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                style={{ backgroundColor: gold, fontSize: 9 }}>
+                {lead.assigned_seller[0]}
+              </div>
+              {lead.assigned_seller}
+            </span>
+          )}
+          {lead.source_universe && (
+            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+              title="Source universe / segment"
+              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+              {lead.source_universe}
+            </span>
+          )}
+          {/* Teammate tags — pushed to the right edge of the strip on wider screens. */}
+          <div className="w-full sm:w-auto sm:ml-auto mt-1 sm:mt-0">
+            <LeadSellerTags leadId={lead.id} compact />
           </div>
         </div>
 
