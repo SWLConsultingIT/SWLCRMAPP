@@ -7,6 +7,7 @@
 // /api/leads/[id] flow from the old standalone DeleteLeadButton.
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Megaphone, FileDown, ClipboardCheck, Trash2, AlertTriangle, Loader2 } from "lucide-react";
@@ -23,6 +24,11 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  // Portal the modals to <body>: the hero card has a CSS `transform` (.reveal
+  // animation) which makes any position:fixed descendant relative to the card
+  // instead of the viewport — so an in-tree modal renders clipped/off-center.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -71,10 +77,10 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
         </div>
       )}
 
-      {outcome && <CallOutcomePrompt leadId={leadId} onClose={() => setOutcome(false)} />}
+      {mounted && outcome && createPortal(<CallOutcomePrompt leadId={leadId} onClose={() => setOutcome(false)} />, document.body)}
 
-      {confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+      {mounted && confirm && createPortal((
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
           <div className="rounded-xl border p-6 w-full max-w-sm shadow-xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.redLight }}>
@@ -99,7 +105,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 }
