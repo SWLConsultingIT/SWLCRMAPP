@@ -126,7 +126,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   // Build activity timeline from all contacts
   const contactNameMap: Record<string, string> = {};
   allContacts.forEach((c: any) => {
-    contactNameMap[c.id] = `${c.primary_first_name ?? ""} ${c.primary_last_name ?? ""}`.trim() || "Unknown";
+    contactNameMap[c.id] = `${c.primary_first_name ?? ""} ${c.primary_last_name ?? ""}`.trim() || c.company_name || "Unknown";
   });
 
   const { data: allCampaigns } = await supabase

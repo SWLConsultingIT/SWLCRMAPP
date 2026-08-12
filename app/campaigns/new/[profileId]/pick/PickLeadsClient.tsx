@@ -327,7 +327,7 @@ export default function PickLeadsClient({
                 </div>
               ) : filtered.map((l, idx) => {
                 const checked = selected.has(l.id);
-                const nm = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
+                const nm = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || l.company_name || "Unknown";
                 const initials = `${l.first_name?.[0] ?? ""}${l.last_name?.[0] ?? ""}`.toUpperCase() || "··";
                 const scoreBand: "hot" | "warm" | "nurture" = l.lead_score != null && l.lead_score >= 80
                   ? "hot" : l.lead_score != null && l.lead_score >= 50 ? "warm" : "nurture";

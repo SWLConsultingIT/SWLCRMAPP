@@ -748,7 +748,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
             const selectedNamesForModal = visible
               .filter(l => selectedIds.has(l.id))
-              .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || "Unknown");
+              .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || l.company || "Unknown");
             return (
               <>
                 {/* Sub-tabs — split unassigned vs with campaign so the seller
@@ -819,7 +819,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                       {leadsTab === "unassigned" ? "All leads in this ticket are already assigned to a flow." : "No leads in a campaign yet."}
                     </div>
                   ) : visible.map(lead => {
-                    const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "Unknown";
+                    const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.company || "Unknown";
                     const camp = lead.campaign;
                     const isSelected = selectedIds.has(lead.id);
                     const selectable = leadsTab === "unassigned";
@@ -963,7 +963,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           leadIds={Array.from(selectedIds)}
           leadNames={unassigned
             .filter(l => selectedIds.has(l.id))
-            .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || "Unknown")}
+            .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || l.company || "Unknown")}
           onClose={() => setShowAddModal(false)}
           onAdded={() => {
             setShowAddModal(false);

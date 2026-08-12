@@ -244,7 +244,7 @@ function leadInitials(lead: Campaign["leads"]): string {
 
 function fullName(lead: Campaign["leads"]): string {
   if (!lead) return "Unknown";
-  return `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+  return `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
 }
 
 // ─── Draggable card ─────────────────────────────────────────

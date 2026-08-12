@@ -21,7 +21,7 @@ type CallWithLead = CallRecord & { lead_id: string };
 
 function fullName(l: LeadRef | undefined): string {
   if (!l) return "Unknown";
-  return `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown";
+  return `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || l.company_name || "Unknown";
 }
 
 function initials(l: LeadRef | undefined): string {

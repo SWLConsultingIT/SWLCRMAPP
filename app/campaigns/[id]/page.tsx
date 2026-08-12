@@ -504,7 +504,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const pct = totalSteps > 0 ? Math.round((campaign.current_step / totalSteps) * 100) : 0;
   const st = statusMeta[campaign.status] ?? statusMeta.active;
   const StIcon = st.icon;
-  const leadName = `${campaign.leads?.primary_first_name ?? ""} ${campaign.leads?.primary_last_name ?? ""}`.trim() || "Unknown";
+  const leadName = `${campaign.leads?.primary_first_name ?? ""} ${campaign.leads?.primary_last_name ?? ""}`.trim() || campaign.leads?.company_name || "Unknown";
 
   // All leads in this campaign group (current + siblings)
   const allGroupCampaigns = [
@@ -653,7 +653,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const leadInfo = new Map<string, { name: string; company: string | null }>();
   for (const c of allGroupCampaigns) {
     const l = (c as any).leads;
-    if (l?.id) leadInfo.set(l.id, { name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown", company: l.company_name ?? null });
+    if (l?.id) leadInfo.set(l.id, { name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || l.company_name || "Unknown", company: l.company_name ?? null });
   }
   // Use the nested leads.id, NOT a top-level c.lead_id: getSiblingCampaigns
   // doesn't select the lead_id column, so c.lead_id is undefined for every

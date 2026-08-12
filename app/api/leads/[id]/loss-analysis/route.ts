@@ -48,7 +48,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 }
 
 async function generate({ lead, campaigns, replies, calls, apiKey }: any) {
-  const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+  const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
   const negReply = replies.find((r: any) => r.classification === "negative");
   const stepsCompleted = campaigns.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0);
   const totalSteps = campaigns.reduce((s: number, c: any) => s + (Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0), 0);

@@ -231,7 +231,7 @@ async function getQueueData() {
   }
   const callHistory = realCalls.map((c: any) => {
     const lead = c.leads;
-    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown" : "Unknown";
     // Mirror CallCard's recording heuristic: a real recording_url, OR an
     // answered call with duration that Aircall will have a recording for
     // (the /play endpoint lazily archives it on first access).
@@ -392,7 +392,7 @@ async function getQueueData() {
     const info = pendingByCampaign.get(c.id as string);
     if (!info) continue;
     const lead = c.leads as any;
-    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown" : "Unknown";
     const isOverdue = info.isOverdue;
     const overdueDays = info.overdueDays;
     const latestCall = c.lead_id ? latestCallByLead.get(c.lead_id as string) ?? null : null;
@@ -486,7 +486,7 @@ async function getQueueData() {
   const newReplies = [
     ...(recentReplies ?? []).map((r: any) => {
       const lead = r.leads;
-      const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+      const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown" : "Unknown";
       return {
         id: r.id,
         leadId: r.lead_id,
@@ -507,7 +507,7 @@ async function getQueueData() {
       };
     }),
     ...(recentAccepts ?? []).map((lead: any) => {
-      const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+      const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
       const meta = acceptMetaByLead[lead.id];
       // accepted_at proxy: 4h after the invite send is the median for warm
       // accounts. Better than `created_at` (which is when the lead was
@@ -535,7 +535,7 @@ async function getQueueData() {
     // the status flipped — the same UX expectation as accepts (newest
     // engagement signal at top).
     ...(emailIssues ?? []).map((lead: any) => {
-      const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+      const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
       const isBounced = lead.primary_email_status === "bounced";
       return {
         id: `email-issue-${lead.id}`,

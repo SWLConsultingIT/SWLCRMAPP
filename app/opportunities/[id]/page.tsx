@@ -153,7 +153,7 @@ async function getLeadOpportunity(id: string) {
       companyBioId: lead.company_bio_id ?? null,
       firstName: lead.primary_first_name ?? null,
       lastName: lead.primary_last_name ?? null,
-      fullName: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown",
+      fullName: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown",
       role: lead.primary_title_role ?? null,
       seniority: lead.primary_seniority ?? null,
       headline: lead.primary_headline ?? null,
@@ -243,7 +243,7 @@ async function getCampaignRollup(id: string) {
     const camp = (allCampaigns ?? []).find(c => c.lead_id === lid);
     return {
       id: lead.id,
-      name: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown",
+      name: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown",
       company: lead.company_name, role: lead.primary_title_role,
       score: lead.lead_score, is_priority: lead.is_priority,
       channel: winReply?.channel ?? camp?.channel ?? "email",

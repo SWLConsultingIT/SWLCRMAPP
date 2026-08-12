@@ -67,7 +67,7 @@ async function generateAndCacheAnalysis(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
-  const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+  const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
   const negReply = replies.find((r: any) => r.classification === "negative");
   const stepsCompleted = campaigns.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0);
   const totalSteps = campaigns.reduce((s: number, c: any) => s + (Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0), 0);
@@ -324,7 +324,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
     aiAnalysis = await generateAndCacheAnalysis(lead.id, lead, campaigns, replies, calls);
   }
   const analyzedAt = lead.ai_loss_analysis_at ? new Date(lead.ai_loss_analysis_at) : null;
-  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.company || "Unknown";
   const badge = scoreBadge(lead.lead_score, lead.is_priority);
 
   return (

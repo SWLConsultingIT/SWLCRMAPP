@@ -463,7 +463,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     attachments?: Array<{ name: string; mimeType?: string; sizeBytes?: number }>;
   };
 
-  const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+  const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
   const activityItems: ActivityItem[] = [];
 
   // Sent messages: prefer the dispatcher-captured rendered_content over the

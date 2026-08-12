@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return j.result;
   }
 
-  const fullName = `${L.primary_first_name ?? ""} ${L.primary_last_name ?? ""}`.trim() || "Unknown";
+  const fullName = `${L.primary_first_name ?? ""} ${L.primary_last_name ?? ""}`.trim() || L.company_name || "Unknown";
   const email = L.primary_work_email || L.primary_personal_email || "";
   const phone = L.primary_phone || "";
   const companyName = L.company_name || "";

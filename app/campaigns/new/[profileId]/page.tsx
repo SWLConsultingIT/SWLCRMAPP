@@ -491,7 +491,7 @@ export default function NewCampaignWizard() {
       const { data: covRows } = await coverageQ;
       const rows = covRows ?? [];
       const isValidLi = (u: string | null) => !!u && /linkedin\.com\/in\//i.test(u);
-      const fullName = (r: any) => `${r.primary_first_name ?? ""} ${r.primary_last_name ?? ""}`.trim() || "Unknown";
+      const fullName = (r: any) => `${r.primary_first_name ?? ""} ${r.primary_last_name ?? ""}`.trim() || r.company_name || "Unknown";
       // Client-source leads keep their PII inside encrypted_payload — the
       // plain columns (primary_linkedin_url, primary_work_email, etc.) are
       // redacted to null in the browser. Without decrypting we can't see

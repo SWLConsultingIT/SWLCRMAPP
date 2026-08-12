@@ -349,7 +349,7 @@ async function getData() {
       if (leadData.has_positive) pg.positiveCount++;
       if (leadReplies.length > 0) {
         const latest = leadReplies[0];
-        const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+        const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
         if (!pg.lastReply || new Date(latest.received_at) > new Date(pg.lastReply.receivedAt)) {
           pg.lastReply = { text: latest.reply_text, classification: latest.classification, leadName, receivedAt: latest.received_at };
         }

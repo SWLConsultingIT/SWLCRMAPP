@@ -302,7 +302,7 @@ export default function CampaignDetailClient({
       return {
         campaignId: c.id,
         leadId: c.leads?.id as string | undefined,
-        leadName: `${c.leads?.primary_first_name ?? ""} ${c.leads?.primary_last_name ?? ""}`.trim() || "Unknown",
+        leadName: `${c.leads?.primary_first_name ?? ""} ${c.leads?.primary_last_name ?? ""}`.trim() || c.leads?.company_name || "Unknown",
         company: c.leads?.company_name as string | null,
         phone: c.leads?.primary_phone as string | null,
         channel: nextStep.channel as string,
@@ -507,7 +507,7 @@ export default function CampaignDetailClient({
               <tbody>
                 {filteredCampaigns.map(c => {
                   const l = c.leads; if (!l) return null;
-                  const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown";
+                  const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || l.company_name || "Unknown";
                   const cst = statusConfig[c.status] ?? statusConfig.active;
                   const ts = c.sequence_steps?.length ?? 0;
                   const p = ts > 0 ? Math.round((c.current_step / ts) * 100) : 0;
@@ -583,7 +583,7 @@ export default function CampaignDetailClient({
                       {col.rows.length === 0 && <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>—</p>}
                       {col.rows.map(c => {
                         const l = (c as any).leads; if (!l) return null;
-                        const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown";
+                        const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || l.company_name || "Unknown";
                         const phone: string | null = l.primary_phone ?? null;
                         const called = calledIds.has(l.id);
                         return (
@@ -1129,7 +1129,7 @@ export default function CampaignDetailClient({
         const compatCount = filteredLeads.filter(isCompat).length;
 
         function renderLeadRow(lead: UnlinkedLead) {
-          const nm = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+          const nm = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
           const ok = isCompat(lead);
           const isChecked = addSelected.has(lead.id);
           return (

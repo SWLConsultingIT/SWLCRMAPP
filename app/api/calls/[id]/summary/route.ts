@@ -121,7 +121,7 @@ export async function POST(
     : "unknown";
   const userMessage = [
     `COMPANY: ${companyBio?.company_name ?? "Unknown"}`,
-    `LEAD: ${`${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim() || "Unknown"}${lead?.primary_title_role ? ` (${lead.primary_title_role})` : ""}`,
+    `LEAD: ${`${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim() || lead?.company_name || "Unknown"}${lead?.primary_title_role ? ` (${lead.primary_title_role})` : ""}`,
     `CALL: ${call.direction ?? "unknown"}, ${durationLabel}`,
     "",
     "TRANSCRIPT:",

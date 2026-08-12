@@ -149,7 +149,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
             </thead>
             <tbody>
               {filtered.map(lead => {
-                const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+                const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.company || "Unknown";
                 const badge = scoreBadge(lead.score, lead.is_priority);
                 const chMeta = channelMeta[lead.win_channel ?? "email"] ?? channelMeta.email;
                 const ChIcon = chMeta.icon;
