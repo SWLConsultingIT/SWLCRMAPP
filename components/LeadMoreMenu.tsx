@@ -12,10 +12,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Megaphone, FileDown, ClipboardCheck, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
-import CallOutcomePrompt from "@/components/CallOutcomePrompt";
+import LeadResultModal from "@/components/LeadResultModal";
 
-export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
+export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies }: {
   leadId: string; leadName: string; campaignId: string | null;
+  autoReplies?: { positive?: string; negative?: string } | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -68,7 +69,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
             <FileDown size={15} style={{ color: C.textMuted }} /> Export PDF
           </a>
           <button type="button" className={item} style={{ color: C.textBody }} onClick={() => { setOpen(false); setOutcome(true); }}>
-            <ClipboardCheck size={15} style={{ color: C.textMuted }} /> Log outcome
+            <ClipboardCheck size={15} style={{ color: C.textMuted }} /> Mark result
           </button>
           <div className="my-1 h-px" style={{ backgroundColor: C.border }} />
           <button type="button" className={item} style={{ color: C.red }} onClick={() => { setOpen(false); setConfirm(true); }}>
@@ -77,7 +78,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
         </div>
       )}
 
-      {mounted && outcome && createPortal(<CallOutcomePrompt leadId={leadId} onClose={() => setOutcome(false)} />, document.body)}
+      {outcome && <LeadResultModal leadId={leadId} autoReplies={autoReplies ?? null} onClose={() => setOutcome(false)} />}
 
       {mounted && confirm && createPortal((
         <div className="fixed inset-0 z-[1200] flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>

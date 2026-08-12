@@ -99,7 +99,7 @@ async function getCampaign(leadId: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, aircall_number_id, call_advance_mode, sellers(name)")
+    .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, aircall_number_id, call_advance_mode, metadata, sellers(name)")
     .eq("lead_id", leadId)
     .order("started_at", { ascending: false })
     .limit(1)
@@ -702,7 +702,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               {/* Secondary actions (View flow / Export / Log outcome / Delete)
                   collapse into one calm "More" menu so the row is just the
                   primary Call + More + prev/next nav. */}
-              <LeadMoreMenu leadId={id} leadName={contactName} campaignId={campaign?.id ?? null} />
+              <LeadMoreMenu leadId={id} leadName={contactName} campaignId={campaign?.id ?? null} autoReplies={(campaign?.metadata as { autoReplies?: { positive?: string; negative?: string } } | null)?.autoReplies ?? null} />
 
               {/* Prev/next within the same flow (boss 2026-06-10) — two arrows
                   to move between leads of the same sequence without going back
