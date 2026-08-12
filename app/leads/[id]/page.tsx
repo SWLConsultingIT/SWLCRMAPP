@@ -24,6 +24,7 @@ import CallButton from "@/components/CallButton";
 import EditableLeadField from "@/components/EditableLeadField";
 import WrongNumberPill from "@/components/WrongNumberPill";
 import LogOutcomeButton from "@/components/LogOutcomeButton";
+import LeadMoreMenu from "@/components/LeadMoreMenu";
 import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSellerTags from "@/components/LeadSellerTags";
@@ -647,9 +648,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   <ExternalLink size={10} className="shrink-0" style={{ opacity: 0.6 }} />
                 </Link>
               )}
-              {/* status/score/timezone/provenance chips + teammate tags moved
-                  out of this squeezed column into a full-width metadata strip
-                  below the identity+actions row (see "Metadata strip"). */}
+              {/* Status as quiet dot+label (not big pills) — lead status +
+                  score band. Timezone/provenance + tags live in the metadata
+                  strip below; secondary actions in the "More" menu. */}
+              <div className="flex items-center gap-4 mt-2.5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.textBody }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.color }} />
+                  {st.label}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.textBody }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: score.color }} />
+                  {score.label}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -688,51 +699,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   )}
                 </div>
               )}
-              {/* Log outcome — record the result of a call made outside the
-                  app (personal phone). Opens the same outcome prompt as an
-                  in-app dial; no phone/Aircall call required. (Simo 2026-07-28) */}
-              <div className="flex-1 sm:flex-initial">
-                <LogOutcomeButton leadId={id} />
-              </div>
-              {/* "View flow" — always visible when the lead has any
-                  campaign linked (active OR completed). One click to the
-                  campaign detail / flow view. Sits between the call
-                  chain and Delete so it's grouped with the navigation
-                  affordances. */}
-              {campaign?.id && (
-                <Link
-                  href={`/campaigns/${campaign.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-85"
-                  style={{
-                    backgroundColor: C.bg,
-                    color: C.textBody,
-                    border: `1px solid ${C.border}`,
-                  }}
-                  title="Open this lead's flow"
-                >
-                  <Megaphone size={14} />
-                  View flow
-                </Link>
-              )}
-              {/* Export — opens a branded, print-ready sheet of this lead (all
-                  its info + photo) in a new tab; the /print route auto-fires the
-                  Save-as-PDF dialog. */}
-              <a
-                href={`/leads/${id}/print`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap border transition-opacity hover:opacity-85"
-                style={{
-                  backgroundColor: C.bg,
-                  color: C.textBody,
-                  borderColor: C.border,
-                }}
-                title="Export this lead to a PDF sheet"
-              >
-                <FileDown size={14} />
-                Export
-              </a>
-              <DeleteLeadButton leadId={id} leadName={contactName} />
+              {/* Secondary actions (View flow / Export / Log outcome / Delete)
+                  collapse into one calm "More" menu so the row is just the
+                  primary Call + More + prev/next nav. */}
+              <LeadMoreMenu leadId={id} leadName={contactName} campaignId={campaign?.id ?? null} />
 
               {/* Prev/next within the same flow (boss 2026-06-10) — two arrows
                   to move between leads of the same sequence without going back
@@ -849,52 +819,42 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             chips + teammate tags lay out in a clean row instead of stacking in
             the squeezed identity column (Fran 2026-08-12: "el hero está muy
             colapsado y desprolijo"). ═══ */}
-        <div className="px-4 sm:px-6 pb-5 flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
-            style={{ color: st.color, backgroundColor: st.bg }}>
-            {st.label.toUpperCase()}
-          </span>
-          <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
-            style={{ color: score.color, backgroundColor: score.bg }}>
-            {score.label}
-          </span>
+        <div className="px-4 sm:px-6 pb-5 flex items-center gap-x-2.5 gap-y-1.5 flex-wrap text-xs" style={{ color: C.textMuted }}>
           {(() => {
+            const bits: React.ReactNode[] = [];
             const tz = countryToTimeZone(lead.company_country);
-            if (!tz) return null;
-            const place = lead.company_city || lead.company_country || null;
-            return <ProspectClock tz={tz} place={place} />;
+            if (tz) {
+              const place = lead.company_city || lead.company_country || null;
+              bits.push(<ProspectClock key="clk" tz={tz} place={place} />);
+            }
+            if (lead.created_at) {
+              bits.push(<span key="add">Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>);
+            }
+            if (lead.assigned_seller) {
+              bits.push(
+                <span key="own" className="inline-flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: gold, fontSize: 9 }}>
+                    {lead.assigned_seller[0]}
+                  </span>
+                  {lead.assigned_seller}
+                </span>,
+              );
+            }
+            if (lead.source_universe) bits.push(<span key="src">{lead.source_universe}</span>);
+            return bits.map((b, i) => (
+              <span key={i} className="inline-flex items-center gap-2.5">
+                {i > 0 && <span style={{ color: C.textDim }}>·</span>}
+                {b}
+              </span>
+            ));
           })()}
           {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:py-1 rounded-full"
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
               style={{ backgroundColor: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "#8a6b18", border: `1px solid color-mix(in srgb, ${gold} 34%, transparent)` }}>
               NEW
             </span>
           )}
-          {lead.created_at && (
-            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-              title="When this lead was added"
-              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-              Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-            </span>
-          )}
-          {lead.assigned_seller && (
-            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-              <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                style={{ backgroundColor: gold, fontSize: 9 }}>
-                {lead.assigned_seller[0]}
-              </div>
-              {lead.assigned_seller}
-            </span>
-          )}
-          {lead.source_universe && (
-            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-              title="Source universe / segment"
-              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-              {lead.source_universe}
-            </span>
-          )}
-          {/* Teammate tags — pushed to the right edge of the strip on wider screens. */}
+          {/* Teammate tags — pushed to the right edge on wider screens. */}
           <div className="w-full sm:w-auto sm:ml-auto mt-1 sm:mt-0">
             <LeadSellerTags leadId={lead.id} compact />
           </div>
