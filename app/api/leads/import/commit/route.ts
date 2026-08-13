@@ -194,11 +194,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ─── execute inserts ──────────────────────────────────────────────────
+  // ─── execute inserts (parallel batches with concurrency cap) ──────────
+  // The batches used to run strictly in series — a 790-row encrypted import
+  // meant ~8 INSERT round-trips end-to-end, the bulk of the "a veces tardo
+  // mucho" wall-time. Each batch is independent (rows carry no cross-refs), so
+  // we run a few in flight at once. Cap kept modest so we don't swamp the
+  // Supabase pooler with 100-row encrypted INSERTs.
   let inserted = 0;
   let errors = 0;
+  const INSERT_CONCURRENCY = 4;
+  const insertBatches: Insert[][] = [];
   for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
-    const slice = toInsert.slice(i, i + BATCH_SIZE);
+    insertBatches.push(toInsert.slice(i, i + BATCH_SIZE));
+  }
+  const runInsertBatch = async (slice: Insert[]) => {
     const { data, error } = await svc.from("leads").insert(slice.map(s => s.row)).select("id");
     if (error || !data) {
       // Bulk failed — fall back to per-row to isolate the bad rows. One
@@ -214,12 +223,17 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
+      // PostgREST returns the inserted rows in values-list order, so data[idx]
+      // lines up with slice[idx] within this single INSERT statement.
       data.forEach((rec: { id: string }, idx) => {
         const item = slice[idx];
         outcomes.push({ rowIndex: item.rowIndex, status: "inserted", leadId: rec.id });
         inserted++;
       });
     }
+  };
+  for (let i = 0; i < insertBatches.length; i += INSERT_CONCURRENCY) {
+    await Promise.all(insertBatches.slice(i, i + INSERT_CONCURRENCY).map(runInsertBatch));
   }
 
   // ─── execute updates (parallel with concurrency cap) ─────────────────
