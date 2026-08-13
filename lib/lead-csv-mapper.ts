@@ -354,12 +354,46 @@ function normSeniority(v: string): string | null {
 // serializes a valid array literal.
 const ARRAY_FIELDS = new Set<string>(["organization_technologies"]);
 
+// ─── Phone consolidation ─────────────────────────────────────────────────
+// Apollo / ZoomInfo / Sales Nav sheets routinely ship 3-6 phone columns per
+// person: "Mobile Phone", "Work Direct Phone", "Corporate Phone", "Home
+// Phone", "Other Phone Number"… The mapper (both AI and heuristic) sends all
+// the person-level ones to `primary_phone`, so the old `out[target] = value`
+// clobbered them in header order — last column silently won, and whatever the
+// seller actually needed to dial was gone (the "tengo muchas opciones de
+// celulares" pain). Instead we gather every phone-typed column, rank them by
+// kind, and fan them out deterministically: best personal → primary_phone,
+// next → primary_secondary_phone, company line → company_phone, and any
+// leftover distinct numbers are preserved in enrichment (never dropped).
+const PHONE_TARGETS = new Set<string>(["primary_phone", "primary_secondary_phone", "company_phone"]);
+
+// Lower rank = higher priority. A seller wants the mobile first, then a direct
+// line, then whatever else. Company/office lines are a separate bucket.
+function classifyPhone(header: string): { rank: number; label: string; company: boolean } {
+  const h = header.toLowerCase();
+  if (/company|office|corporate|switchboard|main ?line|head ?office|\bhq\b/.test(h)) return { rank: 1, label: "Company", company: true };
+  if (/mobile|cell|m[oó]vil|celular|whats ?app/.test(h)) return { rank: 1, label: "Mobile", company: false };
+  if (/direct|work/.test(h)) return { rank: 2, label: "Direct", company: false };
+  if (/home|personal/.test(h)) return { rank: 3, label: "Home", company: false };
+  if (/other|alt|secondary|additional|2nd/.test(h)) return { rank: 5, label: "Other", company: false };
+  return { rank: 4, label: "Phone", company: false };
+}
+
+// Digits-only key for de-duping the same number written two ways ("+34 600…"
+// vs "600…"). Compare on the last 9 digits so a country-prefixed copy folds
+// into its local twin.
+function phoneKey(value: string): string {
+  const d = value.replace(/\D/g, "");
+  return d.length > 9 ? d.slice(-9) : d;
+}
+
 export function applyMappingToRow(
   row: Record<string, string>,
   mapping: LeadMappingResult,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const enrichment: Record<string, string> = {};
+  const phoneCands: Array<{ value: string; rank: number; label: string; company: boolean }> = [];
 
   for (const m of mapping.mappings) {
     // Strip a leading apostrophe — Excel/CSV exports force a cell to text by
@@ -402,9 +436,33 @@ export function applyMappingToRow(
         out[m.target] = value;
       }
       // else: leave null rather than persist garbage
+    } else if (PHONE_TARGETS.has(m.target)) {
+      // Collect now, resolve after the loop (see phone consolidation below).
+      const cls = classifyPhone(m.source);
+      phoneCands.push({ value, rank: cls.rank, label: cls.label, company: cls.company || m.target === "company_phone" });
     } else {
       out[m.target] = value;
     }
+  }
+
+  // ── Phone consolidation ──
+  // De-dupe by digits, then fan out by priority so nothing is silently lost.
+  if (phoneCands.length > 0) {
+    const byKey = new Map<string, { value: string; rank: number; label: string; company: boolean }>();
+    for (const c of phoneCands) {
+      const key = phoneKey(c.value);
+      if (!key) continue;
+      const prev = byKey.get(key);
+      if (!prev || c.rank < prev.rank) byKey.set(key, c);
+    }
+    const uniq = [...byKey.values()];
+    const personal = uniq.filter(c => !c.company).sort((a, b) => a.rank - b.rank);
+    const company = uniq.filter(c => c.company).sort((a, b) => a.rank - b.rank);
+    if (personal[0]) out.primary_phone = personal[0].value;
+    if (personal[1]) out.primary_secondary_phone = personal[1].value;
+    for (let i = 2; i < personal.length; i++) enrichment[`Phone (${personal[i].label})`] = personal[i].value;
+    if (company[0]) out.company_phone = company[0].value;
+    for (let i = 1; i < company.length; i++) enrichment[`Company Phone (${company[i].label})`] = company[i].value;
   }
 
   if (Object.keys(enrichment).length > 0) {

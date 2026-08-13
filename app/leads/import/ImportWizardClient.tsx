@@ -6,7 +6,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Upload, FileSpreadsheet, Loader2, AlertTriangle, CheckCircle2,
-  Lock, ChevronRight, X, Sparkles, Target, Search, EyeOff, Database, Layers,
+  Lock, ChevronRight, X, Sparkles, Target, Search, EyeOff, Database, Layers, Phone,
 } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
@@ -599,6 +599,16 @@ function MapStep({
       });
   }, [mapping, search, activeBucket]);
 
+  // How many columns land on a phone field? Apollo/ZoomInfo sheets carry
+  // several (Mobile, Direct, Corporate…) and the operator used to have to
+  // hand-pick which one "wins". They no longer do — the importer keeps the
+  // best as the primary, the next as secondary, and preserves the rest in
+  // enrichment. Surface that so nobody re-maps phones by hand.
+  const phoneCols = useMemo(
+    () => mapping.filter(m => m.target === "primary_phone" || m.target === "primary_secondary_phone" || m.target === "company_phone").length,
+    [mapping],
+  );
+
   return (
     <div className="space-y-4">
       <IcpChip icp={icp} />
@@ -649,6 +659,20 @@ function MapStep({
           onClick={() => setActiveBucket(activeBucket === "skipped" ? "all" : "skipped")}
         />
       </div>
+
+      {/* Phone consolidation notice — only when there's more than one phone column */}
+      {phoneCols > 1 && (
+        <div className="rounded-xl border px-4 py-3 flex items-start gap-3" style={{ borderColor: `color-mix(in srgb, ${C.blue} 40%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${C.blue} 6%, ${C.card})` }}>
+          <Phone size={15} style={{ color: C.blue, flexShrink: 0, marginTop: 1 }} />
+          <p className="text-[11.5px] leading-snug" style={{ color: C.textBody }}>
+            <strong style={{ color: C.textPrimary }}>{phoneCols} phone columns detected.</strong>{" "}
+            No need to pick one — on import we keep the best number (mobile &gt; direct &gt; other) as the
+            <span style={{ color: gold, fontWeight: 600 }}> primary phone</span>, the next as the
+            <span style={{ color: gold, fontWeight: 600 }}> secondary</span>, company lines as
+            <span style={{ color: gold, fontWeight: 600 }}> company phone</span>, and preserve any extras in enrichment. Nothing is dropped.
+          </p>
+        </div>
+      )}
 
       {/* Search + table */}
       <div className="rounded-2xl border" style={{ borderColor: C.border, backgroundColor: C.card }}>
