@@ -311,6 +311,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
         <UploadStep
           file={file}
           parsing={parsing}
+          mapping={mappingLoading}
           dragOver={dragOver}
           setDragOver={setDragOver}
           onDrop={onDrop}
@@ -498,10 +499,11 @@ function IcpPickStep({
 // ── Step 2: Upload ────────────────────────────────────────────────────────
 
 function UploadStep({
-  file, parsing, dragOver, setDragOver, onDrop, onFile, willEncrypt, icp, onBack,
+  file, parsing, mapping, dragOver, setDragOver, onDrop, onFile, willEncrypt, icp, onBack,
 }: {
   file: File | null;
   parsing: boolean;
+  mapping: boolean;
   dragOver: boolean;
   setDragOver: (v: boolean) => void;
   onDrop: (e: React.DragEvent) => void;
@@ -536,7 +538,7 @@ function UploadStep({
             {parsing ? <Loader2 size={22} className="animate-spin" style={{ color: "#fff" }} /> : <Upload size={22} style={{ color: "#fff" }} />}
           </div>
           <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>
-            {parsing ? `Parsing ${file?.name ?? "file"}…` : "Drop your file here or click to browse"}
+            {mapping ? "Mapping columns with AI…" : parsing ? `Reading ${file?.name ?? "file"}…` : "Drop your file here or click to browse"}
           </p>
           <p className="text-xs" style={{ color: C.textMuted }}>
             CSV, XLSX, XLS, TSV — up to 10MB · 50,000 rows
@@ -679,7 +681,13 @@ function MapStep({
             </thead>
             <tbody>
               {visible.map((row) => {
-                const sample = parsed.sampleRows[0]?.[row.source] ?? "";
+                // Up to 3 sample values (not just row 0) — one example is often
+                // empty or unrepresentative; a few make the column obvious.
+                const sample = (parsed.sampleRows ?? [])
+                  .map(r => r?.[row.source])
+                  .filter((v): v is string => !!v && v.trim() !== "")
+                  .slice(0, 3)
+                  .join("   ·   ");
                 const bucket = row._bucket;
                 const accent = bucket === "canonical" ? C.green : bucket === "enrichment" ? C.blue : C.textMuted;
                 return (
@@ -695,7 +703,7 @@ function MapStep({
                     </td>
                     <td className="px-4 py-2.5 align-top">
                       <span className="block truncate max-w-[260px] text-[11.5px]" style={{ color: C.textMuted }} title={sample}>
-                        {sample ? sample.slice(0, 80) : <em style={{ color: C.textDim }}>(empty)</em>}
+                        {sample ? sample.slice(0, 110) : <em style={{ color: C.textDim }}>(empty)</em>}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 align-top">
@@ -784,6 +792,12 @@ function TargetSelect({
   onChange: (v: string) => void;
 }) {
   const isExtra = value.startsWith("_extra:");
+  // A canonical target the AI/heuristic emitted but that isn't in the UI groups
+  // (the mapper knows ~60 columns, the groups list ~40) would make the native
+  // <select> match no <option> and render BLANK — confusing. Surface any such
+  // "orphan" target as its own option so the mapping is always visible.
+  const isOrphan = !isExtra && value !== "_skip" && value !== "_fullname" && value !== "_location"
+    && !CANONICAL_GROUPS.some(g => (g.targets as readonly string[]).includes(value));
   return (
     <select
       value={isExtra ? "_extra" : value}
@@ -796,6 +810,7 @@ function TargetSelect({
     >
       <option value="_skip">— Skip (don&apos;t import) —</option>
       <option value="_extra">Custom field → enrichment</option>
+      {isOrphan && <option value={value}>{value}</option>}
       <option disabled>──────────</option>
       {CANONICAL_GROUPS.map(group => (
         <optgroup key={group.label} label={group.label}>

@@ -7,6 +7,8 @@ import { getUserScope, canEditTenantSettings } from "@/lib/scope";
 import { parseUploadedSheet } from "@/lib/csv-xlsx-parser";
 
 export const runtime = "nodejs";
+// Large XLSX parsing (SheetJS is CPU-heavy) can exceed the platform default cap.
+export const maxDuration = 60;
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
