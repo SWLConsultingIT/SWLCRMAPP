@@ -74,10 +74,35 @@ type DryRunOutcome = {
   display?: { name: string; company: string; linkedin?: string | null };
 };
 
+type Reach = { total: number; email: number; phone: number; linkedin: number; none: number; badEmail: number; badPhone: number };
+
 type DryRunResponse = {
   counts: { insert: number; update: number; skippedDuplicate: number; skippedNoData: number };
   outcomes: DryRunOutcome[];
+  reach?: Reach;
 };
+
+// ── Mapping memory (#8) ─────────────────────────────────────────────────
+// Operators re-import from the same tool (Apollo, ZoomInfo…) constantly and
+// had to re-fix the same columns every time. We remember the per-source_tool
+// column→target choices in localStorage and pre-apply them on the next import
+// from that tool. Client-side only — no PII, no schema, just their layout.
+const MAP_MEM_PREFIX = "swl-import-map:";
+function loadSavedMapping(sourceTool: string): Record<string, string> {
+  if (!sourceTool || typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(MAP_MEM_PREFIX + sourceTool.toLowerCase());
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+  } catch { return {}; }
+}
+function saveMapping(sourceTool: string, mappings: { source: string; target: string }[]): void {
+  if (!sourceTool || typeof window === "undefined") return;
+  try {
+    const obj = Object.fromEntries(mappings.map(m => [m.source, m.target]));
+    window.localStorage.setItem(MAP_MEM_PREFIX + sourceTool.toLowerCase(), JSON.stringify(obj));
+  } catch { /* quota / private-mode — best-effort only */ }
+}
 
 type ImportResult = {
   inserted: number;
@@ -119,6 +144,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
   const [mapping, setMapping] = useState<Mapping[]>([]);
   const [sourceTool, setSourceTool] = useState<string>("");
   const [mappingLoading, setMappingLoading] = useState(false);
+  const [reusedMapping, setReusedMapping] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   // ── Dry-run preview (step 4 prep) ───────────────────────────────────
@@ -169,7 +195,16 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
         source: h,
         target: aiBySource.get(h) ?? "_skip",
       }));
-      setMapping(completeMapping);
+      // #8 — pre-apply any remembered mapping for this source tool. Only
+      // overrides headers that exist in this file, so a saved layout can't
+      // inject a column the sheet doesn't have.
+      const saved = loadSavedMapping(mapData.source_tool);
+      const savedKeys = Object.keys(saved);
+      const finalMapping = savedKeys.length
+        ? completeMapping.map(m => (saved[m.source] ? { ...m, target: saved[m.source] } : m))
+        : completeMapping;
+      setReusedMapping(savedKeys.length > 0);
+      setMapping(finalMapping);
       setSourceTool(mapData.source_tool);
       setStep("map");
     } catch (err) {
@@ -188,7 +223,13 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
   };
 
   const updateMapping = (source: string, target: string) => {
-    setMapping(m => m.map(row => (row.source === source ? { ...row, target } : row)));
+    setMapping(m => {
+      const next = m.map(row => (row.source === source ? { ...row, target } : row));
+      // #8 — remember the operator's layout for this tool so the next import
+      // from it starts from their choices, not the raw AI guess.
+      saveMapping(sourceTool, next);
+      return next;
+    });
   };
 
   // Categorize each mapping into canonical / enrichment / skip — used by
@@ -271,6 +312,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
     setParsed(null);
     setMapping([]);
     setSourceTool("");
+    setReusedMapping(false);
     setDryRun(null);
     setError(null);
     setResult(null);
@@ -329,6 +371,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
           buckets={buckets}
           sourceTool={sourceTool}
           mappingLoading={mappingLoading}
+          reusedMapping={reusedMapping}
           icp={selectedIcp}
           dryRunLoading={dryRunLoading}
           onUpdate={updateMapping}
@@ -568,7 +611,7 @@ function UploadStep({
 // ── Step 3: Map columns ───────────────────────────────────────────────────
 
 function MapStep({
-  parsed, mapping, buckets, sourceTool, mappingLoading, icp, dryRunLoading,
+  parsed, mapping, buckets, sourceTool, mappingLoading, reusedMapping, icp, dryRunLoading,
   onUpdate, onBack, onContinue,
 }: {
   parsed: ParsedSheet;
@@ -576,6 +619,7 @@ function MapStep({
   buckets: { canonical: Mapping[]; enrichment: Mapping[]; skipped: Mapping[] };
   sourceTool: string;
   mappingLoading: boolean;
+  reusedMapping: boolean;
   icp: IcpRow;
   dryRunLoading: boolean;
   onUpdate: (source: string, target: string) => void;
@@ -628,6 +672,16 @@ function MapStep({
           </div>
         )}
       </div>
+
+      {/* #8 — reused-mapping notice */}
+      {reusedMapping && !mappingLoading && (
+        <div className="rounded-xl border px-4 py-2.5 flex items-center gap-2.5" style={{ borderColor: `color-mix(in srgb, ${gold} 40%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${gold} 7%, ${C.card})` }}>
+          <CheckCircle2 size={14} style={{ color: gold, flexShrink: 0 }} />
+          <p className="text-[11.5px]" style={{ color: C.textBody }}>
+            Reused your saved column mapping for <span style={{ color: gold, fontWeight: 600 }}>{sourceTool}</span>. Adjust anything below — your changes are remembered for next time.
+          </p>
+        </div>
+      )}
 
       {/* Three-bucket explainer — answers "what does '3 as extras' mean?" */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -886,6 +940,12 @@ function ConfirmStep({
         </div>
       </div>
 
+      {/* #10 — channel reachability of the NEW leads, so the operator sees a
+          file missing phones/emails before importing dead-end leads. */}
+      {dryRun.reach && dryRun.reach.total > 0 && (
+        <ReachabilityPanel reach={dryRun.reach} />
+      )}
+
       {/* Duplicate detail — collapsed list so the operator can review
           which leads are being skipped. Updates have their own list so
           we don't conflate "already exists, will patch" with "already
@@ -957,6 +1017,51 @@ function ConfirmStep({
             : `Import ${(dryRun.counts.insert + dryRun.counts.update).toLocaleString()} leads`}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ReachabilityPanel({ reach }: { reach: Reach }) {
+  const pct = (n: number) => (reach.total ? Math.round((n / reach.total) * 100) : 0);
+  const chan = [
+    { label: "Email",    value: reach.email,    color: C.blue,  bad: reach.badEmail, badLabel: "malformed" },
+    { label: "Phone",    value: reach.phone,    color: C.green, bad: reach.badPhone, badLabel: "invalid" },
+    { label: "LinkedIn", value: reach.linkedin, color: "#0A66C2", bad: 0, badLabel: "" },
+  ];
+  return (
+    <div className="rounded-2xl border p-5" style={{ borderColor: C.border, backgroundColor: C.card }}>
+      <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Channel reachability</p>
+      <p className="text-[11px] mb-3" style={{ color: C.textMuted }}>
+        Of the {reach.total.toLocaleString()} new leads — how many carry a way to reach them on each channel.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {chan.map(c => (
+          <div key={c.label} className="rounded-xl border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>{c.label}</span>
+              <span className="text-[11px] font-bold tabular-nums" style={{ color: c.color }}>{pct(c.value)}%</span>
+            </div>
+            <p className="text-[18px] font-bold tabular-nums leading-none" style={{ color: c.value > 0 ? c.color : C.textDim, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+              {c.value.toLocaleString()} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>/ {reach.total.toLocaleString()}</span>
+            </p>
+            {/* mini bar */}
+            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
+              <div className="h-full rounded-full" style={{ width: `${pct(c.value)}%`, backgroundColor: c.color }} />
+            </div>
+            {c.bad > 0 && (
+              <p className="text-[10px] mt-1.5" style={{ color: C.orange }}>{c.bad} {c.badLabel}</p>
+            )}
+          </div>
+        ))}
+      </div>
+      {reach.none > 0 && (
+        <div className="mt-3 rounded-xl border px-4 py-2.5 flex items-start gap-2.5" style={{ borderColor: `${C.orange}40`, backgroundColor: C.orangeLight }}>
+          <AlertTriangle size={14} style={{ color: C.orange, flexShrink: 0, marginTop: 1 }} />
+          <p className="text-[11.5px] leading-snug" style={{ color: C.textBody }}>
+            <strong style={{ color: C.orange }}>{reach.none.toLocaleString()} new leads</strong> have no email, phone or LinkedIn — they&apos;ll import but can&apos;t be contacted on any channel. Check the file has the right columns mapped.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

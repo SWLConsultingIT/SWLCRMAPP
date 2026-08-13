@@ -42,6 +42,26 @@ export async function POST(req: NextRequest) {
     supabase: getSupabaseService() as unknown as Parameters<typeof buildImportPlan>[0]["supabase"],
   });
 
+  // Channel reachability across the NEW leads (inserts). The wizard shows
+  // this so the operator catches a file with no phones / no emails BEFORE
+  // importing, instead of discovering unreachable leads once they're in a
+  // campaign. Computed from the real mapped output (so it reflects the phone
+  // consolidation), and format-validates email/phone for a soft warning.
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let email = 0, phone = 0, linkedin = 0, none = 0, badEmail = 0, badPhone = 0;
+  const inserts = plan.outcomes.filter(o => o.status === "insert");
+  for (const o of inserts) {
+    const m = (o.mapped ?? {}) as Record<string, unknown>;
+    const em = (m.primary_work_email ?? m.primary_personal_email) as string | undefined;
+    const ph = m.primary_phone as string | undefined;
+    const hasEmail = !!em, hasPhone = !!ph, hasLI = !!m.primary_linkedin_url;
+    if (hasEmail) { email++; if (!EMAIL_RE.test(String(em).trim())) badEmail++; }
+    if (hasPhone) { phone++; if (String(ph).replace(/\D/g, "").length < 7) badPhone++; }
+    if (hasLI) linkedin++;
+    if (!hasEmail && !hasPhone && !hasLI) none++;
+  }
+  const reach = { total: inserts.length, email, phone, linkedin, none, badEmail, badPhone };
+
   // Strip the heavy `mapped` / `patch` fields before returning — the
   // wizard only needs the outcome metadata to render the preview.
   const outcomes = plan.outcomes.map(o => ({
@@ -55,5 +75,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     counts: plan.counts,
     outcomes,
+    reach,
   });
 }
