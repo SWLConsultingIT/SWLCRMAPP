@@ -1334,7 +1334,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
             {visible.length === 0 ? (
               <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>{t("leadsPage.table.empty")}</td></tr>
             ) : visible.map(lead => {
-              const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("leadsPage.unknown");
+              const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.company || t("leadsPage.unknown");
               const badge = scoreBadge(lead.score, lead.is_priority);
               const hasReply = (lead.reply_count ?? 0) > 0;
               const replyColor = lead.has_positive ? C.green : lead.has_negative ? C.red : hasReply ? "#D97706" : C.textDim;
