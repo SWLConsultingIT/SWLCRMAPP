@@ -436,26 +436,34 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     ...leads.filter(l => l.status === "closed_lost").map(l => l.id),
   ]);
 
+  // Every funnel/headline stage must be a SUBSET of the leads currently in
+  // scope (the period cohort in `leadIdSet`). Before this, a period filter
+  // windowed `leads` but NOT `campaigns`, so "contacted" counted all-time
+  // campaigns and blew past "total leads" (203 leads / 1207 contacted). We count
+  // membership against leadIdSet WITHOUT mutating the sets — they're reused by
+  // the per-ICP / per-campaign / matrix blocks below, which key off lifetime
+  // membership on purpose. Default view (no date filter) → leadIdSet is every
+  // scoped lead, so this is a no-op and the full pipeline shows.
+  const inScope = (s: Set<string>): number => { let n = 0; for (const id of s) if (leadIdSet.has(id)) n++; return n; };
   const totalLeads = leads.length;
-  const contactedLeads = leadsWithCampaign.size;
-  const connectedLeads = connectedLeadIds.size;
-  const repliedCount = repliedLeadIds.size;
-  const positiveCount = positiveLeadIds.size;
-  const meetingCount = meetingLeadIds.size;
-  const wonCount = wonLeadIds.size;
-  const negativeCount = new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]).size;
-  const linkedinSentCount = linkedinSentLeadIds.size;
+  const contactedLeads = inScope(leadsWithCampaign);
+  const connectedLeads = inScope(connectedLeadIds);
+  const repliedCount = inScope(repliedLeadIds);
+  const positiveCount = inScope(positiveLeadIds);
+  const meetingCount = meetingLeadIds.size; // already derived from windowed `leads`
+  const wonCount = wonLeadIds.size;         // already derived from windowed `leads`
+  const negativeCount = inScope(new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]));
+  const linkedinSentCount = inScope(linkedinSentLeadIds);
   // Accepted invites among those actually SENT in this period. `connectedLeadIds`
   // is an all-time lead state (includes leads whose CR went out before the
   // period), so using it as the acceptance numerator over a period-scoped `sent`
-  // denominator produced impossible rates (>100%). Gate accepted ⊆ sent for any
-  // acceptance-RATE display. (The funnel STAGE below still uses connectedLeads —
-  // that's a running total, not a rate.)
-  const linkedinAcceptedInPeriod = new Set([...connectedLeadIds].filter(id => linkedinSentLeadIds.has(id))).size;
-  const linkedinMessageCount = linkedinMessageLeadIds.size;
-  const emailTouchCount = emailTouchLeadIds.size;
-  const callTouchCount = callTouchLeadIds.size;
-  const lostCount = lostLeadIds.size;
+  // denominator produced impossible rates (>100%). Gate accepted ⊆ sent (and ⊆
+  // the in-scope cohort) for any acceptance-RATE display.
+  const linkedinAcceptedInPeriod = new Set([...connectedLeadIds].filter(id => linkedinSentLeadIds.has(id) && leadIdSet.has(id))).size;
+  const linkedinMessageCount = inScope(linkedinMessageLeadIds);
+  const emailTouchCount = inScope(emailTouchLeadIds);
+  const callTouchCount = inScope(callTouchLeadIds);
+  const lostCount = inScope(lostLeadIds);
 
   const responseRate = contactedLeads > 0 ? Math.round((repliedCount / contactedLeads) * 100) : 0;
   const positiveRate = repliedCount > 0 ? Math.round((positiveCount / repliedCount) * 100) : 0;
