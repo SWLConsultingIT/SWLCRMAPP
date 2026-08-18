@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { C } from "@/lib/design";
-import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader, MessageSquare } from "lucide-react";
+import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader, MessageSquare, Ban } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
@@ -15,6 +15,7 @@ const statusConfig: Record<string, { color: string; bg: string; icon: React.Elem
   closed_won:    { color: C.green,     bg: C.greenLight,  icon: CheckCircle },
   closed_lost:   { color: C.red,       bg: C.redLight,    icon: XCircle },
   nurturing:     { color: C.textMuted, bg: C.surface,     icon: MinusCircle },
+  discarded:     { color: C.textMuted, bg: C.surface,     icon: Ban },
 };
 
 export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
@@ -39,6 +40,7 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
       closed_won: "leadsPage.status.won",
       closed_lost: "leadsPage.status.lost",
       nurturing: "leadsPage.status.nurturing",
+      discarded: "leadsPage.status.discarded",
     };
     return t(labelKeys[key] ?? "leadsPage.status.new");
   }

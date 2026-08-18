@@ -215,12 +215,33 @@ async function getData() {
   // logic /leads used pre-2026-05-28 — moved here so /results is the home
   // for outcomes and Nurture leaves the in-flight chip row.
   const lostLeads: any[] = [];
+  const discardedLeads: any[] = [];
   const renurturingLeads: any[] = [];
   for (const lead of (allLeads ?? []) as Array<Record<string, any>>) {
     const leadCamps = campsByLead[lead.id] ?? [];
     const leadReplies = repliesByLead[lead.id] ?? [];
     const hasPositive = leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
     if (hasPositive) continue;
+    // R-2: "Discarded" = WE disqualified the lead (not a good fit), distinct
+    // from "Lost" (the client said no). Surfaced regardless of campaign/reply
+    // state, since a discard is a manual team decision.
+    if (lead.status === "discarded") {
+      const pastC = leadCamps.filter((c: any) => c.status === "completed" || c.status === "failed");
+      const mainC = pastC[0] ?? leadCamps[0];
+      discardedLeads.push({
+        id: lead.id, first_name: lead.primary_first_name, last_name: lead.primary_last_name,
+        company: lead.company_name, role: lead.primary_title_role, email: lead.primary_work_email,
+        score: lead.lead_score, is_priority: !!lead.is_priority,
+        profile_name: lead.icp_profile_id ? (icpMap[lead.icp_profile_id]?.profile_name ?? null) : null,
+        reason: "no_reply" as const, reply_text: null, reply_date: null,
+        campaign_name: mainC?.name ?? null,
+        channels: [...new Set(leadCamps.map((c: any) => c.channel))],
+        steps_completed: pastC.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0),
+        steps_total: pastC.reduce((s: number, c: any) => s + (Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0), 0),
+        messages_sent: 0,
+      });
+      continue;
+    }
     const hasCompletedCampaign = leadCamps.some((c: any) => c.status === "completed" || c.status === "failed");
     const hasNegativeReply = leadReplies.some((r: any) => r.classification === "negative");
     if (!hasCompletedCampaign && !hasNegativeReply) continue;
@@ -265,11 +286,11 @@ async function getData() {
 
   // Gruppo... no — Fase 1 del pipeline de resultados es SOLO para SWL Consulting.
   const SWL_BIO = "7c02e222-be59-416d-9434-acf4685f8590";
-  return { wonLeads, lostLeads, renurturingLeads, isSwl: bioId === SWL_BIO };
+  return { wonLeads, lostLeads, discardedLeads, renurturingLeads, isSwl: bioId === SWL_BIO };
 }
 
 export default async function ResultsPage() {
-  const [{ wonLeads, lostLeads, renurturingLeads, isSwl }, t] = await Promise.all([
+  const [{ wonLeads, lostLeads, discardedLeads, renurturingLeads, isSwl }, t] = await Promise.all([
     getData(),
     getT(),
   ]);
@@ -290,12 +311,14 @@ export default async function ResultsPage() {
             ? { label: "Positive results", value: wonLeads.length, tone: wonLeads.length > 0 ? "positive" : "neutral" }
             : { label: t("results.tab.won"), value: wonLeads.length, tone: wonLeads.length > 0 ? "positive" : "neutral" },
           { label: t("results.tab.lost"),      value: lostLeads.length,        tone: lostLeads.length > 0 ? "warning" : "neutral" },
+          { label: t("results.tab.discarded"), value: discardedLeads.length,   tone: "neutral" },
           { label: t("results.tab.renurture"), value: renurturingLeads.length, tone: renurturingLeads.length > 0 ? "positive" : "neutral" },
         ]}
       />
       <ResultsClient
         wonLeads={JSON.parse(JSON.stringify(wonLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
+        discardedLeads={JSON.parse(JSON.stringify(discardedLeads))}
         renurturingLeads={JSON.parse(JSON.stringify(renurturingLeads))}
         isSwl={isSwl}
       />

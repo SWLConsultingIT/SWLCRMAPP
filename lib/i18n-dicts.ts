@@ -1246,6 +1246,7 @@ export const en: Dict = {
   // Results page (/results)
   "results.tab.won": "Won",
   "results.tab.lost": "Lost",
+  "results.tab.discarded": "Discarded",
   "results.tab.renurture": "Re-nurture",
   "results.hero.preTitle": "Growth Engine",
   "results.hero.title": "Results",
@@ -1425,6 +1426,7 @@ export const en: Dict = {
   "leadsPage.status.won": "Won",
   "leadsPage.status.lost": "Lost",
   "leadsPage.status.nurturing": "Nurturing",
+  "leadsPage.status.discarded": "Discarded",
   // Bulk action pop-up
   "leadsPage.bulk.leadSelected": "{n} lead selected",
   "leadsPage.bulk.leadsSelected": "{n} leads selected",
@@ -3277,6 +3279,7 @@ export const es: Dict = {
   // Results page (/results)
   "results.tab.won": "Ganados",
   "results.tab.lost": "Perdidos",
+  "results.tab.discarded": "Descartados",
   "results.tab.renurture": "Renurturing",
   "results.hero.preTitle": "Growth Engine",
   "results.hero.title": "Resultados",
@@ -3456,6 +3459,7 @@ export const es: Dict = {
   "leadsPage.status.won": "Ganado",
   "leadsPage.status.lost": "Perdido",
   "leadsPage.status.nurturing": "Nurturing",
+  "leadsPage.status.discarded": "Descartado",
   // Bulk action pop-up
   "leadsPage.bulk.leadSelected": "{n} lead seleccionado",
   "leadsPage.bulk.leadsSelected": "{n} leads seleccionados",

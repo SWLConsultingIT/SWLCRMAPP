@@ -2,7 +2,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
-const VALID = ["new", "contacted", "qualified", "cold", "closed_lost", "closed_won"];
+const VALID = ["new", "contacted", "qualified", "cold", "closed_lost", "closed_won", "nurturing", "discarded"];
 
 // Marker prefix the UI looks for in lead_replies.reply_text to surface
 // the "why this lead was lost" reason on /leads/lost/[id]. Stored in

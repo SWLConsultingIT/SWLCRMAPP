@@ -27,7 +27,7 @@ import EmptyState from "@/components/EmptyState";
 import {
   Trophy, X, RefreshCw, Search, ChevronRight, Target,
   Star, CheckSquare, Square, Trash2, Flame, MessageCircle,
-  PhoneCall, MessageSquare, RotateCcw, Loader2,
+  PhoneCall, MessageSquare, RotateCcw, Loader2, Ban,
 } from "lucide-react";
 
 // A win/loss "why" string is either a real text reply or a call outcome the
@@ -49,11 +49,12 @@ import { LayoutGrid } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
-type Tab = "pipeline" | "won" | "lost" | "renurture";
+type Tab = "pipeline" | "won" | "lost" | "discarded" | "renurture";
 
 type Props = {
   wonLeads: OpportunityLead[];
   lostLeads: LostLead[];
+  discardedLeads?: LostLead[];
   renurturingLeads: RenurturingLead[];
   isSwl?: boolean;
 };
@@ -356,7 +357,7 @@ function Section<L>({
 
 // ── Main client ───────────────────────────────────────────────────────
 
-export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, isSwl = false }: Props) {
+export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = [], renurturingLeads, isSwl = false }: Props) {
   const { t, locale } = useLocale();
   const L = (en: string, es: string) => (locale === "es" ? es : en);
   // Deep-linked tab via `?tab=won|lost|renurture|pipeline` — the surfaces that
@@ -365,7 +366,7 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
   // vice-versa) since those tenants don't have a flat Won tab.
   const searchParams = useSearchParams();
   const initialTab: Tab = (() => {
-    const valid: Tab[] = isSwl ? ["pipeline", "lost", "renurture"] : ["won", "lost", "renurture"];
+    const valid: Tab[] = isSwl ? ["pipeline", "lost", "discarded", "renurture"] : ["won", "lost", "discarded", "renurture"];
     const raw = searchParams.get("tab");
     const req = raw === "won" && isSwl ? "pipeline"
       : raw === "pipeline" && !isSwl ? "won"
@@ -394,15 +395,22 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
     return lostLeads.filter(l => `${l.first_name ?? ""} ${l.last_name ?? ""} ${l.company ?? ""} ${l.campaign_name ?? ""} ${l.profile_name ?? ""}`.toLowerCase().includes(q));
   }, [lostLeads, search]);
 
+  const discardedFiltered = useMemo(() => {
+    if (!search) return discardedLeads;
+    const q = search.toLowerCase();
+    return discardedLeads.filter(l => `${l.first_name ?? ""} ${l.last_name ?? ""} ${l.company ?? ""} ${l.campaign_name ?? ""} ${l.profile_name ?? ""}`.toLowerCase().includes(q));
+  }, [discardedLeads, search]);
+
   const renurFiltered = useMemo(() => {
     if (!search) return renurturingLeads;
     const q = search.toLowerCase();
     return renurturingLeads.filter(l => `${l.first_name ?? ""} ${l.last_name ?? ""} ${l.company ?? ""} ${l.new_campaign_name ?? ""} ${l.profile_name ?? ""}`.toLowerCase().includes(q));
   }, [renurturingLeads, search]);
 
-  const wonGroups   = useMemo(() => groupByIcpCampaign(wonFiltered,   l => l.profile_name, l => l.campaign_name,     t), [wonFiltered, t]);
-  const lostGroups  = useMemo(() => groupByIcpCampaign(lostFiltered,  l => l.profile_name, l => l.campaign_name,     t), [lostFiltered, t]);
-  const renurGroups = useMemo(() => groupByIcpCampaign(renurFiltered, l => l.profile_name, l => l.new_campaign_name, t), [renurFiltered, t]);
+  const wonGroups      = useMemo(() => groupByIcpCampaign(wonFiltered,      l => l.profile_name, l => l.campaign_name,     t), [wonFiltered, t]);
+  const lostGroups     = useMemo(() => groupByIcpCampaign(lostFiltered,     l => l.profile_name, l => l.campaign_name,     t), [lostFiltered, t]);
+  const discardedGroups = useMemo(() => groupByIcpCampaign(discardedFiltered, l => l.profile_name, l => l.campaign_name,   t), [discardedFiltered, t]);
+  const renurGroups    = useMemo(() => groupByIcpCampaign(renurFiltered,    l => l.profile_name, l => l.new_campaign_name, t), [renurFiltered, t]);
 
   const lostAllIds = useMemo(() => lostFiltered.map(l => l.id), [lostFiltered]);
 
@@ -500,6 +508,7 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
       ? [{ key: "pipeline" as const, label: L("Positive Results", "Resultados positivos"), count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
       : [{ key: "won" as const, label: t("results.tab.won"), count: wonLeads.length, color: C.green, icon: Trophy }]),
     { key: "lost"      as const, label: t("results.tab.lost"),      count: lostLeads.length,        color: C.red,   icon: X },
+    { key: "discarded" as const, label: t("results.tab.discarded"), count: discardedLeads.length,   color: C.textMuted, icon: Ban },
     { key: "renurture" as const, label: t("results.tab.renurture"), count: renurturingLeads.length, color: gold,    icon: RefreshCw },
   ];
 
@@ -605,6 +614,16 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
               )} />
             );
           })
+        )}
+
+        {tab === "discarded" && (
+          discardedGroups.length === 0 ? (
+            <EmptyState icon={Ban} title={L("Nothing discarded", "Nada descartado")} description={L("Leads you disqualify (bad fit, out of ICP) land here — separate from Lost, where the client said no.", "Los leads que descartás (mal fit, fuera de ICP) aparecen acá — aparte de Lost, donde el cliente dijo que no.")} />
+          ) : discardedGroups.map(g => (
+            <Section key={g.icp} group={g} t={t} renderRow={lead => (
+              <LostRow key={lead.id} lead={lead} t={t} selected={false} onToggle={() => {}} />
+            )} />
+          ))
         )}
 
         {tab === "renurture" && (

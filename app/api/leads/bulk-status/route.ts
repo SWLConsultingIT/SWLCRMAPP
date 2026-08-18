@@ -12,6 +12,7 @@ const ALLOWED_STATUSES = new Set([
   "closed_won",
   "closed_lost",
   "nurturing",
+  "discarded",
 ]);
 
 const supabase = createClient(
