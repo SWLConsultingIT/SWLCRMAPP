@@ -137,7 +137,15 @@ export function renderPlaceholders(
   const company = lead.company_name ?? "";
   const role = lead.primary_title_role ?? "";
   const sellerName = seller.name ?? "";
-  return (template ?? "")
+  // Tolerate SINGLE-brace merge tokens (`{first_name}`, `{sender_name}`). Some
+  // AI-generated auto-replies emit them, and the double-brace-only table below
+  // used to let them sail through unrendered — a raw `{first_name}` LinkedIn
+  // auto-reply shipped to a real lead on 2026-08-15. Promote identifier-like
+  // single-brace tokens to the canonical `{{…}}` form (never touching an
+  // existing `{{…}}`) so they render here, and any unknown one is stripped
+  // downstream instead of shipping raw.
+  const normalized = (template ?? "").replace(/(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})/g, "{{$1}}");
+  return normalized
     // First name — snake, camel, and "name" alone.
     .replaceAll("{{first_name}}", first)
     .replaceAll("{{firstName}}", first)
