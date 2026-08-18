@@ -1446,7 +1446,10 @@ export default async function DashboardPage({
                 totalPositive:  g.flows.reduce((s, f) => s + f.positive, 0),
                 activeCount:    g.flows.filter(f => f.status === "active" || f.status === "paused").length,
               }))
-              .sort((a, b) => b.totalPositive - a.totalPositive || b.totalLeads - a.totalLeads);
+              // No-ICP section always last — it's a cleanup bucket, not a
+              // performer, so it shouldn't sit on top just for having many
+              // leads (the confusing "905 sin icp"). (C-1/C-2, 2026-08-15)
+              .sort((a, b) => (a.icpId === null ? 1 : 0) - (b.icpId === null ? 1 : 0) || b.totalPositive - a.totalPositive || b.totalLeads - a.totalLeads);
             // Same per-ICP metrics shown in the ICPS tab "ICP Comparison"
             // (boss 2026-06-08: surface them here too). Looked up by ICP id.
             const icpPerfById = new Map(data.icpPerformance.map((p: any) => [p.id, p]));
@@ -1475,12 +1478,15 @@ export default async function DashboardPage({
                           {t("dashx.campsByIcp.eyebrow")}
                         </p>
                         <p className="text-[15px] font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                          {sec.icpName ?? t("dashx.tbl.icp.unknown")}
+                          {sec.icpId ? (sec.icpName ?? t("dashx.tbl.icp.unknown")) : t("dashx.campsByIcp.noIcpTitle")}
                           <span className="ml-2 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md align-middle"
                             style={{ backgroundColor: C.surface, color: C.textMuted }}>
                             {sec.flows.length} {sec.flows.length === 1 ? t("dashx.campsByIcp.flow") : t("dashx.campsByIcp.flows")}
                           </span>
                         </p>
+                        {!sec.icpId && (
+                          <p className="text-[10.5px] mt-0.5 truncate" style={{ color: C.textDim }}>{t("dashx.campsByIcp.noIcpHint")}</p>
+                        )}
                       </div>
                       <div className="hidden md:flex items-center gap-5 shrink-0 mr-2">
                         <div className="text-right">
