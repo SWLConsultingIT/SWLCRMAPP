@@ -11,9 +11,8 @@ export type OppStage = { id: string; label: string; es: string; color: string };
 
 export const OPP_STAGES: OppStage[] = [
   { id: "interested",     label: "Interested",     es: "Interesado",         color: "#2563EB" },
-  { id: "second_contact", label: "2nd contact",    es: "2º contacto",        color: "#7C3AED" },
+  { id: "second_contact", label: "Follow up",      es: "Seguimiento",        color: "#7C3AED" },
   { id: "meeting_booked", label: "Meeting booked", es: "Reunión agendada",   color: "#0EA5E9" },
-  { id: "proposal_sent",  label: "Proposal sent",  es: "Propuesta enviada",  color: "#D97706" },
 ];
 
 // Terminal, derived column — a lead lands here once it's pushed to Odoo.
@@ -30,8 +29,12 @@ export function stageLabel(stage: OppStage, locale: string): string {
 const LEGACY: Record<string, string> = {
   response_received: "interested",
   meeting_scheduled: "meeting_booked",
-  negotiating: "proposal_sent",
-  won: "proposal_sent",
+  // proposal_sent was removed (R-1) — fold it and the old late-stage values
+  // into meeting_booked, the closest surviving stage, so those leads stay put
+  // instead of snapping back to "interested".
+  proposal_sent: "meeting_booked",
+  negotiating: "meeting_booked",
+  won: "meeting_booked",
 };
 
 export function normalizeStage(raw: string | null | undefined): string {
