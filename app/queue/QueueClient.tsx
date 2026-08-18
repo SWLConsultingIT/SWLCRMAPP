@@ -118,6 +118,7 @@ type Props = {
   callHistory: CallHistoryEntry[];
   mySellerNames?: string[];
   recalls?: RecallItem[];
+  canViewAllSellers?: boolean;
 };
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -829,7 +830,7 @@ function CallHistoryPanel({
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [], recalls = [] }: Props) {
+export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [], recalls = [], canViewAllSellers = false }: Props) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
   // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls, 2 = Team
@@ -1496,6 +1497,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
             referredContacts: (r as any).referredContacts ?? [],
           }))}
           mySellerNames={mySellerNames}
+          canViewAllSellers={canViewAllSellers}
         />
       )}
 

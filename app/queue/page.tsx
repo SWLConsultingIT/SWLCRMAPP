@@ -1,7 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { prettyDisplayName } from "@/lib/display-name";
-import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
+import { getUserScope, getMyAssignedSellerIds, canViewAllTenantData } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { computePendingCalls } from "@/lib/pending-calls";
 import QueueClient from "./QueueClient";
@@ -586,7 +586,12 @@ async function getQueueData() {
     sellerName: recallSellerByLead[l.id] ?? null,
   }));
 
-  return { pendingCalls, newReplies, callHistory, mySellerNames, recalls };
+  // Admins (super_admin / owner / manager) can filter the Inbox across all
+  // sellers; a plain seller only ever sees their own (server-scoped above), so
+  // the selector is hidden for them.
+  const canViewAllSellers = canViewAllTenantData(scope.tier);
+
+  return { pendingCalls, newReplies, callHistory, mySellerNames, recalls, canViewAllSellers };
 }
 
 export default async function QueuePage() {

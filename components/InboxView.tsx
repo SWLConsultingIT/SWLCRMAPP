@@ -7,7 +7,7 @@ import {
   Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
   ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
   Check, X as XIcon, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeftOpen,
-  ChevronDown, Megaphone, Target, Radio, Calendar, Maximize2, Minimize2, AlertCircle,
+  ChevronDown, Megaphone, Target, Radio, Calendar, Maximize2, Minimize2, AlertCircle, User,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -252,7 +252,7 @@ const UNASSIGNED_SELLER = "__unassigned__";
 // from the server (queue/page.tsx seller-tier scoping), so this bar only appears
 // for users who see more than one seller (admins / managers).
 function SellerChip({ label, count, active, onClick, highlight }: {
-  label: string; count: number; active: boolean; onClick: () => void; highlight?: boolean;
+  label: string; count?: number; active: boolean; onClick: () => void; highlight?: boolean;
 }) {
   return (
     <button
@@ -269,15 +269,17 @@ function SellerChip({ label, count, active, onClick, highlight }: {
       }}
     >
       {label}
-      <span className="text-[9px] font-bold tabular-nums px-1.5 rounded-full"
-        style={{ backgroundColor: active ? "var(--brand, #c9a83a)" : C.surface, color: active ? "#04070d" : C.textDim }}>
-        {count}
-      </span>
+      {count != null && (
+        <span className="text-[9px] font-bold tabular-nums px-1.5 rounded-full"
+          style={{ backgroundColor: active ? "var(--brand, #c9a83a)" : C.surface, color: active ? "#04070d" : C.textDim }}>
+          {count}
+        </span>
+      )}
     </button>
   );
 }
 
-export default function InboxView({ replies: rawReplies, mySellerNames = [] }: { replies: InboxReply[]; mySellerNames?: string[] }) {
+export default function InboxView({ replies: rawReplies, mySellerNames = [], canViewAllSellers = false }: { replies: InboxReply[]; mySellerNames?: string[]; canViewAllSellers?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -319,7 +321,11 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [] }: {
   // Per-seller lens for the Pending tab: "all" (default — see everything),
   // "mine" (the current user's own seller identities), or a specific seller
   // name / UNASSIGNED_SELLER. Access is already server-scoped; this only slices.
-  const [sellerFilter, setSellerFilter] = useState<string>("all");
+  // I-1: sellers land on their OWN leads by default; admins (who can view all
+  // sellers) land on the team-wide "all" view. The selector below only renders
+  // for admins — a seller's data is already server-scoped to their own, so
+  // there's nothing else for them to switch to.
+  const [sellerFilter, setSellerFilter] = useState<string>(canViewAllSellers ? "all" : "mine");
   // Date range lives inside this component (was previously in QueueClient
   // as a standalone toolbar dropdown that felt disconnected from the
   // sidebar filters). Default "30d" — most sellers only triage the last
@@ -408,11 +414,47 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [] }: {
   // (isEvent / isPending defined above, alongside the per-lead dedupe.)
   // Two mutually-exclusive tabs over replies only — pending (needs triage) and
   // history (already triaged). A reply is in exactly one; events are in neither.
+  const mySellerSet = useMemo(() => new Set(mySellerNames), [mySellerNames]);
+  // Tab counts must reflect the SELLER (and channel/campaign/icp) currently in
+  // view — otherwise "Juan: 3" on the tab but 0 rows after clicking (bug I-3,
+  // Fran 2026-08-15). Respect every persistent filter except the tab itself.
+  // Everything the sidebar filters narrow, EXCEPT the pending/history tab split.
+  // Counts AND the visible list both derive from this, so a tab/chip badge can
+  // never disagree with what's shown. This fixes "Pending review 6" over an
+  // "Inbox zero" list: the old counts ignored the 30-day date filter (and
+  // seller/channel), so they counted replies the list then hid (Fran 2026-08-15).
+  const baseFiltered = useMemo(() => {
+    let list = replies;
+    if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
+    if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
+    if (channelFilter !== "all") list = list.filter(r => r.channel === channelFilter);
+    if (sellerFilter === "mine") list = list.filter(r => r.sellerName != null && mySellerSet.has(r.sellerName));
+    else if (sellerFilter === UNASSIGNED_SELLER) list = list.filter(r => !r.sellerName);
+    else if (sellerFilter !== "all") list = list.filter(r => r.sellerName === sellerFilter);
+    if (dateRange !== "all") list = list.filter(r => new Date(r.receivedAt).getTime() >= dateCutoffMs);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(r =>
+        r.leadName.toLowerCase().includes(q) ||
+        (r.company ?? "").toLowerCase().includes(q) ||
+        (r.replyText ?? "").toLowerCase().includes(q) ||
+        (r.campaignName ?? "").toLowerCase().includes(q));
+    }
+    return list;
+  }, [replies, search, campaignFilter, icpFilter, channelFilter, sellerFilter, mySellerSet, dateRange, dateCutoffMs]);
+
   const counts = useMemo(() => ({
-    pending: replies.filter(isPending).length,
-    history: replies.filter(r => !isEvent(r) && !isPending(r)).length,
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [replies]);
+    pending: baseFiltered.filter(r => isPending(r) && !clearedLeadIds.has(r.leadId)).length,
+    history: baseFiltered.filter(r => !isEvent(r) && !isPending(r)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [baseFiltered, clearedLeadIds]);
+
+  // Distinct sellers present in this inbox (admins only need this for the
+  // persistent selector; a seller only ever has their own).
+  const sellerOptions = useMemo(
+    () => [...new Set(replies.map(r => r.sellerName).filter((x): x is string => !!x))].sort(),
+    [replies],
+  );
 
   // Distinct values for the dropdown options. Recomputed when replies
   // change so adding a new campaign / ICP / channel surfaces automatically.
@@ -432,7 +474,6 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [] }: {
   // Per-seller PENDING counts for the breakdown bar. Keyed by seller name, with
   // null seller (events like accepts/bounces have no campaign→seller) grouped
   // under UNASSIGNED_SELLER. Sorted desc by count in the render.
-  const mySellerSet = useMemo(() => new Set(mySellerNames), [mySellerNames]);
   const pendingSellerCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of replies) {
@@ -443,40 +484,14 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [] }: {
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replies]);
-  const myPendingCount = useMemo(
-    () => replies.filter(r => isPending(r) && r.sellerName != null && mySellerSet.has(r.sellerName)).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [replies, mySellerSet],
-  );
 
+  // The visible list = the shared base, split by the active tab. Pending also
+  // drops rows optimistically cleared by an in-flight classify.
   const filtered = useMemo(() => {
-    let list = replies;
-    if (tab === "pending") {
-      list = list.filter(isPending);
-      // Hide rows optimistically cleared by an in-flight classify.
-      if (clearedLeadIds.size > 0) list = list.filter(r => !clearedLeadIds.has(r.leadId));
-    }
-    else if (tab === "history") list = list.filter(r => !isEvent(r) && !isPending(r));
-    if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
-    if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
-    if (channelFilter !== "all") list = list.filter(r => r.channel === channelFilter);
-    if (sellerFilter === "mine") list = list.filter(r => r.sellerName != null && mySellerSet.has(r.sellerName));
-    else if (sellerFilter === UNASSIGNED_SELLER) list = list.filter(r => !r.sellerName);
-    else if (sellerFilter !== "all") list = list.filter(r => r.sellerName === sellerFilter);
-    if (dateRange !== "all") {
-      list = list.filter(r => new Date(r.receivedAt).getTime() >= dateCutoffMs);
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(r =>
-        r.leadName.toLowerCase().includes(q) ||
-        (r.company ?? "").toLowerCase().includes(q) ||
-        (r.replyText ?? "").toLowerCase().includes(q) ||
-        (r.campaignName ?? "").toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter, sellerFilter, mySellerSet, dateRange, dateCutoffMs, clearedLeadIds]);
+    if (tab === "pending") return baseFiltered.filter(r => isPending(r) && !clearedLeadIds.has(r.leadId));
+    return baseFiltered.filter(r => !isEvent(r) && !isPending(r));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseFiltered, tab, clearedLeadIds]);
 
   // Ensure the currently-selected reply still belongs to the visible list; if
   // not (tab changed, search narrowed), jump to the first visible reply.
@@ -773,39 +788,30 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [] }: {
         })}
       </div>
 
-      {/* Per-seller breakdown (Pending tab only). Appears only for users who
-          see more than one seller — a lone seller only ever receives their own
-          replies (server-scoped), so the bar would be redundant for them.
-          "All" is the default so the global view is never hidden. */}
-      {tab === "pending" && pendingSellerCounts.size > 1 && (
+      {/* Seller filter — PERSISTENT across both tabs, ADMINS only (I-1/I-2/I-4,
+          Fran 2026-08-15). A plain seller's inbox is already server-scoped to
+          their own leads, so they get a static "Your leads" indicator instead
+          of a selector. Counts live on the tabs (which respect this filter), so
+          the chips carry no count — avoids the old count-mismatch (bug I-3). */}
+      {canViewAllSellers ? (
         <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2 border-b overflow-x-auto" style={{ borderColor: C.border }}>
-          <SellerChip
-            label={locale === "es" ? "Todos" : "All"}
-            count={counts.pending}
-            active={sellerFilter === "all"}
-            onClick={() => setSellerFilter("all")}
-          />
-          {mySellerNames.length > 0 && myPendingCount > 0 && (
-            <SellerChip
-              label={locale === "es" ? "Mis leads" : "My leads"}
-              count={myPendingCount}
-              active={sellerFilter === "mine"}
-              onClick={() => setSellerFilter("mine")}
-              highlight
-            />
+          <span className="text-[9px] font-bold uppercase tracking-wider shrink-0 mr-0.5" style={{ color: C.textDim }}>{locale === "es" ? "Seller" : "Seller"}</span>
+          <SellerChip label={locale === "es" ? "Todos" : "All"} active={sellerFilter === "all"} onClick={() => setSellerFilter("all")} />
+          {mySellerNames.length > 0 && (
+            <SellerChip label={locale === "es" ? "Mis leads" : "My leads"} active={sellerFilter === "mine"} onClick={() => setSellerFilter("mine")} highlight />
           )}
-          <span className="w-px h-4 shrink-0" style={{ backgroundColor: C.border }} />
-          {[...pendingSellerCounts.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .map(([name, n]) => (
-              <SellerChip
-                key={name}
-                label={name === UNASSIGNED_SELLER ? (locale === "es" ? "Sin asignar" : "Unassigned") : name}
-                count={n}
-                active={sellerFilter === name}
-                onClick={() => setSellerFilter(name)}
-              />
-            ))}
+          {sellerOptions.length > 0 && <span className="w-px h-4 shrink-0" style={{ backgroundColor: C.border }} />}
+          {sellerOptions.map(name => (
+            <SellerChip key={name} label={name} active={sellerFilter === name} onClick={() => setSellerFilter(name)} />
+          ))}
+          {pendingSellerCounts.has(UNASSIGNED_SELLER) && (
+            <SellerChip label={locale === "es" ? "Sin asignar" : "Unassigned"} active={sellerFilter === UNASSIGNED_SELLER} onClick={() => setSellerFilter(UNASSIGNED_SELLER)} />
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: C.border }}>
+          <User size={12} style={{ color: C.textDim }} />
+          <span className="text-[11px] font-semibold" style={{ color: C.textMuted }}>{locale === "es" ? "Tus leads" : "Your leads"}</span>
         </div>
       )}
 
@@ -1042,14 +1048,24 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [] }: {
                                 ? "🤝 Aceptó la solicitud de conexión"
                                 : (r.replyText && r.replyText.trim() ? r.replyText : "(sin texto)")}
                             </p>
-                            {/* Only the classification badge — channel lives in
-                                the rail/icon, campaign in the top filter, review
-                                in the glyph above. One signal, not five. */}
-                            {badge && (
-                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1" style={{ color: badge.color, backgroundColor: badge.bg }}>
-                                {badge.label}
+                            {/* Meta row — channel + classification + seller, so
+                                it's obvious WHICH channel the reply came in on
+                                and WHO owns the lead (Fran 2026-08-15). */}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ color: chColor, backgroundColor: `color-mix(in srgb, ${chColor} 12%, transparent)` }}>
+                                <Icon size={9} /> {channelLabel(r.channel, t)}
                               </span>
-                            )}
+                              {badge && (
+                                <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: badge.color, backgroundColor: badge.bg }}>
+                                  {badge.label}
+                                </span>
+                              )}
+                              {r.sellerName && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ color: C.textMuted, backgroundColor: C.surface }}>
+                                  <User size={9} /> {r.sellerName}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </button>
