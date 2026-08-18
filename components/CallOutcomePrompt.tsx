@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus } from "lucide-react";
+import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
@@ -35,6 +35,17 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
   const [classifying, setClassifying] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // L-10 — prefetch the next lead to work in this flow so "Save & next" can
+  // jump straight there without a round-trip through the list.
+  const [nextLeadId, setNextLeadId] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/leads/${leadId}/next-in-campaign`, { cache: "no-store" })
+      .then(r => r.json())
+      .then((d: { next?: { leadId?: string } | null }) => { if (alive) setNextLeadId(d?.next?.leadId ?? null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [leadId]);
 
   const OPTS: { v: Outcome; label: string; desc: string; icon: typeof ThumbsUp; color: string }[] = [
     { v: "interested",     label: t("callOutcome.interested"),    desc: t("callOutcome.book"),            icon: ThumbsUp,   color: C.green },
@@ -62,9 +73,16 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
         setErr(error || t("callOutcome.errLog"));
         return;
       }
-      setSaved(true);
-      router.refresh();
-      window.setTimeout(onClose, 900);
+      // L-10 — jump straight to the next lead in the flow when there is one,
+      // so the seller works a call list without bouncing back to /queue.
+      if (nextLeadId) {
+        router.push(`/leads/${nextLeadId}`);
+        onClose();
+      } else {
+        setSaved(true);
+        router.refresh();
+        window.setTimeout(onClose, 900);
+      }
     } catch {
       setErr(t("callOutcome.errNetwork"));
     } finally {
@@ -196,7 +214,8 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
                 style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 70%, white))`, color: "#1A1505" }}
               >
                 {classifying ? <Loader2 size={13} className="animate-spin" /> : null}
-                {t("callOutcome.saveResult")}
+                {nextLeadId ? t("callOutcome.saveNext") : t("callOutcome.saveResult")}
+                {nextLeadId && !classifying ? <ArrowRight size={13} /> : null}
               </button>
             </div>
           </>
