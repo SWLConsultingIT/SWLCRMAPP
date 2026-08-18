@@ -2,40 +2,60 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail } from "lucide-react";
+import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
 // Post-call outcome prompt. Lifted OUT of CallButton and driven by
 // AircallPhoneProvider so it ALWAYS appears when a call ends — regardless of
 // which page the seller is on or whether the originating CallButton is still
-// mounted. Boss flagged 2026-06-04 that the outcome options "sometimes don't
-// appear"; the old per-button effect only fired on the one CallButton whose
-// leadId matched currentCall, which broke whenever that row had scrolled off
-// or the seller had navigated away. The provider is always mounted and always
-// knows the call's leadId, so this is the reliable home for it.
+// mounted.
 //
-// Four mutually-exclusive outcomes → /api/leads/[id]/call-outcome:
-//   Interested (book) / Not interested (close) / Bad timing (follow-up,
-//   campaign keeps running) / Wrong number (skip call channel).
+// L-8 (2026-08-15): one screen, 7 outcomes, a free observation available on
+// ANY of them (not just pos/neg), and — for "Call back" — an inline recall
+// date/time (L-9). Each outcome → /api/leads/[id]/call-outcome maps to a
+// concrete CRM action; see that route for the side effects.
+type Outcome = "interested" | "info" | "callback" | "voicemail" | "not_interested" | "other_person" | "wrong_number";
+
+// Default recall = tomorrow 10:00, local.
+function defaultCallbackDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string; onClose: () => void }) {
   const router = useRouter();
   const { t } = useLocale();
-  const [pendingOutcome, setPendingOutcome] = useState<"interested" | "not_interested" | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [note, setNote] = useState("");
+  const [cbDate, setCbDate] = useState(defaultCallbackDate());
+  const [cbTime, setCbTime] = useState("10:00");
+  const [remind, setRemind] = useState(true);
   const [classifying, setClassifying] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function submit(outcome: "interested" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number", n?: string) {
-    if (classifying) return;
+  const OPTS: { v: Outcome; label: string; desc: string; icon: typeof ThumbsUp; color: string }[] = [
+    { v: "interested",     label: t("callOutcome.interested"),    desc: t("callOutcome.book"),            icon: ThumbsUp,   color: C.green },
+    { v: "info",           label: t("callOutcome.info"),          desc: t("callOutcome.infoDesc"),        icon: FileText,   color: "#0EA5E9" },
+    { v: "callback",       label: t("callOutcome.callback"),      desc: t("callOutcome.callbackDesc"),    icon: RotateCcw,  color: "#D97706" },
+    { v: "voicemail",      label: t("callOutcome.voicemail"),     desc: t("callOutcome.voicemailDesc"),   icon: Voicemail,  color: "#7A8199" },
+    { v: "not_interested", label: t("callOutcome.notInterested"), desc: t("callOutcome.close"),           icon: ThumbsDown, color: C.red },
+    { v: "other_person",   label: t("callOutcome.otherPerson"),   desc: t("callOutcome.otherPersonDesc"), icon: UserPlus,   color: "#8B5CF6" },
+    { v: "wrong_number",   label: t("callOutcome.wrongNumber"),   desc: t("callOutcome.wrongNumberDesc"), icon: PhoneOff,   color: C.textMuted },
+  ];
+
+  async function submit() {
+    if (!outcome || classifying) return;
     setClassifying(true);
     setErr(null);
     try {
+      const callbackAt = outcome === "callback" ? new Date(`${cbDate}T${cbTime}`).toISOString() : undefined;
       const r = await fetch(`/api/leads/${leadId}/call-outcome`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome, note: n?.trim() || undefined }),
+        body: JSON.stringify({ outcome, note: note.trim() || undefined, callbackAt, remind }),
       });
       if (!r.ok) {
         const { error } = await r.json().catch(() => ({ error: null }));
@@ -65,7 +85,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
           backgroundColor: C.card,
           borderColor: `color-mix(in srgb, ${C.gold} 35%, ${C.border})`,
           boxShadow: "0 24px 60px -16px rgba(0,0,0,0.4)",
-          width: 340,
+          width: 460,
           maxWidth: "calc(100vw - 3rem)",
         }}
       >
@@ -86,52 +106,6 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
             </div>
             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("callOutcome.logged")}</p>
           </div>
-        ) : pendingOutcome ? (
-          (() => {
-            const isPos = pendingOutcome === "interested";
-            const accent = isPos ? C.green : C.red;
-            return (
-              <>
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: accent, letterSpacing: "0.18em" }}>
-                  {isPos ? t("callOutcome.interested") : t("callOutcome.notInterested")}
-                </p>
-                <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-                  {t("callOutcome.addNote")}
-                </p>
-                <textarea
-                  autoFocus
-                  value={note}
-                  onChange={e => setNote(e.target.value)}
-                  placeholder={isPos ? t("callOutcome.notePos") : t("callOutcome.noteNeg")}
-                  rows={4}
-                  className="w-full rounded-lg border px-3 py-2 text-[12px] resize-none outline-none focus:ring-2"
-                  style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
-                />
-                {err && <p className="text-[11px] mt-2" style={{ color: C.red }}>{err}</p>}
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    type="button"
-                    disabled={classifying}
-                    onClick={() => { setPendingOutcome(null); setNote(""); }}
-                    className="px-3 py-2 rounded-lg border text-[12px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                    style={{ borderColor: C.border, color: C.textMuted }}
-                  >
-                    {t("callOutcome.back")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={classifying}
-                    onClick={() => submit(pendingOutcome, note)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                    style={{ backgroundColor: accent }}
-                  >
-                    {classifying ? <Loader2 size={13} className="animate-spin" /> : null}
-                    {isPos ? t("callOutcome.savePos") : t("callOutcome.saveNeg")}
-                  </button>
-                </div>
-              </>
-            );
-          })()
         ) : (
           <>
             <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold, letterSpacing: "0.18em" }}>
@@ -140,33 +114,24 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
             <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
               {t("callOutcome.title")}
             </p>
-            <p className="text-[11px] mb-4" style={{ color: C.textMuted }}>
-              {t("callOutcome.hint")}
-            </p>
-            {err && <p className="text-[11px] mb-2" style={{ color: C.red }}>{err}</p>}
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { v: "interested" as const,     label: t("callOutcome.interested"),    desc: t("callOutcome.book"),        icon: ThumbsUp,   color: C.green,     bg: `color-mix(in srgb, ${C.green} 12%, transparent)`,  note: true },
-                { v: "not_interested" as const, label: t("callOutcome.notInterested"), desc: t("callOutcome.close"),       icon: ThumbsDown, color: C.red,       bg: `color-mix(in srgb, ${C.red} 12%, transparent)`,    note: true },
-                { v: "bad_timing" as const,     label: t("callOutcome.badTiming"),     desc: t("callOutcome.badTimingDesc"), icon: Calendar,  color: "#D97706",   bg: "color-mix(in srgb, #D97706 12%, transparent)",     note: false },
-                { v: "voicemail" as const,      label: t("callOutcome.voicemail"),     desc: t("callOutcome.voicemailDesc"), icon: Voicemail, color: "#0EA5E9",   bg: "color-mix(in srgb, #0EA5E9 12%, transparent)",     note: false },
-                { v: "wrong_number" as const,   label: t("callOutcome.wrongNumber"),   desc: t("callOutcome.wrongNumberDesc"), icon: PhoneOff,   color: C.textMuted, bg: C.surface,                                          note: false },
-              ]).map(opt => {
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {OPTS.map(opt => {
                 const OptIcon = opt.icon;
+                const sel = outcome === opt.v;
                 return (
                   <button
                     key={opt.v}
                     type="button"
                     disabled={classifying}
-                    onClick={() => {
-                      if (opt.note) setPendingOutcome(opt.v as "interested" | "not_interested");
-                      else submit(opt.v);
-                    }}
-                    className="flex flex-col items-start gap-1 px-3 py-2.5 rounded-lg border text-left transition-opacity hover:opacity-85 disabled:opacity-50"
+                    onClick={() => setOutcome(opt.v)}
+                    aria-pressed={sel}
+                    className="flex flex-col items-start gap-0.5 px-2.5 py-2 rounded-lg border text-left transition-all hover:opacity-90 disabled:opacity-50"
                     style={{
-                      backgroundColor: opt.bg,
+                      backgroundColor: `color-mix(in srgb, ${opt.color} ${sel ? 18 : 9}%, transparent)`,
                       color: opt.color,
-                      borderColor: `color-mix(in srgb, ${opt.color} 30%, transparent)`,
+                      borderColor: sel ? opt.color : `color-mix(in srgb, ${opt.color} 30%, transparent)`,
+                      boxShadow: sel ? `0 0 0 2px ${C.gold}` : "none",
                     }}
                   >
                     <div className="flex items-center gap-1.5">
@@ -177,6 +142,62 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
                   </button>
                 );
               })}
+            </div>
+
+            {outcome === "callback" && (
+              <div className="mt-3 rounded-lg border p-3" style={{ borderColor: "color-mix(in srgb, #D97706 45%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 8%, transparent)" }}>
+                <p className="text-[11px] font-semibold mb-2 flex items-center gap-1.5" style={{ color: "#D97706" }}>
+                  <Calendar size={12} /> {t("callOutcome.callbackWhen")}
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("callOutcome.date")}</span>
+                    <input type="date" value={cbDate} onChange={e => setCbDate(e.target.value)} className="rounded-md border px-2 py-1.5 text-[12px] outline-none" style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("callOutcome.time")}</span>
+                    <input type="time" value={cbTime} onChange={e => setCbTime(e.target.value)} className="rounded-md border px-2 py-1.5 text-[12px] outline-none" style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
+                  </label>
+                  <label className="flex items-center gap-1.5 ml-auto text-[11px] cursor-pointer pb-1.5" style={{ color: C.textMuted }}>
+                    <input type="checkbox" checked={remind} onChange={e => setRemind(e.target.checked)} /> {t("callOutcome.remind")}
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3">
+              <label className="text-[9px] uppercase tracking-wider block mb-1.5" style={{ color: C.textDim }}>{t("callOutcome.note")}</label>
+              <textarea
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder={t("callOutcome.notePlaceholder")}
+                rows={2}
+                className="w-full rounded-lg border px-3 py-2 text-[12px] resize-y outline-none focus:ring-2"
+                style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
+              />
+            </div>
+
+            {err && <p className="text-[11px] mt-2" style={{ color: C.red }}>{err}</p>}
+
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-2 rounded-lg border text-[12px] font-semibold transition-opacity hover:opacity-80"
+                style={{ borderColor: C.border, color: C.textMuted }}
+              >
+                {t("callOutcome.skip")}
+              </button>
+              <button
+                type="button"
+                disabled={!outcome || classifying}
+                onClick={submit}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
+                style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 70%, white))`, color: "#1A1505" }}
+              >
+                {classifying ? <Loader2 size={13} className="animate-spin" /> : null}
+                {t("callOutcome.saveResult")}
+              </button>
             </div>
           </>
         )}

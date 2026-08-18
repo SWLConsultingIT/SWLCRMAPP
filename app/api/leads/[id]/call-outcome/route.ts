@@ -24,19 +24,34 @@ import { getUserScope } from "@/lib/scope";
 // All four log a synthetic lead_replies row with channel='call' so the
 // outcome shows up in the History tab alongside email/LinkedIn replies.
 
-type Outcome = "interested" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number";
+// L-8 (2026-08-15): expanded from 5 → 8 outcomes + a free observation on ANY
+// of them + an optional callback datetime (L-9). `bad_timing` kept for
+// back-compat with older callers; the new UI sends `callback` instead.
+//   info         → "asked for info" — campaign keeps running; flag responded.
+//   callback     → "call me later" — campaign keeps running; store
+//                  leads.callback_at (+ reminder surfaced by L-9).
+//   other_person → "asked for someone else" — campaign keeps running; the
+//                  observation captures who to route to (referral is a later
+//                  feature); lead is NOT closed.
+type Outcome = "interested" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number" | "info" | "callback" | "other_person";
 
-const VALID: ReadonlySet<Outcome> = new Set(["interested", "not_interested", "bad_timing", "voicemail", "wrong_number"] as const);
+const VALID: ReadonlySet<Outcome> = new Set(["interested", "not_interested", "bad_timing", "voicemail", "wrong_number", "info", "callback", "other_person"] as const);
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { id: leadId } = await params;
-  let body: { outcome?: string; note?: string };
+  let body: { outcome?: string; note?: string; callbackAt?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid json" }, { status: 400 }); }
   const outcome = body.outcome as Outcome | undefined;
   if (!outcome || !VALID.has(outcome)) return NextResponse.json({ error: "invalid outcome" }, { status: 400 });
+  // Validate the optional callback datetime (only meaningful for `callback`).
+  let callbackAt: string | null = null;
+  if (outcome === "callback" && typeof body.callbackAt === "string" && body.callbackAt.trim()) {
+    const d = new Date(body.callbackAt);
+    if (!isNaN(d.getTime())) callbackAt = d.toISOString();
+  }
 
   const svc = getSupabaseService();
   const { data: lead } = await svc.from("leads").select("id, company_bio_id").eq("id", leadId).maybeSingle();
@@ -46,21 +61,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const now = new Date().toISOString();
-  const summary = outcome === "interested" ? "Call outcome: interested — proceed to book meeting"
-    : outcome === "not_interested" ? "Call outcome: not interested"
-    : outcome === "bad_timing"     ? "Call outcome: bad timing — answered but can't talk now, campaign continues"
-    : outcome === "voicemail"      ? "Call outcome: voicemail — no answer / left a message, campaign continues"
-                                   : "Call outcome: wrong number — call channel disabled for lead";
+  const summaryMap: Record<Outcome, string> = {
+    interested:     "Call outcome: interested — proceed to book meeting",
+    not_interested: "Call outcome: not interested",
+    bad_timing:     "Call outcome: bad timing — answered but can't talk now, campaign continues",
+    voicemail:      "Call outcome: voicemail — no answer / left a message, campaign continues",
+    wrong_number:   "Call outcome: wrong number — call channel disabled for lead",
+    info:           "Call outcome: asked for info — send info, campaign continues",
+    callback:       callbackAt
+                      ? `Call outcome: call back on ${callbackAt} — campaign continues`
+                      : "Call outcome: call back later — campaign continues",
+    other_person:   "Call outcome: asked to speak with someone else — see note, campaign continues",
+  };
+  const summary = summaryMap[outcome];
 
   // 1) Synthetic lead_reply so the outcome appears in /queue History
   //    (channel='call' bucket) — the seller's other surfaces already
   //    consume lead_replies, no need to invent a new event source.
+  // lead_replies.classification is the `reply_classification` ENUM — only
+  // its labels are valid ({positive, meeting_intent, needs_info, nurturing,
+  // not_now, negative, unsubscribe, spam, auto_reply, follow_up}). The old map
+  // sent "voicemail"/"wrong_number" which AREN'T in the enum, so those inserts
+  // silently failed and never showed in History. Map every outcome to a valid
+  // enum label; the precise value still lands in calls.classification (text)
+  // for the dashboard breakdown.
   const classificationMap: Record<Outcome, string> = {
     interested: "positive",
     not_interested: "negative",
     bad_timing: "not_now",
-    voicemail: "voicemail",
-    wrong_number: "wrong_number",
+    voicemail: "not_now",
+    wrong_number: "not_now",
+    info: "needs_info",
+    callback: "follow_up",
+    other_person: "follow_up",
   };
   await svc.from("lead_replies").insert({
     lead_id: leadId,
@@ -89,6 +122,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     bad_timing: "follow_up",
     voicemail: "voicemail",
     wrong_number: "wrong_number",
+    info: "needs_info",
+    callback: "follow_up",
+    other_person: "other_person",
   };
   const { data: recentCalls } = await svc
     .from("calls")
@@ -115,19 +151,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } else if (outcome === "not_interested") {
     await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", updated_at: now }).eq("id", leadId);
     await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
-  } else if (outcome === "bad_timing" || outcome === "voicemail") {
-    // Bad timing / Voicemail = non-terminal follow-up. Do NOT advance the step
-    // on the spot — the
-    // campaign stays parked on the call step and the lead's call_advance_mode
-    // (chosen in the create flow) decides what happens next, via the
-    // skip-stale-calls cron:
-    //   • auto   → the cron advances to the next step when the window elapses
-    //              (no seller action needed),
-    //   • manual → it stays on the call step for the seller to handle (longer
-    //              window before the cron force-advances).
-    // We only touch updated_at so History reflects the outcome. (Per Fran
-    // 2026-06-04: "que no avance al instante… que respete auto/manual".)
-    await svc.from("leads").update({ updated_at: now }).eq("id", leadId);
+  } else if (outcome === "bad_timing" || outcome === "voicemail" || outcome === "info" || outcome === "callback" || outcome === "other_person") {
+    // Non-terminal outcomes — the campaign keeps running on its cadence. Do NOT
+    // advance the step on the spot: the campaign stays parked on the call step
+    // and the lead's call_advance_mode + skip-stale-calls cron decide next
+    // (auto advances after the window; manual waits for the seller). Per Fran
+    // 2026-06-04: "que no avance al instante… que respete auto/manual".
+    //   • info / callback / other_person → the lead DID engage, so mark
+    //     responded=true (feeds reply/engagement metrics).
+    //   • callback → also store leads.callback_at so the L-9 reminder surface
+    //     can list "leads to call back". A null clears any prior reminder.
+    const upd: Record<string, unknown> = { updated_at: now };
+    if (outcome === "info" || outcome === "callback" || outcome === "other_person") upd.responded = true;
+    if (outcome === "callback") upd.callback_at = callbackAt;
+    await svc.from("leads").update(upd).eq("id", leadId);
   } else {
     // wrong_number: flag the lead so future calls are blocked, then
     // walk every active/draft campaign step that's a call and skip
