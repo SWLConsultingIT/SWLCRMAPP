@@ -1029,7 +1029,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     totalSteps: number;
     stepSum: number;
     stepCount: number;
-    sentLinkedin: number; sentEmail: number; sentCall: number;
+    sentLinkedin: number; sentLinkedinCr: number; sentLinkedinMsg: number; sentEmail: number; sentCall: number;
     contactedLeads: Set<string>;
   };
   const campAgg = new Map<string, CampAgg>();
@@ -1048,7 +1048,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       g = {
         name: c.name, channels: new Set(), leads: new Set(), replied: new Set(), positive: new Set(), negative: new Set(),
         sent: 0, status: c.status ?? "active", statuses: new Set(), totalSteps: 0, stepSum: 0, stepCount: 0,
-        sentLinkedin: 0, sentEmail: 0, sentCall: 0,
+        sentLinkedin: 0, sentLinkedinCr: 0, sentLinkedinMsg: 0, sentEmail: 0, sentCall: 0,
         contactedLeads: new Set(),
       };
       campAgg.set(c.name, g);
@@ -1083,8 +1083,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (!g) continue;
     if (m.status === "sent") {
       g.sent++;
-      const ch = c.channel ?? "linkedin";
-      if (ch === "linkedin") g.sentLinkedin++;
+      // Use the MESSAGE's own channel, not the campaign's — a multichannel flow
+      // is stored as campaign.channel='linkedin' but each step carries its real
+      // channel, so keying off c.channel counted every email/call as a LinkedIn
+      // send (same trap the funnel fixed). Split LinkedIn into CR (step 0) vs
+      // post-accept message (step >= 1) so the card reads them separately (C-3).
+      const ch = m.channel || c.channel || "linkedin";
+      if (ch === "linkedin") {
+        g.sentLinkedin++;
+        if ((m.step_number ?? 0) >= 1) g.sentLinkedinMsg++; else g.sentLinkedinCr++;
+      }
       else if (ch === "email") g.sentEmail++;
       else if (ch === "call") g.sentCall++;
       if (c.lead_id) g.contactedLeads.add(c.lead_id);
@@ -1113,6 +1121,8 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       leads: g.leads.size,
       sent: g.sent,
       sentLinkedin: g.sentLinkedin,
+      sentLinkedinCr: g.sentLinkedinCr,
+      sentLinkedinMsg: g.sentLinkedinMsg,
       sentEmail: g.sentEmail,
       sentCall: g.sentCall,
       uncontactedLeads: Math.max(0, g.leads.size - g.contactedLeads.size),

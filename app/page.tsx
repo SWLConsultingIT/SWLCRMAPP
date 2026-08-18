@@ -1601,6 +1601,32 @@ export default async function DashboardPage({
                                 <StatusBadge status={c.status} t={t} />
                                 <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
                               </div>
+                              {/* Per-channel sends (C-3, 2026-08-15): LinkedIn CR
+                                  vs msg, emails, calls — each read separately.
+                                  Was hidden: the tab only had Contacted/Won/Lost. */}
+                              {(c.sentLinkedinCr + c.sentLinkedinMsg + c.sentEmail + c.sentCall) > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                  {(c.sentLinkedinCr > 0 || c.sentLinkedinMsg > 0) && (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] tabular-nums" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+                                      <Share2 size={11} style={{ color: "#0A66C2" }} />
+                                      <span><strong style={{ color: C.textBody }}>{c.sentLinkedinCr}</strong> <span style={{ color: C.textMuted }}>{t("dashx.campsByIcp.chCr")}</span></span>
+                                      {c.sentLinkedinMsg > 0 && (<><span style={{ color: C.textDim }}>·</span><span><strong style={{ color: C.textBody }}>{c.sentLinkedinMsg}</strong> <span style={{ color: C.textMuted }}>{t("dashx.campsByIcp.chMsg")}</span></span></>)}
+                                    </span>
+                                  )}
+                                  {c.sentEmail > 0 && (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] tabular-nums" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+                                      <Mail size={11} style={{ color: "#7C3AED" }} />
+                                      <span><strong style={{ color: C.textBody }}>{c.sentEmail}</strong> <span style={{ color: C.textMuted }}>{t("dashx.campsByIcp.chMails")}</span></span>
+                                    </span>
+                                  )}
+                                  {c.sentCall > 0 && (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] tabular-nums" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+                                      <Phone size={11} style={{ color: "#F97316" }} />
+                                      <span><strong style={{ color: C.textBody }}>{c.sentCall}</strong> <span style={{ color: C.textMuted }}>{t("dashx.campsByIcp.chCalls")}</span></span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               {/* 4 big stat tiles — Contacted / Won / Lost / Steps.
                                   Each one deep-links into the matching section
                                   of the campaign detail. The Link inside the
