@@ -555,7 +555,38 @@ async function getQueueData() {
     }),
   ].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
-  return { pendingCalls, newReplies, callHistory, mySellerNames };
+  // ── L-9: call-back reminders ("Volver a llamar") ──────────────────────
+  // Every lead with a pending callback_at (set from the post-call popup),
+  // decrypted + attributed to the flow-owner seller so the Recall subtab can
+  // group Overdue / Today / Upcoming and filter per seller.
+  let recallQuery = supabase.from("leads")
+    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_phone, callback_at, callback_note")
+    .not("callback_at", "is", null)
+    .order("callback_at", { ascending: true })
+    .limit(300);
+  if (scopedCompanyBioId) recallQuery = recallQuery.eq("company_bio_id", scopedCompanyBioId);
+  const { data: rawRecalls } = await recallQuery;
+  const recallRows = await hydrateClientLeads((rawRecalls ?? []) as any[]);
+  const recallSellerByLead: Record<string, string | null> = {};
+  const recallLeadIds = recallRows.map((l: any) => l.id);
+  for (let i = 0; i < recallLeadIds.length; i += 150) {
+    const slice = recallLeadIds.slice(i, i + 150);
+    const { data: rc } = await supabase.from("campaigns").select("lead_id, seller_id, sellers(name)").in("lead_id", slice);
+    for (const c of (rc ?? []) as any[]) {
+      if (c.lead_id && !recallSellerByLead[c.lead_id]) recallSellerByLead[c.lead_id] = c.sellers?.name ?? null;
+    }
+  }
+  const recalls = recallRows.map((l: any) => ({
+    leadId: l.id,
+    leadName: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || l.company_name || "Unknown",
+    company: l.company_name ?? null,
+    phone: l.primary_phone ?? null,
+    callbackAt: l.callback_at as string,
+    note: l.callback_note ?? null,
+    sellerName: recallSellerByLead[l.id] ?? null,
+  }));
+
+  return { pendingCalls, newReplies, callHistory, mySellerNames, recalls };
 }
 
 export default async function QueuePage() {

@@ -9,9 +9,10 @@ import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
   PhoneCall, User, PhoneOff, Bell, AlertTriangle, XCircle, Sparkles,
-  ThumbsUp, ThumbsDown, Clock, Loader2, Trash2, Voicemail, Calendar,
+  ThumbsUp, ThumbsDown, Clock, Loader2, Trash2, Voicemail, Calendar, RotateCcw,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
+import RecallList, { recallDueCount, type RecallItem } from "@/components/RecallList";
 import CallButton from "@/components/CallButton";
 import InboxView, { type InboxReply } from "@/components/InboxView";
 import ChatPanel from "@/components/ChatPanel";
@@ -116,6 +117,7 @@ type Props = {
   newReplies: NewReply[];
   callHistory: CallHistoryEntry[];
   mySellerNames?: string[];
+  recalls?: RecallItem[];
 };
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -827,7 +829,7 @@ function CallHistoryPanel({
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [] }: Props) {
+export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [], recalls = [] }: Props) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
   // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls, 2 = Team
@@ -851,7 +853,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
   //       timing / Wrong number — with date filters + recordings. Renamed from
   //       "Follow-ups" 2026-06-04 per boss: the team wants to review ALL calls
   //       made, not just the bad-timing ones queued for a redial.)
-  const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
+  const [callSubTab, setCallSubTab] = useState<0 | 1 | 2 | 3>(0);
+  const recallDue = recallDueCount(recalls, mySellerNames);
   const [showScheduled, setShowScheduled] = useState(false);
   const [search, setSearch] = useState("");
   // History sub-tab: which outcome bucket (or "all") + the date window.
@@ -1158,6 +1161,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
               style={{ borderColor: C.border, backgroundColor: C.card }}>
               {([
                 { idx: 0 as const, label: t("queue.calls.sub.toCall"),   count: callsToMake.length,           icon: PhoneCall },
+                { idx: 3 as const, label: t("queue.calls.sub.recall"),   count: recallDue,                    icon: RotateCcw },
                 { idx: 1 as const, label: t("queue.calls.sub.awaiting"), count: callsAwaitingOutcome.length,  icon: Clock     },
                 { idx: 2 as const, label: t("queue.calls.sub.history"),  count: callHistory.length,           icon: Phone     },
                 // Awaiting Outcome count = unclassified calls in the log (same
@@ -1186,7 +1190,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
 
             {/* Seller filter — To Call + Awaiting (History has its own
                 "Called by"). Lets a manager see just one rep's queue. */}
-            {callSubTab !== 2 && callSellerNames.length > 1 && (
+            {callSubTab !== 2 && callSubTab !== 3 && callSellerNames.length > 1 && (
               <div className="flex items-center gap-1.5 mb-3 text-xs">
                 <PhoneCall size={12} style={{ color: C.textDim }} />
                 <span style={{ color: C.textMuted }}>{t("queue.calls.seller")}</span>
@@ -1236,7 +1240,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
               </div>
             )}
 
-            {callSubTab === 2 ? (
+            {callSubTab === 3 ? (
+              <RecallList recalls={recalls} mySellerNames={mySellerNames} />
+            ) : callSubTab === 2 ? (
               <CallHistoryPanel
                 entries={callHistory}
                 search={search}

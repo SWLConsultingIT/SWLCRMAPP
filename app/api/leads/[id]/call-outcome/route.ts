@@ -140,16 +140,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .eq("id", targetCallId);
   }
 
-  // 2) Per-outcome side effects on the lead + its campaigns.
+  // 2) Per-outcome side effects on the lead + its campaigns. Every outcome
+  //    other than a fresh `callback` CLEARS any pending call-back reminder
+  //    (callback_at/note) — acting on the lead supersedes the old recall.
   if (outcome === "interested") {
-    await svc.from("leads").update({ status: "qualified", responded: true, response_outcome: "interested", updated_at: now }).eq("id", leadId);
+    await svc.from("leads").update({ status: "qualified", responded: true, response_outcome: "interested", callback_at: null, callback_note: null, updated_at: now }).eq("id", leadId);
     // Stop the flow on a positive — covers PAUSED campaigns too. Previously
     // this only matched status='active', so a positive call on a paused flow
     // (e.g. Lluís Vinas) left the campaign sitting paused with "next: First
     // Call ready to fire" instead of completing it.
     await svc.from("campaigns").update({ status: "completed", stop_reason: "call_positive", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
   } else if (outcome === "not_interested") {
-    await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", updated_at: now }).eq("id", leadId);
+    await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", callback_at: null, callback_note: null, updated_at: now }).eq("id", leadId);
     await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
   } else if (outcome === "bad_timing" || outcome === "voicemail" || outcome === "info" || outcome === "callback" || outcome === "other_person") {
     // Non-terminal outcomes — the campaign keeps running on its cadence. Do NOT
@@ -163,7 +165,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     //     can list "leads to call back". A null clears any prior reminder.
     const upd: Record<string, unknown> = { updated_at: now };
     if (outcome === "info" || outcome === "callback" || outcome === "other_person") upd.responded = true;
-    if (outcome === "callback") upd.callback_at = callbackAt;
+    // callback → set the reminder; every other non-terminal touch clears it.
+    upd.callback_at = outcome === "callback" ? callbackAt : null;
+    upd.callback_note = outcome === "callback" ? (body.note?.trim() || null) : null;
     await svc.from("leads").update(upd).eq("id", leadId);
   } else {
     // wrong_number: flag the lead so future calls are blocked, then
@@ -180,7 +184,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // looking up a re-research case. allow_call=false is the signal
     // the UI reads to render the red "Wrong number" pill on the
     // primary phone in the detail header + Mobile card.
-    await svc.from("leads").update({ allow_call: false, updated_at: now }).eq("id", leadId);
+    await svc.from("leads").update({ allow_call: false, callback_at: null, callback_note: null, updated_at: now }).eq("id", leadId);
     const { data: callMsgs } = await svc.from("campaign_messages")
       .select("id, campaign_id, step_number")
       .eq("lead_id", leadId)
