@@ -9,6 +9,8 @@ import { C } from "@/lib/design";
 
 const channelMeta: Record<string, { Icon: React.ElementType; color: string; labelKey: string }> = {
   linkedin: { Icon: Share2,        color: "#0A66C2", labelKey: "dashx.ch.linkedin" },
+  linkedin_cr:  { Icon: Share2,         color: "#0A66C2", labelKey: "dashx.ch.linkedinCr" },
+  linkedin_msg: { Icon: MessageSquare,  color: "#0A66C2", labelKey: "dashx.ch.linkedinMsg" },
   email:    { Icon: Mail,          color: "#059669", labelKey: "dashx.ch.email" },
   call:     { Icon: Phone,         color: "#EA580C", labelKey: "dashx.ch.call" },
   whatsapp: { Icon: Smartphone,    color: "#25D366", labelKey: "dashx.ch.whatsapp" },
@@ -114,7 +116,7 @@ export default function ChannelComparison({
             <div className="hidden md:grid items-center gap-3 tabular-nums" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
               <Stat label={t("dashx.channels.sent")} value={r.sent} hint={t("dashx.channels.sentHint")} />
               <Stat label={t("dashx.channels.contacted")} value={r.contacted} hint={t("dashx.channels.contactedHint")} />
-              <Stat label={t("dashx.channels.replied")} value={r.replied} />
+              <Stat label={r.channel === "linkedin_cr" ? t("dashx.channels.accepted") : t("dashx.channels.replied")} value={r.replied} />
               <Stat label={t("dashx.channels.positive")} value={r.positive} accent={r.positive > 0 ? C.green : undefined} />
             </div>
           </div>

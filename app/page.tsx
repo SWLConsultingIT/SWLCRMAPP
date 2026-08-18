@@ -1822,7 +1822,26 @@ export default async function DashboardPage({
             <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.textMuted }}>
               {t("dashx.channels.bandComparison")}
             </p>
-            <ChannelComparison channels={data.channelBreakdown} t={t} emptyLabel={t("dashx.channels.empty")} linkedinConnections={data.linkedinConnections} />
+            <ChannelComparison channels={(() => {
+              // CH-1 (2026-08-15): split the LinkedIn row into its two legs —
+              // the connection-request leg (acceptance rate) and the post-accept
+              // message leg (reply rate). Head-to-Head used to show one combined
+              // "LinkedIn" bar, so CR acceptance vs DM reply couldn't be compared.
+              const rows = data.channelBreakdown;
+              const li = rows.find(r => r.channel === "linkedin");
+              if (!li) return rows;
+              const conn = data.linkedinConnections ?? { sent: 0, accepted: 0 };
+              const rest = rows.filter(r => r.channel !== "linkedin");
+              const split: typeof rows = [];
+              if (conn.sent > 0) split.push({
+                channel: "linkedin_cr", sent: conn.sent, contacted: conn.sent,
+                replied: conn.accepted, positive: 0,
+                responseRate: conn.sent > 0 ? Math.round((conn.accepted / conn.sent) * 100) : 0,
+                conversionRate: 0,
+              });
+              split.push({ ...li, channel: "linkedin_msg", sent: Math.max(0, li.sent - conn.sent) });
+              return [...split, ...rest];
+            })()} t={t} emptyLabel={t("dashx.channels.empty")} linkedinConnections={null} />
           </div>
         )}
       </Panel>
