@@ -99,9 +99,15 @@ export async function POST(req: NextRequest) {
       subject: s.subject ?? null,
       body: s.body ?? "",
     }));
+    // Normalize foreign-syntax tokens the AI author may have emitted
+    // (`{first_name}`, `[First Name]`, `<<name>>` → `{{first_name}}`) so the
+    // auto-reply snapshot stored on the campaign is canonical and renders
+    // cleanly at send/preview — the SAME pass the message bodies already get.
+    // (Auto-replies were the one field skipping it → raw `{first_name}` shipped
+    // on 2026-08-15.)
     autoReplies = {
-      positive: prompts.channelMessages.autoReplies?.positive ?? "",
-      negative: prompts.channelMessages.autoReplies?.negative ?? "",
+      positive: autoNormalizePlaceholders(prompts.channelMessages.autoReplies?.positive ?? "").normalized,
+      negative: autoNormalizePlaceholders(prompts.channelMessages.autoReplies?.negative ?? "").normalized,
     };
   } else if (prompts.messages?.length > 0) {
     // Old flat format

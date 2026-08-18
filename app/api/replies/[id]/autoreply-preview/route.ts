@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getUserScope } from "@/lib/scope";
+import { renderPlaceholders } from "@/lib/placeholders";
 
 // Returns the auto-reply template text for a given reply + classification
 // so the inbox confirm modal can preview and edit it BEFORE sending.
@@ -22,12 +23,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { data: replyRow } = await supabase
-    .from("lead_replies").select("campaign_id").eq("id", id).maybeSingle();
+    .from("lead_replies").select("campaign_id, lead_id").eq("id", id).maybeSingle();
   const campaignId = (replyRow as { campaign_id?: string } | null)?.campaign_id ?? null;
+  const leadId = (replyRow as { lead_id?: string } | null)?.lead_id ?? null;
   if (!campaignId) return NextResponse.json({ text: null });
 
   const { data: camp } = await supabase
-    .from("campaigns").select("name, metadata").eq("id", campaignId).maybeSingle();
+    .from("campaigns").select("name, metadata, sellers(name)").eq("id", campaignId).maybeSingle();
   const pick = (ar?: { positive?: string; negative?: string } | null) =>
     ((classification === "positive" ? ar?.positive : ar?.negative) ?? "").trim();
 
@@ -45,6 +47,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const t = pick(ar);
         if (t) { text = t; break; }
       }
+    }
+  }
+
+  // Render the template so the confirm modal shows the REAL name/company, not
+  // raw {{first_name}} placeholders. strict:false — this is a preview, and the
+  // authoritative send (/api/inbox/reply) re-renders in strict mode. Strip any
+  // leftover token so nothing raw is ever previewed either.
+  if (text && leadId) {
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("primary_first_name, primary_last_name, company_name, primary_title_role")
+      .eq("id", leadId)
+      .maybeSingle();
+    const sellerName = (camp as { sellers?: { name?: string } | null } | null)?.sellers?.name ?? null;
+    if (lead) {
+      text = renderPlaceholders(text, lead as Record<string, unknown>, { name: sellerName }, { strict: false })
+        .replace(/\{\{[^}]*\}\}/g, "")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim();
     }
   }
 

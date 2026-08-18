@@ -121,12 +121,27 @@ export function isInvalidSellerName(name: string | null | undefined): boolean {
   return SELLER_NAME_BLOCKLIST.has((name ?? "").toLowerCase().trim());
 }
 
+// Promote identifier-like SINGLE-brace merge tokens (`{first_name}`,
+// `{sender_name}`) to the canonical `{{…}}` form, never touching an existing
+// `{{…}}`. Some AI-generated auto-replies emit single braces, and the
+// double-brace-only render table used to let them ship unrendered — a raw
+// `{first_name}` LinkedIn auto-reply reached a real lead on 2026-08-15.
+// Exported so the campaign-approve snapshot can clean templates at the source.
+export function normalizePlaceholderBraces(text: string): string {
+  return (text ?? "").replace(/(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})/g, "{{$1}}");
+}
+
 export function renderPlaceholders(
   template: string,
   lead: PlaceholderLead,
   seller: PlaceholderSeller,
+  opts?: { strict?: boolean },
 ): string {
-  if (isInvalidSellerName(seller.name)) {
+  // `strict` (default true) throws on a system-default seller name so a bad
+  // signature can never SHIP. Previews pass strict:false — they only display
+  // the rendered text, and the authoritative send path re-renders in strict
+  // mode anyway.
+  if ((opts?.strict ?? true) && isInvalidSellerName(seller.name)) {
     throw new Error(
       `Seller name "${seller.name ?? ""}" looks like a system default — update sellers.name before dispatching.`,
     );
@@ -137,15 +152,7 @@ export function renderPlaceholders(
   const company = lead.company_name ?? "";
   const role = lead.primary_title_role ?? "";
   const sellerName = seller.name ?? "";
-  // Tolerate SINGLE-brace merge tokens (`{first_name}`, `{sender_name}`). Some
-  // AI-generated auto-replies emit them, and the double-brace-only table below
-  // used to let them sail through unrendered — a raw `{first_name}` LinkedIn
-  // auto-reply shipped to a real lead on 2026-08-15. Promote identifier-like
-  // single-brace tokens to the canonical `{{…}}` form (never touching an
-  // existing `{{…}}`) so they render here, and any unknown one is stripped
-  // downstream instead of shipping raw.
-  const normalized = (template ?? "").replace(/(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})/g, "{{$1}}");
-  return normalized
+  return normalizePlaceholderBraces(template)
     // First name — snake, camel, and "name" alone.
     .replaceAll("{{first_name}}", first)
     .replaceAll("{{firstName}}", first)

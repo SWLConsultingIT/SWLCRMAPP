@@ -39,6 +39,7 @@ import { countryToTimeZone } from "@/lib/prospect-time";
 import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
 import { getT } from "@/lib/i18n-server";
+import { renderPlaceholders } from "@/lib/placeholders";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -400,6 +401,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   // (Campaign tab, Recent Activity tab, stepper) shows the same actual
   // text the lead received instead of the raw {{first_name}} template.
   const sellerName = (campaign as any)?.sellers?.name ?? null;
+
+  // Pre-render the flow's auto-replies with THIS lead's name/company so the
+  // "Mark result" modal shows the real message, not raw {{first_name}}. The
+  // send path re-renders authoritatively, so strict:false is safe here.
+  const rawAutoReplies = (campaign?.metadata as { autoReplies?: { positive?: string; negative?: string } } | null)?.autoReplies ?? null;
+  const renderReply = (t?: string) =>
+    t ? renderPlaceholders(t, lead as Record<string, unknown>, { name: sellerName }, { strict: false })
+          .replace(/\{\{[^}]*\}\}/g, "").replace(/[ \t]{2,}/g, " ").trim()
+      : (t ?? "");
+  const renderedAutoReplies = rawAutoReplies
+    ? { positive: renderReply(rawAutoReplies.positive), negative: renderReply(rawAutoReplies.negative) }
+    : null;
+
   const messages = (rawMessages ?? []).map((m: any) => {
     const meta = (m.metadata ?? {}) as Record<string, unknown>;
     if (typeof meta.rendered_content === "string" && meta.rendered_content.length > 0) {
@@ -702,7 +716,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               {/* Secondary actions (View flow / Export / Log outcome / Delete)
                   collapse into one calm "More" menu so the row is just the
                   primary Call + More + prev/next nav. */}
-              <LeadMoreMenu leadId={id} leadName={contactName} campaignId={campaign?.id ?? null} autoReplies={(campaign?.metadata as { autoReplies?: { positive?: string; negative?: string } } | null)?.autoReplies ?? null} />
+              <LeadMoreMenu leadId={id} leadName={contactName} campaignId={campaign?.id ?? null} autoReplies={renderedAutoReplies} />
 
               {/* Prev/next within the same flow (boss 2026-06-10) — two arrows
                   to move between leads of the same sequence without going back
