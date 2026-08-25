@@ -284,57 +284,39 @@ export default async function CampaignsPage() {
 
   return (
     <div className="p-6 w-full">
-      <PageHero
-        icon={Megaphone}
-        section="Growth Engine"
-        title="Outreach Flow™"
-        description="Build and launch multi-step outreach sequences across LinkedIn and email."
-        accentColor={C.aiAccent}
-        status={{ label: "AI Active", active: true }}
-        badge="Outreach Engine"
-      />
-
-      {/* Today's pulse strip — boss 2026-05-29: replaces the 4 generic stat
-          cards. One-line, today-scoped, actionable: how many flows running,
-          how many messages went out today, how many replies came in (with
-          positive count), and how many leads are sitting ready to launch.
-          The Ready-to-Launch chip is a Link to the lead picker so it's a
-          direct CTA, not a vanity number. */}
-      <div
-        className="rounded-2xl border mb-6 px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-2 relative overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 4%, var(--c-card)) 100%)`,
-          borderColor: `color-mix(in srgb, ${gold} 25%, ${C.border})`,
-          boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 8%, transparent)`,
-        }}
-      >
-        <span aria-hidden className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none opacity-50"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 70%)` }} />
-        <div className="flex items-center gap-2 shrink-0 relative">
-          <span className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{
-              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
-              boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 30%, transparent)`,
-              color: "#1A1505",
-            }}>
-            <Sparkles size={14} strokeWidth={2.4} />
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-            {t("flows.pulse.eyebrow")}
-          </span>
+      {/* Hero card — SWL gold identity (redesign 2026-08-25, boss). Merges the
+          old purple PageHero + the separate "today's pulse" strip into one
+          themed card with a gold-ramp stripe and a KPI strip (flows running ·
+          sent today · replies+positive · reply rate). */}
+      <div className="rounded-2xl border overflow-hidden mb-6 relative"
+        style={{ backgroundColor: C.card, borderColor: C.border2, boxShadow: C.shadowMd }}>
+        <div className="absolute inset-x-0 top-0 h-[3px] pointer-events-none"
+          style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 45%, var(--fg4) 80%, transparent)" }} />
+        <div className="p-6 pt-7">
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="h-[2px] w-4 rounded" style={{ backgroundColor: gold }} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--fg1)" }}>Growth Engine</span>
+          </div>
+          <h1 className="text-[25px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>Outreach Flow</h1>
+          <p className="text-[12.5px] mt-1.5 max-w-lg leading-relaxed" style={{ color: C.textMuted }}>
+            Multi-step outreach sequences across LinkedIn, email and calls — organized by ICP.
+          </p>
         </div>
-
-        <PulseStat icon={Megaphone}     label={t("flows.pulse.flowsRunning",   { n: stats.active })}              color={C.green} />
-        <PulseStat icon={Send}          label={t("flows.pulse.sentToday",      { n: stats.messagesSentToday })}    color="#0284C7" />
-        <PulseStat icon={MessageSquare} label={t("flows.pulse.repliesToday",   { n: stats.repliesToday })}         color="#7C3AED"
-          sub={stats.positiveRepliesToday > 0 ? t("flows.pulse.positiveToday", { n: stats.positiveRepliesToday }) : undefined} />
-
-        {/* "Ready to launch" chip removed 2026-06-16 — it summed leads that
-            don't surface on any ICP card (read as "a lie"). The available-lead
-            count now lives ON each ICP card, where you actually launch from. */}
-        {!hasPulse && (
-          <span className="text-[12px] italic" style={{ color: C.textMuted }}>{t("flows.pulse.noPulse")}</span>
-        )}
+        <div className="grid grid-cols-2 sm:grid-cols-4 border-t" style={{ borderColor: C.border }}>
+          {([
+            { label: "Flows running", value: String(stats.active), gold: true, sub: null as string | null },
+            { label: "Sent today", value: String(stats.messagesSentToday), gold: false, sub: null },
+            { label: "Replies today", value: String(stats.repliesToday), gold: false, sub: stats.positiveRepliesToday > 0 ? `+${stats.positiveRepliesToday} pos` : null },
+            { label: "Reply rate", value: `${stats.responseRate}%`, gold: false, sub: null },
+          ]).map((s, i) => (
+            <div key={s.label} className="px-5 py-4" style={{ borderLeft: i % 4 === 0 ? "none" : `1px solid ${C.border}` }}>
+              <p className="text-[22px] font-bold tabular-nums leading-none" style={{ color: s.gold ? "var(--fg1)" : C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
+                {s.value}{s.sub && <span className="text-[12px] font-semibold ml-1.5" style={{ color: C.green }}>{s.sub}</span>}
+              </p>
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] mt-2" style={{ color: C.textMuted }}>{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Tabs — Flows / Templates. Create New Flow tab removed 2026-05-28

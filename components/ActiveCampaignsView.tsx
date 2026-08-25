@@ -692,6 +692,66 @@ function LeaderboardRibbon({ groups, t }: { groups: CampaignGroup[]; t: Tr }) {
   );
 }
 
+// Compact flow card for the horizontal-scroll row inside each ICP section
+// (redesign 2026-08-25). The deep funnel/step breakdown lives on the flow
+// detail (/campaigns/[id]) — the card links there. Channels are shown by their
+// LOGO in a uniform gold tile (no per-channel rainbow).
+function FlowCard({ group, t }: { group: CampaignGroup; t: Tr }) {
+  const st = statusConfig[group.status] ?? statusConfig.active;
+  const seller = group.sellers[0];
+  return (
+    <Link
+      href={`/campaigns/${group.firstId}`}
+      className="shrink-0 w-[300px] rounded-2xl overflow-hidden transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:shadow-md"
+      style={{ backgroundColor: C.card, border: `1px solid color-mix(in srgb, ${gold} 24%, ${C.border2})`, boxShadow: C.shadow, scrollSnapAlign: "start" }}
+    >
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--fg1)" }}>{t("ticket.flow.preTitle")}</span>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ color: st.color, backgroundColor: st.bg, border: `1px solid color-mix(in srgb, ${st.color} 28%, transparent)` }}>
+            {group.status === "active" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />}
+            {t(`flows.status.${st.key}`)}
+          </span>
+        </div>
+        <h3 className="text-[15px] font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{group.name}</h3>
+        <p className="text-[11.5px] mt-0.5 truncate" style={{ color: C.textMuted }}>{seller ? seller : "—"}{group.sellers.length > 1 ? ` +${group.sellers.length - 1}` : ""}</p>
+        <div className="flex gap-1.5 mt-2.5">
+          {group.channels.map(ch => {
+            const m = channelMeta[ch]; if (!m) return null; const Icon = m.icon;
+            return (
+              <span key={ch} className="w-6 h-6 rounded-md grid place-items-center"
+                title={m.label}
+                style={{ background: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)`, color: "var(--fg1)" }}>
+                <Icon size={12} />
+              </span>
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {[
+            { v: group.totalLeads,    l: t("flows.metric.leads"),    c: C.textPrimary },
+            { v: group.totalReplies,  l: t("flows.metric.replies"),  c: "var(--fg1)" },
+            { v: group.totalPositive, l: t("flows.metric.positive"), c: C.green },
+          ].map(s => (
+            <div key={s.l} className="rounded-lg py-1.5 text-center" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+              <p className="text-[16px] font-bold tabular-nums leading-none" style={{ color: s.c, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{s.v}</p>
+              <p className="text-[8px] font-bold uppercase tracking-wider mt-1" style={{ color: C.textMuted }}>{s.l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="px-4 py-2.5 border-t flex items-center gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
+          <div className="h-1.5 rounded-full" style={{ width: `${group.avgProgress}%`, background: "linear-gradient(90deg, var(--fg2), var(--fg4))" }} />
+        </div>
+        <span className="text-[10px] font-bold tabular-nums shrink-0" style={{ color: C.textMuted }}>{group.avgProgress}%</span>
+        {group.acceptRate != null && <span className="text-[10px] font-bold shrink-0" style={{ color: "var(--fg1)" }}>{group.acceptRate}% accept</span>}
+      </div>
+    </Link>
+  );
+}
+
 function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; defaultOpen: boolean; t: Tr }) {
   const [open, setOpen] = useState(defaultOpen);
   const [hydrated, setHydrated] = useState(false);
@@ -724,8 +784,10 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
       <div
         className="relative flex items-center gap-4 px-6 py-4 rounded-xl"
         style={{
-          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          backgroundColor: C.card,
+          border: `1px solid ${C.border2}`,
           borderLeft: `3px solid ${gold}`,
+          boxShadow: C.shadow,
         }}
       >
         {/* Hairline gold accent on the top edge — editorial detail */}
@@ -765,15 +827,14 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
           </div>
           <h2 className="text-[18px] font-bold leading-tight truncate"
             style={{
-              color: "white",
+              color: C.textPrimary,
               fontFamily: "var(--font-outfit), system-ui, sans-serif",
               letterSpacing: "-0.015em",
-              textShadow: `0 1px 12px color-mix(in srgb, ${gold} 18%, transparent)`,
             }}>
             {section.name}
           </h2>
           {section.description && (
-            <p className="text-[11px] truncate mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>{section.description}</p>
+            <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{section.description}</p>
           )}
         </div>
 
@@ -799,13 +860,15 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
                 that makes the Create button meaningful (vs the flow-perf
                 metrics on the right, which are 0 when there are no flows). */}
             <span
-              className="inline-flex items-center gap-1 text-[10.5px] font-semibold whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 text-[10.5px] font-bold whitespace-nowrap px-2 py-0.5 rounded-full"
               title="Eligible leads in this ICP with no active flow yet — available to start a new outreach flow."
-              style={{ color: section.availableToLaunch > 0 ? "color-mix(in srgb, white 78%, transparent)" : "color-mix(in srgb, white 42%, transparent)" }}
+              style={section.availableToLaunch > 0
+                ? { color: "var(--fg1)", background: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)", border: `1px solid color-mix(in srgb, ${gold} 34%, transparent)` }
+                : { color: C.textMuted, background: C.surface, border: `1px solid ${C.border2}` }}
             >
-              <UserPlus size={11} strokeWidth={2.4} style={{ color: section.availableToLaunch > 0 ? gold : "currentColor" }} />
+              <UserPlus size={11} strokeWidth={2.4} style={{ color: section.availableToLaunch > 0 ? "var(--fg1)" : "currentColor" }} />
               {section.availableToLaunch > 0
-                ? `${section.availableToLaunch} ${section.availableToLaunch === 1 ? "lead" : "leads"} ready to launch`
+                ? `${section.availableToLaunch} ${section.availableToLaunch === 1 ? "lead" : "leads"} waiting`
                 : "No leads waiting"}
             </span>
           </div>
@@ -815,23 +878,23 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
             gold/blue/green accents on the non-zero values. */}
         <div className="relative hidden md:flex items-center gap-5 shrink-0 mr-3">
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>{t("flows.metric.leads")}</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: "white" }}>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textMuted }}>{t("flows.metric.leads")}</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>
               {section.totalLeads}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>{t("flows.metric.replies")}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textMuted }}>{t("flows.metric.replies")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5"
-              style={{ color: section.totalReplies > 0 ? "#5B9CFF" : "white" }}>
+              style={{ color: section.totalReplies > 0 ? "var(--fg1)" : C.textPrimary }}>
               {section.totalReplies}
-              <span className="ml-1 text-[10px]" style={{ color: "color-mix(in srgb, white 45%, transparent)" }}>({responseRate}%)</span>
+              <span className="ml-1 text-[10px]" style={{ color: C.textMuted }}>({responseRate}%)</span>
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>{t("flows.metric.positive")}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textMuted }}>{t("flows.metric.positive")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5"
-              style={{ color: section.totalPositive > 0 ? "#34D399" : "white" }}>
+              style={{ color: section.totalPositive > 0 ? C.green : C.textPrimary }}>
               {section.totalPositive}
             </p>
           </div>
@@ -843,8 +906,8 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
         <span
           className="relative shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold whitespace-nowrap pointer-events-none transition-opacity"
           style={{
-            backgroundColor: open ? "color-mix(in srgb, white 8%, transparent)" : `color-mix(in srgb, ${gold} 18%, transparent)`,
-            color: open ? "color-mix(in srgb, white 75%, transparent)" : gold,
+            backgroundColor: open ? C.surface : "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)",
+            color: open ? C.textMuted : "var(--fg1)",
             border: `1px solid color-mix(in srgb, ${gold} ${open ? 22 : 40}%, transparent)`,
             opacity: hydrated ? 1 : 0,
           }}>
@@ -858,11 +921,14 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
       {open && (
         <div className="space-y-3">
           {/* Within-ICP leaderboard ribbon (boss 2026-05-29): compact
-              podium ranking the section's flows by conversion (positives /
-              leads × 100). Top 3 with medal icons; dormant flows (0
-              contacted) get a tag so they don't pretend to be #last. */}
+              podium ranking the section's flows by conversion. */}
           <LeaderboardRibbon groups={section.groups} t={t} />
-          {section.groups.map(g => <FlowRow key={g.name} group={g} t={t} />)}
+          {/* Flow cards in a horizontal scroll row (boss 2026-08-25) — scales
+              regardless of how many flows the ICP has. The deep funnel/steps
+              view moved to the flow detail (each card links there). */}
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollSnapType: "x proximity" }}>
+            {section.groups.map(g => <FlowCard key={g.name} group={g} t={t} />)}
+          </div>
         </div>
       )}
     </section>
