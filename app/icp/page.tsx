@@ -1193,7 +1193,7 @@ export default function LeadGenPage() {
             </div>
             {profiles.length > 0 && (
               <button onClick={() => setShowForm(true)}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-[transform,box-shadow] hover:-translate-y-0.5"
+                className="gold-btn inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold hover:-translate-y-0.5"
                 style={{ color: "#241B04", background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", border: "1px solid var(--fg2)", boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)` }}>
                 <Plus size={15} /> New ICP
               </button>
@@ -1281,8 +1281,8 @@ export default function LeadGenPage() {
             </p>
 
             <button onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-lg hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
+              className="gold-btn inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-bold hover:-translate-y-0.5"
+              style={{ color: "#241B04", background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", border: "1px solid var(--fg2)", boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)` }}>
               <Plus size={16} /> Create First Profile
             </button>
 
@@ -1336,8 +1336,8 @@ export default function LeadGenPage() {
 
             return (
               <button key={p.id} onClick={() => setSelectedId(p.id)}
-                className="w-full text-left rounded-2xl border p-5 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5"
-                style={{ backgroundColor: C.card, borderColor: C.border2, boxShadow: C.shadow }}>
+                className="w-full text-left rounded-2xl p-5 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 icp-card"
+                style={{ backgroundColor: C.card, border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 28%, var(--c-border2))", boxShadow: C.shadow }}>
                 <div className="flex items-center gap-4">
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: "var(--gold-wash, color-mix(in srgb, var(--brand,#c9a83a) 12%, transparent))", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}>

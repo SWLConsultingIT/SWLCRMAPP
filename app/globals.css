@@ -56,6 +56,20 @@
      values here read on white cards; the dark block below lifts them so
      they read on the navy card. */
   --fg1: #5A4308; --fg2: #8A6912; --fg3: #B58F24; --fg4: #D6B84E;
+}
+
+/* Lead Miner ICP card hover — brighten the gold border + lift the shadow.
+   Uses !important because the base border is set inline (border shorthand). */
+.icp-card:hover {
+  border-color: color-mix(in srgb, var(--brand, #c9a83a) 55%, transparent) !important;
+  box-shadow: 0 8px 22px rgba(11, 15, 26, 0.12);
+}
+/* Shared gold primary button — hover shadow grows, subtle brighten, a11y ring. */
+.gold-btn { transition: transform .12s ease, box-shadow .12s ease, filter .12s ease; }
+.gold-btn:hover { box-shadow: 0 6px 18px color-mix(in srgb, var(--brand, #c9a83a) 48%, transparent); filter: brightness(1.03); }
+.gold-btn:active { transform: translateY(0); }
+.gold-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--brand, #c9a83a) 60%, transparent); outline-offset: 2px; }
+:root {
 
   --c-main-bg:
     radial-gradient(ellipse 65% 45% at 4% 12%,  rgba(201,168,58,0.055)  0%, transparent 55%),
