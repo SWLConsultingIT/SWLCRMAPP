@@ -703,7 +703,7 @@ function FlowCard({ group, t }: { group: CampaignGroup; t: Tr }) {
     <Link
       href={`/campaigns/${group.firstId}`}
       className="shrink-0 w-[300px] rounded-2xl overflow-hidden transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:shadow-md"
-      style={{ backgroundColor: C.card, border: `1px solid color-mix(in srgb, ${gold} 24%, ${C.border2})`, boxShadow: C.shadow, scrollSnapAlign: "start" }}
+      style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, boxShadow: C.shadow, scrollSnapAlign: "start" }}
     >
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
@@ -784,10 +784,10 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
       <div
         className="relative flex items-center gap-4 px-6 py-4 rounded-xl"
         style={{
-          backgroundColor: C.card,
-          border: `1px solid ${C.border2}`,
+          background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 11%, var(--c-card)) 100%)`,
+          border: `1px solid color-mix(in srgb, ${gold} 32%, ${C.border2})`,
           borderLeft: `3px solid ${gold}`,
-          boxShadow: C.shadow,
+          boxShadow: C.shadowMd,
         }}
       >
         {/* Hairline gold accent on the top edge — editorial detail */}
