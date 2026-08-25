@@ -455,7 +455,12 @@ export default function CampaignDetailClient({
             {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs underline ml-1" style={{ color: C.textMuted }}>Clear</button>}
           </div>
 
-          {/* Filter bar — applies to BOTH List and Pipeline */}
+          {/* Filter bar — LIST view only. In Pipeline/kanban the filters were
+              confusing (boss 2026-08-19: "de qué sirve que aparezcan si no
+              sirven en kanban"): the board groups by stage, so a hidden filter
+              silently dropping cards read as broken. We hide them here and the
+              board always shows the full pipeline (visibleCampaigns). */}
+          {leadsView === "list" && (
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
@@ -490,9 +495,10 @@ export default function CampaignDetailClient({
               {filteredCampaigns.length}{leadFiltersActive ? ` / ${visibleCampaigns.length}` : ""} leads
             </span>
           </div>
+          )}
 
           {leadsView === "kanban" ? (
-            <CampaignKanban sequence={sequence} campaigns={filteredCampaigns as any} />
+            <CampaignKanban sequence={sequence} campaigns={visibleCampaigns as any} />
           ) : (
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <table className="w-full text-sm">
