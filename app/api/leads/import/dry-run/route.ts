@@ -33,14 +33,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
 
-  const plan = await buildImportPlan({
-    rows: body.rows,
-    mapping: body.mapping,
-    targetBioId: scope.companyBioId,
-    // Type-cast: the helper takes a structurally-loose Supabase shape so
-    // it doesn't drag the supabase-js types into lib/.
-    supabase: getSupabaseService() as unknown as Parameters<typeof buildImportPlan>[0]["supabase"],
-  });
+  // buildImportPlan throws when it can't load the dedup index. Surface that as
+  // a readable error: a preview computed against a partial index would claim
+  // every row is new and talk the operator into duplicating the tenant.
+  let plan: Awaited<ReturnType<typeof buildImportPlan>>;
+  try {
+    plan = await buildImportPlan({
+      rows: body.rows,
+      mapping: body.mapping,
+      targetBioId: scope.companyBioId,
+      // Type-cast: the helper takes a structurally-loose Supabase shape so
+      // it doesn't drag the supabase-js types into lib/.
+      supabase: getSupabaseService() as unknown as Parameters<typeof buildImportPlan>[0]["supabase"],
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "dedup check failed" },
+      { status: 502 },
+    );
+  }
 
   // Channel reachability across the NEW leads (inserts). The wizard shows
   // this so the operator catches a file with no phones / no emails BEFORE

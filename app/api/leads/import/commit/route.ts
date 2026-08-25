@@ -108,12 +108,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const plan = await buildImportPlan({
-    rows: body.rows,
-    mapping: body.mapping,
-    targetBioId,
-    supabase: svc as unknown as Parameters<typeof buildImportPlan>[0]["supabase"],
-  });
+  // buildImportPlan throws when the dedup index can't be loaded. Refuse the
+  // whole import rather than writing against a partial index — that path
+  // inserts everything as "new" and silently doubles the tenant's leads.
+  let plan: Awaited<ReturnType<typeof buildImportPlan>>;
+  try {
+    plan = await buildImportPlan({
+      rows: body.rows,
+      mapping: body.mapping,
+      targetBioId,
+      supabase: svc as unknown as Parameters<typeof buildImportPlan>[0]["supabase"],
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "dedup check failed" },
+      { status: 502 },
+    );
+  }
 
   // Materialize the writes. The plan already split intents into insert /
   // update / skipped; here we just turn that into the actual Supabase

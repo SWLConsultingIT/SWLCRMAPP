@@ -53,26 +53,70 @@ type ExistingLead = {
 };
 
 // Same supabase shape both routes use. Kept loose so we don't pull the
-// supabase-js types into a library file. range() is mandatory because
-// PostgREST defaults to a 1000-row page — without it the dedup index
-// silently misses everything past lead #1001.
+// supabase-js types into a library file. `order()` is part of the shape
+// because the paginated pull below needs a deterministic sort key (see
+// fetchAllPages).
 type ListBuilder = {
-  range: (from: number, to: number) => Promise<{ data: unknown[] | null; error: unknown }>;
+  range: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>;
+};
+type OrderableBuilder = ListBuilder & {
+  order: (col: string, opts?: { ascending?: boolean }) => ListBuilder;
 };
 type Supa = {
   from: (table: string) => {
     select: (cols: string) => {
-      eq: (col: string, val: string) => ListBuilder;
-      in: (col: string, vals: string[]) => ListBuilder;
+      eq: (col: string, val: string) => OrderableBuilder;
+      in: (col: string, vals: string[]) => OrderableBuilder;
     };
   };
 };
 
-// Pull cap. 50k mirrors the wizard's row cap — any tenant past this point
-// should paginate, but we're nowhere near that yet (Pathway = 627 leads,
-// De Vera Grill ≈ 100s, biggest pilot under 5k). If you bump the wizard
-// cap, bump this too.
-const PAGE_CAP = 49_999;
+// PostgREST enforces a HARD server-side row ceiling (`max_rows`, set to 1000
+// on this project). A single `.range(0, 49_999)` does NOT lift it — the
+// response comes back silently truncated at 1000, which is exactly what this
+// file used to do while its comment claimed the opposite. Measured 2026-08-25:
+// the dedup index saw 1000 of SWL's 1860 leads (46% invisible), 1000 of
+// Pathway's 1976, 1000 of De Vera's 1260. Every lead outside that window
+// re-imported as a brand-new duplicate.
+//
+// The rest of the codebase already paginates in 1000-row loops
+// (lib/dashboard-data.ts → fetchAllRows). Do the same here.
+const PAGE_SIZE = 1000;
+
+// Runaway guard for the pagination loop. Well above any real tenant (largest
+// today: Pathway at ~2k leads). If one ever legitimately exceeds this the
+// import needs a different strategy anyway, and stopping beats looping.
+const MAX_ROWS = 100_000;
+
+// Pull every page of a query. `makeQuery` must build a FRESH builder on each
+// call — supabase-js builders are single-use, so reusing one returns the first
+// page over and over.
+//
+// Pagination without ORDER BY is unsound: Postgres may return rows in a
+// different physical order per call, so page 2 can repeat or skip rows from
+// page 1. Callers pass an explicit sort column.
+function errMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err) return String((err as { message: unknown }).message);
+  return String(err);
+}
+
+async function fetchAllPages<T>(
+  makeQuery: () => ListBuilder,
+): Promise<{ rows: T[]; error: unknown }> {
+  const out: T[] = [];
+  for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
+    const { data, error } = await makeQuery().range(from, from + PAGE_SIZE - 1);
+    // Surface the error instead of degrading to a partial index. A partial
+    // index reads as "no duplicates found", which silently doubles a tenant's
+    // leads — the caller has to fail the import, not guess.
+    if (error) return { rows: out, error };
+    const page = (data ?? []) as T[];
+    out.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return { rows: out, error: null };
+}
 
 function normLI(url: string | null | undefined): string {
   if (!url) return "";
@@ -112,6 +156,31 @@ function namesCompatible(fn: string, ln: string, other: { primary_first_name: st
   if (!a || !b) return true;
   return a === b;
 }
+
+// Phone is the ONLY key some rows carry: company records with a switchboard
+// number and no person name at all (276 such leads in De Vera Grill —
+// "Grupo Moura / (0230) 4539211"). For those, namesCompatible() waves
+// everything through (it returns true whenever either side lacks a name), so a
+// bare phone match merges two DIFFERENT companies that share a switchboard or
+// a shared office. Measured 2026-08-25: De Vera holds 17 phone keys shared by
+// distinct company names — e.g. "Poltur Argentina S.R.L" and "Polvani Tours"
+// both on (11) 4322-9575.
+//
+// So: when there is no person name on either side, fall back to requiring the
+// COMPANY to match. Cost is that "Plastic Omnium" and "Plastic Omnium Auto
+// Inergy Argentina SA" stay two rows; benefit is we never silently patch one
+// company's record onto another's — and never mark a live prospect as a
+// duplicate of an unrelated company that happens to be mid-flow.
+function phoneMatchAllowed(
+  fn: string, ln: string, co: string, other: ExistingLead,
+): boolean {
+  if (!namesCompatible(fn, ln, other)) return false;
+  const mine = normText(`${fn} ${ln}`);
+  const theirs = normText(`${other.primary_first_name ?? ""} ${other.primary_last_name ?? ""}`);
+  if (mine && theirs) return true; // real names, already proven equal above
+  const otherCo = normCo(other.company_name);
+  return !!co && !!otherCo && co === otherCo;
+}
 function normEmail(e: string | null | undefined): string {
   return e ? String(e).trim().toLowerCase() : "";
 }
@@ -131,11 +200,17 @@ function isGenericEmail(e: string): boolean {
   const local = e.split("@")[0]?.trim();
   return !!local && GENERIC_EMAIL_LOCALPARTS.has(local);
 }
+// Last 9 digits, matching `phoneKey` in lib/lead-csv-mapper.ts. It used to be
+// the last 10, which silently broke every country whose national number is 9
+// digits (Spain, France, Italy): "+34 600 11 22 33" → "34600112233" → last-10
+// "4600112233" vs a locally-stored "600112233" → no match. Tenants routinely
+// hold both formats at once (De Vera: 73 numbers with a "+" prefix, 723
+// without), so the two spellings of one number have to fold together.
 function normPhone(p: string | null | undefined): string {
   if (!p) return "";
   const digits = String(p).replace(/[^0-9]/g, "");
   if (digits.length < 7) return "";
-  return digits.slice(-10);
+  return digits.length > 9 ? digits.slice(-9) : digits;
 }
 // Normalize a free-form text field for fuzzy dedup keys. Strips
 // diacritics so "José" == "Jose", and collapses any non-alphanumeric
@@ -177,30 +252,44 @@ export async function buildImportPlan(input: {
 }): Promise<ImportPlan> {
   const { rows, mapping, targetBioId, supabase } = input;
 
-  // One shot to pull every lead in this tenant + every lead-id with an
-  // in-flight campaign. PostgREST defaults to a 1000-row page, so
-  // .range(0, PAGE_CAP) is mandatory — without it the dedup index
-  // misses every lead past #1001 and the wizard's preview silently
-  // under-reports duplicates. Burned 2026-05-29 (De Vera Grill: dedup
-  // bulk-inserted 95 leads that should've been caught).
+  // Pull EVERY lead in this tenant + every lead-id with an in-flight
+  // campaign, paginated (see PAGE_SIZE — PostgREST caps each response at
+  // 1000 rows no matter what Range asks for). Ordered by id so the pages
+  // tile the set exactly once.
   //
   // We also pull source + encrypted_payload because client-source
   // leads keep their PII inside the ciphertext, not in plaintext
   // columns — without hydrating them the dedup keys (first/last name,
   // LinkedIn URL, email, phone, company) are all NULL and every
-  // re-import duplicates them invisibly. Burned 2026-05-29 too.
+  // re-import duplicates them invisibly. Burned 2026-05-29.
   const [existingRes, activeCampRes] = await Promise.all([
-    supabase.from("leads")
-      .select("id, source, encrypted_payload, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_first_name, primary_last_name, company_name")
-      .eq("company_bio_id", targetBioId)
-      .range(0, PAGE_CAP),
-    supabase.from("campaigns")
-      .select("lead_id")
-      .in("status", ["active", "paused"])
-      .range(0, PAGE_CAP),
+    fetchAllPages<ExistingLead>(() =>
+      supabase.from("leads")
+        .select("id, source, encrypted_payload, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_first_name, primary_last_name, company_name")
+        .eq("company_bio_id", targetBioId)
+        .order("id", { ascending: true })),
+    fetchAllPages<{ lead_id: string | null }>(() =>
+      supabase.from("campaigns")
+        .select("lead_id")
+        .in("status", ["active", "paused"])
+        .order("id", { ascending: true })),
   ]);
 
-  const existingRaw = (existingRes.data ?? []) as ExistingLead[];
+  // Hard-fail on a broken read. Continuing with a partial (or empty) index
+  // means the plan reports every row as "new" and the import doubles the
+  // tenant's leads with no warning anywhere.
+  if (existingRes.error) {
+    throw new Error(
+      `Dedup index could not be loaded (existing leads query failed): ${errMessage(existingRes.error)}. Import aborted so no duplicates are created.`,
+    );
+  }
+  if (activeCampRes.error) {
+    throw new Error(
+      `Dedup index could not be loaded (active campaigns query failed): ${errMessage(activeCampRes.error)}. Import aborted so leads mid-campaign are not touched.`,
+    );
+  }
+
+  const existingRaw = existingRes.rows;
 
   // Hydrate client-source rows by decrypting their payload into the
   // plaintext column slots so the dedup lookup keys (LI slug, email,
@@ -238,7 +327,7 @@ export async function buildImportPlan(input: {
     }
   }
   const activeLeadIds = new Set(
-    ((activeCampRes.data ?? []) as Array<{ lead_id: string | null }>)
+    activeCampRes.rows
       .map(r => r.lead_id)
       .filter((id): id is string => Boolean(id)),
   );
@@ -324,18 +413,35 @@ export async function buildImportPlan(input: {
     const pe = normEmail(mapped.primary_personal_email as string | null);
     const ph = normPhone(mapped.primary_phone as string | null);
     const co = normCo(mapped.company_name as string | null);
-    const fn = ((mapped.primary_first_name as string | null) || "").trim().toLowerCase();
-    const ln = ((mapped.primary_last_name as string | null) || "").trim().toLowerCase();
+    // normText (not raw toLowerCase) so this side of the comparison is built
+    // exactly like the byNameCo index above. They used to disagree: the index
+    // stripped diacritics and collapsed punctuation, this side didn't — so
+    // "José" never matched "jose" and "Manzano-Monis" never matched
+    // "manzano monis". Spanish/Italian/LATAM lists are most of what we import,
+    // so that asymmetry disabled name matching for the majority of accented
+    // names (70 such leads in SWL, 48 in De Vera, 17 in IEB as of 2026-08-25).
+    const fn = normText(mapped.primary_first_name as string | null);
+    const ln = normText(mapped.primary_last_name as string | null);
 
     // Person keys. nameSig folds the person's name into the email key so two
     // different people sharing a company email don't collapse; falls back to
     // company when there's no name. Personal LinkedIn slug is unique to a human
     // so it stands alone.
+    //
+    // nameCoKey is the raw index key (must match how byNameCo was built);
+    // nKey is its namespaced form for the intra-batch `seen` set. Keeping them
+    // as two variables is deliberate: they were previously the same variable
+    // carrying the "n:" prefix, which was then looked up against the
+    // un-prefixed index — so `byNameCo.has(nKey)` was ALWAYS false and the
+    // "name + company" branch below was unreachable dead code. That was the
+    // only possible key for the 344 leads in prod that have neither LinkedIn
+    // nor email, making them permanently un-dedupable.
     const nameSig = fn && ln ? `${fn}|${ln}` : "";
     const wKey  = we && !isGenericEmail(we) ? `e:${we}|${nameSig || co}` : null;
     const peKey = pe && !isGenericEmail(pe) ? `e:${pe}|${nameSig || co}` : null;
     const liKey = li ? `li:${li}` : null;
-    const nKey  = fn && ln && co ? `n:${fn}|${ln}|${co}` : null;
+    const nameCoKey = fn && ln && co ? `${fn}|${ln}|${co}` : null;
+    const nKey  = nameCoKey ? `n:${nameCoKey}` : null;
 
     if ((wKey && seen.has(wKey)) || (peKey && seen.has(peKey)) || (liKey && seen.has(liKey)) || (nKey && seen.has(nKey))) {
       outcomes.push({ rowIndex, status: "skipped_duplicate", reason: "duplicate within this upload", display });
@@ -350,8 +456,8 @@ export async function buildImportPlan(input: {
     if (li && byLI.has(li))      { dbMatch = byLI.get(li)!;      matchedBy = "LinkedIn URL"; }
     else if (we && !isGenericEmail(we) && byWE.has(we) && namesCompatible(fn, ln, byWE.get(we)!)) { dbMatch = byWE.get(we)!; matchedBy = "work email"; }
     else if (pe && !isGenericEmail(pe) && byPE.has(pe) && namesCompatible(fn, ln, byPE.get(pe)!)) { dbMatch = byPE.get(pe)!; matchedBy = "personal email"; }
-    else if (ph && byPh.has(ph) && namesCompatible(fn, ln, byPh.get(ph)!)) { dbMatch = byPh.get(ph)!;      matchedBy = "phone"; }
-    else if (nKey && byNameCo.has(nKey)) { dbMatch = byNameCo.get(nKey)!; matchedBy = "name + company"; }
+    else if (ph && byPh.has(ph) && phoneMatchAllowed(fn, ln, co, byPh.get(ph)!)) { dbMatch = byPh.get(ph)!; matchedBy = "phone"; }
+    else if (nameCoKey && byNameCo.has(nameCoKey)) { dbMatch = byNameCo.get(nameCoKey)!; matchedBy = "name + company"; }
 
     if (dbMatch && activeLeadIds.has(dbMatch.id)) {
       outcomes.push({
