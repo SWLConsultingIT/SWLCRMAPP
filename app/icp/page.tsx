@@ -10,7 +10,7 @@ import Link from "next/link";
 import {
   Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2, ArrowLeft,
   Pencil, Trash2, ChevronRight, Users, MapPin, Briefcase, Megaphone, ExternalLink,
-  Building2, Lightbulb, BookOpen, CheckSquare, Square, Sparkles, Send, Download,
+  Building2, Lightbulb, BookOpen, CheckSquare, Square, Sparkles, Send, Download, RefreshCw,
 } from "lucide-react";
 import AddToFlowModal from "@/components/icp/AddToFlowModal";
 
@@ -458,17 +458,24 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
     company: string | null;
     role: string | null;
     score: number | null;
+    status: string | null;
     campaign: { id: string; name: string; status: string; channel: string | null } | null;
   };
+  type BucketKey = "unassigned" | "inFlow" | "won" | "lost" | "renurture" | "completed";
+  const EMPTY_BUCKETS: Record<BucketKey, LeadRow[]> = { unassigned: [], inFlow: [], won: [], lost: [], renurture: [], completed: [] };
+  // Buckets whose rows can be selected + bulk-acted on: unassigned/renurture
+  // feed flows, lost can be reopened via Renurture. The rest are read-only.
+  const SELECTABLE_BUCKETS: BucketKey[] = ["unassigned", "renurture", "lost"];
   const [leads, setLeads] = useState<LeadRow[]>([]);
-  const [withCampaign, setWithCampaign] = useState<LeadRow[]>([]);
-  const [unassigned, setUnassigned] = useState<LeadRow[]>([]);
+  const [buckets, setBuckets] = useState<Record<BucketKey, LeadRow[]>>(EMPTY_BUCKETS);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [leadsOpen, setLeadsOpen] = useState(false);
-  const [leadsTab, setLeadsTab] = useState<"unassigned" | "with_campaign">("unassigned");
+  const [leadsTab, setLeadsTab] = useState<BucketKey>("unassigned");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showAddModal, setShowAddModal] = useState(false);
   const [csvBusy, setCsvBusy] = useState(false);
+  const [renurturing, setRenurturing] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
   const router = useRouter();
 
   // Download this ICP's leads as CSV via fetch+blob, NOT a plain <a href> — an
@@ -523,22 +530,63 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
     router.push(`/campaigns/new/${profile.id}?leads=${ids.join(",")}`);
   }
 
+  // Reopen closed_lost leads so they become eligible for a flow again. Uses the
+  // existing status endpoint (status='nurturing'). After it lands they move
+  // from the Lost bucket into Renurture, where they can be added to a flow.
+  async function renurtureSelection() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || renurturing) return;
+    setRenurturing(true);
+    setActionMsg(null);
+    try {
+      const results = await Promise.all(
+        ids.map(id =>
+          fetch(`/api/leads/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "nurturing" }),
+          }).then(r => r.ok).catch(() => false)
+        )
+      );
+      const ok = results.filter(Boolean).length;
+      clearSelection();
+      await refetchLeads();
+      setLeadsTab("renurture");
+      setActionMsg(`${ok} lead${ok === 1 ? "" : "s"} moved to Renurture — now you can add them to a flow.`);
+      setTimeout(() => setActionMsg(null), 6000);
+    } finally {
+      setRenurturing(false);
+    }
+  }
+
+  function applyLeadsResponse(json: any) {
+    setLeads(json.leads ?? []);
+    const b: Record<BucketKey, LeadRow[]> = { ...EMPTY_BUCKETS, ...(json.buckets ?? {}) };
+    setBuckets(b);
+    return b;
+  }
+
+  async function refetchLeads() {
+    try {
+      const res = await fetch(`/api/leads/by-icp/${profile.id}`);
+      if (res.ok) applyLeadsResponse(await res.json());
+    } catch { /* keep prior state */ }
+  }
+
   useEffect(() => {
     async function fetchLeads() {
-      // Server-side endpoint that decrypts encrypted_payload + splits
-      // by campaign attachment. Replaces the prior direct supabase
-      // browser call that returned NULL names for encrypted tenants.
+      // Server-side endpoint that decrypts encrypted_payload + buckets leads
+      // by lifecycle stage (unassigned / in-flow / won / lost / renurture /
+      // completed). Replaces the prior direct supabase browser call that
+      // returned NULL names for encrypted tenants + a misleading 2-way split.
       try {
         const res = await fetch(`/api/leads/by-icp/${profile.id}`);
         if (!res.ok) { setLeads([]); setLoadingLeads(false); return; }
-        const json = await res.json();
-        setLeads(json.leads ?? []);
-        setWithCampaign(json.withCampaign ?? []);
-        setUnassigned(json.unassigned ?? []);
-        // Default tab — show whichever side has items, prefer unassigned.
-        if ((json.unassigned ?? []).length === 0 && (json.withCampaign ?? []).length > 0) {
-          setLeadsTab("with_campaign");
-        }
+        const b = applyLeadsResponse(await res.json());
+        // Default to the first bucket that has leads, in priority order.
+        const order: BucketKey[] = ["unassigned", "inFlow", "lost", "renurture", "completed", "won"];
+        const first = order.find(k => (b[k] ?? []).length > 0);
+        if (first) setLeadsTab(first);
       } catch (e) {
         console.error("[icp.fetchLeads] failed", e);
         setLeads([]);
@@ -547,6 +595,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       }
     }
     fetchLeads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
 
   return (
@@ -743,61 +792,66 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             </div>
           )}
           {leadsOpen && !loadingLeads && leads.length > 0 && (() => {
-            const visible = leadsTab === "unassigned" ? unassigned : withCampaign;
+            // Full lifecycle breakdown (boss 2026-08-19): where each lead sits.
+            const BUCKET_META: { key: BucketKey; label: string; color: string }[] = [
+              { key: "unassigned", label: "Unassigned", color: gold },
+              { key: "inFlow",     label: "In a flow",  color: C.blue },
+              { key: "won",        label: "Won",        color: C.green },
+              { key: "lost",       label: "Lost",       color: C.red },
+              { key: "renurture",  label: "Renurture",  color: "#7C3AED" },
+              { key: "completed",  label: "Completed",  color: C.textMuted },
+            ];
+            const campView = (s: string) =>
+              s === "active" ? { label: "Active", color: C.green }
+              : s === "paused" ? { label: "Paused", color: C.orange }
+              : s === "completed" ? { label: "Completed", color: C.textMuted }
+              : s === "closed_lost" ? { label: "Lost", color: C.red }
+              : s === "closed_won" ? { label: "Won", color: C.green }
+              : { label: s || "—", color: C.textMuted };
+            const emptyMsg: Record<BucketKey, string> = {
+              unassigned: "No unassigned leads — every lead here has already entered a flow.",
+              inFlow: "No leads in an active flow right now.",
+              won: "No won leads yet.",
+              lost: "No lost leads.",
+              renurture: "No leads in renurture.",
+              completed: "No completed leads (a flow that ended with no outcome marked).",
+            };
+            const visible = buckets[leadsTab] ?? [];
             const visibleIds = visible.map(l => l.id);
+            const selectableTab = SELECTABLE_BUCKETS.includes(leadsTab);
             const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
-            const selectedNamesForModal = visible
-              .filter(l => selectedIds.has(l.id))
-              .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || l.company || "Unknown");
             return (
               <>
-                {/* Sub-tabs — split unassigned vs with campaign so the seller
-                    can act on "leads still to flow" separately from "leads
-                    already in a flow". Boss feedback 2026-05-28. */}
-                <div className="flex items-center gap-1.5 px-4 py-2.5 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                  {/* Unassigned now uses SWL gold (was brown). Consistent
-                      with the brand + a clearer "act on me" signal. */}
-                  <button
-                    type="button"
-                    onClick={() => { setLeadsTab("unassigned"); clearSelection(); }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors"
-                    style={{
-                      backgroundColor: leadsTab === "unassigned" ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent",
-                      color: leadsTab === "unassigned" ? gold : C.textBody,
-                      border: leadsTab === "unassigned" ? `1px solid color-mix(in srgb, ${gold} 45%, transparent)` : `1px solid ${C.border}`,
-                    }}>
-                    Unassigned
-                    <span className="text-[10px] font-bold tabular-nums px-1.5 py-0 rounded"
-                      style={{
-                        background: leadsTab === "unassigned" ? gold : C.surface,
-                        color: leadsTab === "unassigned" ? "#1A1505" : C.textDim,
-                      }}>
-                      {unassigned.length}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setLeadsTab("with_campaign"); clearSelection(); }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors"
-                    style={{
-                      backgroundColor: leadsTab === "with_campaign" ? `color-mix(in srgb, ${C.green} 14%, transparent)` : "transparent",
-                      color: leadsTab === "with_campaign" ? C.green : C.textBody,
-                      border: leadsTab === "with_campaign" ? `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` : `1px solid ${C.border}`,
-                    }}>
-                    With Campaign
-                    <span className="text-[10px] font-bold tabular-nums px-1.5 py-0 rounded"
-                      style={{
-                        background: leadsTab === "with_campaign" ? C.green : C.surface,
-                        color: leadsTab === "with_campaign" ? "#fff" : C.textDim,
-                      }}>
-                      {withCampaign.length}
-                    </span>
-                  </button>
+                {/* Sub-tabs — one per lifecycle bucket. Zero-count buckets stay
+                    visible (dimmed) so the report reads as a full breakdown. */}
+                <div className="flex items-center gap-1.5 px-4 py-2.5 border-b flex-wrap" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                  {BUCKET_META.map(m => {
+                    const active = leadsTab === m.key;
+                    const n = (buckets[m.key] ?? []).length;
+                    const isGold = m.key === "unassigned";
+                    return (
+                      <button key={m.key} type="button"
+                        onClick={() => { setLeadsTab(m.key); clearSelection(); }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                        style={{
+                          backgroundColor: active ? `color-mix(in srgb, ${m.color} ${isGold ? 16 : 14}%, transparent)` : "transparent",
+                          color: active ? m.color : (n === 0 ? C.textDim : C.textBody),
+                          border: active ? `1px solid color-mix(in srgb, ${m.color} 45%, transparent)` : `1px solid ${C.border}`,
+                          opacity: !active && n === 0 ? 0.5 : 1,
+                        }}>
+                        {m.label}
+                        <span className="text-[10px] font-bold tabular-nums px-1.5 py-0 rounded"
+                          style={{
+                            background: active ? m.color : C.surface,
+                            color: active ? (isGold ? "#1A1505" : "#fff") : C.textDim,
+                          }}>
+                          {n}
+                        </span>
+                      </button>
+                    );
+                  })}
                   <div className="flex-1" />
-                  {/* Select-all chip only on the Unassigned tab where bulk
-                      actions are meaningful (assigned leads can't be added
-                      to a flow they're already in). */}
-                  {leadsTab === "unassigned" && visible.length > 0 && (
+                  {selectableTab && visible.length > 0 && (
                     <button
                       type="button"
                       onClick={() => selectAllVisible(visibleIds)}
@@ -813,24 +867,30 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                   )}
                 </div>
 
+                {actionMsg && (
+                  <div className="px-5 py-2 text-[12px] font-medium border-b"
+                    style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${C.green} 9%, ${C.card})`, color: C.green }}>
+                    {actionMsg}
+                  </div>
+                )}
+
                 <div className="divide-y" style={{ borderColor: C.border }}>
                   {visible.length === 0 ? (
                     <div className="px-5 py-6 text-center text-sm" style={{ color: C.textDim }}>
-                      {leadsTab === "unassigned" ? "All leads in this ticket are already assigned to a flow." : "No leads in a campaign yet."}
+                      {emptyMsg[leadsTab]}
                     </div>
                   ) : visible.map(lead => {
                     const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.company || "Unknown";
                     const camp = lead.campaign;
                     const isSelected = selectedIds.has(lead.id);
-                    const selectable = leadsTab === "unassigned";
-                    // Clicking anywhere on the row toggles selection in
-                    // the Unassigned tab — way faster than aiming for
-                    // the tiny checkbox. The lead-detail link still
-                    // works on the name area (stopPropagation).
+                    const selectable = selectableTab;
+                    // Clicking anywhere on the row toggles selection in a
+                    // selectable bucket. The lead-detail link still works on
+                    // the name area (stopPropagation).
                     const rowOnClick = selectable ? () => toggleSelect(lead.id) : undefined;
                     return (
                       <div key={lead.id}
-                        className="flex items-center gap-3 px-5 py-3 transition-colors cursor-pointer hover:bg-black/[0.02]"
+                        className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-black/[0.02]"
                         style={{ backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 7%, transparent)` : undefined, cursor: selectable ? "pointer" : "default" }}
                         onClick={rowOnClick}>
                         {selectable && (
@@ -858,19 +918,27 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                             {lead.score}
                           </span>
                         )}
-                        {/* On the With-Campaign tab keep the campaign pill
-                            (informative). On Unassigned we leave it clean
-                            — the tab itself + the floating action bar
-                            already carry the action. */}
-                        {camp && (
-                          <Link href={`/campaigns/${camp.id}`}
+                        {/* Completed bucket = flow ended, no outcome → nudge to
+                            close it. Otherwise show the campaign context pill. */}
+                        {leadsTab === "completed" ? (
+                          <Link href={`/leads/${lead.id}`}
                             onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80 shrink-0"
-                            style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 28%, transparent)` }}>
-                            <Megaphone size={10} /> {camp.status === "active" ? "Active" : camp.status === "paused" ? "Paused" : "Completed"}
-                            <ExternalLink size={9} />
+                            style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, transparent)` }}>
+                            Mark result <ChevronRight size={10} />
                           </Link>
-                        )}
+                        ) : camp ? (() => {
+                          const cv = campView(camp.status);
+                          return (
+                            <Link href={`/campaigns/${camp.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80 shrink-0"
+                              style={{ backgroundColor: `color-mix(in srgb, ${cv.color} 12%, transparent)`, color: cv.color, border: `1px solid color-mix(in srgb, ${cv.color} 28%, transparent)` }}>
+                              <Megaphone size={10} /> {cv.label}
+                              <ExternalLink size={9} />
+                            </Link>
+                          );
+                        })() : null}
                       </div>
                     );
                   })}
@@ -902,10 +970,12 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
         )}
       </div>
 
-      {/* Floating bulk action bar — Outreach-Flow style. Anchored to the
-          viewport bottom-center when any unassigned lead is selected so
-          it's impossible to miss + always reachable while scrolling. */}
-      {leadsTab === "unassigned" && selectedIds.size > 0 && (
+      {/* Floating bulk action bar — Outreach-Flow style. Bucket-aware: on
+          Unassigned/Renurture it feeds flows; on Lost it offers Renurture
+          (reopen) since closed_lost leads can't be added to a flow directly. */}
+      {SELECTABLE_BUCKETS.includes(leadsTab) && selectedIds.size > 0 && (() => {
+        const isLost = leadsTab === "lost";
+        return (
         <div className="fixed left-1/2 -translate-x-1/2 z-50 pointer-events-none"
           style={{ bottom: 24 }}>
           <div className="pointer-events-auto rounded-2xl border flex items-center gap-3 px-4 py-3 flex-wrap shadow-2xl"
@@ -925,7 +995,9 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                 {selectedIds.size} {selectedIds.size === 1 ? "lead selected" : "leads selected"}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
-                Push them into a new flow or attach to one already running.
+                {isLost
+                  ? "Reopen them (Renurture) to make them eligible for a flow again."
+                  : "Push them into a new flow or attach to one already running."}
               </p>
             </div>
             <button
@@ -935,52 +1007,65 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
               Clear
             </button>
-            <button
-              type="button"
-              onClick={() => setShowAddModal(true)}
-              className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
-              style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
-              <Megaphone size={13} /> Add to existing flow
-            </button>
-            <button
-              type="button"
-              onClick={createNewFlowWithSelection}
-              className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
-              style={{
-                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
-                color: "#1A1505",
-                boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
-              }}>
-              <Send size={13} /> Create New Flow
-            </button>
+            {isLost ? (
+              <button
+                type="button"
+                onClick={renurtureSelection}
+                disabled={renurturing}
+                className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(135deg, #7C3AED, #9F67F0)",
+                  color: "#fff",
+                  boxShadow: "0 4px 14px color-mix(in srgb, #7C3AED 40%, transparent)",
+                }}>
+                {renurturing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Renurture
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(true)}
+                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                  style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
+                  <Megaphone size={13} /> Add to existing flow
+                </button>
+                <button
+                  type="button"
+                  onClick={createNewFlowWithSelection}
+                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                  style={{
+                    background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+                    color: "#1A1505",
+                    boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+                  }}>
+                  <Send size={13} /> Create New Flow
+                </button>
+              </>
+            )}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Add-to-existing-flow modal — opens from the bulk action bar */}
       {showAddModal && (
         <AddToFlowModal
           leadIds={Array.from(selectedIds)}
-          leadNames={unassigned
+          leadNames={leads
             .filter(l => selectedIds.has(l.id))
             .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || l.company || "Unknown")}
           onClose={() => setShowAddModal(false)}
-          onAdded={() => {
+          onAdded={(summary) => {
             setShowAddModal(false);
             clearSelection();
-            // Trigger re-fetch by calling the endpoint again. Easier: full
-            // refresh the leads via re-running the effect's logic.
-            (async () => {
-              try {
-                const res = await fetch(`/api/leads/by-icp/${profile.id}`);
-                if (res.ok) {
-                  const json = await res.json();
-                  setLeads(json.leads ?? []);
-                  setWithCampaign(json.withCampaign ?? []);
-                  setUnassigned(json.unassigned ?? []);
-                }
-              } catch {}
-            })();
+            refetchLeads();
+            if (summary) {
+              const parts: string[] = [];
+              if (summary.added > 0) parts.push(`${summary.added} added to the flow`);
+              if (summary.skipped > 0) parts.push(`${summary.skipped} skipped (already in a flow or closed)`);
+              setActionMsg(parts.join(" · ") || "Done.");
+              setTimeout(() => setActionMsg(null), 6000);
+            }
           }}
         />
       )}

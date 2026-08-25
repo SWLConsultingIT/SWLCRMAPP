@@ -32,20 +32,29 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // Pull campaigns to know which leads are assigned + carry the active
   // campaign name + status on each lead for the inline pill.
   const leadIds = leads.map(l => l.id);
+  // Pull EVERY campaign row (all statuses) for these leads — we need to know
+  // both whether a lead is in an ACTIVE/paused flow right now AND whether it
+  // ever went through one at all (a lead whose only flow ended closed_lost was
+  // previously invisible here and leaked into the "unassigned" bucket).
   const { data: campaigns } = await supabase
     .from("campaigns")
     .select("id, lead_id, name, status, channel")
-    .in("lead_id", leadIds)
-    .in("status", ["active", "paused", "completed"]);
+    .in("lead_id", leadIds);
   const campByLead = new Map<string, { id: string; name: string; status: string; channel: string | null }>();
+  const hasActiveFlow = new Set<string>();  // active | paused
+  const everInFlow = new Set<string>();      // any campaign row at all
   for (const c of campaigns ?? []) {
     const lid = (c as any).lead_id as string | null;
     if (!lid) continue;
+    const st = (c as any).status as string | null;
+    everInFlow.add(lid);
+    if (st === "active" || st === "paused") hasActiveFlow.add(lid);
     const cur = campByLead.get(lid);
-    // Prefer active > paused > completed.
-    const rank = (s: string | null) => s === "active" ? 3 : s === "paused" ? 2 : s === "completed" ? 1 : 0;
-    if (!cur || rank((c as any).status) > rank(cur.status)) {
-      campByLead.set(lid, { id: (c as any).id, name: (c as any).name, status: (c as any).status, channel: (c as any).channel ?? null });
+    // Prefer active > paused > completed > closed_lost > closed_won for the
+    // pill so we surface the most "current" campaign context.
+    const rank = (s: string | null) => s === "active" ? 5 : s === "paused" ? 4 : s === "completed" ? 3 : s === "closed_lost" ? 2 : s === "closed_won" ? 1 : 0;
+    if (!cur || rank(st) > rank(cur.status)) {
+      campByLead.set(lid, { id: (c as any).id, name: (c as any).name, status: st ?? "", channel: (c as any).channel ?? null });
     }
   }
 
@@ -66,12 +75,48 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     };
   });
 
-  const withCampaign = enriched.filter(l => l.campaign !== null);
-  const unassigned = enriched.filter(l => l.campaign === null);
+  // Bucket each lead by where it sits in its lifecycle. Priority order matters:
+  // an ACTIVE flow always wins, then terminal outcomes by lead status, then
+  // "went through a flow but no outcome yet", and finally truly-untouched leads.
+  //   - inFlow      : active/paused campaign right now
+  //   - won         : closed_won
+  //   - lost        : closed_lost  (→ Renurture reopens them)
+  //   - renurture   : nurturing
+  //   - completed   : flow ended, no outcome marked yet
+  //   - unassigned  : never entered a flow → the ONLY bucket you can bulk-assign
+  const buckets = {
+    unassigned: [] as typeof enriched,
+    inFlow: [] as typeof enriched,
+    won: [] as typeof enriched,
+    lost: [] as typeof enriched,
+    renurture: [] as typeof enriched,
+    completed: [] as typeof enriched,
+  };
+  for (const l of enriched) {
+    if (hasActiveFlow.has(l.id)) buckets.inFlow.push(l);
+    else if (l.status === "closed_won") buckets.won.push(l);
+    else if (l.status === "closed_lost") buckets.lost.push(l);
+    else if (l.status === "nurturing") buckets.renurture.push(l);
+    else if (everInFlow.has(l.id)) buckets.completed.push(l);
+    else buckets.unassigned.push(l);
+  }
+
+  const counts = {
+    total: enriched.length,
+    unassigned: buckets.unassigned.length,
+    inFlow: buckets.inFlow.length,
+    won: buckets.won.length,
+    lost: buckets.lost.length,
+    renurture: buckets.renurture.length,
+    completed: buckets.completed.length,
+  };
 
   return NextResponse.json({
     leads: enriched,
-    withCampaign,
-    unassigned,
+    buckets,
+    counts,
+    // Back-compat: some callers still read these two.
+    withCampaign: enriched.filter(l => l.campaign !== null),
+    unassigned: buckets.unassigned,
   });
 }

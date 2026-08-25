@@ -57,7 +57,7 @@ export default function AddToFlowModal({
   leadIds: string[];
   leadNames?: string[];
   onClose: () => void;
-  onAdded: () => void;
+  onAdded: (summary?: { added: number; skipped: number }) => void;
 }) {
   const [flows, setFlows] = useState<Flow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,7 +107,21 @@ export default function AddToFlowModal({
         setBusy(false);
         return;
       }
-      onAdded();
+      const added = Number(json.added ?? 0);
+      const skipped = Array.isArray(json.skipped) ? json.skipped.length : Number(json.skipped ?? 0);
+      // Nothing actually got added (every lead was terminal — closed_lost/won/
+      // qualified — or already in this flow). Don't fake success: keep the
+      // modal open and tell the seller why, so it's not a silent no-op.
+      if (added === 0) {
+        setError(
+          skipped > 0
+            ? `No leads added — ${skipped} skipped (already in a flow, or closed Won/Lost). To re-engage Lost leads use Renurture first.`
+            : "No leads were added."
+        );
+        setBusy(false);
+        return;
+      }
+      onAdded({ added, skipped });
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
