@@ -10,7 +10,7 @@ import {
   PlayCircle, Loader2, Pause, Play, Trash2, Send, Paperclip,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
   MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid, BarChart3, Search,
-  Trophy, RotateCcw,
+  Trophy, RotateCcw, ArrowLeft,
 } from "lucide-react";
 import CampaignKanban from "@/components/CampaignKanban";
 import FlowMetricsPanel, { type FlowMetrics } from "@/components/FlowMetricsPanel";
@@ -70,9 +70,12 @@ export default function CampaignDetailClient({
   const sp = useSearchParams();
   // Deep-link to a specific tab via ?tab=<slug>. Used by the flow card's
   // "Add leads to this flow" CTA (slug: add-leads) on the /campaigns page.
-  // Tab order: Metrics(0) · Leads(1) · Sequence(2) · Calls(3) · Add Leads(4).
+  // Tab simplification 2026-08-25 (boss): Calls is now a view inside Leads and
+  // Add Leads is a button, so the visible tabs are Metrics(0) · Leads(1) ·
+  // Sequence(2) · Results(5). `calls` deep-links land on Leads; `add-leads`
+  // still opens the (now button-triggered) picker at index 4.
   const slugToTab = (slug: string | null): number | null =>
-    slug === "metrics" ? 0 : slug === "leads" ? 1 : slug === "sequence" ? 2 : slug === "calls" ? 3 : slug === "add-leads" ? 4 : slug === "results" ? 5 : null;
+    slug === "metrics" ? 0 : slug === "leads" ? 1 : slug === "sequence" ? 2 : slug === "calls" ? 1 : slug === "add-leads" ? 4 : slug === "results" ? 5 : null;
   const initialTab = slugToTab(sp.get("tab")) ?? 0;
   const [tab, setTab] = useState(initialTab);
   useEffect(() => {
@@ -322,19 +325,22 @@ export default function CampaignDetailClient({
   const pendingCalls = nextActions.filter(a => a.channel === "call");
   const overdueCount = nextActions.filter(a => a.isOverdue).length;
 
+  // Simplified tab set (boss 2026-08-25): 4 tabs. Calls folded into Leads as a
+  // 3rd view; Add Leads is now a button (opens the picker at index 4) — it was
+  // a confusing standalone tab with a "0" badge. `idx` maps each visible tab to
+  // its content block so the blocks (tab===0/1/2/5) stay untouched.
   const tabs = [
-    { label: "Metrics", icon: BarChart3, count: null },
-    { label: "Leads", icon: Users, count: visibleCampaigns.length },
-    { label: "Sequence", icon: Megaphone, count: sequence.length },
-    { label: "Calls", icon: PhoneCall, count: null },
-    { label: "Add Leads", icon: UserPlus, count: leadGroups.reduce((s, g) => s + g.leads.length, 0) },
-    { label: "Results", icon: Trophy, count: resultsCount },
+    { idx: 0, label: "Metrics", icon: BarChart3, count: null },
+    { idx: 1, label: "Leads", icon: Users, count: visibleCampaigns.length },
+    { idx: 2, label: "Sequence", icon: Megaphone, count: sequence.length },
+    { idx: 5, label: "Results", icon: Trophy, count: resultsCount },
   ];
   // Default to "kanban" (Pipeline) — boss preference. The Pipeline view
   // groups leads into columns by current step, which is way more useful
   // for a seller scanning "what's next" than the flat List. List stays
-  // as the secondary view for bulk actions on a sortable table.
-  const [leadsView, setLeadsView] = useState<"list" | "kanban">("kanban");
+  // as the secondary view for bulk actions on a sortable table. "calls" is
+  // the folded-in Calls view.
+  const [leadsView, setLeadsView] = useState<"list" | "kanban" | "calls">("kanban");
 
   return (
     <div>
@@ -392,11 +398,11 @@ export default function CampaignDetailClient({
       <div>
 
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-        {tabs.map((t, i) => {
-          const active = tab === i;
+        {tabs.map((t) => {
+          const active = tab === t.idx;
           const Icon = t.icon;
           return (
-            <button key={t.label} onClick={() => setTab(i)}
+            <button key={t.label} onClick={() => setTab(t.idx)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: active ? gold : C.textMuted }}>
               <Icon size={15} /> {t.label}
@@ -442,8 +448,18 @@ export default function CampaignDetailClient({
                 }}>
                 <LayoutGrid size={11} /> Pipeline
               </button>
+              <button onClick={() => setLeadsView("calls")}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] border-l"
+                style={{
+                  backgroundColor: leadsView === "calls" ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent",
+                  color: leadsView === "calls" ? gold : C.textMuted,
+                  borderColor: C.border,
+                }}>
+                <PhoneCall size={11} /> Calls
+              </button>
             </div>
 
+            <button onClick={() => setTab(4)} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold hover:opacity-90" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", color: "#241B04", border: "1px solid var(--fg2)" }}><UserPlus size={11} /> Add leads</button>
             <span className="text-xs font-medium ml-2" style={{ color: C.textMuted }}>{selected.size > 0 ? `${selected.size} selected` : "All"}:</span>
             <Link href={`/campaigns/${campaignId}/edit`} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><Pencil size={11} /> Edit</Link>
             {campaignStatus === "active" ? (
@@ -497,7 +513,9 @@ export default function CampaignDetailClient({
           </div>
           )}
 
-          {leadsView === "kanban" ? (
+          {leadsView === "calls" ? (
+            <CampaignCallsTab leads={allCampaigns.map(c => c.leads).filter(Boolean)} />
+          ) : leadsView === "kanban" ? (
             <CampaignKanban sequence={sequence} campaigns={visibleCampaigns as any} />
           ) : (
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -1052,12 +1070,10 @@ export default function CampaignDetailClient({
         </div>
       )}
 
-      {/* ═══ TAB 3: CALLS ═══ */}
-      {tab === 3 && (
-        <CampaignCallsTab leads={allCampaigns.map(c => c.leads).filter(Boolean)} />
-      )}
+      {/* Calls is now a view inside the Leads tab (List · Pipeline · Calls) —
+          the standalone Calls tab was removed in the 2026-08-25 simplification. */}
 
-      {/* ═══ TAB 4: ADD LEADS ═══
+      {/* ═══ ADD LEADS (button-triggered, index 4 — no longer a standalone tab) ═══
           Hard rule (memory: feedback_one_icp_per_campaign.md): a campaign
           can only ever contain leads from a single ICP — the campaign's
           own. The picker filters to that ICP server-side via campaignIcpId
@@ -1165,6 +1181,12 @@ export default function CampaignDetailClient({
 
         return (
           <div>
+            {/* Back to Leads — Add Leads is a focused sub-view now, not a tab. */}
+            <button onClick={() => setTab(1)}
+              className="inline-flex items-center gap-1.5 mb-4 text-xs font-semibold hover:opacity-80"
+              style={{ color: C.textMuted }}>
+              <ArrowLeft size={13} /> Back to Leads
+            </button>
             {/* In-flight indicator */}
             {adding && (
               <div className="rounded-lg border px-4 py-3 mb-4 flex items-center gap-2" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 3%, transparent)` }}>
