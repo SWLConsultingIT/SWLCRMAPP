@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Search, ChevronRight, LogOut, Settings, Menu } from "lucide-react";
+import { Search, ChevronRight, LogOut, Settings, Menu, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import HelpMenu from "./HelpMenu";
 import NotificationBell from "./NotificationBell";
@@ -68,6 +69,7 @@ export default function TopHeader() {
     : pageNameRaw;
   const { clearAuth } = useAuth();
   const { toggle: toggleMobileMenu } = useMobileMenu();
+  const { theme, setTheme } = useTheme();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -144,6 +146,16 @@ export default function TopHeader() {
       <div className="flex items-center gap-2 w-56 justify-end">
         <HelpMenu />
         <NotificationBell />
+        {/* Dark / light toggle — writes cookie + DB via useTheme (boss 2026-08-25). */}
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+          style={{ color: C.textMuted }}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
         <Link
           href="/settings"
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
