@@ -1613,7 +1613,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
   // Won/Lost/Re-nurture live in /results; Hot/Replied/Positive are
   // facets in the filter bar (Score + Reply), not top-level navigation
   // (boss feedback 2026-05-28 round 2: "saca hot de ahi, ponelo abajo").
-  type LeadSubTab = "all" | "without_campaign" | "with_campaign";
+  type LeadSubTab = "all" | "needs_attention" | "without_campaign" | "with_campaign";
   const [leadSubTab, setLeadSubTab] = useState<LeadSubTab>("all");
 
   // Leads without an active campaign — derived once. The legacy "All Leads"
@@ -1621,6 +1621,11 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
   // but elevating it to a first-class sub-tab matches how the boss thinks
   // about queue work ("who do I still need to schedule?").
   const leadsWithoutCampaign = allLeads.filter(l => !l.has_campaign);
+  // "Needs attention" (boss 2026-08-25): leads the seller should act on NOW —
+  // a positive reply not yet worked, or a hot lead sitting in no flow.
+  const needsAttention = (l: LeadInfo) =>
+    !!l.has_positive || ((l.is_priority || (l.score ?? 0) >= 80) && !l.has_campaign);
+  const leadsNeedingAttention = allLeads.filter(needsAttention);
 
   // Truncation banner — render only when the loaded set was capped (see
   // app/leads/page.tsx hard 500 limit). Hides itself otherwise.
@@ -1759,6 +1764,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                 color: string;
               }> = [
                 { key: "all",              label: t("leadsPage.chip.all"),         count: allLeads.length,                                color: gold },
+                { key: "needs_attention",  label: "⚡ Needs attention",            count: leadsNeedingAttention.length,                   color: gold },
                 { key: "without_campaign", label: t("leadsPage.chip.withoutFlow"), count: leadsWithoutCampaign.length,                    color: gold },
                 { key: "with_campaign",    label: t("leadsPage.chip.inFlow"),      count: allLeads.filter(l => l.has_campaign).length,    color: gold },
               ];
@@ -1797,6 +1803,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
               they encode outcome-specific UX (winning reply quote, recover
               button, re-nurture badge). */}
           {leadSubTab === "all"              && <AllLeadsTable leads={allLeads} />}
+          {leadSubTab === "needs_attention"  && <AllLeadsTable leads={leadsNeedingAttention} />}
           {leadSubTab === "without_campaign" && <AllLeadsTable leads={leadsWithoutCampaign} />}
           {leadSubTab === "with_campaign"    && <AllLeadsTable leads={allLeads.filter(l => l.has_campaign)} />}
         </div>
