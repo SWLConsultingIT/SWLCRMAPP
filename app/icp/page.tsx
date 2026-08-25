@@ -1082,6 +1082,16 @@ export default function LeadGenPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  // Per-ICP lead lifecycle counts (in-flow / lost / won / …) for the list cards
+  // + the hero summary. One aggregate call instead of one per card.
+  type LifeBuckets = { total: number; unassigned: number; inFlow: number; won: number; lost: number; renurture: number; completed: number };
+  const [lifecycle, setLifecycle] = useState<{ perIcp: Record<string, LifeBuckets>; totals: LifeBuckets } | null>(null);
+  useEffect(() => {
+    fetch("/api/icp/lifecycle", { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.perIcp) setLifecycle(d); })
+      .catch(() => {});
+  }, []);
 
   // /api/auth/me returns the demo's bio_id when admin is impersonating, so
   // scoping every query by `me.companyBioId` makes Lead Miner naturally
@@ -1161,29 +1171,50 @@ export default function LeadGenPage() {
 
   return (
     <div className="p-6 w-full">
-      {/* Hero — hidden when viewing a profile detail */}
-      {!selectedId && (
-        <>
-          <PageHero
-            icon={Target}
-            section="Growth Engine"
-            title="Lead Miner™"
-            description="Define your Ideal Customer Profiles (ICPs) — the buyer segments your campaigns target. Each profile drives a tailored outreach strategy."
-            accentColor={C.aiAccent}
-            status={{ label: "AI Active", active: true }}
-            badge="Lead Intelligence"
-          />
-          {!showForm && !editingId && profiles.length > 0 && (
-            <div className="flex justify-end -mt-3 mb-4">
-              <button
-                onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
-                <Plus size={15} /> New Profile
+      {/* Hero — themed gold card with a live summary. Redesign 2026-08-25:
+          dropped the purple PageHero for the SWL gold identity (consistent
+          with the flow detail) + a KPI strip (ICPs · total leads · in-flow ·
+          won) sourced from /api/icp/lifecycle. */}
+      {!selectedId && !showForm && !editingId && (
+        <div className="rounded-2xl border overflow-hidden mb-6 relative"
+          style={{ backgroundColor: C.card, borderColor: C.border2, boxShadow: C.shadowMd }}>
+          <div className="absolute inset-x-0 top-0 h-[3px] pointer-events-none"
+            style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 45%, var(--fg4) 80%, transparent)" }} />
+          <div className="p-6 pt-7 flex items-start gap-4 flex-wrap">
+            <div className="flex-1 min-w-[240px]">
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="h-[2px] w-4 rounded" style={{ backgroundColor: gold }} />
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--fg1)" }}>Growth Engine</span>
+              </div>
+              <h1 className="text-[25px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>Lead Miner</h1>
+              <p className="text-[12.5px] mt-1.5 max-w-md leading-relaxed" style={{ color: C.textMuted }}>
+                Your Ideal Customer Profiles (ICPs) — each one defines who your campaigns target and feeds the outreach.
+              </p>
+            </div>
+            {profiles.length > 0 && (
+              <button onClick={() => setShowForm(true)}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-[transform,box-shadow] hover:-translate-y-0.5"
+                style={{ color: "#241B04", background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", border: "1px solid var(--fg2)", boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)` }}>
+                <Plus size={15} /> New ICP
               </button>
+            )}
+          </div>
+          {lifecycle && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 border-t" style={{ borderColor: C.border }}>
+              {[
+                { label: "ICPs", value: profiles.length, gold: true },
+                { label: "Total leads", value: lifecycle.totals.total, gold: false },
+                { label: "In flow", value: lifecycle.totals.inFlow, gold: false },
+                { label: "Won", value: lifecycle.totals.won, gold: false },
+              ].map((s, i) => (
+                <div key={s.label} className="px-5 py-4" style={{ borderLeft: i % 4 === 0 ? "none" : `1px solid ${C.border}` }}>
+                  <p className="text-[22px] font-bold tabular-nums leading-none" style={{ color: s.gold ? "var(--fg1)" : C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>{s.value}</p>
+                  <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] mt-2" style={{ color: C.textMuted }}>{s.label}</p>
+                </div>
+              ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Success message */}
@@ -1278,94 +1309,93 @@ export default function LeadGenPage() {
         <div className="space-y-3">
           {profiles.map(p => {
             const tags = [...(p.target_industries ?? []), ...(p.target_roles ?? [])];
-            const execStatus = (p as any).execution_status ?? "not_started";
+            const life = lifecycle?.perIcp[p.id];
+            const leadCount = life?.total ?? p.leads_uploaded ?? 0;
+            const hasLeads = leadCount > 0;
 
-            // Build pipeline steps with current position
-            const pipelineSteps = [
-              { key: "submitted",  label: "Submitted" },
-              { key: "approved",   label: "Approved" },
-              { key: "uploaded",   label: "Leads Ready" },
-              { key: "completed",  label: "Completed" },
-            ];
-            let currentStep = 0;
-            if (p.status === "approved" || p.status === "reviewed") currentStep = 1;
-            if (p.status === "approved" && (execStatus === "uploaded" || execStatus === "in_progress")) currentStep = 2;
-            if (p.status === "approved" && execStatus === "completed") currentStep = 3;
-            if (p.status === "rejected") currentStep = -1;
+            // Status chip — the ICP's own review status (self-serve-friendly).
+            const st = p.status === "approved" ? { label: "Approved", color: C.green }
+              : p.status === "reviewed" ? { label: "Reviewed", color: C.blue }
+              : p.status === "rejected" ? { label: "Rejected", color: C.red }
+              : { label: "Pending review", color: "var(--fg1)" };
+
+            // Lifecycle segments (gold ramp + red/green semantics), only the
+            // non-empty ones, so a populated card reads as a mini-dashboard.
+            const segs = life ? ([
+              { k: "inFlow",     n: life.inFlow,     label: "in flow",    color: "var(--fg2)" },
+              { k: "completed",  n: life.completed,  label: "completed",  color: "var(--fg4)" },
+              { k: "renurture",  n: life.renurture,  label: "renurture",  color: "var(--fg3)" },
+              { k: "won",        n: life.won,        label: "won",        color: C.green },
+              { k: "lost",       n: life.lost,       label: "lost",       color: C.red },
+              { k: "unassigned", n: life.unassigned, label: "unassigned", color: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)" },
+            ].filter(s => s.n > 0)) : [];
+
+            // Simple 3-step stepper for ICPs with no leads yet.
+            const stepIdx = p.status === "approved" ? 2 : (p.status === "reviewed" ? 1 : 1);
+            const steps = [{ label: "Submitted" }, { label: "In review" }, { label: "Leads ready" }];
 
             return (
               <button key={p.id} onClick={() => setSelectedId(p.id)}
-                className="w-full text-left rounded-2xl border p-5 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-md"
-                style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 13%, transparent), color-mix(in srgb, ${gold} 3%, transparent))`, border: `1px solid color-mix(in srgb, ${gold} 15%, transparent)` }}>
-                    <Target size={18} style={{ color: gold }} />
+                className="w-full text-left rounded-2xl border p-5 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5"
+                style={{ backgroundColor: C.card, borderColor: C.border2, boxShadow: C.shadow }}>
+                <div className="flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: "var(--gold-wash, color-mix(in srgb, var(--brand,#c9a83a) 12%, transparent))", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}>
+                    <Target size={17} style={{ color: "var(--fg1)" }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-sm" style={{ color: C.textPrimary }}>{p.profile_name}</h3>
+                      <h3 className="font-bold text-[15px]" style={{ color: C.textPrimary }}>{p.profile_name}</h3>
                       {isRecentUpload(p.executed_at) && (
-                        <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: gold, color: "#04070d" }}>
-                          NEW
-                        </span>
-                      )}
-                      {(p.leads_uploaded ?? 0) > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: C.greenLight, color: C.green }}>
-                          <Users size={9} /> {p.leads_uploaded} {p.leads_uploaded === 1 ? "lead" : "leads"}
-                        </span>
+                        <span className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: "var(--fg3)", color: "#241B04" }}>NEW</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs mt-0.5" style={{ color: C.textMuted }}>
-                      {p.executed_at && (
-                        <span className="flex items-center gap-1" style={{ color: C.green }}>
-                          <Clock size={10} /> Uploaded {formatRelative(p.executed_at)}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-2.5 text-[11.5px] mt-1 flex-wrap" style={{ color: C.textMuted }}>
                       {tags.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Briefcase size={10} /> {tags.slice(0, 3).join(", ")}{tags.length > 3 ? ` +${tags.length - 3}` : ""}
-                        </span>
+                        <span className="inline-flex items-center gap-1"><Briefcase size={10} /> <span style={{ color: C.textBody }}>{tags.slice(0, 3).join(", ")}</span>{tags.length > 3 ? ` +${tags.length - 3}` : ""}</span>
                       )}
-                      {companySizeLabel(p) && (
-                        <span className="flex items-center gap-1"><Users size={10} /> {companySizeLabel(p)}</span>
-                      )}
-                      {p.geography?.length > 0 && (
-                        <span className="flex items-center gap-1"><MapPin size={10} /> {p.geography.slice(0, 2).join(", ")}</span>
-                      )}
+                      {p.geography?.length > 0 && <span className="inline-flex items-center gap-1">· <MapPin size={10} /> {p.geography.slice(0, 2).join(", ")}</span>}
+                      {companySizeLabel(p) && <span className="inline-flex items-center gap-1">· <Users size={10} /> {companySizeLabel(p)}</span>}
                     </div>
                   </div>
-                  <ChevronRight size={16} style={{ color: C.textDim }} />
+                  {hasLeads && <span className="text-[12px] font-bold tabular-nums shrink-0" style={{ color: "var(--fg1)" }}>{leadCount} leads</span>}
+                  <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-full shrink-0"
+                    style={{ color: st.color, backgroundColor: `color-mix(in srgb, ${st.color} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${st.color} 30%, transparent)` }}>{st.label}</span>
+                  <ChevronRight size={16} style={{ color: C.textDim }} className="shrink-0" />
                 </div>
 
-                {/* Progress tracker */}
                 {p.status === "rejected" ? (
-                  <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}>
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: C.red }} />
-                    <span className="text-xs font-medium" style={{ color: C.red }}>Profile was not approved. Please revise and resubmit.</span>
+                  <div className="flex items-center gap-2 rounded-lg px-3 py-2 mt-4" style={{ backgroundColor: C.redLight }}>
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: C.red }} />
+                    <span className="text-xs font-medium" style={{ color: C.red }}>Not approved — revise and resubmit.</span>
+                  </div>
+                ) : hasLeads && segs.length > 0 ? (
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
+                    <div className="flex h-2.5 rounded-md overflow-hidden" style={{ backgroundColor: C.surface }}>
+                      {segs.map(s => <span key={s.k} style={{ width: `${(s.n / leadCount) * 100}%`, background: s.color }} />)}
+                    </div>
+                    <div className="flex items-center gap-x-4 gap-y-1 mt-2.5 flex-wrap">
+                      {segs.map(s => (
+                        <span key={s.k} className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: C.textBody }}>
+                          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.color }} />
+                          <span className="tabular-nums">{s.n}</span> <span style={{ color: C.textMuted, fontWeight: 500 }}>{s.label}</span>
+                        </span>
+                      ))}
+                      {p.executed_at && <span className="text-[11px] ml-auto" style={{ color: C.textMuted }}>Uploaded {formatRelative(p.executed_at)}</span>}
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-0.5">
-                    {pipelineSteps.map((step, i) => {
-                      const isDone = i <= currentStep;
-                      const isCurrent = i === currentStep;
+                  <div className="mt-4 pt-4 border-t flex items-center" style={{ borderColor: C.border }}>
+                    {steps.map((step, i) => {
+                      const done = i < stepIdx, current = i === stepIdx;
+                      const c = done ? C.green : current ? gold : C.textDim;
                       return (
-                        <div key={step.key} className="flex items-center gap-0.5 flex-1">
-                          <div className="flex-1">
-                            <div className="h-1.5 rounded-full" style={{
-                              backgroundColor: isDone
-                                ? isCurrent ? gold : C.green
-                                : C.border,
-                            }} />
-                            <p className="text-xs mt-1 truncate" style={{
-                              color: isCurrent ? gold : isDone ? C.green : C.textDim,
-                              fontWeight: isCurrent ? 600 : 400,
-                            }}>
-                              {step.label}
-                            </p>
-                          </div>
+                        <div key={step.label} className="flex items-center gap-2" style={{ flex: i < steps.length - 1 ? 1 : "0 0 auto" }}>
+                          <span className="w-4 h-4 rounded-full grid place-items-center text-[8px] font-bold shrink-0"
+                            style={{ backgroundColor: done ? C.green : current ? gold : C.surface, color: done || current ? "#fff" : C.textDim }}>{done ? "✓" : i + 1}</span>
+                          <span className="text-[10.5px] font-semibold whitespace-nowrap" style={{ color: c }}>{step.label}</span>
+                          {i < steps.length - 1 && <span className="h-[2px] flex-1 rounded" style={{ backgroundColor: i < stepIdx ? C.green : C.surface }} />}
                         </div>
                       );
                     })}
