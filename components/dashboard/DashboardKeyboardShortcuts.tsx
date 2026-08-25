@@ -8,29 +8,29 @@
 //   R         → soft refresh
 //   /         → focus the global Ask anything... search bar
 //   ?         → toggle the cheatsheet overlay
-//   G 1..5    → two-key sequence: G then 1..5 to switch the dashboard
-//               tab (1=overview, 2=icps, 3=campaigns, 4=channels,
-//               5=sellers). Dashboard is now tab-driven; the shortcut
-//               updates `?tab=` instead of scrolling.
+//   G 1..6    → two-key sequence: G then 1..6 to switch the dashboard tab.
+//               The digits match the numbers PRINTED on the tab pills
+//               (01 Today … 06 Sellers). They used to be off by one —
+//               the pills read 01=Today but G+1 jumped to Overview.
+//               Switching is local state now (see DashboardTabs), so the
+//               shortcut is instant instead of triggering a full re-render.
 //
 // All shortcuts are suppressed when focus is in an editable field
 // (input/textarea/[contenteditable]) so typing into a filter or note
 // never accidentally fires R as "refresh".
 
 import { useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useDashboardTab, CLIENT_TABS } from "@/components/dashboard/DashboardTabs";
 
-const tabByDigit: Record<string, string> = {
-  "1": "overview",
-  "2": "icps",
-  "3": "campaigns",
-  "4": "channels",
-  "5": "sellers",
-};
+// "1" → CLIENT_TABS[0] ("today"), "2" → "overview", … "6" → "sellers".
+const tabByDigit: Record<string, string> = Object.fromEntries(
+  CLIENT_TABS.map((id, i) => [String(i + 1), id]),
+);
 
 export default function DashboardKeyboardShortcuts() {
   const router = useRouter();
-  const params = useSearchParams();
+  const { setTab } = useDashboardTab();
   // Tracks whether the user is mid-"G _" sequence. Cleared after 1.5s so
   // a stray G doesn't trap the next keystroke.
   const gArmed = useRef<{ active: boolean; clearAt: number }>({ active: false, clearAt: 0 });
@@ -44,13 +44,6 @@ export default function DashboardKeyboardShortcuts() {
       return false;
     }
 
-    function goToTab(id: string) {
-      const next = new URLSearchParams(params.toString());
-      if (id === "overview") next.delete("tab"); else next.set("tab", id);
-      const qs = next.toString();
-      router.push(qs ? `?${qs}` : "?");
-    }
-
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (inEditable(e.target)) return;
@@ -59,10 +52,10 @@ export default function DashboardKeyboardShortcuts() {
       const now = Date.now();
       const gActive = gArmed.current.active && now < gArmed.current.clearAt;
 
-      // Inside an armed "G _" sequence — a digit 1..5 selects a tab.
+      // Inside an armed "G _" sequence — a digit 1..6 selects a tab.
       if (gActive && tabByDigit[k]) {
         e.preventDefault();
-        goToTab(tabByDigit[k]);
+        setTab(tabByDigit[k]);
         gArmed.current = { active: false, clearAt: 0 };
         return;
       }
@@ -88,7 +81,7 @@ export default function DashboardKeyboardShortcuts() {
 
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [router, params]);
+  }, [router, setTab]);
 
   return null;
 }

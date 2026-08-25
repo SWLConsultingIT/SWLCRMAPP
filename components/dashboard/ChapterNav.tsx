@@ -1,18 +1,23 @@
 "use client";
 
-// Dashboard tab bar — URL-driven tabs that swap the active chapter via
-// `?tab=overview|icps|campaigns|channels|sellers`. Replaces the prior
-// scroll-anchor model: today each tab renders only its own content
-// (server-side) instead of stacking everything on a single page.
+// Dashboard tab bar.
 //
-// Active state is read from the URL; clicks push a new URL preserving
-// every other filter (period, campaigns, icps, sellers). Inactive tabs
-// look muted with a counter pill; active tab gets a gold underline +
-// glow + bold label.
+// The six analytics tabs switch CLIENT-SIDE via DashboardTabsProvider — they
+// all render from the same `getDashboardData` result, so re-running the server
+// component just to reveal one was pure waste (~19 sequential PostgREST
+// round-trips on SWL; the measurement lives in
+// components/dashboard/DashboardTabs.tsx). Portfolio is the exception: it has
+// its own cross-tenant fetch that only runs when `?tab=portfolio` is in the
+// URL, so it still navigates — and it's the only case where the pending
+// indicator below can now appear.
+//
+// Inactive tabs look muted with a counter pill; active tab gets a gold
+// underline + glow + bold label.
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { N } from "@/lib/design";
+import { useDashboardTab, isClientTab } from "@/components/dashboard/DashboardTabs";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -32,18 +37,23 @@ export default function ChapterNav({
   const params = useSearchParams();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const { tab: ctxTab, setTab } = useDashboardTab();
 
-  // Optimistic tab snapshot — clicking switches the highlight INSTANTLY
-  // (no waiting on the server-side re-render to settle the URL). Cleared
-  // once the real URL catches up. Same pattern as FiltersBar.
+  // Optimistic snapshot — only needed for the Portfolio hop, which is a real
+  // navigation. Client-side switches land in `ctxTab` synchronously, so there
+  // is nothing to be optimistic about.
   const [optimistic, setOptimistic] = useState<string | null>(null);
   const urlTab = params.get("tab") || items[0]?.id || "";
-  const activeId = optimistic ?? urlTab;
+  const activeId = optimistic ?? ctxTab ?? urlTab;
   useEffect(() => {
     if (optimistic && urlTab === optimistic) setOptimistic(null);
   }, [urlTab, optimistic]);
 
   function goTo(id: string) {
+    // Client tab → local state only. No router call, so the server component
+    // is never re-run and the whole workspace is not re-fetched.
+    if (isClientTab(id)) { setTab(id); return; }
+    // Portfolio (or any future server-fetched tab) → real navigation.
     setOptimistic(id);
     const next = new URLSearchParams(params.toString());
     if (id === items[0]?.id) next.delete("tab"); else next.set("tab", id);

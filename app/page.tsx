@@ -49,6 +49,7 @@ import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
+import { DashboardTabsProvider, TabPanel, TabChrome } from "@/components/dashboard/DashboardTabs";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -348,6 +349,11 @@ export default async function DashboardPage({
   const renderedAt = new Date().toISOString();
 
   return (
+    // Every analytics tab renders from the single `data` object above, so the
+    // tab is CLIENT state — switching must not re-run this server component
+    // (~19 sequential PostgREST round-trips on SWL). Portfolio still arrives
+    // through the URL because it owns a separate cross-tenant fetch.
+    <DashboardTabsProvider initial={filters.tab}>
     <div className="p-4 sm:p-6 w-full space-y-5">
       <ReliabilityBanner />
       <Suspense fallback={null}>
@@ -359,8 +365,9 @@ export default async function DashboardPage({
           Other tabs: original "Sales Engine / Your pipeline in depth"
           analytical hero (the data tabs need the analytical framing).
           Boss feedback 2026-05-28: the landing screen must read pro and
-          alive; the analytical hero is wrong copy for the action list. */}
-      {filters.tab === "today" ? (
+          alive; the analytical hero is wrong copy for the action list.
+          Both variants render; TabChrome reveals the right one per tab. */}
+      <TabChrome include={["today"]}>
       <header
         className="relative rounded-2xl overflow-hidden px-8 sm:px-14 py-10 sm:py-14"
         style={{
@@ -517,7 +524,9 @@ export default async function DashboardPage({
           })()}
         </div>
       </header>
-      ) : (
+      </TabChrome>
+
+      <TabChrome exclude={["today"]}>
       <header
         className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-5 sm:py-6"
         style={{
@@ -595,10 +604,10 @@ export default async function DashboardPage({
           </div>
         </div>
       </header>
-      )}
+      </TabChrome>
 
-      {/* ─── Tab bar — sticky URL-driven nav. Actions moved to the welcome
-          hero above, so this row is purely navigation. */}
+      {/* ─── Tab bar. The six analytics tabs switch client-side (see
+          components/dashboard/DashboardTabs.tsx); Portfolio navigates. */}
       <Suspense fallback={<div className="h-12" />}>
         <ChapterNav
           items={[
@@ -623,7 +632,7 @@ export default async function DashboardPage({
           Campaign · ICPs · Sellers (boss 2026-06-08). URL state is global so
           the data layer filters every section against it; rendering it once
           here replaces the old period-only top bar + per-tab dropdown bars. */}
-      {filters.tab !== "today" && filters.tab !== "portfolio" && (
+      <TabChrome exclude={["today", "portfolio"]}>
         <Suspense fallback={<div className="h-10" />}>
           <TabFilterBar
             showPeriod
@@ -633,7 +642,7 @@ export default async function DashboardPage({
             labels={tabFilterLabels}
           />
         </Suspense>
-      )}
+      </TabChrome>
 
       <DimWhileLoading dataKey={filterKey}>
       {/* ═══ PORTFOLIO · cross-tenant comparison (super-admin only) ═══ */}
@@ -646,7 +655,7 @@ export default async function DashboardPage({
           screen, not buried under metrics. The welcome hero now lives at
           the page top (context-aware on filters.tab); this section is
           just the action list. */}
-      {filters.tab === "today" && (
+      <TabPanel id="today">
       <section className="space-y-5 pt-3">
       <TodayCard
         locale={locale === "es" ? "es" : "en"}
@@ -749,10 +758,10 @@ export default async function DashboardPage({
         </div>
       </section>
       </section>
-      )}
+      </TabPanel>
 
       {/* ═══ CHAPTER 2 · OVERVIEW ═══════════════════════════════════════════ */}
-      {filters.tab === "overview" && (
+      <TabPanel id="overview">
       <section className="space-y-8 pt-3">
 
       {/* ─── UNIFIED OVERVIEW · 3 bands inside a single chapter card so the
@@ -1177,12 +1186,12 @@ export default async function DashboardPage({
       </section>
 
       </section>
-      )}
+      </TabPanel>
       {/* ═══ CHAPTER 2 · ICPs ═══════════════════════════════════════════════
           Which ideal profiles convert best · which channel fits each one.
           Reading order: leaderboard first (the natural entry point), then
           the matrix below for the deeper 2D analysis. */}
-      {filters.tab === "icps" && (
+      <TabPanel id="icps">
       <section className="space-y-6 pt-3">
 
       <section>
@@ -1318,12 +1327,12 @@ export default async function DashboardPage({
       </section>
 
       </section>
-      )}
+      </TabPanel>
       {/* ═══ CHAPTER 3 · CAMPAIGNS ═══════════════════════════════════════════
           Which sequences are working · per-step performance reveals which
           message is killing the funnel. Pause / rewrite candidates surface
           via the lagging callout. */}
-      {filters.tab === "campaigns" && (
+      <TabPanel id="campaigns">
       <section className="space-y-6 pt-3">
 
       {/* Filters live in the unified top bar now (one line, all tabs). */}
@@ -1710,12 +1719,12 @@ export default async function DashboardPage({
       </section>
 
       </section>
-      )}
+      </TabPanel>
       {/* ═══ CHAPTER 4 · CHANNELS ═══════════════════════════════════════════
           How each outreach channel performs · when in the week replies
           actually arrive. Channel breakdown lives here (not Overview)
           because it answers "which channel works" — a channel question. */}
-      {filters.tab === "channels" && (
+      <TabPanel id="channels">
       <section className="space-y-4 pt-2">
 
       {/* Filters live in the unified top bar now (one line, all tabs). */}
@@ -1847,12 +1856,12 @@ export default async function DashboardPage({
       </Panel>
 
       </section>
-      )}
+      </TabPanel>
       {/* ═══ CHAPTER 5 · SELLERS ═══════════════════════════════════════════
           Who's moving the pipeline. Ranking uses reply rate normalized by
           contacted volume (≥20 floor) so the top isn't decided by who
           happened to inherit more leads. */}
-      {filters.tab === "sellers" && (
+      <TabPanel id="sellers">
       <section className="space-y-6 pt-3">
 
       {/* Filters live in the unified top bar now (one line, all tabs). */}
@@ -2292,10 +2301,11 @@ export default async function DashboardPage({
           pending counts already live in the seller leaderboard above. */}
 
       </section>
-      )}
+      </TabPanel>
       </DimWhileLoading>
       <SwlSignature caption={t("dashx.brand.captionMain")} tagline={t("dashx.brand.tagline")} />
     </div>
+    </DashboardTabsProvider>
   );
 }
 
