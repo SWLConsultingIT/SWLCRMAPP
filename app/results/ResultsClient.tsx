@@ -287,8 +287,46 @@ function RenurtureRow({ lead, t }: { lead: RenurturingLead; t: Tr }) {
 
 // ── Accordion frame ───────────────────────────────────────────────────
 
+// Coarse loss-reason bucket for a Lost lead: the reason type (no response vs
+// negative), and for negatives a keyword pass over reply_text so the ranking
+// reads "why did we lose" at a glance (boss 2026-08-25, phase 2).
+function classifyLoss(l: LostLead): string {
+  if (l.reason === "no_reply") return "No response";
+  const txt = (l.reply_text ?? "").toLowerCase();
+  if (/(price|budget|cost|expensive|precio|presupuesto|caro|costo)/.test(txt)) return "Price / budget";
+  if (/(competitor|already using|another provider|competenc|otro proveedor|ya usamos|ya tenemos)/.test(txt)) return "Using competitor";
+  if (/(later|next quarter|not now|timing|más adelante|no es el momento|busy|ocupad)/.test(txt)) return "Bad timing";
+  if (/(not interested|no interesa|no gracias|unsubscribe|remove me|no thanks)/.test(txt)) return "Not interested";
+  if (txt) return "Other (replied)";
+  return "Negative reply";
+}
+
+function LossReasons({ leads }: { leads: LostLead[] }) {
+  if (leads.length === 0) return null;
+  const tally = new Map<string, number>();
+  for (const l of leads) { const k = classifyLoss(l); tally.set(k, (tally.get(k) ?? 0) + 1); }
+  const rows = [...tally.entries()].sort((a, b) => b[1] - a[1]);
+  const max = Math.max(...rows.map(r => r[1]), 1);
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: C.border, backgroundColor: C.card }}>
+      <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textMuted }}>Why we&apos;re losing</p>
+      <div className="space-y-1.5">
+        {rows.map(([label, n]) => (
+          <div key={label} className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold w-36 shrink-0 truncate" style={{ color: C.textBody }}>{label}</span>
+            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
+              <div className="h-2 rounded-full" style={{ width: `${(n / max) * 100}%`, background: `linear-gradient(90deg, ${C.red}, color-mix(in srgb, ${C.red} 55%, transparent))` }} />
+            </div>
+            <span className="text-[11px] font-bold tabular-nums w-7 text-right" style={{ color: C.red }}>{n}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Section<L>({
-  group, renderRow, t, onSelectAll, allSelected, selectAllLabel,
+  group, renderRow, t, onSelectAll, allSelected, selectAllLabel, topSlot,
 }: {
   group: { icp: string; total: number; campaigns: Array<{ name: string; leads: L[] }> };
   renderRow: (lead: L) => React.ReactNode;
@@ -298,6 +336,9 @@ function Section<L>({
   onSelectAll?: () => void;
   allSelected?: boolean;
   selectAllLabel?: string;
+  /** Optional content at the top of the section body, above the campaign rows
+   *  (e.g. the per-ICP loss-reason ranking on the Lost tab). */
+  topSlot?: React.ReactNode;
 }) {
   return (
     <details open className="rounded-2xl border overflow-hidden mb-3"
@@ -336,6 +377,7 @@ function Section<L>({
         <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
       </summary>
       <div className="p-3 space-y-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        {topSlot}
         {group.campaigns.map(camp => (
           <div key={camp.name}>
             <div className="flex items-center gap-2 mb-2">
@@ -640,6 +682,7 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
               onSelectAll={() => toggleGroupLost(groupIds)}
               allSelected={allSel}
               selectAllLabel={allSel ? t("results.lost.deselectAll") : t("results.lost.selectAllIcp")}
+              topSlot={<LossReasons leads={g.campaigns.flatMap(c => c.leads) as LostLead[]} />}
               renderRow={lead => (
                 <LostRow key={lead.id} lead={lead} t={t} selected={selected.has(lead.id)} onToggle={toggleLostSelect} />
               )} />
