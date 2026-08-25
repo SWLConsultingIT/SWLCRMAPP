@@ -7,7 +7,7 @@ import {
   ENCRYPTED_LEAD_COLUMNS,
 } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
-import { Users, Upload } from "lucide-react";
+import { Users, Upload, Megaphone, Percent, ThumbsUp } from "lucide-react";
 import Link from "next/link";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
 import PageHero from "@/components/PageHero";
@@ -598,40 +598,69 @@ export default async function LeadsCampaignsPage() {
 
   return (
     <div className="p-4 sm:p-6 w-full">
-      <PageHero
-        icon={Users}
-        section="Operations"
-        title={isEverest ? "Everest Opportunities" : "Leads"}
-        description={isEverest ? "Energy plants and nearby off-takers — your full Everest opportunity pipeline." : "Manage your full prospect pipeline and track outreach progress across all channels."}
-        accentColor={C.blue}
-        status={{ label: "Active", active: true }}
-        stats={[
-          { label: "Total leads", value: totalLeadCount ?? allLeads.length, tone: "neutral" },
-          { label: "Active flows", value: stats.activeCampaigns, tone: "positive" },
-          { label: "Reply rate", value: `${stats.responseRate}%`, tone: stats.responseRate >= 10 ? "positive" : "warning" },
-          { label: "Positive replies", value: stats.positiveReplies, tone: stats.positiveReplies > 0 ? "positive" : "neutral" },
-        ]}
-        action={
+      {/* Hero card — SWL gold identity (redesign 2026-08-25, boss). Replaces
+          the blue PageHero. Gold-wash gradient + glow + icon tile + a KPI band
+          with per-stat icon tiles for depth/contrast. Actions (Export / Import)
+          live top-right. */}
+      <div className="rounded-2xl border overflow-hidden mb-6 relative"
+        style={{
+          background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${C.gold} 6%, var(--c-card)) 100%)`,
+          borderColor: `color-mix(in srgb, ${C.gold} 26%, ${C.border2})`,
+          boxShadow: C.shadowMd,
+        }}>
+        <div className="absolute inset-x-0 top-0 h-1 pointer-events-none"
+          style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 40%, var(--fg4) 75%, transparent)" }} />
+        <span aria-hidden className="absolute -top-16 -right-10 w-64 h-64 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${C.gold} 16%, transparent) 0%, transparent 65%)` }} />
+        <div className="relative p-6 pt-7 flex items-start gap-4 flex-wrap">
+          <span className="w-12 h-12 rounded-xl grid place-items-center shrink-0"
+            style={{ background: "linear-gradient(135deg, var(--fg3), var(--fg4))", boxShadow: `0 6px 18px color-mix(in srgb, ${C.gold} 34%, transparent)`, color: "#241B04" }}>
+            <Users size={22} strokeWidth={2.2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="h-[2px] w-4 rounded" style={{ backgroundColor: C.gold }} />
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--fg1)" }}>Operations</span>
+            </div>
+            <h1 className="text-[27px] font-extrabold leading-none" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.025em" }}>
+              {isEverest ? "Everest Opportunities" : "Leads"}
+            </h1>
+            <p className="text-[12.5px] mt-2 max-w-lg leading-relaxed" style={{ color: C.textMuted }}>
+              {isEverest ? "Energy plants and nearby off-takers — your full Everest opportunity pipeline." : "Manage your full prospect pipeline and track outreach progress across all channels."}
+            </p>
+          </div>
           <div className="flex items-center gap-2 shrink-0">
-            <ExportLeadsCSVButton
-              leads={JSON.parse(JSON.stringify(allLeads))}
-              totalLeadCount={totalLeadCount}
-            />
+            <ExportLeadsCSVButton leads={JSON.parse(JSON.stringify(allLeads))} totalLeadCount={totalLeadCount} />
             {canImport && (
-              <Link
-                href="/leads/import"
-                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shrink-0 transition-opacity hover:opacity-90"
-                style={{
-                  background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,
-                  color: "#1A1A2E",
-                }}
-              >
-                <Upload size={11} /> Import Leads
+              <Link href="/leads/import"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-[transform,box-shadow] hover:-translate-y-0.5"
+                style={{ color: "#241B04", background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", border: "1px solid var(--fg2)", boxShadow: `0 2px 9px color-mix(in srgb, ${C.gold} 34%, transparent)` }}>
+                <Upload size={12} /> Import leads
               </Link>
             )}
           </div>
-        }
-      />
+        </div>
+        <div className="relative grid grid-cols-2 sm:grid-cols-4"
+          style={{ borderTop: `1px solid color-mix(in srgb, ${C.gold} 22%, ${C.border})`, background: `color-mix(in srgb, ${C.gold} 7%, var(--c-card))` }}>
+          {([
+            { label: "Total leads", value: String(totalLeadCount ?? allLeads.length), Icon: Users, gold: true, positive: false },
+            { label: "Active flows", value: String(stats.activeCampaigns), Icon: Megaphone, gold: false, positive: false },
+            { label: "Reply rate", value: `${stats.responseRate}%`, Icon: Percent, gold: false, positive: false },
+            { label: "Positive replies", value: String(stats.positiveReplies), Icon: ThumbsUp, gold: false, positive: stats.positiveReplies > 0 },
+          ]).map((s, i) => (
+            <div key={s.label} className="px-5 py-4 flex items-center gap-3" style={{ borderLeft: i % 4 === 0 ? "none" : `1px solid color-mix(in srgb, ${C.gold} 14%, ${C.border})` }}>
+              <span className="w-9 h-9 rounded-lg grid place-items-center shrink-0"
+                style={{ background: `color-mix(in srgb, ${C.gold} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.gold} 26%, transparent)`, color: "var(--fg1)" }}>
+                <s.Icon size={16} strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[24px] font-extrabold tabular-nums leading-none" style={{ color: s.positive ? C.green : s.gold ? "var(--fg1)" : C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.03em" }}>{s.value}</p>
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] mt-1.5" style={{ color: C.textMuted }}>{s.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <LeadsCampaignsClient
         profileGroups={JSON.parse(JSON.stringify(profileGroups))}
