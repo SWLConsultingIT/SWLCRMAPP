@@ -7,7 +7,7 @@ import {
   ENCRYPTED_LEAD_COLUMNS,
 } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
-import { Trophy } from "lucide-react";
+import { Trophy, ThumbsUp, X, Ban, RefreshCw } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import ResultsClient from "./ResultsClient";
 import { getT } from "@/lib/i18n-server";
@@ -297,24 +297,58 @@ export default async function ResultsPage() {
 
   return (
     <div className="p-4 sm:p-6 w-full">
-      <PageHero
-        icon={Trophy}
-        section={t("results.hero.preTitle")}
-        title={t("results.hero.title")}
-        description={isSwl
-          ? "Your positive results — every interested lead moving through the stages toward a booked meeting, then pushed to Odoo. Plus what didn't close and what's being re-nurtured."
-          : t("results.hero.description")}
-        accentColor={C.green}
-        status={{ label: "Live", active: true }}
-        stats={[
-          isSwl
-            ? { label: "Positive results", value: wonLeads.length, tone: wonLeads.length > 0 ? "positive" : "neutral" }
-            : { label: t("results.tab.won"), value: wonLeads.length, tone: wonLeads.length > 0 ? "positive" : "neutral" },
-          { label: t("results.tab.lost"),      value: lostLeads.length,        tone: lostLeads.length > 0 ? "warning" : "neutral" },
-          { label: t("results.tab.discarded"), value: discardedLeads.length,   tone: "neutral" },
-          { label: t("results.tab.renurture"), value: renurturingLeads.length, tone: renurturingLeads.length > 0 ? "positive" : "neutral" },
-        ]}
-      />
+      {/* Hero card — SWL gold identity (redesign 2026-08-25, boss). Replaces
+          the green PageHero: gold-wash gradient + glow + Trophy tile, and an
+          outcomes summary band with per-stat icon tiles. */}
+      <div className="rounded-2xl border overflow-hidden mb-6 relative"
+        style={{
+          background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${C.gold} 6%, var(--c-card)) 100%)`,
+          borderColor: `color-mix(in srgb, ${C.gold} 26%, ${C.border2})`,
+          boxShadow: C.shadowMd,
+        }}>
+        <div className="absolute inset-x-0 top-0 h-1 pointer-events-none"
+          style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 40%, var(--fg4) 75%, transparent)" }} />
+        <span aria-hidden className="absolute -top-16 -right-10 w-64 h-64 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${C.gold} 16%, transparent) 0%, transparent 65%)` }} />
+        <div className="relative p-6 pt-7 flex items-start gap-4 flex-wrap">
+          <span className="w-12 h-12 rounded-xl grid place-items-center shrink-0"
+            style={{ background: "linear-gradient(135deg, var(--fg3), var(--fg4))", boxShadow: `0 6px 18px color-mix(in srgb, ${C.gold} 34%, transparent)`, color: "#241B04" }}>
+            <Trophy size={22} strokeWidth={2.2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="h-[2px] w-4 rounded" style={{ backgroundColor: C.gold }} />
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--fg1)" }}>{t("results.hero.preTitle")}</span>
+            </div>
+            <h1 className="text-[27px] font-extrabold leading-none" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.025em" }}>{t("results.hero.title")}</h1>
+            <p className="text-[12.5px] mt-2 max-w-xl leading-relaxed" style={{ color: C.textMuted }}>
+              {isSwl
+                ? "Positive results moving through the stages toward a booked meeting, then Odoo — plus what didn't close and what's being re-nurtured. Grouped by ICP."
+                : t("results.hero.description")}
+            </p>
+          </div>
+        </div>
+        <div className="relative grid grid-cols-2 sm:grid-cols-4"
+          style={{ borderTop: `1px solid color-mix(in srgb, ${C.gold} 22%, ${C.border})`, background: `color-mix(in srgb, ${C.gold} 7%, var(--c-card))` }}>
+          {([
+            { label: isSwl ? "Positive" : t("results.tab.won"), value: wonLeads.length, Icon: ThumbsUp, tone: "gold" as const },
+            { label: t("results.tab.lost"), value: lostLeads.length, Icon: X, tone: "red" as const },
+            { label: t("results.tab.discarded"), value: discardedLeads.length, Icon: Ban, tone: "muted" as const },
+            { label: t("results.tab.renurture"), value: renurturingLeads.length, Icon: RefreshCw, tone: "gold" as const },
+          ]).map((s, i) => (
+            <div key={s.label} className="px-5 py-4 flex items-center gap-3" style={{ borderLeft: i % 4 === 0 ? "none" : `1px solid color-mix(in srgb, ${C.gold} 14%, ${C.border})` }}>
+              <span className="w-9 h-9 rounded-lg grid place-items-center shrink-0"
+                style={{ background: `color-mix(in srgb, ${C.gold} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.gold} 26%, transparent)`, color: "var(--fg1)" }}>
+                <s.Icon size={16} strokeWidth={2.2} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[24px] font-extrabold tabular-nums leading-none" style={{ color: s.tone === "red" ? C.red : s.tone === "muted" ? C.textMuted : "var(--fg1)", fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.03em" }}>{s.value}</p>
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] mt-1.5" style={{ color: C.textMuted }}>{s.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
       <ResultsClient
         wonLeads={JSON.parse(JSON.stringify(wonLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}

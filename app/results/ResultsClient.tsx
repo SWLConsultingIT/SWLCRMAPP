@@ -571,17 +571,48 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
       `}</style>
 
       {tab === "pipeline" && (
-        <>
+        <div className="results-acc">
           <div className="mb-3 flex items-start gap-2">
             <LayoutGrid size={14} className="mt-0.5 shrink-0" style={{ color: C.blue }} />
             <p className="text-[12.5px] leading-snug" style={{ color: C.textMuted }}>
               <span className="font-semibold" style={{ color: C.textBody }}>{L("Positive results", "Resultados positivos")}</span>{" "}
-              {L("— every lead that replied positively or booked a call. Drag each one through the stages, then", "— cada lead que respondió positivo o agendó una llamada. Arrastralo por las etapas y después")}{" "}
+              {L("— every lead that replied positively or booked a call, grouped by ICP. Drag each one through the stages, then", "— cada lead que respondió positivo o agendó una llamada, agrupado por ICP. Arrastralo por las etapas y después")}{" "}
               <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span>{" "}{L("from its detail.", "desde su detalle.")}
             </p>
           </div>
-          <ResultsPipeline leads={wonLeads} search={search} />
-        </>
+          {/* Pipeline grouped by ICP (boss 2026-08-25) — one collapsible kanban
+              per ICP, same as the Lost/Won/etc. tabs, instead of one flat board. */}
+          {wonGroups.length === 0 ? (
+            <EmptyState icon={LayoutGrid}
+              title={L("No positive results yet", "Sin resultados positivos todavía")}
+              description={L("Positive replies and booked calls will appear here, grouped by ICP.", "Las respuestas positivas y llamadas agendadas aparecen acá, agrupadas por ICP.")} />
+          ) : wonGroups.map(g => {
+            const groupLeads = g.campaigns.flatMap(c => c.leads);
+            return (
+              <details key={g.icp} open className="rounded-2xl border overflow-hidden mb-3" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                <summary className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-black/[0.02] transition-colors">
+                  <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 25%, transparent)` }}>
+                    <Target size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>{t("results.section.eyebrow")}</p>
+                    <p className="text-[15px] font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                      {g.icp}
+                      <span className="ml-2 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md align-middle" style={{ backgroundColor: C.surface, color: C.textMuted }}>
+                        {g.total} {g.total === 1 ? t("results.section.lead") : t("results.section.leads")}
+                      </span>
+                    </p>
+                  </div>
+                  <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
+                </summary>
+                <div className="p-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                  <ResultsPipeline leads={groupLeads} search={search} />
+                </div>
+              </details>
+            );
+          })}
+        </div>
       )}
 
       <div className="results-acc">
