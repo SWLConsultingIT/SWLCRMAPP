@@ -128,7 +128,11 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
   // unenrolled leads we actually display.
   // Terminal-status leads (lost/won) must never resurface in the picker — a
   // lost lead belongs in Results → Re-nurture, not back in an active flow.
-  const TERMINAL_LEAD_STATUSES = ["closed_lost", "closed_won", "won"];
+  // NOTE: only the values that exist in the `lead_status` enum. "won" was NOT
+  // a valid enum value, so PostgREST rejected the whole `status=not.in.(…)`
+  // filter with 22P02 → the leads query returned nothing → Add Leads showed 0
+  // for EVERY flow in EVERY tenant. Fixed 2026-08-25.
+  const TERMINAL_LEAD_STATUSES = ["closed_lost", "closed_won"];
   const tenantLeadIds: string[] = [];
   for (let from = 0; ; from += 1000) {
     const { data: page } = await supabase
