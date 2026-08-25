@@ -41,11 +41,14 @@ export type FlowMetrics = {
 };
 type DrillKey = keyof FlowMetrics["drill"];
 
+// Channels are identified by their LOGO tinted with the SWL gold ramp (--fg*)
+// — one gold spectrum instead of a per-channel rainbow (boss 2026-08). Dark→
+// light: LinkedIn (deepest) · WhatsApp · Email · Call (lightest).
 const CH = {
-  linkedin: { label: "LinkedIn", color: "#0A66C2", Icon: Share2 },
-  email: { label: "Email", color: "#8B5CF6", Icon: Mail },
-  call: { label: "Call", color: "#F97316", Icon: Phone },
-  whatsapp: { label: "WhatsApp", color: "#16A34A", Icon: MessageSquare },
+  linkedin: { label: "LinkedIn", color: "var(--fg1)", Icon: Share2 },
+  email: { label: "Email", color: "var(--fg3)", Icon: Mail },
+  call: { label: "Call", color: "var(--fg4)", Icon: Phone },
+  whatsapp: { label: "WhatsApp", color: "var(--fg2)", Icon: MessageSquare },
 } as Record<string, { label: string; color: string; Icon: typeof Mail }>;
 
 // Section wrapper with the app's gold "─ TITLE" header + premium card body.
@@ -59,7 +62,7 @@ function Section({ title, action, children, pad = true }: { title: string; actio
         </div>
         {action}
       </div>
-      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border2, backgroundColor: C.card, boxShadow: C.shadow }}>
         <div className={pad ? "p-4" : ""}>{children}</div>
       </div>
     </div>
@@ -112,10 +115,10 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
   // a multichannel flow they don't belong in the headline funnel (that's what
   // produced "Messages 800% of accepted").
   const stages: { key: string; label: string; value: number; icon: typeof Mail; color: string; drill: DrillKey | null; conv: number | null; convLabel: string; benchT?: [number, number] }[] = [
-    { key: "leads", label: "Leads", value: m.totalLeads, icon: Users, color: gold as string, drill: null, conv: null, convLabel: "" },
-    { key: "contacted", label: "Contacted", value: m.contacted, icon: Send, color: "#0EA5E9", drill: "contacted", conv: m.contactedRate, convLabel: "of leads" },
-    { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "#8B5CF6", drill: "replied", conv: m.contactedReplyRate, convLabel: "of contacted", benchT: [10, 3] },
-    { key: "positive", label: "Positive", value: m.positive, icon: Trophy, color: "#D97706", drill: "positive", conv: m.positiveRate, convLabel: "of replied", benchT: [40, 20] },
+    { key: "leads", label: "Leads", value: m.totalLeads, icon: Users, color: "var(--fg1)", drill: null, conv: null, convLabel: "" },
+    { key: "contacted", label: "Contacted", value: m.contacted, icon: Send, color: "var(--fg2)", drill: "contacted", conv: m.contactedRate, convLabel: "of leads" },
+    { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "var(--fg3)", drill: "replied", conv: m.contactedReplyRate, convLabel: "of contacted", benchT: [10, 3] },
+    { key: "positive", label: "Positive", value: m.positive, icon: Trophy, color: "var(--fg4)", drill: "positive", conv: m.positiveRate, convLabel: "of replied", benchT: [40, 20] },
   ];
   const maxV = Math.max(1, m.totalLeads, m.contacted);
   const stepMax = Math.max(1, ...m.steps.map(s => s.sent + s.failed + s.skipped + s.pending));
@@ -214,9 +217,9 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
       {/* ── STEP-BY-STEP ── */}
       <Section title="Step-by-step" action={
         <div className="flex items-center gap-2.5 text-[10px]" style={{ color: C.textDim }}>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.green }} />sent</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "var(--fg1)" }} />sent</span>
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.textDim }} />skipped</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "#0A66C2" }} />pending</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "var(--fg4)" }} />pending</span>
         </div>
       }>
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
@@ -242,9 +245,9 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
                         leads pile up, instead of a decorative full-width bar. */}
                     <div className="flex-1 h-1.5 rounded ml-1 flex overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${C.border} 70%, transparent)` }} title={`${s.sent} sent · ${s.skipped} skipped · ${s.pending} pending`}>
                       {total > 0 && <>
-                        <div className="h-1.5" style={{ width: `${(s.sent / total) * 100}%`, backgroundColor: C.green }} />
+                        <div className="h-1.5" style={{ width: `${(s.sent / total) * 100}%`, backgroundColor: "var(--fg1)" }} />
                         <div className="h-1.5" style={{ width: `${(s.skipped / total) * 100}%`, backgroundColor: C.textDim }} />
-                        <div className="h-1.5" style={{ width: `${(s.pending / total) * 100}%`, backgroundColor: "#0A66C2" }} />
+                        <div className="h-1.5" style={{ width: `${(s.pending / total) * 100}%`, backgroundColor: "var(--fg4)" }} />
                       </>}
                     </div>
                   </div>
@@ -254,7 +257,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
                   </span>
                   <span className="text-right w-10 tabular-nums" style={{ color: s.failed ? C.red : C.textDim }}>{s.failed}</span>
                   <span className="text-right w-10 tabular-nums" style={{ color: C.textDim }}>{s.skipped}</span>
-                  <span className="text-right w-12 tabular-nums" style={{ color: s.pending ? "#0A66C2" : C.textDim }}>{s.pending}</span>
+                  <span className="text-right w-12 tabular-nums" style={{ color: s.pending ? "var(--fg3)" : C.textDim }}>{s.pending}</span>
                 </button>
                 {expanded && (
                   <div className="ml-5 mb-2 mt-1 rounded-lg border divide-y" style={{ borderColor: C.border, backgroundColor: C.bg }}>

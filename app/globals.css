@@ -51,6 +51,12 @@
   --c-blueLight:   #EFF6FF;
   --c-yellowLight: #FFFBEB;
 
+  /* Flow-detail gold ramp — dark→light. Used for funnel stages + channel
+     tint so the metrics read as one gold spectrum (not a rainbow). Light
+     values here read on white cards; the dark block below lifts them so
+     they read on the navy card. */
+  --fg1: #5A4308; --fg2: #8A6912; --fg3: #B58F24; --fg4: #D6B84E;
+
   --c-main-bg:
     radial-gradient(ellipse 65% 45% at 4% 12%,  rgba(201,168,58,0.055)  0%, transparent 55%),
     radial-gradient(ellipse 45% 55% at 96% 88%,  rgba(37,99,235,0.03)   0%, transparent 55%),
@@ -104,6 +110,9 @@
   --c-orangeLight: #2A1B08;
   --c-blueLight:   #121F42;
   --c-yellowLight: #2A1F08;
+
+  /* Flow-detail gold ramp — lifted so it reads on the navy card. */
+  --fg1: #A6801F; --fg2: #C29A32; --fg3: #DBB747; --fg4: #ECD277;
 
   --c-main-bg:
     radial-gradient(ellipse 65% 45% at 4% 12%,  rgba(201,168,58,0.05)  0%, transparent 55%),

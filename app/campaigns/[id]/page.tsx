@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Share2, Mail, Phone, PlayCircle, PauseCircle, CheckCircle, XCircle,
-  Users, Clock, Settings, Zap,
+  Users, Clock, Settings, Zap, UserPlus,
 } from "lucide-react";
 import CampaignDetailClient from "./CampaignDetailClient";
 import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
@@ -690,83 +690,76 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <span style={{ color: C.textBody }}>{campaign.name}</span>
       </div>
 
-      {/* ═══ CAMPAIGN HEADER — SWL dark + gold treatment ═══
-          Premium hero band that mirrors the dossier surface used on
-          /dashboard/seller/[id] and the now-deleted /overview header.
-          Boss feedback 2026-05-28 r12: "asi blanco es horrible". */}
+      {/* ═══ CAMPAIGN HEADER — themed light card + gold accent ═══
+          Redesign 2026-08 (boss): dropped the forced-dark #0F0F14 slab (read
+          as a heavy navy hero even in light mode). Now a normal themed card —
+          light in light mode, navy in dark mode, like every other surface —
+          with a gold stripe + eyebrow as the single brand accent, consolidated
+          actions, and channel chips tinted by the gold ramp (--fg*) so the
+          page reads as one gold spectrum instead of a rainbow. */}
       <div
         className="rounded-2xl border overflow-hidden mb-6 relative"
-        style={{
-          backgroundColor: "#0F0F14",
-          borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 0 0 1px color-mix(in srgb, #c9a83a 14%, transparent)",
-        }}
+        style={{ backgroundColor: C.card, borderColor: C.border2, boxShadow: C.shadowMd }}
       >
-        {/* Gold gradient stripe at the top + soft radial corner glows */}
-        <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.9 }} />
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 65%)`, opacity: 0.55 }} />
-        <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)`, opacity: 0.4 }} />
+        {/* Gold ramp stripe at the very top — the brand thread. */}
+        <div className="absolute inset-x-0 top-0 h-[3px] pointer-events-none"
+          style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 45%, var(--fg4) 80%, transparent)" }} />
 
-        <div className="p-6 flex items-start justify-between gap-4 relative">
+        <div className="p-6 pt-7 flex items-start justify-between gap-4 relative">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-px w-6" style={{ backgroundColor: gold }} />
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>{t("campaignDetail.preTitle")}</p>
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="h-[2px] w-4 rounded" style={{ backgroundColor: gold }} />
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--fg1)", letterSpacing: "0.22em" }}>{t("campaignDetail.preTitle")}</p>
             </div>
             <h1
-              className="text-[28px] font-bold mb-4 leading-tight"
-              style={{
-                color: "#F5F2E8",
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                letterSpacing: "-0.02em",
-              }}
+              className="text-[25px] font-bold mb-3.5 leading-tight"
+              style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}
             >
               {campaign.name}
             </h1>
-            <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <div
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1"
                 style={{
-                  backgroundColor: `color-mix(in srgb, ${st.color} 18%, transparent)`,
-                  border: `1px solid color-mix(in srgb, ${st.color} 38%, transparent)`,
-                  boxShadow: campaign.status === "active" ? `0 0 14px color-mix(in srgb, ${st.color} 30%, transparent)` : "none",
+                  backgroundColor: `color-mix(in srgb, ${st.color} 11%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${st.color} 34%, transparent)`,
                 }}
               >
                 {campaign.status === "active" && (
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: st.color }} />
                 )}
-                <StIcon size={12} style={{ color: st.color }} />
-                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: st.color, letterSpacing: "0.08em" }}>{st.label}</span>
+                <StIcon size={11} style={{ color: st.color }} />
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: st.color, letterSpacing: "0.06em" }}>{st.label}</span>
               </div>
               {channels.map(ch => {
                 const meta = channelMeta[ch];
                 if (!meta) return null;
                 const Icon = meta.icon;
+                // Channel identity comes from the LOGO + a gold-ramp tint,
+                // not a per-channel rainbow hue (boss 2026-08).
+                const ramp = ch === "linkedin" ? "var(--fg1)" : ch === "email" ? "var(--fg3)" : ch === "whatsapp" ? "var(--fg2)" : "var(--fg4)";
                 return (
                   <span
                     key={ch}
                     className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                     style={{
-                      backgroundColor: `color-mix(in srgb, ${meta.color} 16%, rgba(255,255,255,0.02))`,
-                      color: meta.color,
-                      border: `1px solid color-mix(in srgb, ${meta.color} 32%, transparent)`,
+                      backgroundColor: `color-mix(in srgb, ${ramp} 12%, transparent)`,
+                      color: C.textBody,
+                      border: `1px solid color-mix(in srgb, ${ramp} 30%, transparent)`,
                     }}
                   >
-                    <Icon size={11} /> {meta.label}
+                    <Icon size={11} style={{ color: ramp }} /> {meta.label}
                   </span>
                 );
               })}
-              {/* Call-advance mode — only when the flow actually has a call step.
-                  Tells the seller whether a lead sitting on the call step is
-                  WAITING for them (manual) or will auto-advance (auto). */}
               {hasCallStep && (() => {
                 const m = advanceMode === "manual"
-                  ? { color: "#D97706", Icon: Phone, label: "Manual calls", hint: "waits for the seller to dial" }
-                  : { color: "#0EA5E9", Icon: Zap,   label: "Auto-advance", hint: "skips the call after 3 days" };
+                  ? { color: C.yellow, Icon: Phone, label: "Manual calls", hint: "waits for the seller to dial" }
+                  : { color: C.blue,   Icon: Zap,   label: "Auto-advance", hint: "skips the call after 3 days" };
                 return (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                     title={`Call step is ${advanceMode === "manual" ? "MANUAL — the sequence pauses here until a seller calls the lead." : "AUTO — if no one calls within 3 days the call step is skipped and the flow continues."}`}
-                    style={{ backgroundColor: `color-mix(in srgb, ${m.color} 16%, rgba(255,255,255,0.02))`, color: m.color, border: `1px solid color-mix(in srgb, ${m.color} 32%, transparent)` }}>
+                    style={{ backgroundColor: `color-mix(in srgb, ${m.color} 11%, transparent)`, color: m.color, border: `1px solid color-mix(in srgb, ${m.color} 30%, transparent)` }}>
                     <m.Icon size={11} /> {m.label}
                     <span style={{ opacity: 0.7, fontWeight: 500 }}>· {m.hint}</span>
                   </span>
@@ -774,68 +767,60 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               })()}
               {campaign.started_at && (
                 <span className="text-[11px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-                  style={{ color: "color-mix(in srgb, #F5F2E8 62%, transparent)", border: "1px solid color-mix(in srgb, #F5F2E8 10%, transparent)", backgroundColor: "rgba(255,255,255,0.02)" }}>
+                  style={{ color: C.textMuted, border: `1px solid ${C.border}`, backgroundColor: C.surface }}>
                   <Clock size={11} />
                   {t("campaignDetail.started").replace("{date}", new Date(campaign.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }))}
                 </span>
               )}
             </div>
           </div>
-          {/* Edit Flow CTA — outlined gold pill on the dark hero. Earlier
-              version used a gold→light-gold gradient that washed out into
-              a muddy mustard against the ink background. The clean glass-
-              outlined pill matches the in-hero channel chips and reads
-              "primary action" without competing for attention. */}
-          <Link href={`/campaigns/${id}/edit`}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-[background-color,transform,box-shadow] hover:-translate-y-0.5"
-            style={{
-              color: gold,
-              backgroundColor: "color-mix(in srgb, white 6%, transparent)",
-              border: `1px solid color-mix(in srgb, ${gold} 50%, transparent)`,
-              boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 20%, transparent), 0 4px 14px color-mix(in srgb, ${gold} 12%, transparent)`,
-            }}>
-            <Settings size={12} /> {t("campaignDetail.editFlow")}
-          </Link>
+          {/* Actions — Edit (secondary) + Add leads (primary gold). Pause/Resume
+              + Save-as-template stay in their tab toolbars (client actions). */}
+          <div className="shrink-0 flex items-center gap-2">
+            <Link href={`/campaigns/${id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-[background-color,transform,box-shadow,border-color] hover:-translate-y-0.5"
+              style={{ color: C.textBody, backgroundColor: C.surface, border: `1px solid ${C.border2}` }}>
+              <Settings size={12} /> {t("campaignDetail.editFlow")}
+            </Link>
+            <Link href={`/campaigns/${id}?tab=add-leads`}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-[transform,box-shadow] hover:-translate-y-0.5"
+              style={{
+                color: "#241B04",
+                background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))",
+                border: `1px solid var(--fg2)`,
+                boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)`,
+              }}>
+              <UserPlus size={12} /> Add leads
+            </Link>
+          </div>
         </div>
 
-        <div className="border-t" style={{ borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)" }} />
+        <div className="border-t" style={{ borderColor: C.border }} />
 
-        {/* Header KPIs — the stuff that matters at a glance (boss 2026-06-12):
-            total leads · how far the flow has run · who's active · who runs it.
-            Channels live in the chips above; paused/completed live in the
-            Metrics tab status breakdown. */}
-        <div className="px-2 py-2 grid grid-cols-2 sm:grid-cols-4 gap-2 relative">
+        {/* Header KPIs — total leads · progress · active · seller. Linear cells
+            split by hairlines (not floating boxes). Values in ink for contrast;
+            the headline (total leads) carries the gold accent. */}
+        <div className="grid grid-cols-2 sm:grid-cols-4">
           {[
-            { label: t("campaignDetail.metric.totalLeads"), value: totalLeadsInGroup, color: gold, small: false },
-            { label: t("campaignDetail.metric.progress"),   value: `${avgFlowPct}%`,  color: "#0EA5E9", small: false },
-            { label: t("campaignDetail.metric.active"),     value: inFlowInGroup,     color: "#16A34A", small: false },
-            { label: flowSellers.length === 1 ? t("campaignDetail.metric.seller") : t("campaignDetail.metric.sellers"), value: flowSellers.length === 0 ? "—" : flowSellers.length <= 2 ? flowSellers.join(" · ") : `${flowSellers.length}`, color: "#7C3AED", small: flowSellers.length >= 1 && flowSellers.length <= 2 },
-          ].map(s => (
+            { label: t("campaignDetail.metric.totalLeads"), value: totalLeadsInGroup, gold: true,  small: false },
+            { label: t("campaignDetail.metric.progress"),   value: `${avgFlowPct}%`,  gold: false, small: false },
+            { label: t("campaignDetail.metric.active"),     value: inFlowInGroup,     gold: false, small: false },
+            { label: flowSellers.length === 1 ? t("campaignDetail.metric.seller") : t("campaignDetail.metric.sellers"), value: flowSellers.length === 0 ? "—" : flowSellers.length <= 2 ? flowSellers.join(" · ") : `${flowSellers.length}`, gold: false, small: flowSellers.length >= 1 && flowSellers.length <= 2 },
+          ].map((s, i) => (
             <div
               key={s.label}
-              className="px-3 py-3 rounded-xl relative overflow-hidden"
-              style={{
-                backgroundColor: "rgba(255,255,255,0.025)",
-                borderTop: `2px solid color-mix(in srgb, ${s.color} 70%, transparent)`,
-                boxShadow: `0 0 18px color-mix(in srgb, ${s.color} 8%, transparent) inset`,
-              }}
+              className="px-5 py-4"
+              style={{ borderLeft: i % 4 === 0 ? "none" : `1px solid ${C.border}` }}
             >
-              <p
-                className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1"
-                style={{ color: "color-mix(in srgb, #F5F2E8 55%, transparent)", letterSpacing: "0.14em" }}
-              >
-                {s.label}
-              </p>
               <p
                 className={`${s.small ? "text-sm leading-tight truncate" : "text-[22px] leading-none tabular-nums"} font-bold`}
                 title={s.small ? String(s.value) : undefined}
-                style={{
-                  color: s.color,
-                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                  letterSpacing: "-0.02em",
-                }}
+                style={{ color: s.gold ? "var(--fg1)" : C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}
               >
                 {s.value}
+              </p>
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] mt-2" style={{ color: C.textMuted, letterSpacing: "0.12em" }}>
+                {s.label}
               </p>
             </div>
           ))}
