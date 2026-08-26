@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
@@ -28,6 +28,7 @@ type PreviewOutput = {
 const gold = C.gold;
 
 import { type StepAttachment } from "@/components/StepAttachments";
+import { readLeadSelection, clearLeadSelection, STASH_SENTINEL } from "@/lib/lead-selection";
 
 type SequenceStep = { channel: string; daysAfter: number; attachments?: StepAttachment[] };
 
@@ -147,9 +148,19 @@ export default function NewCampaignWizard() {
   const searchParams = useSearchParams();
   const profileId = params.profileId as string;
 
-  // Selected lead IDs from URL (?leads=id1,id2,id3)
-  const selectedLeadIds = searchParams.get("leads")?.split(",").filter(Boolean) ?? [];
+  // Selected lead IDs. Small selections ride in the URL (?leads=id1,id2,id3);
+  // big ones come from sessionStorage because the inline URL trips Vercel's
+  // 414 URI_TOO_LONG past ~385 ids. See lib/lead-selection.ts.
+  const leadsParamRaw = searchParams.get("leads");
+  const selectedLeadIds = useMemo(
+    () => readLeadSelection(profileId, leadsParamRaw),
+    [profileId, leadsParamRaw],
+  );
   const isPartialSelection = selectedLeadIds.length > 0;
+  // The URL claims a stashed selection but we can't read it back — a new tab,
+  // a pasted link, or cleared storage. Proceeding would silently build a flow
+  // with zero leads, so send the seller back to the picker instead.
+  const selectionLost = leadsParamRaw === STASH_SENTINEL && selectedLeadIds.length === 0;
 
   const [wizardStep, setWizardStep] = useState(0);
   // null = the seller hasn't chosen yet; FlowTypePicker fronts the wizard
@@ -282,8 +293,12 @@ export default function NewCampaignWizard() {
   // — Fran 2026-06-09 saw a wizard for Alberto Lupi + Covacig restore a
   // draft from a previous run on the same ICP. Hash the leads CSV so
   // the key length stays bounded.
-  const leadsParam = searchParams.get("leads") ?? "";
-  const leadsKeyPart = leadsParam ? `sel-${leadsParam.split(",").length}-${hashStr(leadsParam)}` : "all";
+  // Key the draft off the real selection, not the raw param — with a stashed
+  // selection the param is just "stashed" and every large flow on this ICP
+  // would collide on one draft key.
+  const leadsKeyPart = selectedLeadIds.length > 0
+    ? `sel-${selectedLeadIds.length}-${hashStr(selectedLeadIds.join(","))}`
+    : "all";
   const draftKey = `swl-wizard-draft:${profileId}:${leadsKeyPart}`;
   const [draftRestored, setDraftRestored] = useState(false);
   // Tailored-mode state — populated lazily when the seller lands on
@@ -746,6 +761,8 @@ export default function NewCampaignWizard() {
       // Wizard succeeded — drop the autosave draft so the next visit to this
       // ICP's wizard starts fresh (not restoring an already-submitted state).
       try { sessionStorage.removeItem(draftKey); } catch { /* no-op */ }
+      // Same for the stashed lead selection — this flow consumed it.
+      clearLeadSelection(profileId);
       // Offer to save as a reusable template before showing the success screen.
       setTplName(campaignName.trim() || insertData.name);
       setTplDesc("");
@@ -833,6 +850,42 @@ export default function NewCampaignWizard() {
 
   if (loading) {
     return <LogoLoader />;
+  }
+
+  // The URL points at a stashed selection we can't read back (new tab, pasted
+  // link, cleared storage). Building the flow anyway would create it with zero
+  // leads, so stop and send them back to pick again.
+  if (selectionLost) {
+    return (
+      <div className="p-6 w-full">
+        <div className="max-w-lg rounded-xl border p-6" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <h2 className="text-[16px] font-semibold mb-2" style={{ color: C.textPrimary }}>
+            We lost your lead selection
+          </h2>
+          <p className="text-[13px] leading-relaxed mb-5" style={{ color: C.textMuted }}>
+            Large selections are held for the current tab only, so they don&apos;t survive a new
+            tab or a shared link. Nothing was created — pick the leads again and the flow will
+            carry on from there.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push(`/campaigns/new/${profileId}/pick`)}
+              className="px-3.5 py-2 rounded-lg text-[12px] font-semibold"
+              style={{ backgroundColor: C.textPrimary, color: C.card }}
+            >
+              Pick leads again
+            </button>
+            <button
+              onClick={() => router.push("/campaigns")}
+              className="px-3.5 py-2 rounded-lg text-[12px] font-medium border"
+              style={{ borderColor: C.border, color: C.textMuted }}
+            >
+              Back to Campaigns
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Wizard pre-step: until the seller picks a flow type, front the wizard

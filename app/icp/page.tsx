@@ -13,6 +13,7 @@ import {
   Building2, Lightbulb, BookOpen, CheckSquare, Square, Sparkles, Send, Download, RefreshCw,
 } from "lucide-react";
 import AddToFlowModal from "@/components/icp/AddToFlowModal";
+import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 
 const gold = C.gold;
 const goldLight = C.goldGlow;
@@ -527,7 +528,8 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
     if (ids.length === 0) return;
     // Same wizard the Lead Miner ticket detail uses — picks up ?leads=
     // and pre-fills the lead selection inside the matching profile.
-    router.push(`/campaigns/new/${profile.id}?leads=${ids.join(",")}`);
+    stashLeadSelection(profile.id, ids);
+    router.push(`/campaigns/new/${profile.id}?${leadSelectionQuery(ids)}`);
   }
 
   // Reopen closed_lost leads so they become eligible for a flow again. Uses the

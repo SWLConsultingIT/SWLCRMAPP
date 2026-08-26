@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Users, Zap, Megaphone, ArrowRight, Target, CheckCircle,
   Share2, Mail, Check, Phone,
 } from "lucide-react";
+import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -76,10 +77,15 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
 
   // Build launch URL — always use profile wizard with leads param for multi-select
   const selectedIds = Array.from(selected);
+  const launchProfileId = groups.find(g => g.profileId && g.leads.some(l => selected.has(l.id)))?.profileId;
+  // The href below is built during render, so the sessionStorage write for
+  // large selections has to happen here instead — a render-time write would
+  // differ between the server and client passes and break hydration.
+  useEffect(() => {
+    if (launchProfileId) stashLeadSelection(launchProfileId, selectedIds);
+  }, [launchProfileId, selectedIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   const launchUrl = (() => {
-    // Find profileId from the first group that has selected leads
-    const matchingGroup = groups.find(g => g.profileId && g.leads.some(l => selected.has(l.id)));
-    const pid = matchingGroup?.profileId;
+    const pid = launchProfileId;
 
     if (selectedIds.length === 1 && !pid) {
       // Single lead, no profile — use individual lead wizard
@@ -87,7 +93,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
     }
     if (pid) {
       // Route to profile wizard with all selected lead IDs
-      return `/campaigns/new/${pid}?leads=${selectedIds.join(",")}`;
+      return `/campaigns/new/${pid}?${leadSelectionQuery(selectedIds)}`;
     }
     // Fallback: use individual lead route for first lead (shouldn't happen in practice)
     return `/campaigns/new/lead/${selectedIds[0]}`;

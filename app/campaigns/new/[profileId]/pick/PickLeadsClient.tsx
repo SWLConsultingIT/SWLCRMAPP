@@ -7,6 +7,7 @@ import { Users, CheckSquare, Building2, Globe, Briefcase, MapPin, Megaphone, Sen
 import { C, N } from "@/lib/design";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
+import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -171,7 +172,10 @@ export default function PickLeadsClient({
   function continueToWizard() {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
-    router.push(`/campaigns/new/${profileId}?leads=${ids.join(",")}`);
+    // Stash before navigating: past ~385 ids the inline URL trips Vercel's
+    // 414 URI_TOO_LONG. See lib/lead-selection.ts.
+    stashLeadSelection(profileId, ids);
+    router.push(`/campaigns/new/${profileId}?${leadSelectionQuery(ids)}`);
   }
 
   return (

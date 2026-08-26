@@ -16,6 +16,7 @@ import { type OpportunityLead } from "@/components/OpportunitiesTable";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
+import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -1077,7 +1078,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   function createNewFlowFromSelection(sharedIcpId: string) {
     const ids = Array.from(selected);
     if (ids.length === 0 || !sharedIcpId) return;
-    router.push(`/campaigns/new/${sharedIcpId}?leads=${ids.join(",")}`);
+    stashLeadSelection(sharedIcpId, ids);
+    router.push(`/campaigns/new/${sharedIcpId}?${leadSelectionQuery(ids)}`);
   }
 
   async function bulkChangeStatus(status: string) {

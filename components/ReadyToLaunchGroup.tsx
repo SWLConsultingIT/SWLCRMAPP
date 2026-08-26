@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { Target, Megaphone, Share2, Mail, Check } from "lucide-react";
+import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -50,10 +51,15 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
   const someSelected = selected.size > 0;
 
   const selectedIds = Array.from(selected);
+  // Same reason as NewCampaignView: the href is computed during render, so the
+  // stash for large selections runs in an effect.
+  useEffect(() => {
+    if (profileId) stashLeadSelection(profileId, selectedIds);
+  }, [profileId, selectedIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   const launchUrl = selectedIds.length === 1
     ? `/campaigns/new/lead/${selectedIds[0]}`
     : profileId
-      ? `/campaigns/new/${profileId}?leads=${selectedIds.join(",")}`
+      ? `/campaigns/new/${profileId}?${leadSelectionQuery(selectedIds)}`
       : `/campaigns/new/lead/${selectedIds[0]}`;
 
   const hasLinkedin = leads.filter(l => l.primary_linkedin_url).length;

@@ -12,6 +12,7 @@ import {
   Square, CheckSquare, Plus, X,
 } from "lucide-react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
+import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 
 type Tr = (key: string) => string;
 
@@ -755,7 +756,8 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
     // Reuse the wizard the New Flow tab already routes into. It picks up
     // `?leads=` and pre-selects them inside the profile picker. profileId
     // is the ICP that owns this ticket so the wizard skips the ICP-pick step.
-    router.push(`/campaigns/new/${profileId}?leads=${ids.join(",")}`);
+    stashLeadSelection(profileId, ids);
+    router.push(`/campaigns/new/${profileId}?${leadSelectionQuery(ids)}`);
   }
 
   // Updates tab removed 2026-05-28 per user request — the campaign-request
