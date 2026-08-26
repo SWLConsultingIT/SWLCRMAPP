@@ -270,7 +270,32 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 4. Create campaigns and messages for each lead
+  // Everything below is BATCHED. It used to be a `for (const leadId of leadIds)`
+  // loop doing three sequential writes per lead — insert campaign, insert its
+  // messages, update the lead. That is 3N round-trips: 900 for 300 leads, 3 498
+  // for the 1 166-lead PE-USA ICP, which at 15-25 ms each is 52-87 s against a
+  // 60 s function budget. It didn't fail cleanly either — it raced the clock, so
+  // a big approve would die PART WAY THROUGH, leaving live campaigns behind and
+  // the request still `pending_review` (Italy Growth Engine, 2026-06-10).
+  //
+  // Batched the same way /api/campaigns/[id]/add-leads was on 2026-08-10:
+  // campaigns in chunks of 100, messages in 500, lead updates grouped by owner.
+  // 1 166 leads goes from ~3 498 round-trips to ~38, i.e. under a second, and
+  // the route stops caring how many leads you throw at it.
+  //
+  // The per-lead loop was also recomputing invariants N times —
+  // autoNormalizePlaceholders + findTailoredSlots ran once per lead per step
+  // (1 166 × 8 × 2 regex passes). Those depend only on the request, so they're
+  // hoisted out and computed once.
+  const CAMPAIGN_CHUNK = 100;
+  const MESSAGE_CHUNK = 500;
+  const LEAD_UPDATE_CHUNK = 500;
+  function chunk<T>(arr: T[], n: number): T[][] {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+    return out;
+  }
+
   let campaignsCreated = 0;
   // Track every campaign id we create in this approve so we can run the
   // tailor pass at the end (feature 2026-06-02: AI fills {{tailored:hook}}
@@ -279,58 +304,20 @@ export async function POST(req: NextRequest) {
   // pass through regardless.
   const createdCampaignIds: string[] = [];
   const errors: string[] = [];
+  const now = new Date().toISOString();
 
-  for (const leadId of leadIds) {
-    // Per-lead seller: quota map takes precedence, then fallback single-seller.
-    const sellerId = leadSellerMap.get(leadId) ?? fallbackSellerId;
+  // ── Invariants (identical for every lead in this request) ────────────
+  // Primary channel = the lead's first contact. When there's a CR, the
+  // invite itself is the first touch (LinkedIn). Otherwise it's whatever
+  // the seller picked first.
+  const primaryChannel = sequence[0]?.channel ?? channels[0] ?? "linkedin";
 
-    // Primary channel = the lead's first contact. When there's a CR, the
-    // invite itself is the first touch (LinkedIn). Otherwise it's whatever
-    // the seller picked first.
-    const primaryChannel = sequence[0]?.channel ?? channels[0] ?? "linkedin";
-
-    // Create campaign
-    const { data: campaign, error: campErr } = await supabase
-      .from("campaigns")
-      .insert({
-        lead_id: leadId,
-        seller_id: sellerId,
-        name: request.name,
-        channel: primaryChannel,
-        status: "active",
-        current_step: 0,
-        // sequence_steps stores ONLY the numbered followups (no CR slot).
-        // The dispatcher looks up step config via sequence_steps[step_number - 1],
-        // so step 1 → followupSequence[0], step 2 → followupSequence[1], etc.
-        // step_number=0 (the CR) is handled specially in the dispatcher.
-        sequence_steps: followupSequence,
-        call_advance_mode: callAdvanceMode,
-        // Snapshot the flow's auto-reply templates onto the campaign so they can
-        // be resolved later by campaign_id (rock-solid) instead of the fragile
-        // campaign_requests name+bio match — which breaks for demo/managed
-        // tenants whose request is stamped with the SWL super-admin's bio, not
-        // the lead's (De Vera Grill incident 2026-06-22). The inbox auto-reply
-        // button + n8n handler read campaigns.metadata.autoReplies.
-        metadata: { autoReplies },
-        started_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
-
-    if (campErr || !campaign) {
-      errors.push(`Lead ${leadId}: ${campErr?.message ?? "failed to create campaign"}`);
-      continue;
-    }
-
-    // Create campaign_messages: connection request (if LinkedIn) + all steps
-    const messageInserts: any[] = [];
-
-    // Compute when the first LinkedIn step actually fires (cumulative days
-    // from campaign start). The connection request is scheduled to fire one
-    // day before that, giving the lead ~24h to accept before we try to DM.
-    // If LinkedIn is the first step (Day 0), invite fires Day 0 too.
-    let firstLinkedinCumDay: number | null = null;
+  // Compute when the first LinkedIn step actually fires (cumulative days
+  // from campaign start). The connection request is scheduled to fire one
+  // day before that, giving the lead ~24h to accept before we try to DM.
+  // If LinkedIn is the first step (Day 0), invite fires Day 0 too.
+  let firstLinkedinCumDay: number | null = null;
+  {
     let cumDays = 0;
     for (let i = 0; i < sequence.length; i++) {
       cumDays += i === 0 ? 0 : (sequence[i].daysAfter ?? 0);
@@ -339,126 +326,213 @@ export async function POST(req: NextRequest) {
         break;
       }
     }
-
-    // Add connection request as step 0 if LinkedIn is anywhere in the sequence.
-    // We seed it as `queued` so /api/cron/dispatch-queue picks it up on the next
-    // eligible tick, calls Unipile, and only flips it to 'sent' when LinkedIn
-    // confirms. Steps 1+ stay as 'draft' until the connection is accepted (the
-    // BESFOHaqTt2Ki0Vw "Registro de Nueva Conexion" workflow then queues them).
-    //
-    // eligible_at scheduling: when LinkedIn isn't the first step, we hold the
-    // invite until ~24h before the first LinkedIn DM. Sending it earlier than
-    // the email would surface in the timeline before the email and feel out
-    // of order; sending it AT the LinkedIn DM day is too late (lead needs time
-    // to accept). One day's lead time is the right tradeoff.
-    // autoNormalizePlaceholders rewrites foreign-syntax placeholders
-    // (`[First Name]`, `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`)
-    // to their canonical `{{first_name}}` form. Operators paste copy in
-    // from Mailchimp / Apollo / Outreach all the time; without this the
-    // dispatcher would refuse the row (and rightly so — 2026-05-31
-    // Craig Wilson incident shipped raw `[First Name]`). Doing it on
-    // save means the row that ends up in campaign_messages.content is
-    // always canonical, so the dispatcher never has to fix it.
-    const connectionRequestRaw = prompts.channelMessages?.connectionRequest ?? "";
-    const connectionRequest = autoNormalizePlaceholders(connectionRequestRaw).normalized;
-    // Seed the step-0 invite whenever the flow has a LinkedIn day-0 connect
-    // step (hasCR), EVEN IF the note is blank — a blank note ships as a
-    // note-less connection request (dispatcher sends message: undefined), which
-    // accepts at a higher rate and dodges LinkedIn's stricter invite-with-note
-    // limit. Previously a blank CR skipped this insert entirely, so the flow
-    // had no connect step and the first DM fired at a non-connection (failed).
-    if (hasCR && channels.includes("linkedin")) {
-      const inviteOffsetDays = Math.max(0, (firstLinkedinCumDay ?? 0) - 1);
-      const eligibleAt = inviteOffsetDays > 0
-        ? new Date(Date.now() + inviteOffsetDays * 86400000).toISOString()
-        : null;
-      // has_tailored_slots flags the row at INSERT time so the tailor
-      // pass can find it even after the slots have been substituted
-      // (without this, a re-run of /api/campaigns/tailor sees a body
-      // with no `{{tailored:*}}` left and skips the row, missing
-      // manual_edits in preview_outputs).
-      const crHasSlots = findTailoredSlots(connectionRequest).length > 0;
-      const crMeta: Record<string, unknown> = {};
-      if (eligibleAt) crMeta.eligible_at = eligibleAt;
-      if (crHasSlots) crMeta.has_tailored_slots = true;
-      messageInserts.push({
-        campaign_id: campaign.id,
-        lead_id: leadId,
-        step_number: 0,
-        channel: "linkedin",
-        content: connectionRequest,
-        status: "queued",
-        created_at: new Date().toISOString(),
-        metadata: Object.keys(crMeta).length > 0 ? crMeta : null,
-      });
-    }
-
-    // Add regular step messages (step 1, 2, 3...).
-    // Step 1 email/call fires immediately (independent of LinkedIn connection).
-    // Step 1 LinkedIn DM and all steps 2+ stay draft: they are queued by the
-    // dispatch cron after the previous step completes, or by the acceptance
-    // webhook (BESFOHaqTt2Ki0Vw) for LinkedIn DMs that need connection first.
-    messages.forEach((msg, i) => {
-      const stepNum = msg.step ?? i + 1;
-      const ch = msg.channel ?? sequence[i]?.channel ?? primaryChannel;
-      const isFirstNonLinkedin = stepNum === 1 && ch !== "linkedin";
-      const bodyNormalized = autoNormalizePlaceholders(msg.body ?? "").normalized;
-      const subjectNormalized = msg.subject
-        ? autoNormalizePlaceholders(msg.subject).normalized
-        : null;
-      // Stamp `has_tailored_slots` at INSERT so the tailor pass can
-      // identify rows that ORIGINALLY had slots, even after a previous
-      // tailor run substituted them and re-runs would otherwise see
-      // a slot-free body and skip.
-      const hasSlots = findTailoredSlots(bodyNormalized).length > 0
-        || (subjectNormalized ? findTailoredSlots(subjectNormalized).length > 0 : false);
-      const stepMeta: Record<string, unknown> = {};
-      if (subjectNormalized) stepMeta.subject = subjectNormalized;
-      if (hasSlots) stepMeta.has_tailored_slots = true;
-      messageInserts.push({
-        campaign_id: campaign.id,
-        lead_id: leadId,
-        step_number: stepNum,
-        channel: ch,
-        content: bodyNormalized,
-        status: isFirstNonLinkedin ? "queued" : "draft",
-        created_at: new Date().toISOString(),
-        ...(Object.keys(stepMeta).length > 0 ? { metadata: stepMeta } : {}),
-      });
-    });
-
-    if (messageInserts.length > 0) {
-      const { error: msgErr } = await supabase
-        .from("campaign_messages")
-        .insert(messageInserts);
-
-      if (msgErr) {
-        errors.push(`Lead ${leadId} messages: ${msgErr.message}`);
-      }
-    }
-
-    // Update lead's channel only — DO NOT mark as contacted yet. The cron
-    // dispatcher will flip the lead to 'contacted' once Unipile confirms the
-    // invite was actually sent. (Pre-fix bug: lead was marked contacted before
-    // any LinkedIn call, producing 8 ghost-contacted leads on Pathway.)
-    // Owner = the assigned seller (one person owns the lead: their LinkedIn
-    // sends AND they make the calls). Stamp BOTH columns with the same seller
-    // name — assigned_seller drives the lead-detail "owner" display, and
-    // linkedin_assigned_account is the explicit LinkedIn-account field. Label
-    // only for now (no queue/Aircall routing change).
-    const ownerSellerName = sellerId ? (sellerNameById.get(sellerId) ?? null) : null;
-    await supabase
-      .from("leads")
-      .update({
-        current_channel: primaryChannel,
-        ...(ownerSellerName ? { assigned_seller: ownerSellerName, linkedin_assigned_account: ownerSellerName } : {}),
-      })
-      .eq("id", leadId);
-
-    campaignsCreated++;
-    createdCampaignIds.push(campaign.id);
   }
 
+  // Template rows for campaign_messages — one entry per step, WITHOUT
+  // campaign_id/lead_id. Cross-multiplied with the created campaigns below.
+  type MsgTemplate = {
+    step_number: number;
+    channel: string;
+    content: string;
+    status: string;
+    metadata: Record<string, unknown> | null;
+  };
+  const messageTemplates: MsgTemplate[] = [];
+
+  // Add connection request as step 0 if LinkedIn is anywhere in the sequence.
+  // We seed it as `queued` so /api/cron/dispatch-queue picks it up on the next
+  // eligible tick, calls Unipile, and only flips it to 'sent' when LinkedIn
+  // confirms. Steps 1+ stay as 'draft' until the connection is accepted (the
+  // BESFOHaqTt2Ki0Vw "Registro de Nueva Conexion" workflow then queues them).
+  //
+  // eligible_at scheduling: when LinkedIn isn't the first step, we hold the
+  // invite until ~24h before the first LinkedIn DM. Sending it earlier than
+  // the email would surface in the timeline before the email and feel out
+  // of order; sending it AT the LinkedIn DM day is too late (lead needs time
+  // to accept). One day's lead time is the right tradeoff.
+  // autoNormalizePlaceholders rewrites foreign-syntax placeholders
+  // (`[First Name]`, `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`)
+  // to their canonical `{{first_name}}` form. Operators paste copy in
+  // from Mailchimp / Apollo / Outreach all the time; without this the
+  // dispatcher would refuse the row (and rightly so — 2026-05-31
+  // Craig Wilson incident shipped raw `[First Name]`). Doing it on
+  // save means the row that ends up in campaign_messages.content is
+  // always canonical, so the dispatcher never has to fix it.
+  const connectionRequestRaw = prompts.channelMessages?.connectionRequest ?? "";
+  const connectionRequest = autoNormalizePlaceholders(connectionRequestRaw).normalized;
+  // Seed the step-0 invite whenever the flow has a LinkedIn day-0 connect
+  // step (hasCR), EVEN IF the note is blank — a blank note ships as a
+  // note-less connection request (dispatcher sends message: undefined), which
+  // accepts at a higher rate and dodges LinkedIn's stricter invite-with-note
+  // limit. Previously a blank CR skipped this insert entirely, so the flow
+  // had no connect step and the first DM fired at a non-connection (failed).
+  if (hasCR && channels.includes("linkedin")) {
+    const inviteOffsetDays = Math.max(0, (firstLinkedinCumDay ?? 0) - 1);
+    const eligibleAt = inviteOffsetDays > 0
+      ? new Date(Date.now() + inviteOffsetDays * 86400000).toISOString()
+      : null;
+    // has_tailored_slots flags the row at INSERT time so the tailor
+    // pass can find it even after the slots have been substituted
+    // (without this, a re-run of /api/campaigns/tailor sees a body
+    // with no `{{tailored:*}}` left and skips the row, missing
+    // manual_edits in preview_outputs).
+    const crHasSlots = findTailoredSlots(connectionRequest).length > 0;
+    const crMeta: Record<string, unknown> = {};
+    if (eligibleAt) crMeta.eligible_at = eligibleAt;
+    if (crHasSlots) crMeta.has_tailored_slots = true;
+    messageTemplates.push({
+      step_number: 0,
+      channel: "linkedin",
+      content: connectionRequest,
+      status: "queued",
+      metadata: Object.keys(crMeta).length > 0 ? crMeta : null,
+    });
+  }
+
+  // Add regular step messages (step 1, 2, 3...).
+  // Step 1 email/call fires immediately (independent of LinkedIn connection).
+  // Step 1 LinkedIn DM and all steps 2+ stay draft: they are queued by the
+  // dispatch cron after the previous step completes, or by the acceptance
+  // webhook (BESFOHaqTt2Ki0Vw) for LinkedIn DMs that need connection first.
+  messages.forEach((msg, i) => {
+    const stepNum = msg.step ?? i + 1;
+    const ch = msg.channel ?? sequence[i]?.channel ?? primaryChannel;
+    const isFirstNonLinkedin = stepNum === 1 && ch !== "linkedin";
+    const bodyNormalized = autoNormalizePlaceholders(msg.body ?? "").normalized;
+    const subjectNormalized = msg.subject
+      ? autoNormalizePlaceholders(msg.subject).normalized
+      : null;
+    // Stamp `has_tailored_slots` at INSERT so the tailor pass can
+    // identify rows that ORIGINALLY had slots, even after a previous
+    // tailor run substituted them and re-runs would otherwise see
+    // a slot-free body and skip.
+    const hasSlots = findTailoredSlots(bodyNormalized).length > 0
+      || (subjectNormalized ? findTailoredSlots(subjectNormalized).length > 0 : false);
+    const stepMeta: Record<string, unknown> = {};
+    if (subjectNormalized) stepMeta.subject = subjectNormalized;
+    if (hasSlots) stepMeta.has_tailored_slots = true;
+    messageTemplates.push({
+      step_number: stepNum,
+      channel: ch,
+      content: bodyNormalized,
+      status: isFirstNonLinkedin ? "queued" : "draft",
+      metadata: Object.keys(stepMeta).length > 0 ? stepMeta : null,
+    });
+  });
+
+  // ── 4a. Insert campaigns in chunks, mapping each back to its lead ────
+  const campaignRows = leadIds.map(leadId => ({
+    lead_id: leadId,
+    seller_id: leadSellerMap.get(leadId) ?? fallbackSellerId,
+    name: request.name,
+    channel: primaryChannel,
+    status: "active",
+    current_step: 0,
+    // sequence_steps stores ONLY the numbered followups (no CR slot).
+    // The dispatcher looks up step config via sequence_steps[step_number - 1],
+    // so step 1 → followupSequence[0], step 2 → followupSequence[1], etc.
+    // step_number=0 (the CR) is handled specially in the dispatcher.
+    sequence_steps: followupSequence,
+    call_advance_mode: callAdvanceMode,
+    // Snapshot the flow's auto-reply templates onto the campaign so they can
+    // be resolved later by campaign_id (rock-solid) instead of the fragile
+    // campaign_requests name+bio match — which breaks for demo/managed
+    // tenants whose request is stamped with the SWL super-admin's bio, not
+    // the lead's (De Vera Grill incident 2026-06-22). The inbox auto-reply
+    // button + n8n handler read campaigns.metadata.autoReplies.
+    metadata: { autoReplies },
+    started_at: now,
+    created_at: now,
+  }));
+
+  // leadId → campaign id, for building the message rows below.
+  const campaignIdByLead = new Map<string, string>();
+  for (const part of chunk(campaignRows, CAMPAIGN_CHUNK)) {
+    const { data, error } = await supabase
+      .from("campaigns")
+      .insert(part)
+      .select("id, lead_id");
+    if (error || !data) {
+      // Chunk failed as a unit — retry row by row so one bad lead can't cost
+      // the other 99. Same fallback shape as add-leads.
+      for (const row of part) {
+        const single = await supabase.from("campaigns").insert(row).select("id, lead_id").maybeSingle();
+        if (single.error || !single.data) {
+          errors.push(`Lead ${row.lead_id}: ${single.error?.message ?? "failed to create campaign"}`);
+          continue;
+        }
+        campaignIdByLead.set(single.data.lead_id as string, single.data.id as string);
+      }
+      continue;
+    }
+    for (const row of data as Array<{ id: string; lead_id: string }>) {
+      campaignIdByLead.set(row.lead_id, row.id);
+    }
+  }
+  campaignsCreated = campaignIdByLead.size;
+  createdCampaignIds.push(...campaignIdByLead.values());
+
+  // ── 4b. Insert every message row for every created campaign ─────────
+  const messageInserts: Array<Record<string, unknown>> = [];
+  for (const [leadId, campaignId] of campaignIdByLead) {
+    for (const t of messageTemplates) {
+      messageInserts.push({
+        campaign_id: campaignId,
+        lead_id: leadId,
+        step_number: t.step_number,
+        channel: t.channel,
+        content: t.content,
+        status: t.status,
+        created_at: now,
+        ...(t.metadata ? { metadata: t.metadata } : {}),
+      });
+    }
+  }
+  for (const part of chunk(messageInserts, MESSAGE_CHUNK)) {
+    const { error } = await supabase.from("campaign_messages").insert(part);
+    if (error) {
+      // Don't lose the whole chunk over one bad row — the campaigns already
+      // exist, so a dropped message batch means a flow with missing steps.
+      for (const row of part) {
+        const single = await supabase.from("campaign_messages").insert(row);
+        if (single.error) {
+          errors.push(`Lead ${row.lead_id} step ${row.step_number}: ${single.error.message}`);
+        }
+      }
+    }
+  }
+
+  // ── 4c. Stamp the owner on each lead, grouped instead of one-by-one ──
+  // Update lead's channel only — DO NOT mark as contacted yet. The cron
+  // dispatcher will flip the lead to 'contacted' once Unipile confirms the
+  // invite was actually sent. (Pre-fix bug: lead was marked contacted before
+  // any LinkedIn call, producing 8 ghost-contacted leads on Pathway.)
+  // Owner = the assigned seller (one person owns the lead: their LinkedIn
+  // sends AND they make the calls). Stamp BOTH columns with the same seller
+  // name — assigned_seller drives the lead-detail "owner" display, and
+  // linkedin_assigned_account is the explicit LinkedIn-account field. Label
+  // only for now (no queue/Aircall routing change).
+  //
+  // primaryChannel is the same for every lead, so the only thing that varies
+  // is the owner's name — group by it and issue one update per owner instead
+  // of one per lead.
+  const leadsByOwner = new Map<string | null, string[]>();
+  for (const leadId of campaignIdByLead.keys()) {
+    const sellerId = leadSellerMap.get(leadId) ?? fallbackSellerId;
+    const ownerSellerName = sellerId ? (sellerNameById.get(sellerId) ?? null) : null;
+    const list = leadsByOwner.get(ownerSellerName);
+    if (list) list.push(leadId); else leadsByOwner.set(ownerSellerName, [leadId]);
+  }
+  for (const [ownerSellerName, ids] of leadsByOwner) {
+    const patch = {
+      current_channel: primaryChannel,
+      ...(ownerSellerName ? { assigned_seller: ownerSellerName, linkedin_assigned_account: ownerSellerName } : {}),
+    };
+    for (const part of chunk(ids, LEAD_UPDATE_CHUNK)) {
+      const { error } = await supabase.from("leads").update(patch).in("id", part);
+      if (error) errors.push(`Lead owner stamp (${ownerSellerName ?? "unassigned"}): ${error.message}`);
+    }
+  }
   // 4b. Tailor pass — only for tailored-mode requests. Generic mode
   //     templates don't contain {{tailored:*}} slots so the tailor route
   //     would no-op, but we skip explicitly anyway to keep approve fast
