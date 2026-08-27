@@ -358,8 +358,8 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       {/* How the AI uses this — most people don't realize the bio powers every
           generated message, ICP score and reply suggestion. Make it explicit. */}
       <div className="flex items-center gap-2.5 rounded-xl border px-4 py-2.5"
-        style={{ borderColor: `color-mix(in srgb, ${C.aiAccent} 28%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${C.aiAccent} 6%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
-        <Sparkles size={14} style={{ color: C.aiAccent, flexShrink: 0 }} />
+        style={{ borderColor: `color-mix(in srgb, ${gold} 26%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
+        <Sparkles size={14} style={{ color: "var(--fg1)", flexShrink: 0 }} />
         <p className="text-[11.5px]" style={{ color: C.textBody }}>
           This profile is your AI's source of truth — it grounds every <strong>outreach message</strong> and <strong>reply suggestion</strong>. The more complete it is, the sharper the AI.
         </p>
@@ -535,34 +535,37 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
             <div className="grid grid-cols-4 gap-2.5">
               {bio.website && (
                 <a href={bio.website} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-3 py-3 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-90 hover:shadow-md"
-                  style={{ backgroundColor: C.accent }}>
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                    <Globe size={18} color="#fff" />
+                  className="flex items-center gap-3 px-3 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
+                  style={{ backgroundColor: C.cardHov, borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})` }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `color-mix(in srgb, ${gold} 13%, transparent)`, color: "var(--fg1)" }}>
+                    <Globe size={18} />
                   </div>
-                  <span className="text-sm font-semibold text-white truncate">
+                  <span className="text-sm font-semibold truncate" style={{ color: C.textBody }}>
                     {bio.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                   </span>
                 </a>
               )}
-              {activeSocials.map(({ key, label, icon: Icon, color }) => (
+              {activeSocials.map(({ key, label, icon: Icon }) => (
                 <a key={key} href={bio[key]} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-3 py-3 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-90 hover:shadow-md"
-                  style={{ backgroundColor: color }}>
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                    <div className="[&_svg]:fill-white [&_svg_path]:fill-white"><Icon size={18} /></div>
+                  className="flex items-center gap-3 px-3 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
+                  style={{ backgroundColor: C.cardHov, borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})` }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `color-mix(in srgb, ${gold} 13%, transparent)`, color: "var(--fg1)" }}>
+                    <div className="[&_svg]:fill-current [&_svg_path]:fill-current"><Icon size={18} /></div>
                   </div>
-                  <span className="text-sm font-semibold text-white">{label}</span>
+                  <span className="text-sm font-semibold" style={{ color: C.textBody }}>{label}</span>
                 </a>
               ))}
               {/* Empty slots */}
               {socialLinks.filter(s => !bio[s.key]).map(({ key, label, icon: Icon }) => (
                 <div key={key} className="flex items-center gap-3 px-3 py-3 rounded-lg border"
-                  style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 grayscale opacity-30" style={{ backgroundColor: "white" }}>
-                    <Icon size={18} />
+                  style={{ borderColor: C.border, backgroundColor: C.cardHov, opacity: 0.55 }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: C.card, color: C.textDim }}>
+                    <div className="[&_svg]:fill-current [&_svg_path]:fill-current"><Icon size={18} /></div>
                   </div>
-                  <span className="text-sm font-medium" style={{ color: "#D1D5DB" }}>{label}</span>
+                  <span className="text-sm font-medium" style={{ color: C.textDim }}>{label}</span>
                 </div>
               ))}
             </div>
