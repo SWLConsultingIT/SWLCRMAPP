@@ -1054,21 +1054,22 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                 ? "🤝 Aceptó la solicitud de conexión"
                                 : (r.replyText && r.replyText.trim() ? r.replyText : "(sin texto)")}
                             </p>
-                            {/* Meta row — channel + classification + seller, so
-                                it's obvious WHICH channel the reply came in on
-                                and WHO owns the lead (Fran 2026-08-15). */}
+                            {/* Meta row — the channel is already the left icon
+                                tile, so drop the redundant channel chip (boss
+                                2026-08-27 "muchos botones"): just the class tag
+                                + the owning seller as a mini-avatar, pinned right. */}
                             <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                              <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ color: chColor, backgroundColor: `color-mix(in srgb, ${chColor} 12%, transparent)` }}>
-                                <Icon size={9} /> {channelLabel(r.channel, t)}
-                              </span>
                               {badge && (
                                 <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: badge.color, backgroundColor: badge.bg }}>
                                   {badge.label}
                                 </span>
                               )}
                               {r.sellerName && (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ color: C.textMuted, backgroundColor: C.surface }}>
-                                  <User size={9} /> {r.sellerName}
+                                <span className="inline-flex items-center gap-1.5 text-[10px] ml-auto" style={{ color: C.textDim }}>
+                                  <span className="w-4 h-4 rounded-full inline-flex items-center justify-center text-[8px] font-bold" style={{ backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 20%, ${C.card})`, color: "var(--fg1)" }}>
+                                    {(r.sellerName[0] ?? "?").toUpperCase()}
+                                  </span>
+                                  {r.sellerName}
                                 </span>
                               )}
                             </div>
@@ -1230,23 +1231,27 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                   </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                {/* Compact icon actions instead of two labelled buttons
+                    (boss 2026-08-27 "muchos botones"). Tooltips carry meaning. */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => setMaximized(m => { const next = !m; if (next) setListCollapsed(true); return next; })}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85"
+                    className="w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-opacity hover:opacity-85"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
                     title={maximized ? "Restaurar tamaño" : "Expandir para leer mejor"}
+                    aria-label={maximized ? "Restaurar tamaño" : "Expandir"}
                   >
-                    {maximized ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
-                    {maximized ? "Restaurar" : "Expandir"}
+                    {maximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                   </button>
                   <Link
                     href={`/leads/${selected.leadId}`}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85"
+                    className="w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-opacity hover:opacity-85"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
+                    title="Open lead"
+                    aria-label="Open lead"
                   >
-                    Open lead <ExternalLink size={10} />
+                    <ExternalLink size={14} />
                   </Link>
                 </div>
               </div>
