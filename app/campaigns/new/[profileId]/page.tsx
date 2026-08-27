@@ -9,6 +9,7 @@ import {
   Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle, Lock,
   Sparkles,
 } from "lucide-react";
+import { unsupportedPlaceholdersIn } from "@/lib/placeholders";
 import type { SampleLead, PlaceholderCoverage } from "@/components/ChannelMessageConfig";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
@@ -2177,23 +2178,169 @@ export default function NewCampaignWizard() {
           with per-lead expansion. */}
       {wizardStep === 3 && (
         <div className="space-y-5">
-          <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-            <h2 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: C.textMuted }}>Flow Summary</h2>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
-                <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Profile</p>
-                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{profile?.profile_name}</p>
-              </div>
-              <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
-                <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Leads</p>
-                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{leadsCount} prospects</p>
-              </div>
-              <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
-                <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Duration</p>
-                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{sequence.length} steps · {totalDays} days</p>
-              </div>
-            </div>
-          </div>
+          {/* ── REVIEW ────────────────────────────────────────────────────
+              This step answers one question: if I approve this, what happens.
+              It used to show Profile / Leads / Duration — two of which the
+              author had just typed — and said nothing about volume, lead
+              time, or what approving even does. */}
+          {(() => {
+            const assigned = sellerQuotas.reduce((a, q) => a + q.quota, 0) || leadsCount;
+            const sends = assigned * sequence.length;
+            const assignedSellerObjs = sellerQuotas
+              .map(q => sellers.find(s => s.id === q.sellerId))
+              .filter((x): x is NonNullable<typeof x> => !!x);
+            const usedCh = [...new Set(sequence.map(s => s.channel))];
+            // Same pace math as the Sellers step: slowest capped channel wins.
+            const paceDays = usedCh.reduce((worst, ch) => {
+              if (ch !== "linkedin" && ch !== "email") return worst;
+              const perDay = assignedSellerObjs.reduce((a, sl) =>
+                a + (ch === "linkedin" ? (sl.linkedin_daily_limit ?? 15) : (sl.email_daily_limit ?? 0)), 0);
+              if (perDay <= 0) return worst;
+              return Math.max(worst, Math.ceil(assigned / perDay));
+            }, 0);
+            const lastTouch = stepCalendarDate(totalDays).label;
+
+            // ── Pre-flight. Distinguishes what BLOCKS from what will simply
+            // happen, because "112 leads have no email" is a consequence
+            // (that step is skipped for them), not an error.
+            const allBodies = [
+              channelMessages.connectionRequest ?? "",
+              ...(channelMessages.steps ?? []).map(st => st?.body ?? ""),
+              ...(channelMessages.steps ?? []).map(st => st?.subject ?? ""),
+            ].filter(Boolean);
+            const badTokens = unsupportedPlaceholdersIn(allBodies.join("\n"));
+            const hasCRStep = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
+            const emptySteps = sequence.filter((st, i) => {
+              if (hasCRStep && i === 0) return !(channelMessages.connectionRequest ?? "").trim();
+              return !((channelMessages.steps ?? [])[i]?.body ?? "").trim();
+            }).length;
+            const sellersMissingLi = usedCh.includes("linkedin")
+              ? assignedSellerObjs.filter(sl => !sl.unipile_account_id)
+              : [];
+            const reachGaps = usedCh
+              .filter(ch => ch === "linkedin" || ch === "email" || ch === "call")
+              .map(ch => ({ ch, missing: coverage.missing[ch as "linkedin" | "email" | "call"]?.length ?? 0 }))
+              .filter(g => g.missing > 0);
+
+            type Gate = { ok: boolean; blocking: boolean; title: string; detail: string; goto?: number };
+            const gates: Gate[] = [
+              {
+                ok: emptySteps === 0,
+                blocking: true,
+                title: emptySteps === 0 ? "Every step has copy" : `${emptySteps} step${emptySteps === 1 ? "" : "s"} still empty`,
+                detail: emptySteps === 0
+                  ? `${sequence.length} message${sequence.length === 1 ? "" : "s"} written`
+                  : "A step with no body can't be sent.",
+                goto: 2,
+              },
+              {
+                ok: badTokens.length === 0,
+                blocking: true,
+                title: badTokens.length === 0 ? "No unresolved variables" : `${badTokens.join(", ")} won't render`,
+                detail: badTokens.length === 0
+                  ? "Every placeholder is one the dispatcher fills."
+                  : "The dispatcher refuses the row rather than sending a raw token.",
+                goto: 2,
+              },
+              {
+                ok: sellersMissingLi.length === 0,
+                blocking: true,
+                title: sellersMissingLi.length === 0 ? "Sending accounts connected" : `${sellersMissingLi.length} seller(s) without LinkedIn`,
+                detail: sellersMissingLi.length === 0
+                  ? "The channels in this flow can send."
+                  : sellersMissingLi.map(sl => sl.name).join(", "),
+                goto: 1,
+              },
+              ...reachGaps.map(g => ({
+                ok: false,
+                blocking: false,
+                title: `${g.missing} lead${g.missing === 1 ? "" : "s"} unreachable on ${g.ch}`,
+                detail: `Those steps are skipped for them. The rest of the sequence still runs.`,
+                goto: 0,
+              })),
+              ...(paceDays > 15 ? [{
+                ok: false,
+                blocking: false,
+                title: `${paceDays} business days of sending`,
+                detail: "The daily cap is LinkedIn's, not ours. Another seller shortens it.",
+                goto: 1,
+              }] : []),
+            ];
+            const blockers = gates.filter(g => !g.ok && g.blocking);
+            const notices = gates.filter(g => !g.ok && !g.blocking);
+
+            const cells = [
+              { n: String(assigned), l: "Leads", h: profile?.profile_name ?? "" },
+              { n: sends.toLocaleString("es-AR"), l: "Sends", h: `${assigned} × ${sequence.length} steps` },
+              { n: paceDays ? String(paceDays) : "—", l: "Business days", h: paceDays ? "at the current daily caps" : "no cap set" },
+              { n: String(sellerQuotas.length || "—"), l: "Sellers", h: assignedSellerObjs.map(sl => sl.name).join(" · ") },
+              { n: lastTouch, l: "Last touch", h: "if nobody replies first", gold: true },
+            ];
+
+            return (
+              <>
+                <div className="rounded-xl border overflow-hidden grid" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}`, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+                  {cells.map((c, i) => (
+                    <div key={c.l} className="px-4 py-3.5" style={{ borderRight: i === cells.length - 1 ? undefined : `1px solid ${C.border}` }}>
+                      <p className="text-[24px] font-extrabold tabular-nums leading-none tracking-[-0.025em]" style={{ color: c.gold ? gold : C.textPrimary }}>{c.n}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] mt-2" style={{ color: C.textDim }}>{c.l}</p>
+                      {c.h && <p className="text-[11px] mt-0.5 truncate" style={{ color: C.textMuted }} title={c.h}>{c.h}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                  <div className="flex items-baseline gap-2 mb-3 flex-wrap">
+                    <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Pre-flight</h2>
+                    <span className="text-[11px] ml-auto" style={{ color: blockers.length ? C.red : C.textDim }}>
+                      {blockers.length > 0
+                        ? `${blockers.length} blocking`
+                        : notices.length > 0
+                          ? `${notices.length} notice${notices.length === 1 ? "" : "s"}, none blocking`
+                          : "all clear"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {gates.map((g, i) => {
+                      const tone = g.ok ? "ok" : g.blocking ? "bad" : "warn";
+                      const bg = tone === "ok" ? "transparent" : tone === "bad" ? `color-mix(in srgb, ${C.red} 6%, transparent)` : "color-mix(in srgb, #D97706 8%, transparent)";
+                      const bd = tone === "ok" ? C.border : tone === "bad" ? `color-mix(in srgb, ${C.red} 35%, transparent)` : "color-mix(in srgb, #D97706 32%, transparent)";
+                      const ic = tone === "ok" ? C.green : tone === "bad" ? C.red : "#D97706";
+                      return (
+                        <div key={i} className="flex items-start gap-3 rounded-lg px-3.5 py-2.5" style={{ backgroundColor: bg, border: `1px solid ${bd}` }}>
+                          <span className="shrink-0 mt-0.5" style={{ color: ic }}>
+                            {g.ok ? <Check size={14} /> : <AlertTriangle size={14} />}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12.5px] font-bold" style={{ color: C.textPrimary }}>{g.title}</p>
+                            <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>{g.detail}</p>
+                          </div>
+                          {!g.ok && g.goto !== undefined && (
+                            <button type="button" onClick={() => setWizardStep(g.goto!)}
+                              className="shrink-0 text-[11.5px] font-bold underline" style={{ color: gold }}>
+                              Fix
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Nowhere in this wizard did it say the flow lands pending
+                    approval, or when the first message actually goes out. */}
+                <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                  <h2 className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>What happens when you submit</h2>
+                  <p className="text-[12.5px] leading-relaxed" style={{ color: C.textMuted }}>
+                    The flow is created <b style={{ color: C.textPrimary }}>pending approval</b>. On approval we create{" "}
+                    <b style={{ color: C.textPrimary }}>{assigned.toLocaleString("es-AR")}</b> campaigns and{" "}
+                    <b style={{ color: C.textPrimary }}>{sends.toLocaleString("es-AR")}</b> messages, and the first send goes out on the
+                    next dispatcher tick — within 5 minutes. Any reply from a lead stops that lead&apos;s sequence.
+                  </p>
+                </div>
+              </>
+            );
+          })()}
 
           {flowType === "tailored" && tenantBioId && tailoredLeadIds.length > 0 && (() => {
             // Build the steps array for the preview/batch endpoints. CR slot
