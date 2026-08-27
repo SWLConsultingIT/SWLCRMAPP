@@ -1668,13 +1668,33 @@ export default function NewCampaignWizard() {
                           {leadsCount > 0 ? `${leadsCount} leads to assign — the salesperson who owns each lead: their LinkedIn sends AND they make the calls` : "The salesperson who owns each lead — their LinkedIn sends and they make the calls. Split across people below."}
                         </p>
                       </div>
-                      {sellerQuotas.length < sellers.length && (
-                        <button onClick={addSellerQuota}
-                          className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1 shrink-0"
-                          style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                          <Plus size={11} /> Add seller
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Splitting by hand across 3+ sellers meant typing
+                            numbers that had to add up; with 2 it auto-filled
+                            and with 3 it didn't. One click instead. */}
+                        {sellerQuotas.length > 1 && leadsCount > 0 && (
+                          <button type="button"
+                            onClick={() => {
+                              const n = sellerQuotas.length;
+                              const per = Math.floor(leadsCount / n);
+                              setSellerQuotas(prev => prev.map((q, i) => ({
+                                ...q,
+                                quota: i === n - 1 ? leadsCount - per * (n - 1) : per,
+                              })));
+                            }}
+                            className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1"
+                            style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                            Split evenly
+                          </button>
+                        )}
+                        {sellerQuotas.length < sellers.length && (
+                          <button onClick={addSellerQuota}
+                            className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1"
+                            style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                            <Plus size={11} /> Add seller
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -1732,15 +1752,6 @@ export default function NewCampaignWizard() {
                               )}
                             </div>
 
-                            {/* Per-seller progress bar */}
-                            {leadsCount > 0 && (
-                              <div className="mt-2.5 ml-5">
-                                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: clr.text + "18" }}>
-                                  <div className="h-full rounded-full transition-all duration-200"
-                                    style={{ width: `${Math.min(100, pct)}%`, backgroundColor: clr.text }} />
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -1949,21 +1960,76 @@ export default function NewCampaignWizard() {
                     </div>
                   )}
 
-                  {selectedSellerObj && (
-                    <div className="mt-4 rounded-lg px-4 py-3 flex items-center gap-3" style={{ backgroundColor: C.bg }}>
-                      <span className="text-xs" style={{ color: C.textMuted }}>Daily limits for {selectedSellerObj.name}:</span>
-                      {usedChannels.includes("linkedin") && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${C.linkedin}12`, color: C.linkedin }}>
-                          LinkedIn: {selectedSellerObj.linkedin_daily_limit ?? 15}/day
-                        </span>
-                      )}
-                      {usedChannels.includes("email") && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${C.email}12`, color: C.email }}>
-                          Email: {selectedSellerObj.email_daily_limit ?? "∞"}/day
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {/* ── HOW LONG THIS WILL TAKE ─────────────────────────────
+                      The daily cap was two grey chips down here, and it is the
+                      number that decides everything: 983 leads at 50 invites a
+                      day is 20 business days before the last person is even
+                      contacted. Nobody reads that off a chip, so it's the
+                      biggest figure on the step and it moves when quotas or
+                      sellers change. The slowest channel sets the pace. */}
+                  {sellerQuotas.length > 0 && (() => {
+                    const assigned = sellerQuotas.reduce((a, q) => a + q.quota, 0);
+                    const assignedSellerObjs = sellerQuotas
+                      .map(q => sellers.find(s => s.id === q.sellerId))
+                      .filter((x): x is NonNullable<typeof x> => !!x);
+                    const rows = usedChannels
+                      .filter(ch => ch === "linkedin" || ch === "email")
+                      .map(ch => {
+                        const perDay = assignedSellerObjs.reduce((a, s) => {
+                          if (ch === "linkedin") return a + (s.linkedin_daily_limit ?? 15);
+                          // A null email cap means Instantly isn't throttled by
+                          // us; don't invent a number for it.
+                          return a + (s.email_daily_limit ?? 0);
+                        }, 0);
+                        const uncapped = ch === "email" && perDay === 0;
+                        return {
+                          ch,
+                          perDay,
+                          uncapped,
+                          days: uncapped || perDay === 0 ? null : Math.ceil(assigned / perDay),
+                          color: ch === "linkedin" ? C.linkedin : C.email,
+                          label: ch === "linkedin" ? "LinkedIn invites" : "Email",
+                        };
+                      });
+                    const worst = rows.reduce((a, r) => (r.days !== null && r.days > a ? r.days : a), 0);
+                    const maxDays = rows.reduce((a, r) => (r.days !== null && r.days > a ? r.days : a), 1);
+                    if (rows.length === 0) return null;
+                    return (
+                      <div className="mt-4 rounded-xl border px-4 py-3.5" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>
+                          How long this will take
+                        </p>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[34px] font-extrabold tabular-nums leading-none tracking-[-0.03em]"
+                            style={{ color: worst > 15 ? "#D97706" : C.textPrimary }}>
+                            {worst || "—"}
+                          </span>
+                          <span className="text-[13px] font-semibold" style={{ color: C.textMuted }}>business days</span>
+                        </div>
+                        <p className="text-[11.5px] mt-1.5" style={{ color: C.textDim }}>
+                          {assigned} leads · the slowest channel sets the pace
+                          {worst > 15 ? " · adding a seller shortens it" : ""}
+                        </p>
+                        <div className="mt-3 flex flex-col gap-2">
+                          {rows.map(r => (
+                            <div key={r.ch} className="flex items-center gap-2.5 text-[11.5px]">
+                              <span style={{ color: C.textMuted, minWidth: 92 }}>{r.label}</span>
+                              <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
+                                <span className="block h-full rounded-full"
+                                  style={{
+                                    width: `${r.days === null ? 100 : (r.days / maxDays) * 100}%`,
+                                    backgroundColor: r.days === null ? C.border2 : r.color,
+                                  }} />
+                              </span>
+                              <span className="tabular-nums font-semibold text-right" style={{ color: C.textMuted, minWidth: 104 }}>
+                                {r.days === null ? "no cap set" : `${r.days} d · ${r.perDay}/day`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
