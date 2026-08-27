@@ -1338,6 +1338,11 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
             ) : visible.map(lead => {
               const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.company || t("leadsPage.unknown");
               const badge = scoreBadge(lead.score, lead.is_priority);
+              // Score as a mini meter — real score when we have it, else a
+              // tier default so the bar still reads Hot/Warm/Nurture at a glance.
+              const scorePct = lead.score != null
+                ? Math.max(8, Math.min(100, lead.score))
+                : (badge.label === "HOT" ? 85 : badge.label === "WARM" ? 55 : 28);
               const hasReply = (lead.reply_count ?? 0) > 0;
               const replyColor = lead.has_positive ? C.green : lead.has_negative ? C.red : hasReply ? "#D97706" : C.textDim;
               const replyLabel = lead.has_positive ? t("leadsPage.table.replyPositive") : lead.has_negative ? t("leadsPage.table.replyNegative") : hasReply ? t("leadsPage.table.replyReplied") : "—";
@@ -1359,8 +1364,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                   </td>
                   <td className="px-4 py-2.5">
                     <Link href={`/leads/${lead.id}`} className="flex items-center gap-2 group/row">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{ background: `color-mix(in srgb, ${gold} 15%, var(--c-card))`, color: "var(--fg1)", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}>
                         {((lead.company ?? name)[0] ?? "?").toUpperCase()}
                       </div>
                       <span className="text-xs font-semibold group-hover/row:underline truncate" style={{ color: C.textPrimary }}>{name}</span>
@@ -1373,8 +1378,13 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                   <td className="px-4 py-2.5 hidden lg:table-cell">
                     <span className="text-xs truncate block max-w-[160px]" title={lead.role ?? undefined} style={{ color: C.textMuted }}>{lead.role ?? "—"}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-center">
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2 justify-center">
+                      <span className="h-[5px] w-10 rounded-full overflow-hidden shrink-0" style={{ backgroundColor: C.border }}>
+                        <span className="block h-full rounded-full" style={{ width: `${scorePct}%`, backgroundColor: badge.color }} />
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: badge.color }}>{badge.label}</span>
+                    </div>
                   </td>
                   {/* ICP and Campaign cells are clickable now (boss
                       feedback 2026-05-28 r10) — full name with a tooltip
