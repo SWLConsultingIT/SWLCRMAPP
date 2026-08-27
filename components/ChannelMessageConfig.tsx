@@ -753,6 +753,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   // runs so sellers don't think the page is frozen during the ~20-30s wait.
   const [genProgress, setGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Which single step is being edited. "cr" = the LinkedIn invitation (whose
+  // body lives in channelMessages.connectionRequest, not in steps[]), a number
+  // = that sequence index. Editing one at a time replaces the old single
+  // column that rendered every step expanded — invitation, each email with
+  // subject and body, each DM, then the auto-replies at the same visual
+  // weight — which made it impossible to see where you were.
+  const [activeSlot, setActiveSlot] = useState<"cr" | number>("cr");
 
   const toggleExpand = (key: string) => setExpanded(prev => {
     const next = new Set(prev);
@@ -791,6 +798,33 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
   });
   const autoReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
+
+  // What the index on the left lists. Display-only: the CR is its own entry
+  // because its body lives outside steps[], and the numbers are the sequence
+  // positions the rest of the wizard uses.
+  const slots: Array<{ key: "cr" | number; label: string; color: string; filled: boolean }> = [];
+  if (hasCR && sequence.some(s => s.channel === "linkedin")) {
+    slots.push({
+      key: "cr",
+      label: "00 Invitation",
+      color: channelMeta.linkedin.color,
+      filled: !!(channelMessages.connectionRequest ?? "").trim(),
+    });
+  }
+  classified.forEach((cls, i) => {
+    if (hasCR && i === 0) return;
+    const meta = channelMeta[cls.channel] || channelMeta.linkedin;
+    slots.push({
+      key: i,
+      label: `${String(hasCR ? i : i + 1).padStart(2, "0")} ${meta.label}`,
+      color: meta.color,
+      filled: !!(channelMessages.steps?.[i]?.body ?? "").trim(),
+    });
+  });
+  // Keep the selection valid when the sequence changes under us (a step
+  // removed on the previous wizard step, a preset applied).
+  const activeIsValid = slots.some(sl => String(sl.key) === String(activeSlot));
+  const effectiveSlot: "cr" | number = activeIsValid ? activeSlot : (slots[0]?.key ?? "cr");
 
   // ── Rendered length ────────────────────────────────────────────────────
   // The 200-char LinkedIn cap applies to the text that SHIPS, not to the
@@ -1045,50 +1079,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
   return (
     <div className="space-y-4">
-      {/* ═══ AI ASSISTANT — preview generation using your prompts ═══ */}
-      <div
-        className="rounded-2xl border px-5 py-4 relative overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 5%, var(--c-card)) 0%, var(--c-card) 100%)`,
-          borderColor: `color-mix(in srgb, ${gold} 22%, transparent)`,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
-        }}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-              style={{
-                background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 14%, transparent), color-mix(in srgb, ${gold} 4%, transparent))`,
-                border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
-                boxShadow: `0 0 14px color-mix(in srgb, ${gold} 16%, transparent)`,
-              }}
-            >
-              <Sparkles size={16} style={{ color: gold }} />
-            </div>
-            <div>
-              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("wiz.gen.title")}</p>
-              <p className="text-[11px]" style={{ color: C.textMuted }}>
-                {t("wiz.gen.subtitle")}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={generateAll}
-            disabled={!!aiLoading}
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 shrink-0 disabled:opacity-50 hover:opacity-95"
-            style={{
-              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
-              color: "#04070d",
-              boxShadow: `0 2px 12px color-mix(in srgb, ${gold} 28%, transparent)`,
-            }}
-          >
-            {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            {aiLoading === "all"
-              ? (genProgress ? `Step ${genProgress.current} of ${genProgress.total}` : t("wiz.gen.previewing"))
-              : t("wiz.gen.previewAll")}
-          </button>
-        </div>
+      {/* The "AI Message Generator" header card that used to sit here is gone.
+          It was the third place on this screen explaining the same thing — the
+          card, the "Variables: …" line, and the placeholder panel — and its
+          "Preview all" button now lives in the step index below, next to the
+          steps it acts on. What's kept is the error banner and the progress
+          bar, which report on a run in flight. */}
+      <div className="space-y-2">
         {/* Error banner — without this, when the AI endpoint 500s the
             button just stops spinning and the seller has no idea what
             happened. Dismissable on next attempt (setAiError(null) at
@@ -1123,48 +1120,68 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         )}
       </div>
 
-      {/* ═══ PLACEHOLDERS REFERENCE + VALIDATION ═══
-          Single source of truth for which `{{…}}` tokens render correctly.
-          Click to copy. Renders an inline warning under any step body that
-          contains an unsupported token so the author fixes it before the
-          dispatcher silently fails the message (PE Spain incident
-          2026-05-27). */}
-      <PlaceholdersHint
-        flowType={flowType}
-        coverage={placeholderCoverage}
-        bodies={[
-          channelMessages.connectionRequest ?? "",
-          ...(channelMessages.steps ?? []).map(s => s?.body ?? ""),
-          ...(channelMessages.steps ?? []).map(s => s?.subject ?? ""),
-        ].filter(Boolean)}
-        onAutoFix={(rewriter) => {
-          // Apply the rewriter to every slot that holds free-text copy:
-          // the connection request, plus every step's body + subject.
-          // Steps stay 1:1 with sequence indices (wizard storage invariant
-          // memory, LAW) — we map in place, never reorder.
-          const nextSteps = (channelMessages.steps ?? []).map((s): StepMessage => ({
-            ...s,
-            body: rewriter(s?.body ?? ""),
-            subject: s?.subject ? rewriter(s.subject) : s?.subject,
-          }));
-          const nextReplies = channelMessages.autoReplies
-            ? {
-                ...channelMessages.autoReplies,
-                positive: channelMessages.autoReplies.positive ? rewriter(channelMessages.autoReplies.positive) : channelMessages.autoReplies.positive,
-                negative: channelMessages.autoReplies.negative ? rewriter(channelMessages.autoReplies.negative) : channelMessages.autoReplies.negative,
-              }
-            : channelMessages.autoReplies;
-          onChange({
-            ...channelMessages,
-            connectionRequest: rewriter(channelMessages.connectionRequest ?? ""),
-            steps: nextSteps,
-            autoReplies: nextReplies,
-          });
-        }}
-      />
+      {/* ═══ STEP INDEX + ONE EDITOR ═══ */}
+      <div
+        className="rounded-2xl border overflow-hidden grid"
+        style={{ borderColor: C.border, backgroundColor: C.card, gridTemplateColumns: "204px minmax(0, 1fr)" }}
+      >
+        <div style={{ borderRight: `1px solid ${C.border}` }}>
+          <p className="px-3.5 pt-3.5 pb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>
+            Steps
+          </p>
+          <nav className="px-2 pb-2 flex flex-col gap-1">
+            {slots.map(sl => {
+              const on = String(effectiveSlot) === String(sl.key);
+              return (
+                <button
+                  key={String(sl.key)}
+                  type="button"
+                  onClick={() => setActiveSlot(sl.key)}
+                  aria-pressed={on}
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12.5px] font-semibold text-left w-full transition-colors"
+                  style={on
+                    ? { backgroundColor: C.bg, color: C.textPrimary, boxShadow: `inset 2px 0 0 ${gold}` }
+                    : { color: C.textMuted }}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sl.color }} />
+                  <span className="truncate">{sl.label}</span>
+                  <span
+                    className="ml-auto text-[10px] font-bold shrink-0"
+                    style={{ color: sl.filled ? C.green : "#D97706" }}
+                  >
+                    {sl.filled ? "ready" : "empty"}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+          <div style={{ borderTop: `1px solid ${C.border}` }} className="px-3 py-3">
+            <button
+              onClick={generateAll}
+              disabled={!!aiLoading}
+              className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[11.5px] font-bold transition-opacity disabled:opacity-50 hover:opacity-90"
+              style={{
+                backgroundColor: C.goldSoft,
+                color: C.gold,
+                border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
+              }}
+            >
+              {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              {aiLoading === "all"
+                ? (genProgress ? `Step ${genProgress.current} of ${genProgress.total}` : t("wiz.gen.previewing"))
+                : "Draft all with AI"}
+            </button>
+            <p className="text-[10.5px] mt-2" style={{ color: C.textDim }}>
+              You can edit any of them afterwards.
+            </p>
+          </div>
+        </div>
 
-      {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}
-      {sequence.some(s => s.channel === "linkedin") && (
+        {/* The one step being edited. */}
+        <div className="p-4 min-w-0">
+
+      {/* ═══ LINKEDIN CONNECTION REQUEST — shown when it's the active slot ═══ */}
+      {effectiveSlot === "cr" && sequence.some(s => s.channel === "linkedin") && (
         <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.linkedin}` }}>
           {/* Single-row header — title + Day + AI button. Description moved into
               textarea placeholder/title attr to claw back ~32px of vertical space. */}
@@ -1239,15 +1256,17 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         </div>
       )}
 
-      {/* ═══ OUTREACH SEQUENCE (in order) ═══ */}
-      <div className="relative">
-        {/* Vertical line */}
-        <div className="absolute left-5 top-8 bottom-8 w-0.5" style={{ backgroundColor: C.border }} />
-
+      {/* ═══ THE ACTIVE STEP ═══
+          One at a time. The spine and the numbered list that used to run down
+          this column are gone — the index on the left carries the ordering
+          now, and it also shows which steps still have no copy, which the
+          endless column never did. */}
+      <div>
         {classified.map((cls, i) => {
-          // Skip the CR slot (sequence[0] when hasCR) — it's rendered as the
-          // dedicated Connection Request card above, not as a numbered step.
+          // Skip the CR slot (sequence[0] when hasCR) — its body lives in
+          // channelMessages.connectionRequest and it renders above.
           if (hasCR && i === 0) return null;
+          if (effectiveSlot !== i) return null;
           const meta = channelMeta[cls.channel] || channelMeta.linkedin;
           const Icon = meta.icon;
           const step = steps[i];
@@ -1474,6 +1493,48 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           );
         })}
       </div>
+        </div>
+      </div>
+
+      {/* ═══ PLACEHOLDERS REFERENCE + VALIDATION ═══
+          Single source of truth for which `{{…}}` tokens render correctly.
+          Click to copy. Renders an inline warning under any step body that
+          contains an unsupported token so the author fixes it before the
+          dispatcher silently fails the message (PE Spain incident
+          2026-05-27). */}
+      <PlaceholdersHint
+        flowType={flowType}
+        coverage={placeholderCoverage}
+        bodies={[
+          channelMessages.connectionRequest ?? "",
+          ...(channelMessages.steps ?? []).map(s => s?.body ?? ""),
+          ...(channelMessages.steps ?? []).map(s => s?.subject ?? ""),
+        ].filter(Boolean)}
+        onAutoFix={(rewriter) => {
+          // Apply the rewriter to every slot that holds free-text copy:
+          // the connection request, plus every step's body + subject.
+          // Steps stay 1:1 with sequence indices (wizard storage invariant
+          // memory, LAW) — we map in place, never reorder.
+          const nextSteps = (channelMessages.steps ?? []).map((s): StepMessage => ({
+            ...s,
+            body: rewriter(s?.body ?? ""),
+            subject: s?.subject ? rewriter(s.subject) : s?.subject,
+          }));
+          const nextReplies = channelMessages.autoReplies
+            ? {
+                ...channelMessages.autoReplies,
+                positive: channelMessages.autoReplies.positive ? rewriter(channelMessages.autoReplies.positive) : channelMessages.autoReplies.positive,
+                negative: channelMessages.autoReplies.negative ? rewriter(channelMessages.autoReplies.negative) : channelMessages.autoReplies.negative,
+              }
+            : channelMessages.autoReplies;
+          onChange({
+            ...channelMessages,
+            connectionRequest: rewriter(channelMessages.connectionRequest ?? ""),
+            steps: nextSteps,
+            autoReplies: nextReplies,
+          });
+        }}
+      />
 
       {/* ═══ AUTO-REPLIES (reactive, separate) ═══
           Only the LinkedIn Response Handler (h2uBZscVnZy0utLD) reads the
