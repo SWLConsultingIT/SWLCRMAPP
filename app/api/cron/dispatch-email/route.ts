@@ -366,11 +366,18 @@ async function dispatchOneEmail(
   // accepts everything in SMTP handshake but the inner mailbox usually
   // bounces silently — burning these against the inbox warmup is what put
   // Arqy's campaign into Instantly status -2 on 2026-05-26.
-  const emailStatus = (lead as any).primary_email_status as string | null;
-  if (emailStatus === "invalid" || emailStatus === "catch_all") {
-    // Advance the sequence — bad email ≠ bad lead; the next step (LinkedIn,
-    // call) can still reach them. 7 PE USA leads froze here for 3 weeks
-    // because skipMessage alone didn't queue step 2 (2026-06-18).
+  // Normalize — the column carries inconsistent casing/spelling across
+  // sources ("catch_all" vs "catch-all", "Verified" vs "verified").
+  const emailStatus = ((lead as any).primary_email_status as string | null)?.toLowerCase().trim() || null;
+  // Known-bad statuses we must NEVER email. `bounced` was missing here
+  // (2026-08-27): a lead that already hard-bounced would get re-emailed,
+  // feeding the exact bounce rate that auto-pauses the flow in Instantly.
+  // Added it plus the catch-all/accept-all/risky families and spelling
+  // variants. Bad email ≠ bad lead — advance the sequence so LinkedIn / call
+  // steps still reach them (7 PE USA leads froze here for 3 weeks because
+  // skipMessage alone didn't queue step 2, 2026-06-18).
+  const BAD_EMAIL_STATUSES = new Set(["invalid", "bounced", "catch_all", "catch-all", "accept_all", "risky"]);
+  if (emailStatus && BAD_EMAIL_STATUSES.has(emailStatus)) {
     return await skipAndAdvance(svc, candidate.id, candidate.lead_id, `email status: ${emailStatus}`, candidate, seqStepsEarly);
   }
 
