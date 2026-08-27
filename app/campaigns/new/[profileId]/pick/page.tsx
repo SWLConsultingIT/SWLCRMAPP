@@ -34,13 +34,35 @@ async function loadPickerData(profileId: string) {
   // default 1000-row cap once all tenants' active campaigns exceed it, silently
   // truncating the enrolled set and letting already-enrolled leads reappear as
   // "eligible".
-  const { data: rawLeads } = await supabase
-    .from("leads")
-    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, status")
-    .eq("icp_profile_id", profileId)
-    .order("created_at", { ascending: false })
-    .limit(500);
-  const allLeadIds = (rawLeads ?? []).map(r => r.id).filter(Boolean) as string[];
+  //
+  // Two fixes to this read, 2026-08-27:
+  //
+  // • It selected neither company_industry nor company_country, yet the client
+  //   maps both into the picker row and builds the Industry and Country
+  //   dropdowns from them — so on any tenant whose leads aren't encrypted both
+  //   filters were permanently empty.
+  //
+  // • `.limit(500)` capped the picker below the size of real ICPs. SWL's
+  //   "Private Equity & VC Firms — USA" holds 1 166, so a third of it was
+  //   simply not offered and "select all" quietly meant "select the newest
+  //   500". Now paged, in 1000-row pages because PostgREST truncates a bigger
+  //   response in silence, with the existing created_at order as the page key.
+  const LEAD_PAGE = 1000;
+  const LEAD_MAX = 5000;
+  const rawLeads: Array<Record<string, unknown> & { id: string }> = [];
+  for (let from = 0; from < LEAD_MAX; from += LEAD_PAGE) {
+    const { data: page } = await supabase
+      .from("leads")
+      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, company_industry, company_country, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, status")
+      .eq("icp_profile_id", profileId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + LEAD_PAGE - 1);
+    const got = (page ?? []) as Array<Record<string, unknown> & { id: string }>;
+    rawLeads.push(...got);
+    if (got.length < LEAD_PAGE) break;
+  }
+  const allLeadIds = rawLeads.map(r => r.id).filter(Boolean) as string[];
 
   // Two separate queries to avoid the 1000-row Supabase cap.
   // Combining active+closed in one query inflates the result set and can
@@ -91,7 +113,28 @@ async function loadPickerData(profileId: string) {
     if (!h.stop_reason) return "renurture";
     return "lost";
   }
-  const hydrated = (await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[])) as Array<Record<string, unknown> & { id: string }>;
+  const hydrated = (await hydrateClientLeads(rawLeads as Record<string, unknown>[])) as Array<Record<string, unknown> & { id: string }>;
+
+  // Reachability = the channel data EXISTS and sending on it is allowed.
+  // The picker only ever showed the allow_* permission flags, so a lead with
+  // permission but no LinkedIn URL looked identical to one we can actually
+  // invite — and the dispatcher skipped it at send time instead.
+  //
+  // Client-source leads keep their PII in encrypted_payload; hydrateClientLeads
+  // has already merged it, but a payload that never carried a channel leaves
+  // the column empty, and the wizard's long-standing rule (De Vera 2026-05-22)
+  // is to trust an encrypted lead rather than show a false "0 reachable".
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+  function reach(l: Record<string, unknown>) {
+    const encrypted = l.source === "client";
+    const li = str(l.primary_linkedin_url);
+    return {
+      has_linkedin: (encrypted && !li ? true : !!li && /linkedin\.com\/in\//i.test(li)) && l.allow_linkedin !== false,
+      has_email: (encrypted || !!str(l.primary_work_email) || !!str(l.primary_personal_email)) && l.allow_email !== false,
+      // Mirrors the dialer: primary_phone ?? primary_secondary_phone.
+      has_phone: (encrypted || !!str(l.primary_phone) || !!str(l.primary_secondary_phone)) && l.allow_call !== false,
+    };
+  }
   const eligible: PickableLead[] = hydrated
     .filter(l => !inFlight.has(l.id))
     .map(l => ({
@@ -106,6 +149,7 @@ async function loadPickerData(profileId: string) {
       allow_linkedin: Boolean(l.allow_linkedin),
       allow_email: Boolean(l.allow_email),
       allow_call: Boolean(l.allow_call),
+      ...reach(l),
       history: classifyHistory(l.id, (l.status as string | null) ?? null),
     }));
 
