@@ -15,6 +15,12 @@ export type PlaceholderGroup = {
   description: string;
   /** Aliases — first entry is the canonical form we recommend. */
   tokens: string[];
+  /** The `leads` column that backs this group, when there is exactly one.
+   *  The wizard reads it to show how many leads in the selection actually
+   *  have the field loaded — a placeholder is only safe if the data is
+   *  there. Omitted for derived groups (full name) and for the seller and
+   *  AI slots, which don't come from a lead column. */
+  coverageColumn?: string;
 };
 
 export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
@@ -22,6 +28,7 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
     label: "First name",
     description: "Lead's first name (falls back to \"there\" if missing).",
     tokens: ["{{first_name}}", "{{firstName}}", "{{name}}"],
+    coverageColumn: "primary_first_name",
   },
   {
     label: "Last name",
@@ -37,11 +44,13 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
     label: "Company",
     description: "Lead's company name. PE templates may use `fund_name`/`firm_name` as aliases.",
     tokens: ["{{company_name}}", "{{companyName}}", "{{company}}", "{{fund_name}}", "{{firm_name}}"],
+    coverageColumn: "company_name",
   },
   {
     label: "Role / Title",
     description: "Lead's job title.",
     tokens: ["{{role}}", "{{title}}", "{{position}}"],
+    coverageColumn: "primary_title_role",
   },
   {
     label: "Seller name",
@@ -60,21 +69,25 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
     label: "City",
     description: "Company city. Filled on 91% of leads.",
     tokens: ["{{company_city}}", "{{city}}"],
+    coverageColumn: "company_city",
   },
   {
     label: "Industry",
     description: "Company industry. Filled on 86% of leads.",
     tokens: ["{{company_industry}}", "{{industry}}"],
+    coverageColumn: "company_industry",
   },
   {
     label: "Country",
     description: "Company country. Filled on 82% of leads.",
     tokens: ["{{company_country}}", "{{country}}"],
+    coverageColumn: "company_country",
   },
   {
     label: "Website",
     description: "Company website. Filled on 94% of leads.",
     tokens: ["{{company_website}}", "{{website}}"],
+    coverageColumn: "company_website",
   },
   // ── AI-filled slots ──────────────────────────────────────────────────
   // 2026-06-02 feature ("tailored messages per lead"). The wizard
@@ -329,6 +342,27 @@ export function substituteTailoredSlots(template: string, slots: TailoredSlots):
     .replaceAll("{{tailoredHook}}", hook)
     .replaceAll("{{tailored:fit}}", fit)
     .replaceAll("{{tailoredFit}}", fit);
+}
+
+/**
+ * Resolve a SINGLE token exactly the way renderPlaceholders would.
+ *
+ * Returns `undefined` when the token is one we don't render (the caller can
+ * flag it as a leak), and `""` when the token is supported but this lead has
+ * no value for it (the caller can flag the hole it will leave).
+ *
+ * It delegates to renderPlaceholders rather than carrying its own table, so
+ * the wizard's preview highlighting cannot drift from what actually ships —
+ * the drift between two private personalize() implementations is exactly what
+ * sent a US PE follow-up out with a literal {{fund_name}} in May 2026.
+ */
+export function placeholderValue(
+  token: string,
+  lead: PlaceholderLead,
+  seller: PlaceholderSeller,
+): string | undefined {
+  const rendered = renderPlaceholders(token, lead, seller, { strict: false });
+  return rendered === token ? undefined : rendered;
 }
 
 /** Any `{{…}}` left in the rendered string. Dispatchers must fail-the-row
