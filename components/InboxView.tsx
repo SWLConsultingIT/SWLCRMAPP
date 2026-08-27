@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -279,6 +279,13 @@ function SellerChip({ label, count, active, onClick, highlight }: {
   );
 }
 
+// Pure row predicates. Module-level so their identity is stable and they can
+// be declared as effect dependencies without re-running on every render.
+const EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
+const isEvent = (r: InboxReply) => EVENT_CLASS.has(r.classification ?? "");
+const isPending = (r: InboxReply) =>
+  !isEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending");
+
 export default function InboxView({ replies: rawReplies, mySellerNames = [], canViewAllSellers = false }: { replies: InboxReply[]; mySellerNames?: string[]; canViewAllSellers?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -291,10 +298,6 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   // keep the lead's PENDING reply if any (so triage work is never hidden),
   // else the most recent. Opening the row still shows every message — the
   // thread is fetched by leadId.
-  const EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
-  const isEvent = (r: InboxReply) => EVENT_CLASS.has(r.classification ?? "");
-  const isPending = (r: InboxReply) =>
-    !isEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending");
   const replies = useMemo(() => {
     const byLead = new Map<string, InboxReply>();
     for (const r of rawReplies) {
@@ -305,7 +308,6 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
       if ((r.receivedAt ?? "") > (prev.receivedAt ?? "")) byLead.set(r.leadId, r);
     }
     return [...byLead.values()].sort((a, b) => (b.receivedAt ?? "").localeCompare(a.receivedAt ?? ""));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawReplies]);
   // Boss 2026-05-29: dashboard Channels cards link here with `?channel=<x>`
   // so the inbox lands pre-filtered to that channel. Also default to the
@@ -363,7 +365,19 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   // by the rollback in quickClassify. Never touches the `working` serializer —
   // the reply pipeline's safety net stays exactly as-is.
   const [clearedLeadIds, setClearedLeadIds] = useState<Set<string>>(new Set());
-  useEffect(() => { setClearedLeadIds(new Set()); }, [rawReplies]);
+  // Reconcile the optimistic hides against fresh server data. This used to
+  // clear the whole set, so when router.refresh() landed before the review
+  // write was visible the row you'd just triaged flashed back into the list.
+  // Now a hide is only dropped once the server agrees that lead has nothing
+  // pending — at which point the row is gone from the list anyway.
+  useEffect(() => {
+    setClearedLeadIds(prev => {
+      if (prev.size === 0) return prev;
+      const stillPending = new Set(rawReplies.filter(isPending).map(r => r.leadId));
+      const next = new Set([...prev].filter(id => stillPending.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rawReplies]);
   // Thread state — fetched on selection change. Lets the right pane show the
   // full back-and-forth (outbound + inbound) rather than a single isolated
   // reply line.
@@ -446,7 +460,6 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   const counts = useMemo(() => ({
     pending: baseFiltered.filter(r => isPending(r) && !clearedLeadIds.has(r.leadId)).length,
     history: baseFiltered.filter(r => !isEvent(r) && !isPending(r)).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [baseFiltered, clearedLeadIds]);
 
   // Distinct sellers present in this inbox (admins only need this for the
@@ -482,7 +495,6 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
       m.set(key, (m.get(key) ?? 0) + 1);
     }
     return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replies]);
 
   // The visible list = the shared base, split by the active tab. Pending also
@@ -490,7 +502,6 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   const filtered = useMemo(() => {
     if (tab === "pending") return baseFiltered.filter(r => isPending(r) && !clearedLeadIds.has(r.leadId));
     return baseFiltered.filter(r => !isEvent(r) && !isPending(r));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseFiltered, tab, clearedLeadIds]);
 
   // Ensure the currently-selected reply still belongs to the visible list; if
@@ -505,22 +516,37 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   const selected = filtered.find(r => r.id === selectedId) ?? null;
   const selectedIdx = selected ? filtered.findIndex(r => r.id === selectedId) : -1;
 
-  // Fetch the full thread when the selected reply changes. Cancellation token
-  // guards against out-of-order responses if the seller clicks quickly.
+  // Fetch the full thread for the selected lead.
+  //
+  // The result is matched against the CURRENT selection before it's applied,
+  // not against a cancellation flag owned by the caller. The flag alone wasn't
+  // enough: reloadThread() is also called after a classify and after a send,
+  // and those callers discard the cleanup it returns — so that fetch was never
+  // cancelled. Classifying hid the row, the selection moved on to the next
+  // lead, and whichever response landed last won. That is how a thread with
+  // Emanuel ended up rendered under Micaela's header (Fran 2026-08-27).
+  //
+  // Keying on the lead makes every path safe regardless of who called it.
   const selectedLeadId = selected?.leadId ?? null;
+  const selectedLeadIdRef = useRef<string | null>(selectedLeadId);
+  useEffect(() => { selectedLeadIdRef.current = selectedLeadId; }, [selectedLeadId]);
+
   const reloadThread = useCallback(() => {
-    if (!selectedLeadId) { setThread([]); setStage(null); return () => {}; }
+    const leadId = selectedLeadId;
+    if (!leadId) { setThread([]); setStage(null); return () => {}; }
     let cancelled = false;
+    // Stale = the response is for a lead we're no longer looking at.
+    const stale = () => cancelled || selectedLeadIdRef.current !== leadId;
     setThreadLoading(true);
-    fetch(`/api/inbox/thread/${selectedLeadId}`, { cache: "no-store" })
+    fetch(`/api/inbox/thread/${leadId}`, { cache: "no-store" })
       .then(r => r.ok ? r.json() : { thread: [], stage: null })
       .then(data => {
-        if (cancelled) return;
+        if (stale()) return;
         setThread(Array.isArray(data.thread) ? data.thread : []);
         setStage(data.stage ?? null);
       })
-      .catch(() => { if (!cancelled) { setThread([]); setStage(null); } })
-      .finally(() => { if (!cancelled) setThreadLoading(false); });
+      .catch(() => { if (!stale()) { setThread([]); setStage(null); } })
+      .finally(() => { if (!stale()) setThreadLoading(false); });
     return () => { cancelled = true; };
   }, [selectedLeadId]);
 
@@ -572,6 +598,21 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
     return ids.length ? ids : [replyId];
   };
 
+  // After acting on the conversation you're looking at, move to the next one
+  // in the list. Nothing used to do this: the row was hidden, the selection
+  // fell back to filtered[0] via the reconciliation effect, and from the
+  // seller's side the person on screen appeared not to change at all.
+  function advancePast(replyId: string) {
+    if (replyId !== selectedId) return;      // acted on another row — stay put
+    const leadId = rawReplies.find(r => r.id === replyId)?.leadId;
+    const rest = filtered.filter(r => r.id !== replyId && r.leadId !== leadId);
+    if (rest.length === 0) { setSelectedId(null); return; }
+    const idx = filtered.findIndex(r => r.id === replyId);
+    // Prefer the next one down; fall back to the previous when we were last.
+    const after = filtered.slice(idx + 1).find(r => r.leadId !== leadId);
+    setSelectedId((after ?? rest[rest.length - 1]).id);
+  }
+
   async function quickClassify(
     replyId: string,
     classification: "positive" | "negative" | "follow_up",
@@ -582,7 +623,9 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
     // Optimistic: drop the row now so triage feels instant. Rolled back below
     // if every review call fails; otherwise reconciled by router.refresh().
     const optimisticLeadId = rawReplies.find(r => r.id === replyId)?.leadId ?? null;
+    const wasSelected = replyId === selectedId;
     if (optimisticLeadId) setClearedLeadIds(prev => new Set(prev).add(optimisticLeadId));
+    if (wasSelected) advancePast(replyId);
     // Default: send auto-reply for pos/neg, not for follow_up.
     const doSendAR = opts?.sendAutoReply ?? (classification !== "follow_up");
     try {
@@ -605,8 +648,10 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         }).then(async r => { if (!r.ok) throw new Error(String(r.status)); return r.json().catch(() => ({})); });
       }));
       if (!results.some(r => r.status === "fulfilled")) {
-        // Total failure — restore the optimistically-hidden row.
+        // Total failure — restore the optimistically-hidden row AND the
+        // selection, so the seller lands back where they were.
         if (optimisticLeadId) setClearedLeadIds(prev => { const n = new Set(prev); n.delete(optimisticLeadId); return n; });
+        if (wasSelected) setSelectedId(replyId);
         toast.show({ kind: "error", title: "Couldn't classify", description: "Try again." });
         return;
       }
@@ -749,6 +794,13 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         kind: status === "approved" ? "success" : status === "rejected" ? "warning" : "info",
         title: status === "approved" ? "Marked as reviewed" : status === "rejected" ? "Marked as rejected" : "Sent back to inbox",
       });
+      // Same treatment as quickClassify: hide the row and move on, instead of
+      // leaving the same conversation on screen waiting for the refresh.
+      if (status !== "pending") {
+        const leadId = selected.leadId;
+        if (leadId) setClearedLeadIds(prev => new Set(prev).add(leadId));
+        advancePast(selected.id);
+      }
       router.refresh();
     } finally {
       setWorking(false);
