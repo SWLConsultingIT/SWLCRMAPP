@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
+import AuroraHero from "@/components/AuroraHero";
 import PendingUsersSection from "./PendingUsersSection";
 import ActivityWidget from "@/components/ActivityWidget";
 import TenantTeamTab from "./TenantTeamTab";
@@ -952,13 +953,16 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
 
   return (
     <div className="p-6 w-full">
-      <PageHero
-        icon={Shield}
-        section="Internal"
+      <AuroraHero
+        eyebrow="Internal"
         title="Admin Panel"
-        description="Manage clients, review tickets, and approve campaign requests."
-        accentColor={C.aiAccent}
-        status={{ label: "Internal", active: true }}
+        subtitle="Manage clients, review tickets, and approve campaign requests."
+        actions={
+          <span className="inline-flex items-center gap-2 aurora-btn plain" style={{ cursor: "default" }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#8B5CF6" }} />
+            Internal
+          </span>
+        }
       />
 
       {/* Always-visible "Add person" — opens the multi-company modal for any

@@ -5,6 +5,7 @@ import { C } from "@/lib/design";
 import { UserCircle, Share2, Mail, Phone, Check, X } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/components/PageHero";
+import AuroraHero from "@/components/AuroraHero";
 
 export const dynamic = "force-dynamic";
 
@@ -323,18 +324,21 @@ export default async function AccountsPage() {
 
   return (
     <div className="p-6 w-full">
-      <PageHero
-        icon={UserCircle}
-        section="Operations"
+      <AuroraHero
+        eyebrow="Operations"
         title="Accounts & Usage"
-        description="Monitor daily sending limits and account health across channels."
-        accentColor={C.gold}
-        status={{ label: "Active", active: true }}
-        stats={[
-          { label: "LinkedIn ready", value: `${linkedinReady}/${linkedinTotal}`, tone: linkedinReady > 0 ? "positive" : "warning" },
-          { label: "Email ready", value: `${emailReady}/${emailTotal}`, tone: emailReady > 0 ? "positive" : "warning" },
-          { label: "Calls ready", value: `${callsReady}/${callsTotal}`, tone: callsReady > 0 ? "positive" : "warning" },
-          { label: "LinkedIn sent today", value: `${data.totals.linkedinSent}/${data.totals.linkedinLimit}`, tone: "neutral" },
+        subtitle="Monitor daily sending limits and account health across channels."
+        actions={
+          <span className="inline-flex items-center gap-2 aurora-btn plain" style={{ cursor: "default" }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#22C55E" }} />
+            Active
+          </span>
+        }
+        kpis={[
+          { label: "LinkedIn ready", value: `${linkedinReady}/${linkedinTotal}`, tone: linkedinReady > 0 ? "green" : "gold" },
+          { label: "Email ready", value: `${emailReady}/${emailTotal}`, tone: emailReady > 0 ? "green" : "gold" },
+          { label: "Calls ready", value: `${callsReady}/${callsTotal}`, tone: callsReady > 0 ? "green" : "gold" },
+          { label: "LinkedIn sent today", value: `${data.totals.linkedinSent}/${data.totals.linkedinLimit}` },
         ]}
       />
 
