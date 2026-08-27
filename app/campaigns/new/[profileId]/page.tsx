@@ -504,20 +504,37 @@ export default function NewCampaignWizard() {
         primary_phone: string | null; primary_secondary_phone: string | null;
         allow_linkedin: boolean | null; allow_email: boolean | null; allow_call: boolean | null;
       };
+      const COVERAGE_COLS = "id, source, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, allow_linkedin, allow_email, allow_call";
       const rows: CoverageRow[] = [];
-      for (let from = 0; from < COVERAGE_MAX; from += COVERAGE_PAGE) {
-        let coverageQ = supabase
-          .from("leads")
-          .select("id, source, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, allow_linkedin, allow_email, allow_call")
-          .eq("icp_profile_id", profileId)
-          .order("id", { ascending: true })
-          .range(from, from + COVERAGE_PAGE - 1);
-        if (isPartialSelection) coverageQ = coverageQ.in("id", selectedLeadIds);
-        const { data: page, error: pageErr } = await coverageQ;
-        if (pageErr) break;
-        const got = page ?? [];
-        rows.push(...(got as unknown as CoverageRow[]));
-        if (got.length < COVERAGE_PAGE) break;
+      if (isPartialSelection) {
+        // A partial selection filters by id, and supabase-js puts that filter
+        // in the QUERY STRING: `id=in.(uuid,uuid,…)`. 1 166 ids is ~44 KB of
+        // URL and Supabase's edge rejects it outright, so "select all" on a
+        // large ICP made this read fail and the wizard came up with zero
+        // coverage and no sample lead. Chunked at 300 ids (~11 KB) — the same
+        // shape as the `.in()` chunking in the picker and add-leads.
+        for (let i = 0; i < selectedLeadIds.length; i += 300) {
+          const chunk = selectedLeadIds.slice(i, i + 300);
+          const { data: part, error: partErr } = await supabase
+            .from("leads")
+            .select(COVERAGE_COLS)
+            .in("id", chunk);
+          if (partErr) break;
+          rows.push(...((part ?? []) as unknown as CoverageRow[]));
+        }
+      } else {
+        for (let from = 0; from < COVERAGE_MAX; from += COVERAGE_PAGE) {
+          const { data: page, error: pageErr } = await supabase
+            .from("leads")
+            .select(COVERAGE_COLS)
+            .eq("icp_profile_id", profileId)
+            .order("id", { ascending: true })
+            .range(from, from + COVERAGE_PAGE - 1);
+          if (pageErr) break;
+          const got = (page ?? []) as unknown as CoverageRow[];
+          rows.push(...got);
+          if (got.length < COVERAGE_PAGE) break;
+        }
       }
       const isValidLi = (u: string | null) => !!u && /linkedin\.com\/in\//i.test(u);
       const fullName = (r: any) => `${r.primary_first_name ?? ""} ${r.primary_last_name ?? ""}`.trim() || r.company_name || "Unknown";
@@ -576,7 +593,9 @@ export default function NewCampaignWizard() {
         .eq("icp_profile_id", profileId)
         .not("enrichment", "is", null)
         .limit(1);
-      if (isPartialSelection) sampleQuery = sampleQuery.in("id", selectedLeadIds);
+      // Only needs ONE representative lead, so the first chunk of ids is
+      // enough and keeps the URL small.
+      if (isPartialSelection) sampleQuery = sampleQuery.in("id", selectedLeadIds.slice(0, 300));
       const { data: sample } = await sampleQuery.maybeSingle();
       setSampleEnrichment((sample?.enrichment as Record<string, unknown> | null) ?? null);
       // Lead id for the AI generator. Prefer the enrichment-bearing sample;
@@ -586,7 +605,7 @@ export default function NewCampaignWizard() {
         setSampleLeadId(sample.id as string);
       } else {
         let anyQuery = supabase.from("leads").select("id").eq("icp_profile_id", profileId).limit(1);
-        if (isPartialSelection) anyQuery = anyQuery.in("id", selectedLeadIds);
+        if (isPartialSelection) anyQuery = anyQuery.in("id", selectedLeadIds.slice(0, 300));
         const { data: anyLead } = await anyQuery.maybeSingle();
         setSampleLeadId((anyLead?.id as string | undefined) ?? null);
       }

@@ -126,24 +126,52 @@ export async function POST(req: NextRequest) {
   // De Vera Grill 2026-05-26 incident: 6 of 22 leads got two intros from
   // April + May campaigns because the path that honored selectedLeadIds
   // skipped this guard. Bulk-ICP already did it; this generalises it.
-  async function dropRecentlyTouched(ids: string[]): Promise<{ keep: string[]; rejected: string[] }> {
+  // An `.in()` filter travels in the query string, and PostgREST answers 400
+  // once it gets long: 1 000 uuids is a 36 KB filter and measurably fails,
+  // 300 (~10 KB) is fine. So the guard below runs in chunks of 300 — and it
+  // THROWS on a failed chunk instead of reading "no rows" as "nothing to
+  // exclude". Fail-open here means enrolling leads that already have an
+  // active campaign or a send in the last 90 days, which is precisely the
+  // duplicate-intro incident (De Vera Grill, 2026-05-26) this guard exists
+  // to prevent. Same fail-open defect lib/lead-import-dedup had.
+  const ID_CHUNK = 300;
+  function chunk<T>(arr: T[], n: number): T[][] {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+    return out;
+  }
+
+  async function dropRecentlyTouched(
+    ids: string[],
+  ): Promise<{ keep: string[]; rejected: string[]; error?: string }> {
     if (ids.length === 0) return { keep: [], rejected: [] };
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-    const [activeRes, recentTouchRes] = await Promise.all([
-      supabase.from("campaigns").select("lead_id").in("lead_id", ids).in("status", ["active", "paused"]),
-      // Recent-touch guard IGNORES messages from archived/cancelled campaigns:
-      // recovering a lead archives its finished campaign, and that recovery is a
-      // deliberate "re-contact this lead" decision — so its old sends must stop
-      // blocking re-enrolment (boss 2026-06-08: recovered leads couldn't be
-      // re-campaigned because the 90-day guard still saw the archived sends).
-      supabase.from("campaign_messages")
-        .select("lead_id, campaigns!inner(status)")
-        .in("lead_id", ids).eq("status", "sent").gte("sent_at", ninetyDaysAgo)
-        .not("campaigns.status", "in", "(archived,cancelled)"),
-    ]);
     const excluded = new Set<string>();
-    for (const c of activeRes.data ?? []) excluded.add((c as any).lead_id);
-    for (const m of recentTouchRes.data ?? []) excluded.add((m as any).lead_id);
+
+    for (const part of chunk(ids, ID_CHUNK)) {
+      const [activeRes, recentTouchRes] = await Promise.all([
+        supabase.from("campaigns").select("lead_id").in("lead_id", part).in("status", ["active", "paused"]),
+        // Recent-touch guard IGNORES messages from archived/cancelled campaigns:
+        // recovering a lead archives its finished campaign, and that recovery is a
+        // deliberate "re-contact this lead" decision — so its old sends must stop
+        // blocking re-enrolment (boss 2026-06-08: recovered leads couldn't be
+        // re-campaigned because the 90-day guard still saw the archived sends).
+        supabase.from("campaign_messages")
+          .select("lead_id, campaigns!inner(status)")
+          .in("lead_id", part).eq("status", "sent").gte("sent_at", ninetyDaysAgo)
+          .not("campaigns.status", "in", "(archived,cancelled)"),
+      ]);
+      if (activeRes.error || recentTouchRes.error) {
+        return {
+          keep: [],
+          rejected: [],
+          error: activeRes.error?.message ?? recentTouchRes.error?.message ?? "unknown",
+        };
+      }
+      for (const c of activeRes.data ?? []) excluded.add((c as any).lead_id);
+      for (const m of recentTouchRes.data ?? []) excluded.add((m as any).lead_id);
+    }
+
     return {
       keep: ids.filter(id => !excluded.has(id)),
       rejected: [...excluded],
@@ -161,20 +189,46 @@ export async function POST(req: NextRequest) {
     // Partial selection from profile. Apply the same 90d touch guard the
     // bulk-ICP path uses so manually-selected leads can't re-engage someone
     // who got an intro from a sibling campaign in the last quarter.
-    const { keep, rejected } = await dropRecentlyTouched(selectedLeadIds);
-    leadIds = keep;
-    rejectedRecentlyTouched = rejected;
+    const guard = await dropRecentlyTouched(selectedLeadIds);
+    if (guard.error) {
+      return NextResponse.json({
+        error: `duplicate-enrolment guard failed (${guard.error}) — refusing to approve rather than risk contacting leads twice`,
+      }, { status: 500 });
+    }
+    leadIds = guard.keep;
+    rejectedRecentlyTouched = guard.rejected;
   } else if (request.icp_profile_id) {
     // Bulk campaign for all uncampaigned leads in this ICP profile.
-    const { data: profileLeads } = await supabase
-      .from("leads")
-      .select("id")
-      .eq("icp_profile_id", request.icp_profile_id);
-
-    const allIds = (profileLeads ?? []).map(l => l.id);
-    const { keep, rejected } = await dropRecentlyTouched(allIds);
-    leadIds = keep;
-    rejectedRecentlyTouched = rejected;
+    //
+    // Paginated: this read had no range and no order, so PostgREST truncated
+    // it at 1 000 and a whole-ICP approval on SWL's "Private Equity & VC
+    // Firms — USA" (1 166 leads) silently enrolled 1 000, leaving 166 people
+    // on the floor with no error raised anywhere.
+    const LEAD_PAGE = 1000;
+    const LEAD_MAX = 50_000;
+    const allIds: string[] = [];
+    for (let from = 0; from < LEAD_MAX; from += LEAD_PAGE) {
+      const { data: page, error: pageErr } = await supabase
+        .from("leads")
+        .select("id")
+        .eq("icp_profile_id", request.icp_profile_id)
+        .order("id", { ascending: true })
+        .range(from, from + LEAD_PAGE - 1);
+      if (pageErr) {
+        return NextResponse.json({ error: `failed to read ICP leads: ${pageErr.message}` }, { status: 500 });
+      }
+      const got = (page ?? []).map(l => l.id as string);
+      allIds.push(...got);
+      if (got.length < LEAD_PAGE) break;
+    }
+    const guard = await dropRecentlyTouched(allIds);
+    if (guard.error) {
+      return NextResponse.json({
+        error: `duplicate-enrolment guard failed (${guard.error}) — refusing to approve rather than risk contacting leads twice`,
+      }, { status: 500 });
+    }
+    leadIds = guard.keep;
+    rejectedRecentlyTouched = guard.rejected;
   }
 
   if (leadIds.length === 0) {
@@ -290,11 +344,6 @@ export async function POST(req: NextRequest) {
   const CAMPAIGN_CHUNK = 100;
   const MESSAGE_CHUNK = 500;
   const LEAD_UPDATE_CHUNK = 500;
-  function chunk<T>(arr: T[], n: number): T[][] {
-    const out: T[][] = [];
-    for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
-    return out;
-  }
 
   let campaignsCreated = 0;
   // Track every campaign id we create in this approve so we can run the

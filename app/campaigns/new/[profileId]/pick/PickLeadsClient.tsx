@@ -7,7 +7,7 @@ import { Users, CheckSquare, Building2, Globe, Briefcase, MapPin, Megaphone, Sen
 import { C, N } from "@/lib/design";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
-import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
+import { stashLeadSelection, leadSelectionQuery, clearLeadSelection } from "@/lib/lead-selection";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -89,11 +89,14 @@ export type PickableLead = {
 };
 
 export default function PickLeadsClient({
-  profileId, profileName, leads,
+  profileId, profileName, leads, totalInIcp,
 }: {
   profileId: string;
   profileName: string;
   leads: PickableLead[];
+  /** Leads in the ICP overall. Larger than `leads.length` when some are
+   *  already enrolled in an active flow and therefore not offered here. */
+  totalInIcp: number;
 }) {
   const router = useRouter();
   const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
@@ -181,9 +184,24 @@ export default function PickLeadsClient({
   }
   function clearSelection() { setSelected(new Set()); }
 
+  // Every lead of the ICP is selected — none held back for being enrolled
+  // elsewhere. Then the flow is simply "the whole ICP", and it can be built
+  // without carrying an id list at all.
+  const coversWholeIcp = selected.size > 0
+    && selected.size === leads.length
+    && leads.length === totalInIcp;
+
   function continueToWizard() {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
+    if (coversWholeIcp) {
+      // No ids in play: no 414 on the way in, and no 44 KB `id=in.(…)` filter
+      // on every read once we get there. The wizard's whole-ICP mode covers
+      // exactly this selection. Drop any stash so a stale one can't win.
+      clearLeadSelection(profileId);
+      router.push(`/campaigns/new/${profileId}`);
+      return;
+    }
     // Stash before navigating: past ~385 ids the inline URL trips Vercel's
     // 414 URI_TOO_LONG. See lib/lead-selection.ts.
     stashLeadSelection(profileId, ids);
@@ -330,6 +348,19 @@ export default function PickLeadsClient({
                   ({filtered.length === leads.length ? leads.length : `${filtered.length} of ${leads.length}`})
                 </span>
               </button>
+              {/* Say why the list is shorter than the ICP. It used to just
+                  show a smaller number with no explanation — and until today
+                  that number was capped at 500 regardless. */}
+              {totalInIcp > leads.length && (
+                <span className="text-[10.5px]" style={{ color: C.textDim }}>
+                  · {totalInIcp - leads.length} of {totalInIcp} already in an active flow
+                </span>
+              )}
+              {coversWholeIcp && (
+                <span className="text-[10.5px] font-semibold" style={{ color: gold }}>
+                  · the whole ICP
+                </span>
+              )}
               <span className="hidden lg:inline text-[10.5px]" style={{ color: C.textDim }}>
                 Tip: shift-click to select a range
               </span>

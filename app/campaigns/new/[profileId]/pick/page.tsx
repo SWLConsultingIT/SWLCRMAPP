@@ -153,12 +153,22 @@ async function loadPickerData(profileId: string) {
       history: classifyHistory(l.id, (l.status as string | null) ?? null),
     }));
 
+  // How many leads the ICP holds in total, regardless of enrolment. When the
+  // picker is offering all of them, "select all" means the whole ICP and the
+  // wizard can be sent there with NO id list at all — which is the only way
+  // an id filter of that size can be avoided (see continueToWizard).
+  const { count: totalInIcp } = await supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("icp_profile_id", profileId);
+
   return {
     profile: {
       id: profile.id as string,
       name: (profile.profile_name as string | null) ?? "Lead Miner Profile",
     },
     leads: eligible,
+    totalInIcp: totalInIcp ?? eligible.length,
   };
 }
 
@@ -183,6 +193,7 @@ export default async function PickLeadsPage({ params }: { params: Promise<{ prof
         profileId={data.profile.id}
         profileName={data.profile.name}
         leads={data.leads}
+        totalInIcp={data.totalInIcp}
       />
     </div>
   );
