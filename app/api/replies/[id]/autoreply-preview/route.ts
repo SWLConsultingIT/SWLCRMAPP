@@ -57,7 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (text && leadId) {
     const { data: lead } = await supabase
       .from("leads")
-      .select("primary_first_name, primary_last_name, company_name, primary_title_role")
+      .select("primary_first_name, primary_last_name, company_name, primary_title_role, company_city, company_industry, company_country, company_website")
       .eq("id", leadId)
       .maybeSingle();
     const sellerName = (camp as { sellers?: { name?: string } | null } | null)?.sellers?.name ?? null;

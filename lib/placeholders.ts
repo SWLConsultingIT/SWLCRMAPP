@@ -48,6 +48,34 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
     description: "The seller assigned to this campaign — your name.",
     tokens: ["{{seller_name}}", "{{sellerName}}", "{{sender_name}}", "{{my_name}}"],
   },
+  // ── Company facts (2026-08-27) ───────────────────────────────────────
+  // Added after measuring fill rate across the 6 591 plaintext leads: city
+  // 91%, website 94%, industry 86%, country 82% — every one of them lands
+  // more often than {{first_name}} (86%). Deliberately NOT added: seniority
+  // 39%, headline 17%, linkedin_post 0%, mission 0%. A placeholder that is
+  // blank a third of the time leaves a hole mid-sentence; those fields belong
+  // in the AI's context (SignalPicker), where the model can write around a
+  // missing value, not in literal substitution.
+  {
+    label: "City",
+    description: "Company city. Filled on 91% of leads.",
+    tokens: ["{{company_city}}", "{{city}}"],
+  },
+  {
+    label: "Industry",
+    description: "Company industry. Filled on 86% of leads.",
+    tokens: ["{{company_industry}}", "{{industry}}"],
+  },
+  {
+    label: "Country",
+    description: "Company country. Filled on 82% of leads.",
+    tokens: ["{{company_country}}", "{{country}}"],
+  },
+  {
+    label: "Website",
+    description: "Company website. Filled on 94% of leads.",
+    tokens: ["{{company_website}}", "{{website}}"],
+  },
   // ── AI-filled slots ──────────────────────────────────────────────────
   // 2026-06-02 feature ("tailored messages per lead"). The wizard
   // accepts these inside template bodies; /api/campaigns/tailor calls
@@ -102,7 +130,30 @@ export type PlaceholderLead = {
   primary_last_name?: string | null;
   company_name?: string | null;
   primary_title_role?: string | null;
+  // Company facts. `undefined` (as opposed to null) means the query that
+  // loaded this lead never asked for the column — see LEAD_PLACEHOLDER_COLUMNS
+  // and the strict guard in renderPlaceholders.
+  company_city?: string | null;
+  company_industry?: string | null;
+  company_country?: string | null;
+  company_website?: string | null;
 };
+
+/**
+ * Every `leads` column renderPlaceholders reads. Append it to the select() of
+ * any query whose rows are handed to renderPlaceholders:
+ *
+ *     .select(`id, source, encrypted_payload, ${LEAD_PLACEHOLDER_COLUMNS}`)
+ *
+ * WHY: renderPlaceholders is the single source of truth for substitution, but
+ * every call site built its own select by hand. Adding a placeholder therefore
+ * meant remembering nine separate queries, and a forgotten column renders the
+ * token as an empty string — the exact silent-blank failure this module exists
+ * to prevent. One list, one place to change.
+ */
+export const LEAD_PLACEHOLDER_COLUMNS =
+  "primary_first_name, primary_last_name, company_name, primary_title_role, " +
+  "company_city, company_industry, company_country, company_website";
 
 export type PlaceholderSeller = {
   name?: string | null;
@@ -146,13 +197,38 @@ export function renderPlaceholders(
       `Seller name "${seller.name ?? ""}" looks like a system default — update sellers.name before dispatching.`,
     );
   }
+  const normalized = normalizePlaceholderBraces(template);
+
+  // A column the query never selected arrives as `undefined`, which is
+  // indistinguishable from "the lead has no value" once we default to "".
+  // For the company-fact placeholders we refuse instead: a loud throw (the
+  // dispatcher fails the row and it shows up in /admin/reliability) beats
+  // shipping "Trabajo con empresas de  en ." to a real prospect. Scoped to
+  // these four on purpose — the four classic tokens have rendered empty on
+  // missing data since day one and every select already carries them, so
+  // widening the guard would change behaviour on existing templates.
+  if (opts?.strict ?? true) {
+    for (const [token, field] of Object.entries(COMPANY_FACT_FIELDS)) {
+      if (normalized.includes(token) && lead[field] === undefined) {
+        throw new Error(
+          `Template uses ${token} but the lead row has no "${field}" column — ` +
+          `add LEAD_PLACEHOLDER_COLUMNS to the select() that loaded this lead.`,
+        );
+      }
+    }
+  }
+
   const first = lead.primary_first_name ?? "there";
   const last = lead.primary_last_name ?? "";
   const full = `${first} ${last}`.trim();
   const company = lead.company_name ?? "";
   const role = lead.primary_title_role ?? "";
+  const city = lead.company_city ?? "";
+  const industry = lead.company_industry ?? "";
+  const country = lead.company_country ?? "";
+  const website = lead.company_website ?? "";
   const sellerName = seller.name ?? "";
-  return normalizePlaceholderBraces(template)
+  return normalized
     // First name — snake, camel, and "name" alone.
     .replaceAll("{{first_name}}", first)
     .replaceAll("{{firstName}}", first)
@@ -182,8 +258,37 @@ export function renderPlaceholders(
     .replaceAll("{{senderName}}", sellerName)
     .replaceAll("{{my_name}}", sellerName)
     .replaceAll("{{seller_company}}", "")
-    .replaceAll("{{sellerCompany}}", "");
+    .replaceAll("{{sellerCompany}}", "")
+    // Company facts.
+    .replaceAll("{{company_city}}", city)
+    .replaceAll("{{companyCity}}", city)
+    .replaceAll("{{city}}", city)
+    .replaceAll("{{company_industry}}", industry)
+    .replaceAll("{{companyIndustry}}", industry)
+    .replaceAll("{{industry}}", industry)
+    .replaceAll("{{company_country}}", country)
+    .replaceAll("{{companyCountry}}", country)
+    .replaceAll("{{country}}", country)
+    .replaceAll("{{company_website}}", website)
+    .replaceAll("{{companyWebsite}}", website)
+    .replaceAll("{{website}}", website);
 }
+
+/** Token → the lead column that backs it, for the guard above. */
+const COMPANY_FACT_FIELDS: Record<string, keyof PlaceholderLead> = {
+  "{{company_city}}": "company_city",
+  "{{companyCity}}": "company_city",
+  "{{city}}": "company_city",
+  "{{company_industry}}": "company_industry",
+  "{{companyIndustry}}": "company_industry",
+  "{{industry}}": "company_industry",
+  "{{company_country}}": "company_country",
+  "{{companyCountry}}": "company_country",
+  "{{country}}": "company_country",
+  "{{company_website}}": "company_website",
+  "{{companyWebsite}}": "company_website",
+  "{{website}}": "company_website",
+};
 
 // ── Tailored AI slots (feature 2026-06-02) ───────────────────────────
 // Tokens like {{tailored:hook}} are NOT filled at send time by the

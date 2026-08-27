@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
       .select(`
         id, primary_first_name, primary_last_name, primary_title_role, primary_seniority, primary_headline,
         company_name, company_industry, company_sub_industry,
+      company_city, company_country, company_website,
         organization_description, organization_short_desc, organization_technologies,
         recent_website_news, recent_linkedin_post, website_summary, industry_trends,
         employees, annual_revenue, call_talking_points,

@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
       const [{ data: lead }, { data: campaign }] = await Promise.all([
         svc
           .from("leads")
-          .select("id, primary_first_name, company_name, telegram_user_id, primary_phone, company_bio_id")
+          .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, company_city, company_industry, company_country, company_website, telegram_user_id, primary_phone, company_bio_id")
           .eq("id", msg.lead_id)
           .maybeSingle(),
         svc
