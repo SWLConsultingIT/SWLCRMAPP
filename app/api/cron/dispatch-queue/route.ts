@@ -86,6 +86,10 @@ type LeadRow = {
   linkedin_internal_id: string | null;
   company_name: string | null;
   primary_title_role: string | null;
+  company_city: string | null;
+  company_industry: string | null;
+  company_country: string | null;
+  company_website: string | null;
 };
 
 type SellerRow = {
@@ -672,7 +676,7 @@ async function dispatchOneMessage(
   // dispatcher fails every client-source lead with "no LinkedIn slug" even
   // though the slug exists — encrypted.
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, linkedin_connected, company_name, primary_title_role, responded, status")
+    svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, linkedin_connected, company_name, primary_title_role, company_city, company_industry, company_country, company_website, responded, status")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, name, sequence_steps, status, stop_reason, metadata").eq("id", candidate.campaign_id).maybeSingle(),
   ]);

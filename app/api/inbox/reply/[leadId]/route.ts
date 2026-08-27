@@ -53,7 +53,7 @@ export async function POST(
   // Hydrate the lead + enforce tenant scope.
   const { data: lead } = await svc
     .from("leads")
-    .select("id, primary_work_email, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role")
+    .select("id, primary_work_email, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, company_city, company_industry, company_country, company_website")
     .eq("id", leadId)
     .maybeSingle();
   if (!lead) return NextResponse.json({ error: "lead not found" }, { status: 404 });

@@ -299,7 +299,7 @@ async function dispatchOneEmail(
   }
 
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role, responded, status").eq("id", candidate.lead_id).maybeSingle(),
+    svc.from("leads").select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role, company_city, company_industry, company_country, company_website, responded, status").eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, name, seller_id, sequence_steps, status, stop_reason, metadata").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!rawLead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");

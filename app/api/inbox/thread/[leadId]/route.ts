@@ -112,7 +112,7 @@ export async function GET(
   // Decrypt client-source leads so the names are available.
   const { data: leadRaw } = await svc
     .from("leads")
-    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role")
+    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, company_city, company_industry, company_country, company_website")
     .eq("id", leadId)
     .maybeSingle();
   if (scope.isScoped && scope.companyBioId && (!leadRaw || (leadRaw as { company_bio_id?: string }).company_bio_id !== scope.companyBioId)) {
