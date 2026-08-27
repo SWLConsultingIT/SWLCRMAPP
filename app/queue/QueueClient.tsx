@@ -12,6 +12,7 @@ import {
   ThumbsUp, ThumbsDown, Clock, Loader2, Trash2, Voicemail, Calendar, RotateCcw,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
+import AuroraHero from "@/components/AuroraHero";
 import RecallList, { recallDueCount, type RecallItem } from "@/components/RecallList";
 import CallButton from "@/components/CallButton";
 import InboxView, { type InboxReply } from "@/components/InboxView";
@@ -1050,17 +1051,22 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
 
   return (
     <div className="p-4 sm:p-6 w-full">
-      <PageHero
-        icon={Bell}
-        section={t("queue.hero.section")}
+      <AuroraHero
+        eyebrow={t("queue.hero.section")}
         title={t("queue.hero.title")}
-        description={t("queue.hero.desc")}
-        accentColor={C.orange}
-        status={{ label: totalCount > 0 ? t("queue.hero.status.pending").replace("{n}", String(totalCount)) : t("queue.hero.status.clear"), active: totalCount > 0 }}
-        stats={[
-          { label: t("queue.hero.stat.calls"), value: callsNeedingAttention, tone: callsNeedingAttention > 0 ? "warning" : "neutral" },
-          { label: t("queue.hero.stat.replies"), value: pendingReplyCount, tone: pendingReplyCount > 0 ? "positive" : "neutral" },
-          { label: t("queue.hero.stat.review"), value: needsReviewCount, tone: needsReviewCount > 0 ? "danger" : "neutral" },
+        subtitle={t("queue.hero.desc")}
+        actions={
+          <span className="inline-flex items-center gap-2 aurora-btn plain" style={{ cursor: "default" }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: totalCount > 0 ? "#F59E0B" : "#22C55E" }} />
+            {totalCount > 0
+              ? t("queue.hero.status.pending").replace("{n}", String(totalCount))
+              : t("queue.hero.status.clear")}
+          </span>
+        }
+        kpis={[
+          { label: t("queue.hero.stat.calls"), value: callsNeedingAttention, tone: callsNeedingAttention > 0 ? "gold" : "default" },
+          { label: t("queue.hero.stat.replies"), value: pendingReplyCount, tone: pendingReplyCount > 0 ? "green" : "default" },
+          { label: t("queue.hero.stat.review"), value: needsReviewCount, tone: needsReviewCount > 0 ? "red" : "default" },
         ]}
       />
 
