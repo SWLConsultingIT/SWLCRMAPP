@@ -16,7 +16,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { C } from "@/lib/design";
+import { N } from "@/lib/design";
 import { useDashboardTab, isClientTab } from "@/components/dashboard/DashboardTabs";
 
 const gold = "var(--brand, #c9a83a)";
@@ -67,9 +67,9 @@ export default function ChapterNav({
     <nav
       className="sticky top-2 z-30 rounded-2xl px-3 sm:px-4 py-1 flex items-center justify-between gap-3 relative overflow-hidden"
       style={{
-        background: C.card,
-        border: `1px solid color-mix(in srgb, ${gold} 26%, ${C.border2})`,
-        boxShadow: C.shadow,
+        background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+        border: `1px solid color-mix(in srgb, ${gold} 26%, ${N.hairline})`,
+        boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 10px 28px -14px ${N.ink}`,
       }}
       aria-label="Dashboard tabs"
     >
@@ -110,12 +110,12 @@ export default function ChapterNav({
                 className="text-[9.5px] font-bold tabular-nums tracking-[0.08em] px-1.5 py-[2px] rounded-md transition-colors"
                 style={{
                   backgroundColor: on
-                    ? `color-mix(in srgb, ${gold} 16%, transparent)`
+                    ? `color-mix(in srgb, ${gold} 22%, transparent)`
                     : "transparent",
-                  color: on ? "var(--fg1)" : C.textDim,
+                  color: on ? gold : "color-mix(in srgb, white 45%, transparent)",
                   border: on
-                    ? `1px solid color-mix(in srgb, ${gold} 50%, transparent)`
-                    : `1px solid ${C.border2}`,
+                    ? `1px solid color-mix(in srgb, ${gold} 55%, transparent)`
+                    : `1px solid color-mix(in srgb, white 12%, transparent)`,
                 }}
               >
                 {String(it.number).padStart(2, "0")}
@@ -123,8 +123,8 @@ export default function ChapterNav({
               <span
                 className="text-[12.5px] font-semibold tracking-[-0.005em] transition-colors"
                 style={{
-                  color: on ? "var(--fg1)" : C.textMuted,
-                  textShadow: "none",
+                  color: on ? gold : "color-mix(in srgb, white 65%, transparent)",
+                  textShadow: on ? `0 0 18px color-mix(in srgb, ${gold} 35%, transparent)` : "none",
                 }}
               >
                 {it.label}

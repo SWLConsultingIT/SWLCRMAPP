@@ -134,8 +134,8 @@ export default function TodayCard({
       <div
         className="relative px-5 py-4 flex items-center gap-3 overflow-hidden"
         style={{
-          background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 9%, var(--c-card)) 100%)`,
-          borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, ${C.border})`,
+          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
         }}
       >
         <span
@@ -156,13 +156,13 @@ export default function TodayCard({
         <div className="relative min-w-0">
           <h3
             className={`${T.cardTitle}`}
-            style={{ color: "var(--fg1)", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+            style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
           >
             {labels.title}
           </h3>
           <p
             className="text-[11.5px] mt-0.5 truncate"
-            style={{ color: C.textMuted }}
+            style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
           >
             {labels.subtitle.replace("{n}", String(totalItems))}
           </p>
