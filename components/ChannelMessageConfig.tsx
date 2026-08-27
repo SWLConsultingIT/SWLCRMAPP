@@ -5,11 +5,15 @@ import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
   Share2, Mail, Phone, MessageCircle, Sparkles, Loader2,
-  ThumbsUp, ThumbsDown, Maximize2, Minimize2, Plus, ChevronUp, ChevronDown,
+  ThumbsUp, ThumbsDown, Maximize2, Minimize2, ChevronUp, ChevronDown,
   AlertTriangle, Tag,
 } from "lucide-react";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
-import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn, findSuspiciousPlaceholders, autoFixPlaceholders, findTailoredSlots } from "@/lib/placeholders";
+import {
+  PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn, findSuspiciousPlaceholders,
+  autoFixPlaceholders, findTailoredSlots, placeholderValue, renderPlaceholders,
+  type PlaceholderLead,
+} from "@/lib/placeholders";
 
 const gold = C.gold;
 
@@ -51,6 +55,19 @@ export type ChannelMessages = {
   autoReplies: AutoReplies;
 };
 
+/** A real lead from the flow's selection, used to render the preview. */
+export type SampleLead = PlaceholderLead & { id: string };
+
+/** How many leads in the selection have each placeholder column filled.
+ *  `encrypted` are client-uploaded leads whose plain columns read empty —
+ *  reported separately instead of being folded into the percentage, so the
+ *  number never claims to measure something it didn't. */
+export type PlaceholderCoverage = {
+  counts: Record<string, number>;
+  total: number;
+  encrypted: number;
+};
+
 type Props = {
   sequence: { channel: string; daysAfter: number; attachments?: StepAttachment[] }[];
   channelMessages: ChannelMessages;
@@ -65,6 +82,15 @@ type Props = {
   flowType?: "generic" | "tailored";
   /** Enrichment keys the rep ticked in SignalPicker — the AI is told to weave these in. */
   signals?: string[];
+  /** Up to 3 real leads from the selection. Drives the rendered preview and
+   *  the "rendered length" counter — LinkedIn's 200-char cap applies to the
+   *  SENT text, and {{company_name}} (16 chars) can expand to 21. */
+  sampleLeads?: SampleLead[];
+  /** Name of the seller who will send, so {{seller_name}} renders truthfully
+   *  in the preview and counts toward the length. */
+  sellerName?: string;
+  /** Per-token fill rate over the selection, shown next to each placeholder. */
+  placeholderCoverage?: PlaceholderCoverage;
   /** Update attachments on sequence[stepIdx]. Optional so the component still
    * renders standalone (e.g. in template preview) without an attachment editor. */
   onAttachmentsChange?: (stepIdx: number, attachments: StepAttachment[]) => void;
@@ -204,6 +230,285 @@ function isTailoredGroup(tokens: string[]): boolean {
   return tokens.some(t => /^\{\{tailored/i.test(t));
 }
 
+// ── Two-lane step editor ─────────────────────────────────────────────
+// Lane 1 is the intent handed to the AI (`user_prompt`); lane 2 is the copy
+// that actually ships. Until 2026-08-27 lane 1 sat behind a "+ Customize"
+// link nobody opened, so the generator ran with no instruction and the rep
+// rewrote the output by hand. The two must not look alike — lane 1 is a
+// working note (dashed, recessed, 12.5px), lane 2 is the artifact (solid,
+// gold left edge, elevated, 14px). Same three axes as the mock: border,
+// elevation, type size.
+
+function LaneNum({ n }: { n: 1 | 2 }) {
+  const one = n === 1;
+  return (
+    <span
+      className="w-[18px] h-[18px] grid place-items-center shrink-0 text-[10px] font-bold"
+      style={one
+        ? { borderRadius: "50%", backgroundColor: C.card, color: C.textMuted, border: `1px solid ${C.border2}` }
+        : { borderRadius: 6, backgroundColor: gold, color: "#12161F" }}
+    >
+      {n}
+    </span>
+  );
+}
+
+function LaneIntent({ value, onChange, placeholder, rows = 2 }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  rows?: number;
+}) {
+  return (
+    <div className="rounded-lg px-3.5 py-3" style={{ backgroundColor: C.bg, border: `1px dashed ${C.border2}` }}>
+      <div className="flex items-baseline gap-2 flex-wrap mb-2">
+        <LaneNum n={1} />
+        <span className="text-[12.5px] font-semibold" style={{ color: C.textMuted }}>
+          Intent — what you&apos;re asking the AI for
+        </span>
+        <span className="text-[11px] ml-auto text-right" style={{ color: C.textDim }}>
+          Not sent · saved with the flow
+        </span>
+      </div>
+      <textarea
+        rows={rows}
+        className="w-full rounded-lg border px-3 py-2 text-[12.5px] leading-[1.55] focus:outline-none resize-y"
+        style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+// The line runs behind the button and the hint; both paint a card-coloured
+// ring/background so the line reads as passing behind them.
+function LaneJoin({ hasIntent, hasBody, loading, onClick }: {
+  hasIntent: boolean;
+  hasBody: boolean;
+  loading: boolean;
+  onClick: () => void;
+}) {
+  const hint = !hasIntent
+    ? "With no intent the AI writes generic — or type the message by hand below"
+    : !hasBody
+      ? "Uses your intent + each lead's own data"
+      : "Rewrites the message below — your edits are lost";
+  const soft = !hasIntent;
+  return (
+    <div className="relative flex flex-col items-center py-3.5">
+      <span
+        aria-hidden
+        className="absolute top-0 bottom-0 w-[2px] rounded-sm"
+        style={{
+          background: `linear-gradient(180deg, ${C.border}, color-mix(in srgb, ${gold} 40%, transparent) 42%, color-mix(in srgb, ${gold} 40%, transparent) 58%, ${C.border})`,
+        }}
+      />
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={loading}
+        className="relative inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold transition-[transform,box-shadow] disabled:opacity-60 hover:-translate-y-px"
+        style={soft
+          ? {
+              backgroundColor: C.card,
+              color: C.gold,
+              border: `1px solid color-mix(in srgb, ${gold} 40%, transparent)`,
+              boxShadow: `0 0 0 5px ${C.card}`,
+            }
+          : {
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`,
+              color: "#12161F",
+              boxShadow: `0 5px 18px -6px color-mix(in srgb, ${gold} 65%, transparent), 0 0 0 5px ${C.card}`,
+            }}
+      >
+        {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+        {loading ? "Drafting…" : hasBody ? "Draft again" : "Draft with AI"}
+      </button>
+      <p className="relative text-[11px] mt-2.5 px-2 text-center" style={{ color: C.textDim, backgroundColor: C.card }}>
+        {hint}
+      </p>
+    </div>
+  );
+}
+
+function LaneMessage({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  return (
+    <div
+      className="rounded-lg px-4 py-3.5"
+      style={{
+        backgroundColor: C.card,
+        border: `1px solid ${C.border2}`,
+        borderLeft: `3px solid ${gold}`,
+        boxShadow: "0 4px 16px -6px rgba(17,24,39,0.14)",
+      }}
+    >
+      <div className="flex items-baseline gap-2 flex-wrap mb-2.5">
+        <LaneNum n={2} />
+        <span className="text-[13.5px] font-bold" style={{ color: C.textPrimary }}>Message</span>
+        <span
+          className="text-[9px] font-bold uppercase tracking-[0.11em] px-[7px] py-[2.5px] rounded-full"
+          style={{
+            backgroundColor: C.goldSoft,
+            color: C.gold,
+            border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
+          }}
+        >
+          this ships
+        </span>
+        {hint && <span className="text-[11px] ml-auto text-right" style={{ color: C.textDim }}>{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Rendered preview ─────────────────────────────────────────────────
+// The message as the lead receives it, in the chrome of the channel that
+// carries it. Every raw-placeholder incident in this repo shipped because
+// the author could only ever see the template: PE Spain's {{fund_name}},
+// Craig Wilson's [First Name], the single-brace {first_name} auto-reply.
+// Highlighting comes from placeholderValue(), which delegates to
+// renderPlaceholders — the preview cannot disagree with what is sent.
+
+type Seg = { text: string; kind: "text" | "fill" | "blank" | "ai" | "unknown" };
+
+function segmentsFor(template: string, lead: PlaceholderLead, sellerName: string): Seg[] {
+  const out: Seg[] = [];
+  const re = /\{\{[^}]+\}\}/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(template)) !== null) {
+    if (m.index > last) out.push({ text: template.slice(last, m.index), kind: "text" });
+    const token = m[0];
+    if (/^\{\{\s*tailored/i.test(token)) {
+      // Not a leak: the tailor pass fills these at approve, per lead.
+      out.push({ text: token, kind: "ai" });
+    } else {
+      const value = placeholderValue(token, lead, { name: sellerName });
+      if (value === undefined) out.push({ text: token, kind: "unknown" });
+      else if (!value) out.push({ text: token, kind: "blank" });
+      else out.push({ text: value, kind: "fill" });
+    }
+    last = re.lastIndex;
+  }
+  if (last < template.length) out.push({ text: template.slice(last), kind: "text" });
+  return out;
+}
+
+function MessagePreview({ template, subject, channel, isConnectionRequest, leads, sellerName }: {
+  template: string;
+  subject?: string;
+  channel: string;
+  isConnectionRequest?: boolean;
+  leads: SampleLead[];
+  sellerName: string;
+}) {
+  const [idx, setIdx] = useState(0);
+  const lead = leads[Math.min(idx, Math.max(leads.length - 1, 0))];
+  const meta = channelMeta[channel] || channelMeta.linkedin;
+  const Icon = meta.icon;
+
+  const label = (l: SampleLead) =>
+    [l.primary_first_name, l.company_name].filter(Boolean).join(" · ") || "Lead";
+
+  const segs = lead ? segmentsFor(template, lead, sellerName) : [];
+  const holes = segs.filter(s => s.kind === "blank");
+  const leaks = segs.filter(s => s.kind === "unknown");
+
+  return (
+    <div className="mt-3 rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+      <div className="px-3 py-2 flex items-center gap-2 flex-wrap border-b" style={{ borderColor: C.border }}>
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>
+          How the lead receives it
+        </span>
+        {leads.length > 1 && (
+          <select
+            value={idx}
+            onChange={e => setIdx(Number(e.target.value))}
+            className="ml-auto rounded-md border px-2 py-1 text-[11px] font-semibold"
+            style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+          >
+            {leads.map((l, i) => <option key={l.id} value={i}>{label(l)}</option>)}
+          </select>
+        )}
+      </div>
+
+      {!lead ? (
+        <p className="px-3.5 py-3 text-[12px]" style={{ color: C.textDim }}>
+          No readable lead in this selection yet, so there is nothing to render against.
+        </p>
+      ) : !template.trim() ? (
+        <p className="px-3.5 py-3 text-[12px] italic" style={{ color: C.textDim }}>
+          Write the message above and it appears here exactly as {lead.primary_first_name || "the lead"} will read it.
+        </p>
+      ) : (
+        <div className="p-3">
+          <div className="rounded-lg border overflow-hidden" style={{ borderColor: C.border2, backgroundColor: C.card }}>
+            <div
+              className="px-3 py-2 flex items-center gap-2 text-[11px] font-semibold border-b"
+              style={{
+                color: meta.color,
+                backgroundColor: `color-mix(in srgb, ${meta.color} 10%, transparent)`,
+                borderColor: `color-mix(in srgb, ${meta.color} 22%, ${C.border})`,
+              }}
+            >
+              <Icon size={13} />
+              <span>{isConnectionRequest ? "LinkedIn invitation" : meta.label}</span>
+              <span className="ml-auto text-[9px] uppercase tracking-[0.1em] opacity-75">
+                {isConnectionRequest ? "request" : "message"}
+              </span>
+            </div>
+            <div className="px-3 pt-2.5 text-[11.5px]" style={{ color: C.textMuted }}>
+              {sellerName || "Seller"} <span style={{ color: C.textDim }}>→</span> {label(lead)}
+            </div>
+            {subject?.trim() && (
+              <div className="px-3 pt-2 text-[13px] font-bold" style={{ color: C.textPrimary }}>{subject}</div>
+            )}
+            <div className="m-3 px-3 py-2.5 rounded-xl text-[13px] leading-[1.62] whitespace-pre-wrap border"
+              style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
+              {segs.map((sg, i) =>
+                sg.kind === "text" ? <span key={i}>{sg.text}</span>
+                : sg.kind === "fill" ? (
+                  <mark key={i} className="rounded px-0.5 font-semibold"
+                    style={{ backgroundColor: `color-mix(in srgb, ${gold} 26%, transparent)`, color: C.textPrimary }}>
+                    {sg.text}
+                  </mark>
+                ) : sg.kind === "ai" ? (
+                  <span key={i} className="rounded px-1 font-semibold text-[12px]"
+                    style={{ backgroundColor: C.goldSoft, color: C.gold, border: `1px dashed color-mix(in srgb, ${gold} 45%, transparent)` }}>
+                    AI writes this per lead
+                  </span>
+                ) : (
+                  <span key={i} className="rounded px-1 font-bold"
+                    style={{ backgroundColor: `color-mix(in srgb, ${C.red} 10%, transparent)`, color: C.red }}>
+                    {sg.text}{sg.kind === "blank" ? " (empty for this lead)" : ""}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+
+          {leaks.length > 0 ? (
+            <p className="mt-2 text-[11px] font-semibold" style={{ color: C.red }}>
+              {leaks.map(l => l.text).join(", ")} is not a placeholder we render — the dispatcher will refuse the row instead of sending it.
+            </p>
+          ) : holes.length > 0 ? (
+            <p className="mt-2 text-[11px]" style={{ color: C.red }}>
+              This lead has no {holes.map(h => h.text).join(", ")}. Switch lead above to see who else is missing it.
+            </p>
+          ) : (
+            <p className="mt-2 text-[10.5px]" style={{ color: C.textDim }}>
+              Gold = the lead&apos;s own data. Nothing unresolved.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Collapsible reference for the placeholders the dispatcher supports + a
 // live warning if any body contains a `{{…}}` we won't render. Click any
 // token to copy.
@@ -220,6 +525,7 @@ function PlaceholdersHint({
   bodies,
   onAutoFix,
   flowType = "generic",
+  coverage,
 }: {
   bodies: string[];
   /** Called when the operator clicks the "Auto-fix" button. The parent
@@ -235,6 +541,10 @@ function PlaceholdersHint({
    *  generic mode was an invitation to break a step, so we hide them and
    *  flag any that are already in a body. */
   flowType?: "generic" | "tailored";
+  /** Per-column fill rate over the selection. A placeholder whose data is
+   *  missing on a third of the leads leaves a hole mid-sentence, and the
+   *  author has no way to know that from the token name alone. */
+  coverage?: PlaceholderCoverage;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -342,6 +652,13 @@ function PlaceholdersHint({
       {open && (
         <div className="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3"
           style={{ borderTop: `1px solid ${C.border}` }}>
+          {coverage && coverage.encrypted > 0 && (
+            <p className="col-span-full text-[10px] -mt-1 mb-1" style={{ color: C.textDim }}>
+              Percentages cover the {coverage.total - coverage.encrypted} leads with readable columns.
+              The other {coverage.encrypted} are client-uploaded and encrypted — the dispatcher reads
+              their values at send time, so they are not counted here rather than counted as missing.
+            </p>
+          )}
           {groups.map(g => {
             // Tailored AI slots get the gold pill + sparkle treatment so
             // the seller can tell at a glance they're AI-filled per lead,
@@ -365,6 +682,27 @@ function PlaceholdersHint({
                 )}
               </div>
               <p className="text-[10px] mb-1.5" style={{ color: C.textMuted }}>{g.description}</p>
+              {(() => {
+                // Measured, never estimated: no counts → no bar.
+                if (!g.coverageColumn || !coverage || coverage.total === 0) return null;
+                const have = coverage.counts[g.coverageColumn];
+                if (have === undefined) return null;
+                const measured = coverage.total - coverage.encrypted;
+                if (measured <= 0) return null;
+                const pct = Math.round((have / measured) * 100);
+                const tone = pct >= 90 ? C.green : pct >= 80 ? C.gold : C.red;
+                return (
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ backgroundColor: C.bg }}>
+                      <span className="block h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: tone }} />
+                    </span>
+                    <span className="text-[10px] font-bold tabular-nums" style={{ color: tone }}>{pct}%</span>
+                    <span className="text-[9.5px] tabular-nums" style={{ color: C.textDim }}>
+                      {have}/{measured}
+                    </span>
+                  </div>
+                );
+              })()}
               <div className="flex flex-wrap gap-1">
                 {g.tokens.map(tok => (
                   <button key={tok} onClick={() => copy(tok)}
@@ -388,7 +726,7 @@ function PlaceholdersHint({
   );
 }
 
-export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, flowType = "generic", signals, onAttachmentsChange, onReorderStep }: Props) {
+export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, flowType = "generic", signals, sampleLeads, sellerName, placeholderCoverage, onAttachmentsChange, onReorderStep }: Props) {
   const { locale, t } = useLocale();
   const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
   const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
@@ -415,22 +753,14 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   // runs so sellers don't think the page is frozen during the ~20-30s wait.
   const [genProgress, setGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // AI prompt is hidden by default to declutter each step card. Auto-expands
-  // when there's existing content so users with saved prompts always see them.
-  const [aiPromptOpen, setAiPromptOpen] = useState<Set<string>>(new Set());
 
   const toggleExpand = (key: string) => setExpanded(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
     return next;
   });
-  const toggleAiPrompt = (key: string) => setAiPromptOpen(prev => {
-    const next = new Set(prev);
-    next.has(key) ? next.delete(key) : next.add(key);
-    return next;
-  });
-  const isAiPromptOpen = (key: string, content: string | undefined | null) =>
-    aiPromptOpen.has(key) || (content !== undefined && content !== null && content.length > 0);
+  // AI prompt is hidden by default to declutter each step card. Auto-expands
+  // when there's existing content so users with saved prompts always see them.
 
   // DISPLAY-ONLY CR slice. When sequence[0] is a LinkedIn day-0 step, that
   // entry is the Connection Request — its body lives in
@@ -461,6 +791,29 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
   });
   const autoReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
+
+  // ── Rendered length ────────────────────────────────────────────────────
+  // The 200-char LinkedIn cap applies to the text that SHIPS, not to the
+  // template: {{company_name}} is 16 characters and "Sinergia Inmobiliaria"
+  // is 21, so a 178-char template can render past the cap and get rejected.
+  // Measured against the real sample leads; with no leads to measure we fall
+  // back to the template length rather than inventing a number.
+  const previewLeads = sampleLeads ?? [];
+  const previewSeller = sellerName?.trim() || "Seller";
+  function renderedRange(template: string, cap?: number) {
+    if (!template) return { min: 0, max: 0, over: false, measured: false };
+    if (previewLeads.length === 0) {
+      const n = template.length;
+      return { min: n, max: n, over: !!cap && n > cap, measured: false };
+    }
+    const lens = previewLeads.map(l =>
+      renderPlaceholders(template, l, { name: previewSeller }, { strict: false }).length,
+    );
+    const min = Math.min(...lens);
+    const max = Math.max(...lens);
+    return { min, max, over: !!cap && max > cap, measured: true };
+  }
+  const crRendered = renderedRange(channelMessages.connectionRequest || "", 200);
 
   function updateStep(idx: number, field: "body" | "subject" | "user_prompt", value: string) {
     const newSteps = [...steps];
@@ -778,6 +1131,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           2026-05-27). */}
       <PlaceholdersHint
         flowType={flowType}
+        coverage={placeholderCoverage}
         bodies={[
           channelMessages.connectionRequest ?? "",
           ...(channelMessages.steps ?? []).map(s => s?.body ?? ""),
@@ -829,73 +1183,58 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
                 {expanded.has("conn") ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
               </button>
-              <button onClick={() => generateField("connectionNote", undefined)} disabled={!!aiLoading}
-                title="Draft the LinkedIn invite note with AI from the lead's enrichment + your tone of voice"
-                className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
-                style={{
-                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-                  color: "#04070d",
-                  boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)`,
-                  letterSpacing: "0.06em",
-                }}>
-                {aiLoading === "connectionNote:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                {aiLoading === "connectionNote:" ? "Drafting" : "AI Draft"}
-              </button>
             </div>
           </div>
-          <div className="px-4 py-3 space-y-1.5">
-            {/* PRIMARY: the message. Char counter folded into a single line
-                with the label so the float-right counter doesn't take its own row. */}
-            <textarea
-              rows={expanded.has("conn") ? 10 : 2}
-              maxLength={200}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-              value={channelMessages.connectionRequest || ""}
-              onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
-              placeholder={inlinePlaceholders.connectionRequest}
-              title={t("wiz.connReq.hint")}
+          <div className="px-4 py-3.5">
+            <LaneIntent
+              value={channelMessages.connectionRequestPrompt ?? ""}
+              onChange={v => onChange({ ...channelMessages, connectionRequestPrompt: v })}
+              placeholder={locale === "es"
+                ? "ej: Mencionar que vimos su perfil, presentación corta y por qué queremos conectar."
+                : "e.g. Mention we saw their profile, short intro, and why we want to connect."
+              }
             />
-            <div className="flex items-center justify-between text-[10px]">
-              <span style={{ color: C.textDim }}>{t("wiz.connReq.hint")}</span>
-              <span style={{ color: (channelMessages.connectionRequest?.length || 0) > 200 ? C.red : C.textDim }}>
-                {channelMessages.connectionRequest?.length || 0}/200
-              </span>
-            </div>
-            {(channelMessages.connectionRequest?.length || 0) > 195 && (
-              <p className="text-[11px]" style={{ color: C.red }}>
-                Heads up: placeholder expansion (first name + company) may push this past LinkedIn&apos;s 200-char cap. Tighten to ~180 to leave margin.
-              </p>
-            )}
-
-            {/* SECONDARY: AI prompt — hidden by default. Click "+ Customize"
-                to reveal. Auto-stays open when there's saved content so users
-                with existing prompts never lose them. */}
-            {!isAiPromptOpen("conn", channelMessages.connectionRequestPrompt) ? (
-              <button onClick={() => toggleAiPrompt("conn")}
-                className="inline-flex items-center gap-1 text-[10px] font-medium hover:underline pt-1"
-                style={{ color: gold }}>
-                <Plus size={10} /> {t("wiz.step.promptHelper")}
-              </button>
-            ) : (
-              <div className="pt-1.5">
-                <textarea
-                  rows={2}
-                  className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
-                  style={{
-                    borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
-                    color: C.textPrimary,
-                    backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
-                  }}
-                  value={channelMessages.connectionRequestPrompt ?? ""}
-                  onChange={e => onChange({ ...channelMessages, connectionRequestPrompt: e.target.value })}
-                  placeholder={locale === "es"
-                    ? "ej: Mencionar que vimos su perfil, presentación corta y por qué queremos conectar."
-                    : "e.g. Mention we saw their profile, short intro, and why we want to connect."
-                  }
-                />
+            <LaneJoin
+              hasIntent={!!(channelMessages.connectionRequestPrompt ?? "").trim()}
+              hasBody={!!(channelMessages.connectionRequest ?? "").trim()}
+              loading={aiLoading === "connectionNote:"}
+              onClick={() => generateField("connectionNote", undefined)}
+            />
+            <LaneMessage hint={t("wiz.connReq.hint")}>
+              <textarea
+                rows={expanded.has("conn") ? 10 : 3}
+                maxLength={200}
+                className="w-full rounded-lg border px-3 py-2 text-[14px] leading-[1.6] focus:outline-none resize-y"
+                style={{ borderColor: C.border2, color: C.textPrimary, backgroundColor: C.bg }}
+                value={channelMessages.connectionRequest || ""}
+                onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
+                placeholder={inlinePlaceholders.connectionRequest}
+                title={t("wiz.connReq.hint")}
+              />
+              <div className="flex items-center gap-3 mt-2.5 pt-2.5 text-[10.5px] border-t" style={{ borderColor: C.border }}>
+                <span style={{ color: C.textDim }}>
+                  Template <b style={{ color: C.textMuted }}>{channelMessages.connectionRequest?.length || 0}</b>
+                </span>
+                <span style={{ color: C.textDim }}>
+                  Rendered{" "}
+                  <b style={{ color: crRendered.over ? C.red : C.textMuted }}>
+                    {crRendered.min === crRendered.max ? crRendered.max : `${crRendered.min}–${crRendered.max}`} / 200
+                  </b>
+                </span>
+                {crRendered.over && (
+                  <span className="font-semibold" style={{ color: C.red }}>
+                    over the cap once placeholders expand
+                  </span>
+                )}
               </div>
-            )}
+            </LaneMessage>
+            <MessagePreview
+              template={channelMessages.connectionRequest || ""}
+              channel="linkedin"
+              isConnectionRequest
+              leads={previewLeads}
+              sellerName={previewSeller}
+            />
           </div>
         </div>
       )}
@@ -1009,22 +1348,24 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
                       {expanded.has(`step-${i}`) ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
                     </button>
-                    <button onClick={() => generateField(fieldType, i)} disabled={!!aiLoading}
-                      title="Draft this step's copy with AI from the lead's enrichment + your tone of voice"
-                      className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
-                      style={{
-                        background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-                        color: "#04070d",
-                        boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)`,
-                        letterSpacing: "0.06em",
-                      }}>
-                      {aiLoading === loadingKey ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                      {aiLoading === loadingKey ? "Drafting" : "AI Draft"}
-                    </button>
                   </div>
                 </div>
 
                 <div className="px-4 py-2.5 space-y-1.5">
+                  {/* Lane 1 — the intent. Was a "+ Customize" link nobody
+                      opened, so the generator ran with no instruction. */}
+                  <LaneIntent
+                    value={step?.user_prompt ?? ""}
+                    onChange={v => updateStep(i, "user_prompt", v)}
+                    placeholder={typePlaceholders[cls.type] || t("wiz.step.promptHelperPlaceholder")}
+                  />
+                  <LaneJoin
+                    hasIntent={!!(step?.user_prompt ?? "").trim()}
+                    hasBody={!!(step?.body ?? "").trim()}
+                    loading={aiLoading === loadingKey}
+                    onClick={() => generateField(fieldType, i)}
+                  />
+
                   {isEmail && (() => {
                     const subjectMissing = !step?.subject?.trim();
                     const hasBody = !!step?.body?.trim();
@@ -1057,18 +1398,34 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     );
                   })()}
 
-                  {/* PRIMARY: the message. The intent description that used to
-                      live above is now the placeholder + title attr — same info,
-                      contextual to the empty input, doesn't waste vertical space. */}
-                  <textarea
-                    rows={expanded.has(`step-${i}`) ? 18 : (cls.type === "EMAIL_INTRO" ? 6 : cls.type.includes("CALL") ? 5 : 4)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                    style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                    value={step?.body || ""}
-                    onChange={e => updateStep(i, "body", e.target.value)}
-                    placeholder={typeDescriptions[cls.type] || inlinePlaceholders.fallback}
-                    title={typeDescriptions[cls.type] || ""}
-                  />
+                  {/* Lane 2 — the copy that ships. */}
+                  <LaneMessage hint={typeDescriptions[cls.type] || ""}>
+                    <textarea
+                      rows={expanded.has(`step-${i}`) ? 18 : (cls.type === "EMAIL_INTRO" ? 6 : cls.type.includes("CALL") ? 5 : 4)}
+                      className="w-full rounded-lg border px-3 py-2 text-[14px] leading-[1.6] focus:outline-none resize-y"
+                      style={{ borderColor: C.border2, color: C.textPrimary, backgroundColor: C.bg }}
+                      value={step?.body || ""}
+                      onChange={e => updateStep(i, "body", e.target.value)}
+                      placeholder={typeDescriptions[cls.type] || inlinePlaceholders.fallback}
+                      title={typeDescriptions[cls.type] || ""}
+                    />
+                    {(() => {
+                      const r = renderedRange(step?.body || "");
+                      return (
+                        <div className="flex items-center gap-3 mt-2.5 pt-2.5 text-[10.5px] border-t" style={{ borderColor: C.border }}>
+                          <span style={{ color: C.textDim }}>
+                            Template <b style={{ color: C.textMuted }}>{(step?.body || "").length}</b>
+                          </span>
+                          {r.measured && (
+                            <span style={{ color: C.textDim }}>
+                              Rendered <b style={{ color: C.textMuted }}>{r.min === r.max ? r.max : `${r.min}–${r.max}`}</b>
+                            </span>
+                          )}
+                          <span className="ml-auto" style={{ color: C.textDim }}>Under 400 characters performs +22%</span>
+                        </div>
+                      );
+                    })()}
+                  </LaneMessage>
 
                   {/* Tailored-slot reassurance bar — only shown when the
                       step body actually contains per-lead slots so the
@@ -1088,29 +1445,14 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     );
                   })()}
 
-                  {/* SECONDARY: AI prompt — collapsed by default. */}
-                  {!isAiPromptOpen(`step-${i}`, step?.user_prompt) ? (
-                    <button onClick={() => toggleAiPrompt(`step-${i}`)}
-                      className="inline-flex items-center gap-1 text-[10px] font-medium hover:underline pt-0.5"
-                      style={{ color: gold }}>
-                      <Plus size={10} /> {t("wiz.step.promptHelper")}
-                    </button>
-                  ) : (
-                    <div className="pt-1">
-                      <textarea
-                        rows={2}
-                        className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
-                        style={{
-                          borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
-                          color: C.textPrimary,
-                          backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
-                        }}
-                        value={step?.user_prompt ?? ""}
-                        onChange={e => updateStep(i, "user_prompt", e.target.value)}
-                        placeholder={typePlaceholders[cls.type] || t("wiz.step.promptHelperPlaceholder")}
-                      />
-                    </div>
-                  )}
+                  {/* The rendered message, against a real lead of the selection. */}
+                  <MessagePreview
+                    template={step?.body || ""}
+                    subject={step?.subject}
+                    channel={cls.channel}
+                    leads={previewLeads}
+                    sellerName={previewSeller}
+                  />
 
                   {/* ATTACHMENTS — file pickers live next to the message body
                       because that's where the seller's brain is at when they

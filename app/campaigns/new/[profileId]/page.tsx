@@ -9,6 +9,7 @@ import {
   Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle,
   Sparkles,
 } from "lucide-react";
+import type { SampleLead, PlaceholderCoverage } from "@/components/ChannelMessageConfig";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
 import LogoLoader from "@/components/LogoLoader";
@@ -268,6 +269,11 @@ export default function NewCampaignWizard() {
   // lead_id=null and the "AI Draft" button silently produced nothing
   // (boss 2026-06-08, on a Call-only flow).
   const [sampleLeadId, setSampleLeadId] = useState<string | null>(null);
+  // Up to 3 real leads of this selection + how many leads have each
+  // placeholder column filled. Feeds the Messages step's rendered preview
+  // and the per-token coverage bars — both need real data, not estimates.
+  const [sampleLeads, setSampleLeads] = useState<SampleLead[]>([]);
+  const [placeholderCoverage, setPlaceholderCoverage] = useState<PlaceholderCoverage | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -584,6 +590,42 @@ export default function NewCampaignWizard() {
     }
     load();
   }, [profileId]);
+
+  // Sample leads + placeholder coverage. Fetched when the author first
+  // reaches the Messages step (step 2) rather than on page load — it costs a
+  // handful of COUNT queries and steps 0/1 never use it. Runs once; the
+  // selection can't change without leaving the wizard.
+  useEffect(() => {
+    if (wizardStep !== 2) return;
+    if (placeholderCoverage !== undefined) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/campaigns/wizard-sample-leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            leadIds: isPartialSelection ? selectedLeadIds : undefined,
+            icpProfileId: profileId,
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setSampleLeads(Array.isArray(data.leads) ? data.leads : []);
+        setPlaceholderCoverage({
+          counts: data.coverage ?? {},
+          total: data.total ?? 0,
+          encrypted: data.encrypted ?? 0,
+        });
+      } catch {
+        // Preview and coverage are additive: on failure the Messages step
+        // still works, it just shows the template instead of the rendered
+        // message. Never block flow creation on this.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [wizardStep, placeholderCoverage, isPartialSelection, selectedLeadIds, profileId]);
 
   // Sequence helpers
   function addStep() {
@@ -1895,6 +1937,9 @@ export default function NewCampaignWizard() {
             icpProfileId={profileId}
             leadId={sampleLeadId ?? undefined}
             signals={selectedSignals}
+            sampleLeads={sampleLeads}
+            sellerName={sellers.find(s => s.id === sellerQuotas[0]?.sellerId)?.name ?? undefined}
+            placeholderCoverage={placeholderCoverage}
             onAttachmentsChange={(stepIdx, next) => {
               setSequence(seq => seq.map((step, i) => i === stepIdx ? { ...step, attachments: next } : step));
             }}
