@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Users, CheckSquare, Building2, Globe, Briefcase, MapPin, Megaphone, Send } from "lucide-react";
+import { Users, CheckSquare, Building2, Globe, Briefcase, MapPin, Megaphone, Send, Share2, Mail, Phone } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
@@ -80,6 +80,11 @@ export type PickableLead = {
   allow_linkedin: boolean;
   allow_email: boolean;
   allow_call: boolean;
+  /** Whether the channel data actually exists AND sending is permitted.
+   *  The allow_* flags above are only the permission half. */
+  has_linkedin: boolean;
+  has_email: boolean;
+  has_phone: boolean;
   history: "new" | "renurture" | "lost" | "won";
 };
 
@@ -93,6 +98,10 @@ export default function PickLeadsClient({
   const router = useRouter();
   const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
   const [historyFilter, setHistoryFilter] = useState<"all" | "new" | "renurture" | "lost" | "won">("all");
+  // Narrow to leads the flow can actually act on. Enrolling someone with no
+  // channel data isn't an error anywhere — the dispatcher just skips them —
+  // so it stays invisible unless the picker says so.
+  const [reachFilter, setReachFilter] = useState<"all" | "linkedin" | "email" | "phone">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAddToFlow, setShowAddToFlow] = useState(false);
   // Anchor for shift-click range selection (boss 2026-06-08: "selecting
@@ -129,6 +138,9 @@ export default function PickLeadsClient({
     if (filters.industry.length > 0 && (!l.industry || !filters.industry.includes(l.industry))) return false;
     if (filters.country.length > 0 && (!l.country || !filters.country.includes(l.country))) return false;
     if (filters.company.length > 0 && (!l.company_name || !filters.company.includes(l.company_name))) return false;
+    if (reachFilter === "linkedin" && !l.has_linkedin) return false;
+    if (reachFilter === "email" && !l.has_email) return false;
+    if (reachFilter === "phone" && !l.has_phone) return false;
     if (filters.score.length > 0) {
       const s = l.lead_score ?? 0;
       const band = s >= 80 ? "hot" : s >= 50 ? "warm" : "nurture";
@@ -253,6 +265,32 @@ export default function PickLeadsClient({
             active={historyFilter}
             onChange={setHistoryFilter}
           />
+
+          {/* Reach pills. Each one counts LEADS, which the older filter
+              dropdowns did not — "All company (129)" was the number of
+              options in the list, not the number of leads it left. */}
+          <div className="flex items-center gap-2 flex-wrap -mt-1">
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>Reachable on</span>
+            {([
+              { key: "all", label: "Any", n: leads.length },
+              { key: "linkedin", label: "LinkedIn", n: leads.filter(l => l.has_linkedin).length },
+              { key: "email", label: "Email", n: leads.filter(l => l.has_email).length },
+              { key: "phone", label: "Phone", n: leads.filter(l => l.has_phone).length },
+            ] as const).map(p => {
+              const on = reachFilter === p.key;
+              return (
+                <button key={p.key} type="button" onClick={() => setReachFilter(p.key)}
+                  aria-pressed={on}
+                  className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-full transition-colors"
+                  style={on
+                    ? { backgroundColor: N.ink, color: "#fff", border: `1px solid ${N.ink}` }
+                    : { backgroundColor: C.card, color: C.textMuted, border: `1px solid ${C.border}` }}>
+                  {p.label}
+                  <span className="tabular-nums font-bold" style={{ color: on ? gold : C.textBody }}>{p.n}</span>
+                </button>
+              );
+            })}
+          </div>
 
           <div
             className="rounded-2xl border overflow-hidden"
@@ -404,6 +442,27 @@ export default function PickLeadsClient({
                     </div>
 
                     {/* Right-side chip cluster — country, industry, history badge, score */}
+                    {/* Reach — LinkedIn / email / phone. Lit means the data
+                        exists and sending is allowed; dim means that step of
+                        the flow gets skipped for this lead. This is what
+                        decides whether the flow can run, and the row used to
+                        say nothing about it. */}
+                    <span className="hidden sm:inline-flex gap-1 shrink-0" title="Reachable on: LinkedIn · email · phone">
+                      {([
+                        { on: l.has_linkedin, Icon: Share2, color: C.linkedin, label: "LinkedIn" },
+                        { on: l.has_email, Icon: Mail, color: C.email, label: "Email" },
+                        { on: l.has_phone, Icon: Phone, color: "#EA580C", label: "Phone" },
+                      ] as const).map(r => (
+                        <span key={r.label}
+                          title={r.on ? `${r.label}: reachable` : `${r.label}: no data — this step is skipped`}
+                          className="w-5 h-5 rounded-md grid place-items-center"
+                          style={r.on
+                            ? { backgroundColor: `color-mix(in srgb, ${r.color} 15%, transparent)`, color: r.color }
+                            : { backgroundColor: C.surface, color: C.textDim }}>
+                          <r.Icon size={11} />
+                        </span>
+                      ))}
+                    </span>
                     <div className="hidden md:flex items-center gap-1.5 shrink-0">
                       {l.country && (
                         <span
