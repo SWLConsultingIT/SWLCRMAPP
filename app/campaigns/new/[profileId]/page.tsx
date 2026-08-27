@@ -831,7 +831,9 @@ export default function NewCampaignWizard() {
   // A name the author can accept with one click. Built from the ICP and the
   // channels actually in the sequence, which is what people type by hand.
   const suggestedName = (() => {
-    const base = (profile?.name as string | undefined)?.trim();
+    // icp_profiles has `profile_name`, not `name` — reading the wrong key made
+    // this always "" and the suggestion button never rendered at all.
+    const base = (profile?.profile_name as string | undefined)?.trim();
     if (!base) return "";
     const chans = [...new Set(sequence.map(s => s.channel))]
       .map(k => channelOptions.find(c => c.key === k)?.label ?? k);
@@ -1522,7 +1524,19 @@ export default function NewCampaignWizard() {
                                   </select>
                                 </span>
                               )}
-                              <span className="text-[11.5px] tabular-nums text-right" style={{ color: C.textDim, minWidth: 104 }}>{dateLabel}</span>
+                              <span
+                                className="text-[11.5px] tabular-nums text-right"
+                                style={{
+                                  // Amber on the offending row so the eye lands
+                                  // on the date that is the problem, instead of
+                                  // only on a chip in the header corner.
+                                  color: isWeekend && i > 0 ? "#D97706" : C.textDim,
+                                  fontWeight: isWeekend && i > 0 ? 600 : 400,
+                                  minWidth: 104,
+                                }}
+                              >
+                                {dateLabel}
+                              </span>
 
                               {/* The weekend is now an action, not a notice. */}
                               {isWeekend && i > 0 && (
