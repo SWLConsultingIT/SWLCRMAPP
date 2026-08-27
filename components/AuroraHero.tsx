@@ -22,6 +22,7 @@ export default function AuroraHero({
   actions,
   kpis,
   className = "",
+  bare = false,
 }: {
   eyebrow: string;
   title: ReactNode;
@@ -29,9 +30,11 @@ export default function AuroraHero({
   actions?: ReactNode;
   kpis?: AuroraKpi[];
   className?: string;
+  /** Omit the default bottom margin (for parents that manage spacing). */
+  bare?: boolean;
 }) {
   return (
-    <div className={`aurora-hero mb-6 ${className}`}>
+    <div className={`aurora-hero ${bare ? "" : "mb-6"} ${className}`}>
       <div className="aurora-mesh" aria-hidden />
       <div className="aurora-mesh2" aria-hidden />
       <div className="aurora-glass">

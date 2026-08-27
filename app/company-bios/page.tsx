@@ -6,6 +6,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import LogoLoader from "@/components/LogoLoader";
+import AuroraHero from "@/components/AuroraHero";
 import {
   Building2, Save, AlertCircle, Plus, X, Pencil, Globe, Loader2,
   MapPin, Award, Briefcase, Trash2, Upload, Image as ImageIcon,
@@ -1610,98 +1611,26 @@ export default function CompanyBiosPage() {
 
       {/* ── Scanner Hero — always visible except when editing ── */}
       {!editing && (
-        <div className="rounded-2xl overflow-hidden relative" style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.10)" }}>
-          {/* Dark banner — matches login/dashboard hero */}
-          <div
-            className="px-8 py-7 relative"
-            style={{
-              background: `
-                radial-gradient(ellipse 60% 90% at 100% 50%, color-mix(in srgb, ${gold} 22%, transparent) 0%, transparent 60%),
-                radial-gradient(ellipse 50% 80% at 0% 100%, color-mix(in srgb, var(--brand-dark, #b79832) 16%, transparent) 0%, transparent 55%),
-                linear-gradient(135deg, #04070d 0%, #08101e 60%, #0a1525 100%)
-              `,
-            }}
-          >
-            {/* Grid overlay */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
-                backgroundSize: "56px 56px",
-              }}
-            />
-            <div
-              className="absolute left-0 right-0 bottom-0 h-px pointer-events-none"
-              style={{
-                background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 38%, transparent) 35%, color-mix(in srgb, ${gold} 38%, transparent) 65%, transparent 100%)`,
-              }}
-            />
-
-            <div className="relative z-10 flex items-center justify-between gap-6 flex-wrap">
-              <div className="flex items-center gap-5">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
-                  style={{
-                    background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 18%, transparent) 0%, color-mix(in srgb, ${gold} 4%, transparent) 100%)`,
-                    border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`,
-                    boxShadow: `0 0 24px color-mix(in srgb, ${gold} 22%, transparent)`,
-                  }}
-                >
-                  <Globe size={24} style={{ color: gold }} />
-                </div>
-                <div>
-                  <h2
-                    className="text-[22px] font-bold leading-tight"
-                    style={{
-                      color: "#f8fafc",
-                      fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
-                    {t("bio.scan.title")}
-                  </h2>
-                  <p className="text-sm mt-1 leading-relaxed max-w-xl" style={{ color: "rgba(217,222,226,0.65)" }}>
-                    {t("bio.scan.subtitle")}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <div
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border"
-                  style={{
-                    borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`,
-                    backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`,
-                  }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
-                  <span className="text-[10px] font-bold tracking-[0.2em] uppercase" style={{ color: gold }}>
-                    {t("bio.scan.ready")}
-                  </span>
-                </div>
-                <span
-                  className="text-[10px] font-bold tracking-[0.2em] uppercase px-3 py-1.5 rounded-full"
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.04)",
-                    color: "rgba(217,222,226,0.6)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
-                >
-                  {t("bio.scan.indexer")}
-                </span>
-              </div>
-            </div>
-          </div>
-
+        <>
+          <AuroraHero
+            bare
+            eyebrow="Company Bio"
+            title={t("bio.scan.title")}
+            subtitle={t("bio.scan.subtitle")}
+            actions={
+              <span
+                className="inline-flex items-center gap-2 aurora-btn plain"
+                style={{ cursor: "default" }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
+                {t("bio.scan.ready")}
+              </span>
+            }
+          />
           {/* Scan controls */}
           <div
-            className="p-6"
-            style={{
-              backgroundColor: C.card,
-              borderLeft: `1px solid ${C.border}`,
-              borderRight: `1px solid ${C.border}`,
-              borderBottom: `1px solid ${C.border}`,
-              borderRadius: "0 0 16px 16px",
-            }}
+            className="rounded-2xl border p-6"
+            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: C.shadow }}
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: C.textMuted }}>
               {t("bio.scan.target")}
@@ -1765,7 +1694,7 @@ export default function CompanyBiosPage() {
               </p>
             )}
           </div>
-        </div>
+        </>
       )}
 
       {/* ── Edit header ── */}

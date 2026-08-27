@@ -38,6 +38,7 @@ import PortfolioView from "@/components/dashboard/PortfolioView";
 import { getPortfolioComparison } from "@/lib/portfolio";
 import ChannelComparison from "@/components/dashboard/ChannelComparison";
 import MicroKpi from "@/components/dashboard/MicroKpi";
+import AuroraHero from "@/components/AuroraHero";
 import RateBar from "@/components/dashboard/RateBar";
 import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";
@@ -368,224 +369,26 @@ export default async function DashboardPage({
           alive; the analytical hero is wrong copy for the action list.
           Both variants render; TabChrome reveals the right one per tab. */}
       <TabChrome include={["today"]}>
-      <header
-        className="relative rounded-2xl overflow-hidden px-8 sm:px-14 py-10 sm:py-14"
-        style={{
-          background: `
-            radial-gradient(50% 80% at 92% 50%, color-mix(in srgb, ${gold} 22%, transparent) 0%, transparent 60%),
-            radial-gradient(35% 60% at 8% 20%, color-mix(in srgb, ${gold} 11%, transparent) 0%, transparent 65%),
-            radial-gradient(60% 40% at 50% 110%, color-mix(in srgb, ${gold} 8%, transparent) 0%, transparent 70%),
-            linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)
-          `,
-          border: `1px solid color-mix(in srgb, ${gold} 28%, ${N.hairline})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 32%, transparent) inset, 0 0 60px -10px color-mix(in srgb, ${gold} 18%, transparent) inset, 0 24px 60px -28px ${N.ink}, 0 0 0 1px color-mix(in srgb, ${gold} 8%, transparent)`,
-        }}
-      >
-        {/* Hairline gold accent across the very top edge — editorial detail */}
-        <span aria-hidden className="absolute inset-x-0 top-0 h-px pointer-events-none"
-          style={{ background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 56%, transparent) 25%, color-mix(in srgb, ${gold} 56%, transparent) 75%, transparent 100%)` }} />
-        {/* Static atmospheric glow — large soft bloom behind where the
-            SWL lockup sits. Same anchor as the radial in the bg but
-            blurred for depth. Gives the right half of the card real
-            "presence" without animating. */}
-        <span aria-hidden className="absolute top-1/2 right-0 -translate-y-1/2 w-[640px] h-[440px] pointer-events-none"
-          style={{
-            background: `radial-gradient(circle at 70% 50%, color-mix(in srgb, ${gold} 28%, transparent) 0%, transparent 60%)`,
-            filter: "blur(40px)",
-          }} />
-        {/* Counter wash on the left for warmth where the wordmark sits */}
-        <span aria-hidden className="absolute top-0 left-0 w-[360px] h-[260px] pointer-events-none"
-          style={{
-            background: `radial-gradient(circle at 30% 30%, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 65%)`,
-            filter: "blur(30px)",
-          }} />
-
-        <div className="relative flex items-center justify-between gap-12 sm:gap-16 flex-wrap">
-          {/* ── Left column — GrowthAI wordmark (white + gold "AI"),
-              SALES ENGINE eyebrow under it, welcome copy. Capped to
-              560px so the SWL lockup doesn't get exiled to the far
-              right edge; the negative space between columns is now
-              filled by the gold ambient bloom baked into the bg. */}
-          <div className="min-w-0 flex-1 max-w-[560px]">
-            <div className="mb-7">
-              <p
-                className="text-[28px] sm:text-[32px] font-bold leading-none"
-                style={{
-                  color: "white",
-                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Growth<span style={{ color: gold }}>AI</span>
-              </p>
-              <div className="flex items-center gap-2.5 mt-2.5">
-                <span aria-hidden className="block h-px w-6"
-                  style={{ background: `linear-gradient(90deg, ${gold} 0%, transparent 100%)` }} />
-                <span
-                  className="text-[10.5px] font-bold uppercase"
-                  style={{
-                    color: gold,
-                    letterSpacing: "0.32em",
-                    fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                  }}
-                >
-                  {t("dashx.hero.section")}
-                </span>
-              </div>
-            </div>
-
-            <h1
-              className="text-[34px] sm:text-[46px] font-semibold leading-[1.02]"
-              style={{
-                color: "white",
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                letterSpacing: "-0.03em",
-                textShadow: `0 2px 24px color-mix(in srgb, ${gold} 14%, transparent)`,
-              }}
-            >
-              {t("dashx.today.heroTitle")}
-            </h1>
-            <p
-              className="text-[14px] mt-4 max-w-[560px] leading-relaxed"
-              style={{
-                color: "color-mix(in srgb, white 64%, transparent)",
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-              }}
-            >
-              {t("dashx.today.heroDesc")}
-            </p>
-          </div>
-
-          {/* ── Right column — exact LogoLoader lockup, no card ─────
-              Mirrors the splash screen lockup so the hero shows the
-              same identity the user sees on every page transition.
-              Mark (gold parallelograms, cropped from the PNG) +
-              typographic "SWL" wordmark, both share the same 4.5s
-              cycle (logo-loader-mark-glow + logo-loader-mark-shine +
-              logo-loader-wordmark-shimmer). The dark-mode rule in
-              globals.css already gives the mark a hotter glow on the
-              navy hero bg. */}
-          {(() => {
-            const SWL_LOGO = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
-            const size = 96;
-            // Same crop math the LogoLoader uses — only the gold mark
-            // portion of the PNG, the white "SWL" letters get hidden
-            // because the gold typographic wordmark next to it carries
-            // the lettering instead.
-            const markCropRatio = 0.34;
-            const fullPngWidth = size * (280 / 136);
-            const markWidth = Math.round(fullPngWidth * markCropRatio);
-            return (
-              <div className="logo-loader-stage shrink-0" aria-hidden>
-                <div
-                  className="logo-loader-mark-wrap"
-                  style={{ width: markWidth, height: size }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={SWL_LOGO}
-                    alt=""
-                    className="logo-loader-mark-img"
-                    style={{
-                      width: fullPngWidth,
-                      height: size,
-                      objectFit: "cover",
-                      objectPosition: "left center",
-                    }}
-                  />
-                  <span
-                    className="logo-loader-mark-shine"
-                    style={{
-                      width: markWidth,
-                      height: size,
-                      WebkitMaskImage: `url(${SWL_LOGO})`,
-                      maskImage: `url(${SWL_LOGO})`,
-                      WebkitMaskSize: `${fullPngWidth}px ${size}px`,
-                      maskSize: `${fullPngWidth}px ${size}px`,
-                      WebkitMaskRepeat: "no-repeat",
-                      maskRepeat: "no-repeat",
-                      WebkitMaskPosition: "left center",
-                      maskPosition: "left center",
-                    }}
-                  />
-                </div>
-                <span
-                  className="logo-loader-wordmark"
-                  style={{
-                    fontSize: Math.round(size * 0.85),
-                    lineHeight: 1,
-                    fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                  }}
-                >
-                  SWL
-                </span>
-              </div>
-            );
-          })()}
-        </div>
-      </header>
+      <AuroraHero
+        eyebrow={t("dashx.hero.section")}
+        title={t("dashx.today.heroTitle")}
+        subtitle={t("dashx.today.heroDesc")}
+      />
       </TabChrome>
 
       <TabChrome exclude={["today"]}>
-      <header
-        className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-5 sm:py-6"
-        style={{
-          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          border: `1px solid color-mix(in srgb, ${gold} 28%, ${N.hairline})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 20%, transparent), 0 14px 32px -18px ${N.ink}`,
-        }}
-      >
-        <span
-          aria-hidden
-          className="absolute -top-24 -right-20 w-80 h-80 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 22%, transparent) 0%, transparent 65%)` }}
-        />
-        <span
-          aria-hidden
-          className="absolute -bottom-20 -left-16 w-64 h-64 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 10%, transparent) 0%, transparent 65%)` }}
-        />
-        <div className="relative flex items-center justify-between gap-4 flex-wrap">
-          <div className="min-w-0">
-            <p
-              className="text-[10.5px] font-bold uppercase tracking-[0.24em]"
-              style={{ color: gold }}
-            >
-              {t("dashx.hero.section")}
-            </p>
-            <h1
-              className="text-[26px] sm:text-[32px] font-bold tracking-[-0.022em] leading-[1.05] mt-2"
-              style={{
-                color: "white",
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                textShadow: `0 2px 14px color-mix(in srgb, ${gold} 12%, transparent)`,
-              }}
-            >
-              {t("dashx.hero.title")}
-            </h1>
-            <p
-              className="text-[12.5px] mt-2 max-w-[640px]"
-              style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
-            >
-              {t("dashx.hero.desc")}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* "LAST 30 DAYS" chip removed — it duplicated (and drifted from)
-                the PERIOD filter bar below. (Fran 2026-06-18) */}
+      <AuroraHero
+        eyebrow={t("dashx.hero.section")}
+        title={t("dashx.hero.title")}
+        subtitle={t("dashx.hero.desc")}
+        actions={
+          <>
             <FreshnessChip renderedAt={renderedAt} />
-            {/* Download — portfolio uses its own cross-tenant PDF;
-                all other tabs open the section-picker export modal. */}
             {onPortfolio ? (
               <Link
                 href={`/reports/portfolio-print?pdays=${pdays === 0 ? "all" : pdays}`}
                 target="_blank"
-                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
-                style={{
-                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-                  color: N.ink,
-                  boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
-                }}
+                className="aurora-btn"
               >
                 <FileDown size={13} /> {t("dashx.hero.download")}
               </Link>
@@ -601,9 +404,9 @@ export default async function DashboardPage({
                 }}
               />
             )}
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
       </TabChrome>
 
       {/* ─── Tab bar. The six analytics tabs switch client-side (see
