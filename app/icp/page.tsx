@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PageHero from "@/components/PageHero";
+import AuroraHero from "@/components/AuroraHero";
 import LogoLoader from "@/components/LogoLoader";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
@@ -1178,45 +1179,22 @@ export default function LeadGenPage() {
           with the flow detail) + a KPI strip (ICPs · total leads · in-flow ·
           won) sourced from /api/icp/lifecycle. */}
       {!selectedId && !showForm && !editingId && (
-        <div className="rounded-2xl border overflow-hidden mb-6 relative"
-          style={{ backgroundColor: C.card, borderColor: C.border2, boxShadow: C.shadowMd }}>
-          <div className="absolute inset-x-0 top-0 h-[3px] pointer-events-none"
-            style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 45%, var(--fg4) 80%, transparent)" }} />
-          <div className="p-6 pt-7 flex items-start gap-4 flex-wrap">
-            <div className="flex-1 min-w-[240px]">
-              <div className="flex items-center gap-2 mb-2.5">
-                <span className="h-[2px] w-4 rounded" style={{ backgroundColor: gold }} />
-                <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--fg1)" }}>Growth Engine</span>
-              </div>
-              <h1 className="text-[25px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>Lead Miner</h1>
-              <p className="text-[12.5px] mt-1.5 max-w-md leading-relaxed" style={{ color: C.textMuted }}>
-                Your Ideal Customer Profiles (ICPs) — each one defines who your campaigns target and feeds the outreach.
-              </p>
-            </div>
-            {profiles.length > 0 && (
-              <button onClick={() => setShowForm(true)}
-                className="gold-btn inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold hover:-translate-y-0.5"
-                style={{ color: "#241B04", background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", border: "1px solid var(--fg2)", boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)` }}>
-                <Plus size={15} /> New ICP
-              </button>
-            )}
-          </div>
-          {lifecycle && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 border-t" style={{ borderColor: C.border }}>
-              {[
-                { label: "ICPs", value: profiles.length, gold: true },
-                { label: "Total leads", value: lifecycle.totals.total, gold: false },
-                { label: "In flow", value: lifecycle.totals.inFlow, gold: false },
-                { label: "Won", value: lifecycle.totals.won, gold: false },
-              ].map((s, i) => (
-                <div key={s.label} className="px-5 py-4" style={{ borderLeft: i % 4 === 0 ? "none" : `1px solid ${C.border}` }}>
-                  <p className="text-[22px] font-bold tabular-nums leading-none" style={{ color: s.gold ? "var(--fg1)" : C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>{s.value}</p>
-                  <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] mt-2" style={{ color: C.textMuted }}>{s.label}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <AuroraHero
+          eyebrow="Growth Engine"
+          title="Lead Miner"
+          subtitle="Your Ideal Customer Profiles (ICPs) — each one defines who your campaigns target and feeds the outreach."
+          actions={profiles.length > 0 ? (
+            <button onClick={() => setShowForm(true)} className="aurora-btn">
+              <Plus size={15} /> New ICP
+            </button>
+          ) : undefined}
+          kpis={lifecycle ? [
+            { label: "ICPs", value: profiles.length, tone: "gold" },
+            { label: "Total leads", value: lifecycle.totals.total },
+            { label: "In flow", value: lifecycle.totals.inFlow },
+            { label: "Won", value: lifecycle.totals.won, tone: "green" },
+          ] : undefined}
+        />
       )}
 
       {/* Success message */}

@@ -594,3 +594,98 @@ thead th {
   @page { size: A4; margin: 12mm 14mm; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff !important; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   AURORA HERO — shared page hero (boss-approved 2026-08-27). A constant,
+   animated gold aurora glowing behind a frosted-glass panel. Theme-aware via
+   [data-theme]; honors prefers-reduced-motion. Used by <AuroraHero/> across
+   Lead Miner / Outreach Flow / Leads / Results (and more).
+   ════════════════════════════════════════════════════════════════════════ */
+:root {
+  --ah-wrapbg:   #F3ECDA;
+  --ah-glass:    rgba(255,255,255,0.54);
+  --ah-glass-bd: rgba(255,255,255,0.85);
+  --ah-glass-hi: rgba(255,255,255,0.78);
+  --ah-chip:     rgba(255,255,255,0.62);
+  --ah-chip-bd:  rgba(120,95,25,0.16);
+  --ah-ink:   #16171D; --ah-body: #4A5060; --ah-muted: #6F7686; --ah-gold: #7C5E12;
+  --ah-div:   rgba(18,20,28,0.10); --ah-gr: #2E8B57; --ah-rd: #C23B2E;
+  --ah-sheen: rgba(255,255,255,0.40);
+  --ah-a1: #F6D775; --ah-a2: #ECB63D; --ah-a3: #F9EBB4; --ah-a4: #EFCE6A; --ah-a5: #E2A82E;
+}
+[data-theme="dark"] {
+  --ah-wrapbg:   #0B0E1A;
+  --ah-glass:    rgba(22,25,36,0.48);
+  --ah-glass-bd: rgba(255,255,255,0.11);
+  --ah-glass-hi: rgba(255,255,255,0.16);
+  --ah-chip:     rgba(255,255,255,0.05);
+  --ah-chip-bd:  rgba(255,255,255,0.09);
+  --ah-ink:   #F4F6FB; --ah-body: #B2BACC; --ah-muted: #828BA1; --ah-gold: #EBCD74;
+  --ah-div:   rgba(255,255,255,0.10); --ah-gr: #5FCF97; --ah-rd: #EC8377;
+  --ah-sheen: rgba(255,255,255,0.10);
+  --ah-a1: #D2A32F; --ah-a2: #EBB945; --ah-a3: #8E6E24; --ah-a4: #DBB44C; --ah-a5: #B98A26;
+}
+.aurora-hero {
+  position: relative; overflow: hidden; border-radius: 18px;
+  background: var(--ah-wrapbg); border: 1px solid var(--c-border2);
+  box-shadow: 0 24px 54px -24px rgba(50,40,12,0.28);
+}
+.aurora-mesh, .aurora-mesh2 {
+  position: absolute; inset: -45%; z-index: 0; pointer-events: none; transform-origin: 52% 48%;
+}
+.aurora-mesh {
+  filter: blur(42px);
+  background:
+    radial-gradient(34% 42% at 22% 26%, var(--ah-a1), transparent 60%),
+    radial-gradient(40% 48% at 80% 20%, var(--ah-a2), transparent 60%),
+    radial-gradient(44% 52% at 70% 84%, var(--ah-a3), transparent 60%),
+    radial-gradient(38% 46% at 20% 80%, var(--ah-a4), transparent 60%);
+  animation: ahSpinA 30s linear infinite;
+}
+.aurora-mesh2 {
+  filter: blur(52px); opacity: 0.8; transform-origin: 44% 56%;
+  background:
+    radial-gradient(42% 50% at 40% 30%, var(--ah-a5), transparent 62%),
+    radial-gradient(46% 54% at 88% 70%, var(--ah-a2), transparent 62%),
+    radial-gradient(40% 48% at 12% 62%, var(--ah-a4), transparent 62%);
+  animation: ahSpinB 44s linear infinite;
+}
+@keyframes ahSpinA { 0%{transform:rotate(0deg) scale(1.05)} 50%{transform:rotate(180deg) scale(1.14)} 100%{transform:rotate(360deg) scale(1.05)} }
+@keyframes ahSpinB { 0%{transform:rotate(0deg) scale(1.10)} 50%{transform:rotate(-180deg) scale(1.00)} 100%{transform:rotate(-360deg) scale(1.10)} }
+.aurora-glass {
+  position: relative; z-index: 1; margin: 13px; border-radius: 14px; padding: 22px 24px; overflow: hidden;
+  background: var(--ah-glass);
+  backdrop-filter: blur(22px) saturate(1.25); -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  border: 1px solid var(--ah-glass-bd);
+  box-shadow: inset 0 1px 0 var(--ah-glass-hi), 0 10px 28px -16px rgba(40,32,10,0.28);
+}
+.aurora-glass::after {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, var(--ah-sheen) 50%, transparent 62%);
+  background-size: 250% 100%; background-repeat: no-repeat; background-position: 180% 0;
+  animation: ahSheen 11s ease-in-out infinite;
+}
+@keyframes ahSheen { 0%{background-position:180% 0} 42%{background-position:-90% 0} 100%{background-position:-90% 0} }
+.aurora-top { position: relative; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.aurora-head { flex: 1; min-width: 210px; }
+.aurora-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ah-gold); display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
+.aurora-tick { width: 16px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--ah-gold), transparent); }
+.aurora-title { margin: 0; font-size: 27px; font-weight: 800; letter-spacing: -0.035em; color: var(--ah-ink); line-height: 1.03; font-family: var(--font-outfit), system-ui, sans-serif; }
+.aurora-sub { font-size: 12.5px; color: var(--ah-body); margin: 9px 0 0; max-width: 470px; line-height: 1.5; }
+.aurora-acts { margin-left: auto; align-self: center; display: flex; gap: 10px; flex-wrap: wrap; }
+.aurora-chips { position: relative; display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.aurora-chip { flex: 1; min-width: 118px; padding: 13px 15px; border-radius: 11px; background: var(--ah-chip); border: 1px solid var(--ah-chip-bd); }
+.aurora-chip-v { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; color: var(--ah-ink); font-variant-numeric: tabular-nums; font-family: var(--font-outfit), system-ui, sans-serif; }
+.aurora-chip.pri .aurora-chip-v { color: var(--ah-gold); }
+.aurora-chip-v.gr { color: var(--ah-gr); }
+.aurora-chip-v.rd { color: var(--ah-rd); }
+.aurora-chip-l { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ah-muted); margin-top: 7px; }
+/* delicate glass CTAs living inside the hero */
+.aurora-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; padding: 10px 16px; border-radius: 11px; cursor: pointer; white-space: nowrap; text-decoration: none; transition: background-color .16s, border-color .16s, box-shadow .16s, color .16s; color: var(--ah-gold); background: color-mix(in srgb, var(--ah-gold) 13%, transparent); border: 1px solid color-mix(in srgb, var(--ah-gold) 44%, transparent); }
+.aurora-btn:hover { background: color-mix(in srgb, var(--ah-gold) 20%, transparent); border-color: color-mix(in srgb, var(--ah-gold) 70%, transparent); box-shadow: 0 3px 14px color-mix(in srgb, var(--ah-gold) 24%, transparent); }
+.aurora-btn.plain { color: var(--ah-body); background: color-mix(in srgb, var(--ah-body) 8%, transparent); border-color: var(--ah-div); }
+.aurora-btn svg { width: 15px; height: 15px; }
+@media (prefers-reduced-motion: reduce) {
+  .aurora-mesh, .aurora-mesh2, .aurora-glass::after { animation: none; }
+  .aurora-glass::after { opacity: 0; }
+}

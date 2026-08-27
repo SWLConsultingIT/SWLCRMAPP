@@ -3,6 +3,7 @@ import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
 import { Megaphone, Send, MessageSquare, ThumbsUp, Sparkles, Percent } from "lucide-react";
 import PageHero from "@/components/PageHero";
+import AuroraHero from "@/components/AuroraHero";
 import CampaignTabs from "./CampaignTabs";
 import TemplatesView from "./TemplatesView";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
@@ -284,61 +285,32 @@ export default async function CampaignsPage() {
 
   return (
     <div className="p-6 w-full">
-      {/* Hero card — SWL gold identity (redesign 2026-08-25, boss). Merges the
-          old purple PageHero + the separate "today's pulse" strip into one
-          themed card with a gold-ramp stripe and a KPI strip (flows running ·
-          sent today · replies+positive · reply rate). */}
-      <div className="rounded-2xl border overflow-hidden mb-6 relative"
-        style={{
-          background: "linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, var(--brand, #c9a83a) 6%, var(--c-card)) 100%)",
-          borderColor: `color-mix(in srgb, ${gold} 26%, ${C.border2})`,
-          boxShadow: C.shadowMd,
-        }}>
-        {/* thicker gold-ramp stripe + a soft radial gold glow for depth */}
-        <div className="absolute inset-x-0 top-0 h-1 pointer-events-none"
-          style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 40%, var(--fg4) 75%, transparent)" }} />
-        <span aria-hidden className="absolute -top-16 -right-10 w-64 h-64 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 16%, transparent) 0%, transparent 65%)` }} />
-        <div className="relative p-6 pt-7 flex items-start gap-4">
-          <span className="w-12 h-12 rounded-xl grid place-items-center shrink-0"
-            style={{ background: "linear-gradient(135deg, var(--fg3), var(--fg4))", boxShadow: `0 6px 18px color-mix(in srgb, ${gold} 34%, transparent)`, color: "#241B04" }}>
-            <Megaphone size={22} strokeWidth={2.2} />
-          </span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="h-[2px] w-4 rounded" style={{ backgroundColor: gold }} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--fg1)" }}>Growth Engine</span>
-            </div>
-            <h1 className="text-[27px] font-extrabold leading-none" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.025em" }}>Outreach Flow</h1>
-            <p className="text-[12.5px] mt-2 max-w-lg leading-relaxed" style={{ color: C.textMuted }}>
-              Multi-step outreach sequences across LinkedIn, email and calls — organized by ICP.
-            </p>
-          </div>
-        </div>
-        {/* KPI band — tinted surface + per-KPI icon tiles for contrast/depth. */}
-        <div className="relative grid grid-cols-2 sm:grid-cols-4"
-          style={{ borderTop: `1px solid color-mix(in srgb, ${gold} 22%, ${C.border})`, background: `color-mix(in srgb, ${gold} 7%, var(--c-card))` }}>
-          {([
-            { label: "Flows running", value: String(stats.active), Icon: Megaphone, gold: true, sub: null as string | null },
-            { label: "Sent today", value: String(stats.messagesSentToday), Icon: Send, gold: false, sub: null },
-            { label: "Replies today", value: String(stats.repliesToday), Icon: MessageSquare, gold: false, sub: stats.positiveRepliesToday > 0 ? `+${stats.positiveRepliesToday} pos` : null },
-            { label: "Reply rate", value: `${stats.responseRate}%`, Icon: Percent, gold: false, sub: null },
-          ]).map((s, i) => (
-            <div key={s.label} className="px-5 py-4 flex items-center gap-3" style={{ borderLeft: i % 4 === 0 ? "none" : `1px solid color-mix(in srgb, ${gold} 14%, ${C.border})` }}>
-              <span className="w-9 h-9 rounded-lg grid place-items-center shrink-0"
-                style={{ background: "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)`, color: "var(--fg1)" }}>
-                <s.Icon size={16} strokeWidth={2.2} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[24px] font-extrabold tabular-nums leading-none" style={{ color: s.gold ? "var(--fg1)" : C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.03em" }}>
-                  {s.value}{s.sub && <span className="text-[12px] font-bold ml-1.5" style={{ color: C.green }}>{s.sub}</span>}
-                </p>
-                <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] mt-1.5" style={{ color: C.textMuted }}>{s.label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Hero — shared Aurora hero (boss-approved 2026-08-27): animated gold
+          aurora behind frosted glass, KPI chips (flows running · sent today ·
+          replies+positive · reply rate). */}
+      <AuroraHero
+        eyebrow="Growth Engine"
+        title="Outreach Flow"
+        subtitle="Multi-step outreach sequences across LinkedIn, email and calls — organized by ICP."
+        kpis={[
+          { label: "Flows running", value: String(stats.active), tone: "gold" },
+          { label: "Sent today", value: String(stats.messagesSentToday) },
+          {
+            label: "Replies today",
+            value: (
+              <>
+                {stats.repliesToday}
+                {stats.positiveRepliesToday > 0 && (
+                  <span className="ml-1.5 text-[13px] font-bold" style={{ color: "var(--ah-gr)" }}>
+                    +{stats.positiveRepliesToday} pos
+                  </span>
+                )}
+              </>
+            ),
+          },
+          { label: "Reply rate", value: `${stats.responseRate}%` },
+        ]}
+      />
 
       {/* Tabs — Flows / Templates. Create New Flow tab removed 2026-05-28
           (boss feedback): flow creation now starts from inside a Lead Miner
