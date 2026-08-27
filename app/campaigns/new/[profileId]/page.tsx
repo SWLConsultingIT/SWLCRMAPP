@@ -6,7 +6,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone, MessageCircle,
-  Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle,
+  Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle, Lock,
   Sparkles,
 } from "lucide-react";
 import type { SampleLead, PlaceholderCoverage } from "@/components/ChannelMessageConfig";
@@ -33,27 +33,6 @@ import { readLeadSelection, clearLeadSelection, STASH_SENTINEL } from "@/lib/lea
 
 type SequenceStep = { channel: string; daysAfter: number; attachments?: StepAttachment[] };
 
-const timezoneOptions = [
-  { value: "America/Argentina/La_Rioja", label: "Buenos Aires (UTC-3)" },
-  { value: "America/Sao_Paulo", label: "São Paulo (UTC-3)" },
-  { value: "America/Mexico_City", label: "Mexico City (UTC-6)" },
-  { value: "America/Santiago", label: "Santiago (UTC-4)" },
-  { value: "America/Bogota", label: "Bogotá (UTC-5)" },
-  { value: "America/Lima", label: "Lima (UTC-5)" },
-  { value: "America/New_York", label: "New York (UTC-5)" },
-  { value: "America/Chicago", label: "Chicago (UTC-6)" },
-  { value: "America/Denver", label: "Denver (UTC-7)" },
-  { value: "America/Los_Angeles", label: "Los Angeles (UTC-8)" },
-  { value: "Europe/London", label: "London (UTC+0)" },
-  { value: "Europe/Madrid", label: "Madrid (UTC+1)" },
-  { value: "Europe/Paris", label: "Paris (UTC+1)" },
-  { value: "Europe/Berlin", label: "Berlin (UTC+1)" },
-  { value: "Asia/Dubai", label: "Dubai (UTC+4)" },
-  { value: "Asia/Kolkata", label: "Mumbai (UTC+5:30)" },
-  { value: "Asia/Singapore", label: "Singapore (UTC+8)" },
-  { value: "Asia/Tokyo", label: "Tokyo (UTC+9)" },
-  { value: "Australia/Sydney", label: "Sydney (UTC+10)" },
-];
 
 const languageOptions = [
   { code: "en", label: "English" },
@@ -289,6 +268,7 @@ export default function NewCampaignWizard() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const channelOptions = ALL_CHANNEL_OPTIONS.filter(c => !c.superAdminOnly || isSuperAdmin);
+  const [presetUndo, setPresetUndo] = useState<{ name: string; steps: SequenceStep[] } | null>(null);
   const [language, setLanguage] = useState("es");
   const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
 
@@ -756,8 +736,63 @@ export default function NewCampaignWizard() {
     });
   }
 
-  // Returns the real calendar date for a given day offset from today,
-  // and whether it falls on a weekend (so the UI can warn the user).
+  // Applying a preset wipes whatever the author had built. It used to do that
+  // silently, so we keep the previous sequence around for one undo.
+  function applyPreset(tpl: { name: string; steps: { channel: string; daysAfter: number }[] }) {
+    setPresetUndo({ name: tpl.name, steps: sequence.map(s => ({ ...s })) });
+    setSequence(tpl.steps.map(s => ({ ...s })));
+    setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
+  }
+  function undoPreset() {
+    if (!presetUndo) return;
+    setSequence(presetUndo.steps.map(s => ({ ...s })));
+    setPresetUndo(null);
+  }
+
+  // Same, for every step at once. Both of these change the STORED daysAfter,
+  // never just the label: a toggle that moved only the displayed date would
+  // have shown Monday while the dispatcher still sent on Saturday.
+  function shiftOffWeekends() {
+    setSequence(prev => {
+      const next = prev.map(s => ({ ...s }));
+      let cum = 0;
+      for (let i = 0; i < next.length; i++) {
+        cum += i === 0 ? next[i].daysAfter : next[i].daysAfter;
+        if (i === 0) { /* day 0 goes out now; moving it would delay the whole flow */ }
+        else {
+          const d = new Date();
+          d.setDate(d.getDate() + cum);
+          const bump = d.getDay() === 6 ? 2 : d.getDay() === 0 ? 1 : 0;
+          if (bump) { next[i].daysAfter += bump; cum += bump; }
+        }
+      }
+      return next;
+    });
+  }
+
+  // Push a step off a weekend by adding days to its wait. Acting on the
+  // warning beats only being told about it — the old chip was decorative.
+  function pushToWeekday(idx: number) {
+    const target = stepCalendarDate(days[idx]);
+    if (!target.isWeekend) return;
+    const d = new Date();
+    d.setDate(d.getDate() + days[idx]);
+    const bump = d.getDay() === 6 ? 2 : 1; // Sat → Mon, Sun → Mon
+    updateStep(idx, "daysAfter", sequence[idx].daysAfter + bump);
+  }
+
+  // A name the author can accept with one click. Built from the ICP and the
+  // channels actually in the sequence, which is what people type by hand.
+  const suggestedName = (() => {
+    const base = (profile?.name as string | undefined)?.trim();
+    if (!base) return "";
+    const chans = [...new Set(sequence.map(s => s.channel))]
+      .map(k => channelOptions.find(c => c.key === k)?.label ?? k);
+    return chans.length > 0 ? `${base} — ${chans.join(" + ")}` : base;
+  })();
+
+  // Returns the real calendar date for a given day offset from today, and
+  // whether it falls on a weekend.
   function stepCalendarDate(dayOffset: number): { label: string; isWeekend: boolean } {
     const d = new Date();
     d.setDate(d.getDate() + dayOffset);
@@ -1165,15 +1200,62 @@ export default function NewCampaignWizard() {
           {/* Flow name + templates combined — 2 visual fragments collapsed into
               one card to reduce stacked-card noise. */}
           <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <label className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: C.textMuted }}>Flow Name</label>
-            <input
-              type="text"
-              value={campaignName}
-              onChange={e => setCampaignName(e.target.value)}
-              placeholder="e.g. LATAM SaaS Leaders — LinkedIn + Email"
-              className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none"
-              style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-            />
+            <label className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: C.textMuted }}>
+              Flow Name <span style={{ color: gold }}>· required</span>
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              <input
+                type="text"
+                value={campaignName}
+                onChange={e => setCampaignName(e.target.value)}
+                placeholder="e.g. LATAM SaaS Leaders — LinkedIn + Email"
+                className="flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none"
+                style={{
+                  color: C.textPrimary,
+                  backgroundColor: C.bg,
+                  // Marked from the start instead of rejecting on Next with a
+                  // banner, which is how the author used to find out.
+                  border: `1px solid ${campaignName.trim() ? C.border : "color-mix(in srgb, #D97706 55%, var(--c-border))"}`,
+                  minWidth: 220,
+                }}
+              />
+              {!campaignName.trim() && suggestedName && (
+                <button type="button" onClick={() => setCampaignName(suggestedName)}
+                  className="rounded-lg px-3 py-2.5 text-[12px] font-bold whitespace-nowrap"
+                  style={{
+                    border: `1px dashed color-mix(in srgb, ${gold} 40%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`,
+                    color: gold,
+                  }}>
+                  Use &ldquo;{suggestedName}&rdquo;
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] mt-1.5" style={{ color: campaignName.trim() ? C.textDim : "#D97706" }}>
+              Sellers find this flow by name in the Inbox and in Results.
+            </p>
+
+            {/* Language belongs here, not next to the message editor: it is a
+                language-lock sent to the generator, so it only does anything
+                BEFORE the copy is drafted. Picking it afterwards did nothing. */}
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
+              <label className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: C.textMuted }}>
+                Message language
+              </label>
+              <div className="flex items-center gap-3 flex-wrap">
+                <select value={language} onChange={e => setLanguage(e.target.value)}
+                  className="rounded-lg border px-3 py-2 text-sm font-semibold focus:outline-none"
+                  style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}>
+                  <option value="es">Español</option>
+                  <option value="en">English</option>
+                  <option value="it">Italiano</option>
+                  <option value="pt">Português</option>
+                </select>
+                <p className="text-[11px] flex-1" style={{ color: C.textDim, minWidth: 200 }}>
+                  Locks the language the AI drafts in. Set it before drafting.
+                </p>
+              </div>
+            </div>
             <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
               <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Start from a template</p>
               {icpTemplates.length > 0 && (
@@ -1205,17 +1287,44 @@ export default function NewCampaignWizard() {
                   </p>
                 </div>
               )}
-              <div className="flex gap-2 flex-wrap">
-                {sequenceTemplates.map(tpl => (
-                  <button key={tpl.name}
-                    onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); }}
-                    className="rounded-lg border px-3 py-2 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
-                    style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                    <p className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
-                    <p className="text-[11px]" style={{ color: C.textDim }}>{tpl.desc}</p>
-                  </button>
-                ))}
+              {/* Each preset shows its own cadence before you apply it —
+                  channels as dots, the wait between them as the gap. You used
+                  to have to apply one to find out what it did, and applying
+                  wiped whatever you had built with no way back. */}
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(158px, 1fr))" }}>
+                {sequenceTemplates.map(tpl => {
+                  const totalWait = tpl.steps.reduce((a, st, j) => a + (j === 0 ? 0 : st.daysAfter), 0);
+                  const chans = [...new Set(tpl.steps.map(st => st.channel))].length;
+                  return (
+                    <button key={tpl.name} type="button"
+                      onClick={() => applyPreset(tpl)}
+                      className="rounded-lg border px-3 py-2.5 text-left flex flex-col gap-2 transition-[transform,box-shadow,border-color] hover:-translate-y-px hover:shadow-sm"
+                      style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      <p className="text-[12.5px] font-bold" style={{ color: C.textPrimary }}>{tpl.name}</p>
+                      <span className="flex items-center h-3" aria-hidden>
+                        {tpl.steps.map((st, j) => {
+                          const col = channelOptions.find(c => c.key === st.channel)?.color ?? C.border;
+                          return (
+                            <span key={j} className="flex items-center" style={{ flexGrow: j === 0 ? 0 : Math.max(1, st.daysAfter) }}>
+                              {j > 0 && <span className="h-px flex-1 min-w-[5px]" style={{ backgroundColor: C.border2 }} />}
+                              <span className="rounded-full shrink-0" style={{ width: 8, height: 8, backgroundColor: col }} />
+                            </span>
+                          );
+                        })}
+                      </span>
+                      <p className="text-[10.5px] tabular-nums" style={{ color: C.textDim }}>
+                        {tpl.steps.length} steps · {totalWait} days · {chans} channel{chans === 1 ? "" : "s"}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
+              {presetUndo && (
+                <p className="flex items-center gap-2 text-[11.5px] mt-2.5" style={{ color: C.textMuted }}>
+                  Applied <b style={{ color: C.textPrimary }}>{presetUndo.name}</b> — replaced {presetUndo.steps.length} step{presetUndo.steps.length === 1 ? "" : "s"}.
+                  <button type="button" onClick={undoPreset} className="font-bold underline" style={{ color: gold }}>Undo</button>
+                </p>
+              )}
             </div>
           </div>
 
@@ -1226,153 +1335,183 @@ export default function NewCampaignWizard() {
                 template-detail page: CR is structurally different from a
                 follow-up and lumping it in as "Step 1" was the source of
                 every off-by-one bug in the wizard apply path. */}
+            {/* ── THE RAIL ──────────────────────────────────────────────
+                One list, one numbering. The invite is step 00 of the same
+                sequence instead of a card above it with its own scheme —
+                the builder numbered follow-ups from 1 while the Timeline
+                Preview below counted the invite as "Step 1", so the two
+                panels described the same sequence and disagreed. The rail
+                IS the timeline now, so that second panel is gone.
+
+                sequence[0] is still the Connection Request when it's a
+                LinkedIn day-0 step: the data model is untouched, only the
+                rendering changed. */}
             {(() => {
               const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
-              const followups = hasCR ? sequence.slice(1) : sequence;
+              const followupCount = hasCR ? sequence.length - 1 : sequence.length;
+              const channelCount = [...new Set(sequence.map(s => s.channel))].length;
+              const canDropInvite = hasCR
+                && sequence.length > 1
+                && !sequence.slice(1).some(s => s.channel === "linkedin");
               return (
                 <>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
                     <div>
-                      <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Build Your Sequence</h2>
-                      <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>Define the channel and timing for each step. Pick a template above or customize freely.</p>
+                      <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>The sequence</h2>
+                      <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
+                        Channel and timing per step. The day on the left is when it goes out.
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[11px]" style={{ color: C.textMuted }}>
-                        {followups.length} step{followups.length === 1 ? "" : "s"}{hasCR ? " + invite" : ""} · ~{totalDays} days
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {days.some((d, i) => i > 0 && stepCalendarDate(d).isWeekend) && (
+                        <button
+                          type="button"
+                          onClick={shiftOffWeekends}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors"
+                          style={{
+                            backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)",
+                            color: "#D97706",
+                            border: "1px solid color-mix(in srgb, #D97706 28%, transparent)",
+                          }}
+                          title="Add a day or two to every step that lands on a Saturday or Sunday"
+                        >
+                          <AlertTriangle size={11} /> Shift all off weekends
+                        </button>
+                      )}
+                      <p className="text-[11px] tabular-nums" style={{ color: C.textMuted }}>
+                        {sequence.length} stop{sequence.length === 1 ? "" : "s"}
+                        {hasCR ? ` (invite + ${followupCount})` : ""} · {totalDays} days · {channelCount} channel{channelCount === 1 ? "" : "s"}
                       </p>
                     </div>
                   </div>
 
-                  {/* Connection Request — rendered above the numbered steps
-                      as its own card. Channel can't be changed (always
-                      LinkedIn), daysAfter can't be changed (always 0 by
-                      definition), and there's no remove button (removing
-                      the CR means switching to a no-invite sequence, which
-                      should happen via the channel toggle on Step 1 instead). */}
-                  {hasCR && (
-                    <div className="rounded-lg border-2 px-4 py-3 mb-2"
-                      style={{ borderColor: `color-mix(in srgb, #0A66C2 28%, ${C.border})`, backgroundColor: "color-mix(in srgb, #0A66C2 4%, transparent)", borderStyle: "dashed" }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
-                          style={{ backgroundColor: "#0A66C218", color: "#0A66C2" }}>
-                          <Share2 size={12} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold" style={{ color: "#0A66C2" }}>Connection Request</p>
-                          <p className="text-[10px]" style={{ color: C.textMuted }}>LinkedIn invite · sent before the sequence starts · capped at 200 chars</p>
-                        </div>
-                        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                          Day 0 · Immediate
-                        </span>
-                        {/* The CR is a LinkedIn invite — pointless when the
-                            sequence doesn't message on LinkedIn. So when no
-                            follow-up uses LinkedIn (e.g. a Call-only or
-                            Email-only flow), let the seller drop it instead of
-                            forcing it (boss 2026-06-08). With a LinkedIn step
-                            present the invite is required (you must connect
-                            before you can DM), so no remove is offered. */}
-                        {followups.length > 0 && !followups.some(s => s.channel === "linkedin") && (
-                          <button
-                            type="button"
-                            onClick={removeConnectionRequest}
-                            className="text-[10px] font-semibold px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors hover:bg-black/[0.04]"
-                            style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
-                            title="This sequence doesn't use LinkedIn — remove the connection request"
-                          >
-                            <Trash2 size={11} /> Remove invite
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Steps — numbered list of follow-up messages */}
-                  <div className="space-y-2">
-                    {followups.map((s, j) => {
-                      const i = hasCR ? j + 1 : j;
+                  <div className="relative">
+                    {/* Spine — the line every stop hangs off. */}
+                    <div
+                      aria-hidden
+                      className="absolute w-0.5"
+                      style={{
+                        left: 55, top: 8, bottom: 34,
+                        background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 38%, transparent), ${C.border})`,
+                      }}
+                    />
+                    {sequence.map((s, i) => {
+                      const isInvite = hasCR && i === 0;
                       const ch = channelOptions.find(c => c.key === s.channel)!;
+                      const { label: dateLabel, isWeekend } = stepCalendarDate(days[i]);
                       return (
-                        <div key={i} className="rounded-lg border px-4 py-3"
-                          style={{ borderColor: C.border, backgroundColor: "transparent" }}>
-                          <div className="flex items-center gap-3">
+                        <div key={i} className="relative grid items-center gap-3.5" style={{ gridTemplateColumns: "40px 1fr", marginTop: i === 0 ? 0 : 18 }}>
+                          {/* Day, to the left of the spine — this is what the
+                              old design buried in a chip on the far right. */}
+                          <div className="text-right pr-2 leading-tight">
+                            <span className="block text-[10px] font-bold" style={{ color: C.textDim }}>day</span>
+                            <span className="block text-[15px] font-bold tabular-nums" style={{ color: C.textMuted }}>{days[i]}</span>
+                          </div>
+                          {/* Node on the spine */}
+                          <span
+                            aria-hidden
+                            className="absolute rounded-full"
+                            style={{
+                              left: 50, top: "50%", transform: "translateY(-50%)",
+                              width: 12, height: 12, backgroundColor: C.card,
+                              border: `2.5px solid ${ch.color}`, zIndex: 2,
+                            }}
+                          />
+                          <div
+                            className="ml-5 rounded-lg px-3.5 py-2.5 flex items-center gap-3 flex-wrap"
+                            style={{
+                              backgroundColor: isInvite ? "transparent" : C.card,
+                              border: `1px ${isInvite ? "dashed" : "solid"} ${isInvite ? `color-mix(in srgb, ${ch.color} 30%, ${C.border})` : C.border}`,
+                            }}
+                          >
+                            <span className="text-[12px] font-extrabold tabular-nums tracking-wide" style={{ color: C.textMuted, minWidth: 22 }}>
+                              {String(i).padStart(2, "0")}
+                            </span>
 
-                            {/* Step number — j+1 so follow-ups start at 1 */}
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                              style={{ backgroundColor: `${ch.color}15`, color: ch.color }}>
-                              {j + 1}
-                            </div>
-
-                            {/* Channel select */}
-                            <div className="flex items-center gap-2">
-                              {channelOptions.map(opt => {
-                                const OptIcon = opt.icon;
-                                const selected = s.channel === opt.key;
-                                return (
-                                  <button key={opt.key} onClick={() => updateStep(i, "channel", opt.key)}
-                                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color]"
-                                    style={selected
-                                      ? { backgroundColor: opt.color, color: "#fff" }
-                                      : { backgroundColor: C.surface, color: C.textMuted }
-                                    }>
-                                    <OptIcon size={12} />
-                                    {opt.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Days after */}
-                            <div className="flex items-center gap-2 ml-auto">
-                              {!hasCR && j === 0 ? (
-                                <span className="flex items-center gap-1.5">
-                                  <span className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                                    Day 0 — Immediate
-                                  </span>
-                                  {stepCalendarDate(0).isWeekend && (
-                                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
-                                      style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 28%, transparent)" }}>
-                                      <AlertTriangle size={10} />
-                                      Weekend
-                                    </span>
-                                  )}
+                            {isInvite ? (
+                              <>
+                                <span className="text-[9.5px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded"
+                                  style={{ backgroundColor: `color-mix(in srgb, ${ch.color} 12%, transparent)`, color: ch.color }}>
+                                  Invitation
                                 </span>
+                                <span className="text-[12px]" style={{ color: C.textMuted }}>
+                                  LinkedIn · opens the sequence · max 200 chars
+                                </span>
+                              </>
+                            ) : (
+                              <div className="inline-flex gap-1 p-0.5 rounded-lg" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+                                {channelOptions.map(opt => {
+                                  const OptIcon = opt.icon;
+                                  const on = s.channel === opt.key;
+                                  return (
+                                    <button key={opt.key} type="button" onClick={() => updateStep(i, "channel", opt.key)}
+                                      aria-pressed={on}
+                                      className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] font-semibold transition-colors"
+                                      style={on ? { backgroundColor: opt.color, color: "#fff" } : { color: C.textMuted }}>
+                                      <OptIcon size={12} />
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Wait */}
+                            <div className="ml-auto flex items-center gap-2 flex-wrap">
+                              {i === 0 ? (
+                                <span className="text-[11.5px]" style={{ color: C.textMuted }}>Starts on day 0</span>
                               ) : (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs" style={{ color: C.textMuted }}>Wait</span>
-                                  <select className="rounded-lg border px-2 py-1.5 text-xs font-medium focus:outline-none"
-                                    style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg, minWidth: 65 }}
-                                    value={s.daysAfter} onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}>
+                                <span className="inline-flex items-center gap-1.5 text-[11.5px]" style={{ color: C.textMuted }}>
+                                  Wait
+                                  <select
+                                    className="rounded-md border px-2 py-1 text-[11.5px] font-semibold focus:outline-none"
+                                    style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                                    value={s.daysAfter}
+                                    onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}
+                                  >
                                     {[...new Set([s.daysAfter, 0, 1, 2, 3, 4, 5, 7, 10, 14, 21])].sort((a, b) => a - b).map(d => (
                                       <option key={d} value={d}>{d === 0 ? "same day" : `${d} ${d === 1 ? "day" : "days"}`}</option>
                                     ))}
                                   </select>
-                                  {(() => {
-                                    const { label, isWeekend } = stepCalendarDate(days[i]);
-                                    return (
-                                      <span className="flex items-center gap-1.5">
-                                        <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
-                                          Day {days[i]} · {label}
-                                        </span>
-                                        {isWeekend && (
-                                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
-                                            style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 28%, transparent)" }}>
-                                            <AlertTriangle size={10} />
-                                            Weekend
-                                          </span>
-                                        )}
-                                      </span>
-                                    );
-                                  })()}
-                                </div>
+                                </span>
                               )}
+                              <span className="text-[11.5px] tabular-nums text-right" style={{ color: C.textDim, minWidth: 104 }}>{dateLabel}</span>
 
-                              {/* Remove */}
-                              {sequence.length > 1 && (
-                                <button onClick={() => removeStep(i)} className="ml-2 opacity-30 hover:opacity-100 transition-opacity"
-                                  style={{ color: C.red }}>
-                                  <Trash2 size={14} />
+                              {/* The weekend is now an action, not a notice. */}
+                              {isWeekend && i > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => pushToWeekday(i)}
+                                  title="Move this step to the next weekday"
+                                  className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full transition-colors"
+                                  style={{
+                                    backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)",
+                                    color: "#D97706",
+                                    border: "1px solid color-mix(in srgb, #D97706 30%, transparent)",
+                                  }}
+                                >
+                                  <AlertTriangle size={10} /> weekend → Monday
                                 </button>
                               )}
+
+                              {isInvite
+                                ? (canDropInvite ? (
+                                    <button type="button" onClick={removeConnectionRequest}
+                                      title="This sequence doesn't use LinkedIn — remove the invitation"
+                                      className="opacity-40 hover:opacity-100 transition-opacity" style={{ color: C.red }}>
+                                      <Trash2 size={14} />
+                                    </button>
+                                  ) : (
+                                    <span title="You have to connect before you can DM, so the invitation stays" style={{ color: C.textDim }}>
+                                      <Lock size={12} />
+                                    </span>
+                                  ))
+                                : sequence.length > 1 && (
+                                    <button onClick={() => removeStep(i)} className="opacity-30 hover:opacity-100 transition-opacity"
+                                      style={{ color: C.red }} title="Remove step">
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
                             </div>
                           </div>
                         </div>
@@ -1391,43 +1530,13 @@ export default function NewCampaignWizard() {
             </button>
           </div>
 
-          {/* Timeline preview */}
+          {/* The rail above IS the timeline, so the duplicated Timeline
+              Preview panel that used to sit here is gone. What stays is the
+              channel-coverage check: it answers a different question —
+              whether the leads can even be reached on the channels chosen. */}
           <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Timeline Preview</p>
-            <div className="relative">
-              {/* Line */}
-              <div className="absolute left-3 top-3 bottom-3 w-0.5" style={{ backgroundColor: C.border }} />
-
-              <div className="space-y-4">
-                {sequence.map((s, i) => {
-                  const ch = channelOptions.find(c => c.key === s.channel)!;
-                  const Icon = ch.icon;
-                  return (
-                    <div key={i} className="flex items-center gap-4 relative">
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10"
-                        style={{ backgroundColor: ch.color }}>
-                        <Icon size={12} color="#fff" />
-                      </div>
-                      <div className="flex-1 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium" style={{ color: C.textPrimary }}>
-                            {ch.label} — Step {i + 1}
-                          </p>
-                          <p className="text-xs" style={{ color: C.textMuted }}>
-                            {i === 0 ? "Sent immediately" : s.daysAfter === 0 ? "Same day — right after the previous step (a LinkedIn DM fires the moment they accept)" : `${s.daysAfter} days after previous step`}
-                          </p>
-                        </div>
-                        <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
-                          style={{ backgroundColor: `${ch.color}12`, color: ch.color }}>
-                          Day {days[i]}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <p className="text-xs mt-4 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Reach of this selection</p>
+            <p className="text-[11px] mb-3" style={{ color: C.textDim }}>
               {leadsCount} leads · {sequence.length} steps · {totalDays} days · {[...new Set(sequence.map(s => s.channel))].length} channels
             </p>
 
@@ -1865,31 +1974,31 @@ export default function NewCampaignWizard() {
       {/* ═══ STEP 2: CHANNEL MESSAGE CONFIG ═══ */}
       {wizardStep === 2 && (
         <div className="space-y-5">
-          <div className="rounded-xl border px-5 py-3 flex items-center gap-3" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          {/* The language + timezone strip that used to sit here is gone.
+              Language moved to Step 0, where it can still affect the drafting.
+              Timezone was written into campaign_requests.message_prompts and
+              read by nothing at all — no dispatcher has a send window, they
+              only respect the per-seller daily cap and 3 minutes between
+              sends — so the control promised scheduling we don't do. The
+              stored field stays at its default for shape compatibility.
+
+              The "Variables: {{first_name}}…" line is gone too: it was the
+              third place on this screen explaining the same thing. The
+              placeholder panel below now carries it, with each token's real
+              fill rate over this selection. */}
+          <div className="rounded-xl border px-5 py-3 flex items-center gap-3 flex-wrap" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <Globe size={13} style={{ color: C.textMuted }} />
-            <span className="text-xs font-medium" style={{ color: C.textMuted }}>Language:</span>
-            <select value={language} onChange={e => setLanguage(e.target.value)}
-              className="rounded-lg border px-2.5 py-1 text-xs font-medium focus:outline-none"
-              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}>
-              {languageOptions.map(l => (
-                <option key={l.code} value={l.code}>{l.label}</option>
-              ))}
-            </select>
-            <span className="text-xs font-medium" style={{ color: C.textMuted }}>Timezone:</span>
-            <select value={timezone} onChange={e => setTimezone(e.target.value)}
-              className="rounded-lg border px-2.5 py-1 text-xs font-medium focus:outline-none"
-              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}>
-              {timezoneOptions.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-            <span className="text-xs flex-1 text-right" style={{ color: C.textDim }}>
-              Configure messages per channel. Use AI to generate or write manually.
+            <span className="text-xs" style={{ color: C.textMuted }}>
+              Drafting in <b style={{ color: C.textPrimary }}>{languageOptions.find(l => l.code === language)?.label ?? language}</b>
+            </span>
+            <button type="button" onClick={() => setWizardStep(0)}
+              className="text-[11px] font-semibold underline" style={{ color: gold }}>
+              change in Step 1
+            </button>
+            <span className="text-xs flex-1 text-right" style={{ color: C.textDim, minWidth: 180 }}>
+              One step at a time. Write the intent, let AI draft, check the preview.
             </span>
           </div>
-          <p className="text-xs" style={{ color: C.textMuted }}>
-            Variables: {"{{first_name}}, {{last_name}}, {{company}}, {{role}}"} — replaced per lead at send time. Plus any ICP-specific signals you tick below (e.g. credit rating, trade debtors) will be woven in per lead.
-          </p>
 
           {flowType === "tailored" && (
             <div className="rounded-2xl border p-4 relative overflow-hidden"
