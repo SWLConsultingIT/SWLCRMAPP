@@ -197,6 +197,13 @@ const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = 
 
 // ── Main Component ──
 
+// A group holds AI-filled slots — `{{tailored:hook}}` / `{{tailoredFit}}`.
+// Detection is structural rather than a name list so new slots inherit both
+// the gold treatment and the generic-mode hiding for free.
+function isTailoredGroup(tokens: string[]): boolean {
+  return tokens.some(t => /^\{\{tailored/i.test(t));
+}
+
 // Collapsible reference for the placeholders the dispatcher supports + a
 // live warning if any body contains a `{{…}}` we won't render. Click any
 // token to copy.
@@ -212,6 +219,7 @@ const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = 
 function PlaceholdersHint({
   bodies,
   onAutoFix,
+  flowType = "generic",
 }: {
   bodies: string[];
   /** Called when the operator clicks the "Auto-fix" button. The parent
@@ -219,6 +227,14 @@ function PlaceholdersHint({
    *  We pass a function that maps the original body to its normalized
    *  form — parent picks which slot each body belongs to. */
   onAutoFix?: (rewriter: (body: string) => string) => void;
+  /** The wizard's flow mode. The two `{{tailored:*}}` slots only exist in
+   *  tailored mode — /api/campaigns/approve runs the tailor pass behind
+   *  `if (request.flow_type === "tailored")`, so in a generic flow nothing
+   *  ever fills them: the token reaches the dispatcher unresolved and
+   *  `findUnresolvedPlaceholders` fails that row. Offering them here in
+   *  generic mode was an invitation to break a step, so we hide them and
+   *  flag any that are already in a body. */
+  flowType?: "generic" | "tailored";
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -226,6 +242,17 @@ function PlaceholdersHint({
   const allText = bodies.join("\n");
   const bad = unsupportedPlaceholdersIn(allText);
   const suspicious = findSuspiciousPlaceholders(allText);
+  const tailoredOn = flowType === "tailored";
+  // Generic flow → don't advertise the AI slots at all.
+  const groups = tailoredOn
+    ? PLACEHOLDER_GROUPS
+    : PLACEHOLDER_GROUPS.filter(g => !isTailoredGroup(g.tokens));
+  // …and if a body already carries one (mode switched after drafting, or an
+  // AI draft from a tailored session was reused), say so — that step would
+  // be refused at send time rather than shipped with a raw token.
+  const strayTailored = tailoredOn
+    ? []
+    : [...new Set(allText.match(/\{\{\s*tailored[^}]*\}\}/gi) ?? [])];
   // How many tokens the one-click fix can resolve (foreign syntax +
   // valid-but-unsupported {{…}} like {{seller}} → {{seller_name}}).
   const autoFixable = autoFixPlaceholders(allText).changes.length;
@@ -238,7 +265,7 @@ function PlaceholdersHint({
     } catch { /* ignore */ }
   }
 
-  const hasProblem = bad.length > 0 || suspicious.length > 0;
+  const hasProblem = bad.length > 0 || suspicious.length > 0 || strayTailored.length > 0;
   return (
     <div className="rounded-xl border overflow-hidden"
       style={{
@@ -263,6 +290,16 @@ function PlaceholdersHint({
               <p className="text-[10px]" style={{ color: C.textMuted }}>
                 Found: <span className="font-mono">{suspicious.slice(0, 6).map(s => s.token).join(", ")}{suspicious.length > 6 ? ` +${suspicious.length - 6} more` : ""}</span>.
                 Use <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> etc. — not <span className="font-mono">[First Name]</span> or <span className="font-mono">%FIRST_NAME%</span>.
+              </p>
+            </>
+          ) : strayTailored.length > 0 ? (
+            <>
+              <p className="text-[12px] font-bold" style={{ color: "#DC2626" }}>
+                AI slots in a generic flow — these steps won&apos;t send
+              </p>
+              <p className="text-[10px]" style={{ color: C.textMuted }}>
+                Found <span className="font-mono">{strayTailored.join(", ")}</span>. Nothing fills them
+                unless the flow type is <strong>Tailored</strong> — remove them, or go back to Step 1 and switch the flow type.
               </p>
             </>
           ) : bad.length > 0 ? (
@@ -305,13 +342,13 @@ function PlaceholdersHint({
       {open && (
         <div className="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3"
           style={{ borderTop: `1px solid ${C.border}` }}>
-          {PLACEHOLDER_GROUPS.map(g => {
+          {groups.map(g => {
             // Tailored AI slots get the gold pill + sparkle treatment so
             // the seller can tell at a glance they're AI-filled per lead,
             // not static substitution. Detection is structural (any token
             // starting with `{{tailored:` or `{{tailored` camelCase) to
             // future-proof against new slot names.
-            const isTailored = g.tokens.some(t => /^\{\{tailored/i.test(t));
+            const isTailored = isTailoredGroup(g.tokens);
             return (
             <div key={g.label} className="rounded-lg p-2.5"
               style={{
@@ -740,6 +777,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           dispatcher silently fails the message (PE Spain incident
           2026-05-27). */}
       <PlaceholdersHint
+        flowType={flowType}
         bodies={[
           channelMessages.connectionRequest ?? "",
           ...(channelMessages.steps ?? []).map(s => s?.body ?? ""),
