@@ -70,31 +70,47 @@ export async function POST(req: NextRequest) {
 
   const svc = getSupabaseService();
 
-  // Every query below runs through this so the selection filter and the
-  // tenant guard can never drift apart between the count and the sample.
-  function scoped(select: string, opts?: { count: "exact"; head: true }) {
+  // An id filter travels in the QUERY STRING (`id=in.(uuid,uuid,…)`), so a
+  // whole-ICP selection of 1 166 leads would be ~44 KB of URL and Supabase's
+  // edge rejects it. Everything below therefore runs per chunk of ids and the
+  // counts are summed; with no ids we filter by ICP and run once.
+  const ID_CHUNK = 300;
+  const idChunks: (string[] | null)[] = leadIds.length > 0
+    ? Array.from({ length: Math.ceil(leadIds.length / ID_CHUNK) }, (_, i) =>
+        leadIds.slice(i * ID_CHUNK, (i + 1) * ID_CHUNK))
+    : [null];
+
+  // Every query goes through this so the selection filter and the tenant
+  // guard can never drift apart between the counts and the sample.
+  function scoped(select: string, chunk: string[] | null, opts?: { count: "exact"; head: true }) {
     let q = opts
       ? svc.from("leads").select(select, opts)
       : svc.from("leads").select(select);
-    if (leadIds.length > 0) q = q.in("id", leadIds);
+    if (chunk) q = q.in("id", chunk);
     else if (icpProfileId) q = q.eq("icp_profile_id", icpProfileId);
     if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
     return q;
   }
 
-  // ── Coverage: one exact COUNT per column, head-only so no rows travel.
-  // Counting instead of reading also side-steps the PostgREST 1000-row cap
-  // that has bitten every "just read them all" query in this codebase.
+  // ── Coverage: exact head-only COUNTs, so no rows travel and the PostgREST
+  // 1000-row cap can't truncate anything.
+  async function countAcross(build: (chunk: string[] | null) => PromiseLike<{ count: number | null; error: unknown }>) {
+    const parts = await Promise.all(idChunks.map(c => build(c)));
+    const failed = parts.find(p => p.error);
+    if (failed) return { count: 0, error: failed.error };
+    return { count: parts.reduce((a, p) => a + (p.count ?? 0), 0), error: null };
+  }
+
   const [totalRes, encryptedRes, ...columnCounts] = await Promise.all([
-    scoped("id", { count: "exact", head: true }),
-    scoped("id", { count: "exact", head: true }).eq("source", "client"),
+    countAcross(c => scoped("id", c, { count: "exact", head: true })),
+    countAcross(c => scoped("id", c, { count: "exact", head: true }).eq("source", "client")),
     ...COVERAGE_COLUMNS.map(col =>
-      scoped("id", { count: "exact", head: true }).not(col, "is", null).neq(col, ""),
+      countAcross(c => scoped("id", c, { count: "exact", head: true }).not(col, "is", null).neq(col, "")),
     ),
   ]);
 
   if (totalRes.error) {
-    return NextResponse.json({ error: totalRes.error.message }, { status: 500 });
+    return NextResponse.json({ error: "coverage count failed" }, { status: 500 });
   }
 
   const coverage: Record<string, number> = {};
@@ -103,7 +119,9 @@ export async function POST(req: NextRequest) {
   });
 
   // ── Sample: prefer plaintext rows so the common case needs no decrypt.
-  const { data: plain } = await scoped(`id, ${LEAD_PLACEHOLDER_COLUMNS}`)
+  // Three leads is all the preview needs, so the first chunk is enough.
+  const firstChunk = idChunks[0];
+  const { data: plain } = await scoped(`id, ${LEAD_PLACEHOLDER_COLUMNS}`, firstChunk)
     .neq("source", "client")
     .not("primary_first_name", "is", null)
     .limit(3);
@@ -113,7 +131,7 @@ export async function POST(req: NextRequest) {
   // Nothing readable in the clear (a fully client-uploaded tenant like De
   // Vera or Miranda Bosch) — pull encrypted rows and decrypt just these.
   if (leads.length === 0) {
-    const { data: enc } = await scoped("id, company_bio_id, encrypted_payload")
+    const { data: enc } = await scoped("id, company_bio_id, encrypted_payload", firstChunk)
       .eq("source", "client")
       .not("encrypted_payload", "is", null)
       .limit(3);
