@@ -119,6 +119,24 @@ export default function PickLeadsClient({
   const countryOptions  = Array.from(new Set(leads.map(l => l.country).filter(Boolean) as string[])).sort();
   const companyOptions  = Array.from(new Set(leads.map(l => l.company_name).filter(Boolean) as string[])).sort();
 
+  // How many LEADS sit behind each option. The dropdown triggers used to
+  // read "All company (886)" — that was 886 distinct companies, not leads,
+  // so the number said nothing about what picking a value would leave.
+  function countBy(pick: (l: PickableLead) => string | null): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const l of leads) {
+      const v = pick(l);
+      if (v) out[v] = (out[v] ?? 0) + 1;
+    }
+    return out;
+  }
+  const facetCounts = {
+    industry: countBy(l => l.industry),
+    country: countBy(l => l.country),
+    company: countBy(l => l.company_name),
+    role: countBy(l => l.role),
+  };
+
   const historyCounts = {
     new:      leads.filter(l => l.history === "new").length,
     renurture: leads.filter(l => l.history === "renurture").length,
@@ -270,6 +288,7 @@ export default function PickLeadsClient({
             industryOptions={industryOptions}
             countryOptions={countryOptions}
             companyOptions={companyOptions}
+            facetCounts={facetCounts}
             showCampaignFilter={false}
             showProfileFilter={false}
             showStatusPills={false}

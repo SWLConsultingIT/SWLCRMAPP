@@ -97,6 +97,7 @@ export function LeadFilterBar({
   industryOptions,
   countryOptions,
   companyOptions,
+  facetCounts,
   showCampaignFilter = true,
   showProfileFilter = true,
   showStatusPills = true,
@@ -119,6 +120,14 @@ export function LeadFilterBar({
   /** Distinct company values present in the current lead set. Pass null
    *  or empty to hide the Company filter. */
   companyOptions?: string[];
+  /** Per-option LEAD counts, keyed by facet. Optional: callers that don't
+   *  supply them keep the old "All x (n options)" trigger. */
+  facetCounts?: {
+    industry?: Record<string, number>;
+    country?: Record<string, number>;
+    company?: Record<string, number>;
+    role?: Record<string, number>;
+  };
   showCampaignFilter?: boolean;
   showProfileFilter?: boolean;
   /** Role filter runs in exclude mode (boss 2026-06-08): all roles included
@@ -289,6 +298,7 @@ export function LeadFilterBar({
             onToggle={v => toggle("industry", v)}
             onClear={() => onChange({ ...filters, industry: [] })}
             options={industryOptions}
+            optionCounts={facetCounts?.industry}
           />
         )}
         {countryOptions && countryOptions.length > 0 && (
@@ -299,6 +309,7 @@ export function LeadFilterBar({
             onToggle={v => toggle("country", v)}
             onClear={() => onChange({ ...filters, country: [] })}
             options={countryOptions}
+            optionCounts={facetCounts?.country}
           />
         )}
         {companyOptions && companyOptions.length > 0 && (
@@ -309,6 +320,7 @@ export function LeadFilterBar({
             onToggle={v => toggle("company", v)}
             onClear={() => onChange({ ...filters, company: [] })}
             options={companyOptions}
+            optionCounts={facetCounts?.company}
           />
         )}
         {roleOptions && roleOptions.length > 0 && (
@@ -319,6 +331,7 @@ export function LeadFilterBar({
             onToggle={v => toggle(roleExcludeMode ? "roleExclude" : "role", v)}
             onClear={() => onChange({ ...filters, [roleExcludeMode ? "roleExclude" : "role"]: [] })}
             options={roleOptions}
+            optionCounts={facetCounts?.role}
             excludeMode={roleExcludeMode}
             onSetSelected={vals => onChange({ ...filters, [roleExcludeMode ? "roleExclude" : "role"]: vals })}
           />
@@ -335,7 +348,7 @@ export function LeadFilterBar({
 // "industry tiene que ser deplegable" + "se tiene que poder seleccionar
 // varias opciones en cada filtro".
 function FacetDropdown({
-  icon, label, selected, onToggle, onClear, options, excludeMode = false, onSetSelected,
+  icon, label, selected, onToggle, onClear, options, excludeMode = false, onSetSelected, optionCounts,
 }: {
   icon: ReactNode;
   label: string;
@@ -350,8 +363,14 @@ function FacetDropdown({
   /** Bulk-set the whole selection — powers the Select all / Deselect all
    *  buttons (boss 2026-06-09). When absent those buttons are hidden. */
   onSetSelected?: (vals: string[]) => void;
+  /** How many LEADS each option covers. When supplied, every row shows its
+   *  count and the trigger stops printing the option count — "All company
+   *  (886)" was 886 distinct companies, not 886 leads, which said nothing
+   *  about what the filter would leave. */
+  optionCounts?: Record<string, number>;
 }) {
   const { t } = useLocale();
+  const hasCounts = !!optionCounts;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -378,7 +397,11 @@ function FacetDropdown({
   // leadFilters.allOf template which keeps "All {label} ({n})"
   // grammatically right in both EN and ES.
   const triggerText = !hasFilter
-    ? t("leadFilters.allOf").replace("{label}", label.toLowerCase()).replace("{n}", String(options.length))
+    ? (hasCounts
+        // With per-option lead counts in the list, an "(n)" here would be the
+        // one number on screen counting something else. Drop it.
+        ? t("leadFilters.allOf").replace("{label}", label.toLowerCase()).replace(" ({n})", "").replace("({n})", "").trim()
+        : t("leadFilters.allOf").replace("{label}", label.toLowerCase()).replace("{n}", String(options.length)))
     : excludeMode
       ? (selected.length === 1 ? `All except ${selected[0]}` : `All except ${selected[0]} +${selected.length - 1}`)
       : selected.length === 1
@@ -492,6 +515,11 @@ function FacetDropdown({
                     )}
                   </span>
                   <span className="truncate" style={{ fontWeight: isOn ? 600 : 500 }}>{opt}</span>
+                  {hasCounts && (
+                    <span className="ml-auto shrink-0 text-[11px] tabular-nums" style={{ color: C.textDim }}>
+                      {optionCounts?.[opt] ?? 0}
+                    </span>
+                  )}
                 </button>
               );
             })}
