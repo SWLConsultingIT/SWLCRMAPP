@@ -129,44 +129,29 @@ export default function TodayCard({
         boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 8px 24px -12px ${N.ink}`,
       }}
     >
-      {/* Header — black surface with gold title (boss feedback 2026-05-27).
-          Body below stays light so the lead rows feel tactile. */}
+      {/* Header — light section line (boss 2026-08-27). The Aurora hero already
+          frames "what needs you today", so this is a slim count line with a
+          gold-tinted icon, not a second dark banner competing with the hero. */}
       <div
-        className="relative px-5 py-4 flex items-center gap-3 overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
-        }}
+        className="px-5 py-3.5 flex items-center gap-3"
+        style={{ borderBottom: `1px solid ${C.border}` }}
       >
         <span
-          aria-hidden
-          className="absolute -top-16 -left-12 w-48 h-48 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 65%)` }}
-        />
-        <span
-          className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
           style={{
-            background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`,
-            color: N.ink,
-            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+            background: `color-mix(in srgb, ${gold} 14%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)`,
+            color: "var(--fg1)",
           }}
         >
           <Sparkles size={15} />
         </span>
-        <div className="relative min-w-0">
-          <h3
-            className={`${T.cardTitle}`}
-            style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
-          >
-            {labels.title}
-          </h3>
-          <p
-            className="text-[11.5px] mt-0.5 truncate"
-            style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
-          >
-            {labels.subtitle.replace("{n}", String(totalItems))}
-          </p>
-        </div>
+        <p
+          className="text-[13px] font-semibold min-w-0 truncate"
+          style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+        >
+          {labels.subtitle.replace("{n}", String(totalItems))}
+        </p>
       </div>
 
       {/* Boss feedback 2026-05-29: every section must render even at count=0
