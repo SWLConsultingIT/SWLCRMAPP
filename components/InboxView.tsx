@@ -794,19 +794,25 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
           of a selector. Counts live on the tabs (which respect this filter), so
           the chips carry no count — avoids the old count-mismatch (bug I-3). */}
       {canViewAllSellers ? (
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2 border-b overflow-x-auto" style={{ borderColor: C.border }}>
-          <span className="text-[9px] font-bold uppercase tracking-wider shrink-0 mr-0.5" style={{ color: C.textDim }}>{locale === "es" ? "Seller" : "Seller"}</span>
-          <SellerChip label={locale === "es" ? "Todos" : "All"} active={sellerFilter === "all"} onClick={() => setSellerFilter("all")} />
-          {mySellerNames.length > 0 && (
-            <SellerChip label={locale === "es" ? "Mis leads" : "My leads"} active={sellerFilter === "mine"} onClick={() => setSellerFilter("mine")} highlight />
-          )}
-          {sellerOptions.length > 0 && <span className="w-px h-4 shrink-0" style={{ backgroundColor: C.border }} />}
-          {sellerOptions.map(name => (
-            <SellerChip key={name} label={name} active={sellerFilter === name} onClick={() => setSellerFilter(name)} />
-          ))}
-          {pendingSellerCounts.has(UNASSIGNED_SELLER) && (
-            <SellerChip label={locale === "es" ? "Sin asignar" : "Unassigned"} active={sellerFilter === UNASSIGNED_SELLER} onClick={() => setSellerFilter(UNASSIGNED_SELLER)} />
-          )}
+        // One dropdown instead of a row of per-seller chips (boss 2026-08-27:
+        // "muchos botones"). Same client-side lens over already-scoped data.
+        <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: C.border }}>
+          <span className="text-[9px] font-bold uppercase tracking-wider shrink-0" style={{ color: C.textDim }}>{locale === "es" ? "Seller" : "Seller"}</span>
+          <select
+            value={sellerFilter}
+            onChange={(e) => setSellerFilter(e.target.value)}
+            className="text-[12px] font-semibold rounded-lg px-2.5 py-1.5 outline-none cursor-pointer max-w-[220px]"
+            style={{ backgroundColor: C.card, border: `1px solid ${C.border2}`, color: C.textBody }}
+          >
+            <option value="all">{locale === "es" ? "Todos los sellers" : "All sellers"}</option>
+            {mySellerNames.length > 0 && <option value="mine">{locale === "es" ? "Mis leads" : "My leads"}</option>}
+            {sellerOptions.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+            {pendingSellerCounts.has(UNASSIGNED_SELLER) && (
+              <option value={UNASSIGNED_SELLER}>{locale === "es" ? "Sin asignar" : "Unassigned"}</option>
+            )}
+          </select>
         </div>
       ) : (
         <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: C.border }}>
