@@ -15,7 +15,6 @@ const LOGO_SRC = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNx
 const gold = "var(--brand, #c9a83a)";
 
 export default function SwlSignature({
-  caption,
   tagline,
 }: {
   /** Locale-aware caption, e.g. "Métricas en vivo · no cacheadas" or "Live metrics". */
@@ -29,14 +28,7 @@ export default function SwlSignature({
       style={{ borderColor: C.border }}
     >
       <span
-        className="text-[10.5px] tabular-nums"
-        style={{ color: C.textDim }}
-      >
-        {caption}
-      </span>
-
-      <span
-        className="hidden sm:block flex-1 h-px"
+        className="flex-1 h-px"
         style={{
           background: `linear-gradient(90deg, ${C.border}, transparent 45%, transparent 55%, ${C.border})`,
         }}
