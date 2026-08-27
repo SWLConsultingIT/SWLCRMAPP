@@ -482,15 +482,42 @@ export default function NewCampaignWizard() {
 
       // Count leads + channel coverage in one pass. We fetch the channel-relevant
       // columns for the selected/profile leads and tally per-channel availability.
-      // Cheap: 4 fields × ~100 rows = a few KB. Keeps the Sequence step honest
-      // about whether a chosen channel will actually reach all the leads.
-      let coverageQ = supabase
-        .from("leads")
-        .select("id, source, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, allow_linkedin, allow_email, allow_call")
-        .eq("icp_profile_id", profileId);
-      if (isPartialSelection) coverageQ = coverageQ.in("id", selectedLeadIds);
-      const { data: covRows } = await coverageQ;
-      const rows = covRows ?? [];
+      // Keeps the Sequence step honest about whether a chosen channel will
+      // actually reach all the leads.
+      //
+      // PAGINATED, and ordered. PostgREST caps a response at 1000 rows and
+      // truncates silently; the original single query assumed "~100 rows" and
+      // was written when ICPs were that size. SWL's "Private Equity & VC Firms
+      // — USA" now holds 1 166, so the wizard read 1 000 of them: leadsCount
+      // was wrong on the summary, every coverage figure was computed over a
+      // 1 000-row slice, and the quota inputs let you assign 1 000 of 1 166
+      // leads and call it fully allocated. An ORDER BY is required or page
+      // boundaries can repeat and drop rows.
+      const COVERAGE_PAGE = 1000;
+      const COVERAGE_MAX = 50_000;
+      type CoverageRow = {
+        id: string; source: string | null;
+        primary_first_name: string | null; primary_last_name: string | null;
+        primary_linkedin_url: string | null;
+        primary_work_email: string | null; primary_personal_email: string | null;
+        primary_phone: string | null; primary_secondary_phone: string | null;
+        allow_linkedin: boolean | null; allow_email: boolean | null; allow_call: boolean | null;
+      };
+      const rows: CoverageRow[] = [];
+      for (let from = 0; from < COVERAGE_MAX; from += COVERAGE_PAGE) {
+        let coverageQ = supabase
+          .from("leads")
+          .select("id, source, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, allow_linkedin, allow_email, allow_call")
+          .eq("icp_profile_id", profileId)
+          .order("id", { ascending: true })
+          .range(from, from + COVERAGE_PAGE - 1);
+        if (isPartialSelection) coverageQ = coverageQ.in("id", selectedLeadIds);
+        const { data: page, error: pageErr } = await coverageQ;
+        if (pageErr) break;
+        const got = page ?? [];
+        rows.push(...(got as unknown as CoverageRow[]));
+        if (got.length < COVERAGE_PAGE) break;
+      }
       const isValidLi = (u: string | null) => !!u && /linkedin\.com\/in\//i.test(u);
       const fullName = (r: any) => `${r.primary_first_name ?? ""} ${r.primary_last_name ?? ""}`.trim() || r.company_name || "Unknown";
       // Client-source leads keep their PII inside encrypted_payload — the
@@ -1625,7 +1652,6 @@ export default function NewCampaignWizard() {
       {/* ═══ STEP 1: SETTINGS (Seller + Channel Accounts) ═══ */}
       {wizardStep === 1 && (() => {
         const usedChannels = [...new Set(sequence.map(s => s.channel))];
-        const selectedSellerObj = sellers.find(s => s.id === (sellerQuotas[0]?.sellerId ?? ""));
 
         return (
           <div className="space-y-5">
