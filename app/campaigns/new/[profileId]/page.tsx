@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
@@ -974,6 +974,45 @@ export default function NewCampaignWizard() {
   const days = cumulativeDays();
   const totalDays = days.length > 0 ? days[days.length - 1] : 0;
 
+  // What still stands between this step and the next one. Rendered in the
+  // brief on the right AND summarised next to the Next button, so the author
+  // learns it while editing instead of from a banner after being rejected.
+  const step0Checks: Array<{ ok: boolean; title: string; detail?: string; blocking: boolean }> = (() => {
+    const named = !!campaignName.trim();
+    const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
+    const followups = hasCR ? sequence.length - 1 : sequence.length;
+    // A channel is unusable when NO lead in the selection can receive it —
+    // a call step on a cohort with no phone number never executes.
+    const dead = [...new Set(sequence.map(s => s.channel))].filter(ch => {
+      const key = ch as "linkedin" | "email" | "call" | "whatsapp";
+      return coverage.total > 0 && (coverage[key] ?? 0) === 0;
+    });
+    return [
+      {
+        ok: named,
+        blocking: true,
+        title: named ? "Flow is named" : "The flow needs a name",
+        detail: named ? campaignName.trim() : "Sellers find it by name in the Inbox and in Results",
+      },
+      {
+        ok: followups > 0,
+        blocking: true,
+        title: followups > 0
+          ? `${sequence.length} stop${sequence.length === 1 ? "" : "s"} in the sequence`
+          : "Add a step after the invitation",
+        detail: hasCR ? `Invitation + ${followups} message${followups === 1 ? "" : "s"}` : undefined,
+      },
+      {
+        ok: dead.length === 0,
+        blocking: false,
+        title: dead.length === 0
+          ? "Every step can reach these leads"
+          : `No lead can be reached on ${dead.join(", ")}`,
+        detail: dead.length === 0 ? undefined : "Those steps would be skipped for everyone",
+      },
+    ];
+  })();
+
   if (loading) {
     return <LogoLoader />;
   }
@@ -1245,7 +1284,8 @@ export default function NewCampaignWizard() {
           custom channel accounts. Restore later behind a feature flag once
           we have the right guardrails. */}
       {wizardStep === 0 && (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
+          <div className="space-y-4 min-w-0">
           {/* Flow name + templates combined — 2 visual fragments collapsed into
               one card to reduce stacked-card noise. */}
           <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -1590,6 +1630,68 @@ export default function NewCampaignWizard() {
               <Plus size={14} /> Add Step
             </button>
           </div>
+          </div>
+
+          {/* ── THE BRIEF ─────────────────────────────────────────────────
+              What the flow adds up to, updating as you edit. The step used
+              to answer none of this: how many sends it comes to, when the
+              first one goes out, when the last touch lands if nobody
+              replies, and whether the chosen channels can reach the leads.
+              Sticky, because it's a reference while you edit the rail. */}
+          <aside className="lg:sticky lg:top-4 space-y-4 min-w-0">
+            <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <p className="text-[13px] font-bold" style={{ color: C.textPrimary }}>Flow summary</p>
+              <p className="text-[11px] mt-0.5 mb-3" style={{ color: C.textDim }}>Updates as you edit</p>
+              {(() => {
+                const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
+                const rows: Array<[string, string, string?]> = [
+                  ["Stops", hasCR ? `${sequence.length} (invite + ${sequence.length - 1})` : String(sequence.length)],
+                  ["Duration", `${totalDays} days`],
+                  ["First send", stepCalendarDate(days[0] ?? 0).label],
+                  ["Last touch", stepCalendarDate(totalDays).label, "if nobody replies"],
+                  ["Total sends", (leadsCount * sequence.length).toLocaleString("es-AR"), `${leadsCount} leads × ${sequence.length}`],
+                ];
+                return (
+                  <dl className="grid gap-y-2 text-[12.5px]" style={{ gridTemplateColumns: "1fr auto" }}>
+                    {rows.map(([k, v, sub]) => (
+                      <Fragment key={k}>
+                        <dt style={{ color: C.textMuted }}>{k}</dt>
+                        <dd className="m-0 text-right font-semibold tabular-nums" style={{ color: C.textPrimary }}>
+                          {v}
+                          {sub && <span className="block font-normal text-[11px]" style={{ color: C.textDim }}>{sub}</span>}
+                        </dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                );
+              })()}
+
+              {/* Channel mix — one bar, because the question is proportion. */}
+              {(() => {
+                const counts = new Map<string, number>();
+                sequence.forEach(st => counts.set(st.channel, (counts.get(st.channel) ?? 0) + 1));
+                const order = channelOptions.filter(c => counts.has(c.key));
+                if (order.length === 0) return null;
+                return (
+                  <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>Channel mix</p>
+                    <div className="flex h-[7px] rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
+                      {order.map(c => (
+                        <span key={c.key} style={{ width: `${((counts.get(c.key) ?? 0) / sequence.length) * 100}%`, backgroundColor: c.color }} />
+                      ))}
+                    </div>
+                    <div className="flex gap-3 flex-wrap mt-2 text-[11px]" style={{ color: C.textMuted }}>
+                      {order.map(c => (
+                        <span key={c.key} className="inline-flex items-center gap-1.5">
+                          <span className="w-[7px] h-[7px] rounded-sm" style={{ backgroundColor: c.color }} />
+                          {c.label} · {counts.get(c.key)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
 
           {/* The rail above IS the timeline, so the duplicated Timeline
               Preview panel that used to sit here is gone. What stays is the
@@ -1680,6 +1782,33 @@ export default function NewCampaignWizard() {
               );
             })()}
           </div>
+
+            {/* ── TO CONTINUE ─────────────────────────────────────────────
+                Next used to reject the step with a banner after the fact.
+                This says what's missing while there's still something to do
+                about it. */}
+            <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <p className="text-[13px] font-bold mb-3" style={{ color: C.textPrimary }}>To continue</p>
+              <div className="flex flex-col gap-2.5">
+                {step0Checks.map(c => (
+                  <div key={c.title} className="flex items-start gap-2.5 text-[12.5px]">
+                    <span
+                      className="w-4 h-4 rounded-full grid place-items-center shrink-0 mt-[2px]"
+                      style={c.ok
+                        ? { backgroundColor: "color-mix(in srgb, #15803D 12%, transparent)", color: C.green }
+                        : { backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706" }}
+                    >
+                      {c.ok ? <Check size={10} /> : <AlertTriangle size={10} />}
+                    </span>
+                    <span className="min-w-0">
+                      <b style={{ color: c.ok ? C.textPrimary : "#D97706" }}>{c.title}</b>
+                      {c.detail && <span className="block" style={{ color: C.textMuted }}>{c.detail}</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
         </div>
       )}
 
@@ -2570,6 +2699,19 @@ export default function NewCampaignWizard() {
           style={{ color: C.textBody, backgroundColor: C.surface }}>
           <ArrowLeft size={15} /> {wizardStep === 0 ? "Cancel" : "Previous"}
         </button>
+
+        {/* Say what's missing here, next to the button that would refuse.
+            Clicking Next and getting a banner was the only way to find out. */}
+        {wizardStep === 0 && (() => {
+          const missing = step0Checks.filter(c => !c.ok && c.blocking);
+          return (
+            <span className="text-[12px] hidden sm:block px-3 text-right" style={{ color: missing.length ? "#D97706" : C.textDim }}>
+              {missing.length > 0
+                ? `Missing: ${missing.map(c => c.title.toLowerCase()).join(" · ")}`
+                : "Ready for step 2"}
+            </span>
+          );
+        })()}
 
         {wizardStep < WIZARD_STEPS.length - 1 ? (
           <button
