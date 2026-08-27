@@ -284,30 +284,42 @@ export default function PickLeadsClient({
             onChange={setHistoryFilter}
           />
 
-          {/* Reach pills. Each one counts LEADS, which the older filter
-              dropdowns did not — "All company (129)" was the number of
-              options in the list, not the number of leads it left. */}
-          <div className="flex items-center gap-2 flex-wrap -mt-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>Reachable on</span>
-            {([
-              { key: "all", label: "Any", n: leads.length },
-              { key: "linkedin", label: "LinkedIn", n: leads.filter(l => l.has_linkedin).length },
-              { key: "email", label: "Email", n: leads.filter(l => l.has_email).length },
-              { key: "phone", label: "Phone", n: leads.filter(l => l.has_phone).length },
-            ] as const).map(p => {
-              const on = reachFilter === p.key;
-              return (
-                <button key={p.key} type="button" onClick={() => setReachFilter(p.key)}
-                  aria-pressed={on}
-                  className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-full transition-colors"
-                  style={on
-                    ? { backgroundColor: N.ink, color: "#fff", border: `1px solid ${N.ink}` }
-                    : { backgroundColor: C.card, color: C.textMuted, border: `1px solid ${C.border}` }}>
-                  {p.label}
-                  <span className="tabular-nums font-bold" style={{ color: on ? gold : C.textBody }}>{p.n}</span>
-                </button>
-              );
-            })}
+          {/* Reach filter. A SEGMENTED CONTROL, not a second row of pills:
+              stacked under the history pills as five more chips it read as
+              one undifferentiated mass of nine. One recessed track with the
+              active option raised says "this is a different question" without
+              needing more vertical space. (The old -mt-1 here was also eating
+              the 12px HistoryPills leaves below itself.) */}
+          <div className="flex items-center gap-2.5 flex-wrap mb-3">
+            <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>Reachable on</span>
+            <div
+              className="inline-flex gap-0.5 p-0.5 rounded-full"
+              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+              role="group"
+              aria-label="Filter by reachable channel"
+            >
+              {([
+                { key: "all", label: "Any", n: leads.length },
+                { key: "linkedin", label: "LinkedIn", n: leads.filter(l => l.has_linkedin).length },
+                { key: "email", label: "Email", n: leads.filter(l => l.has_email).length },
+                { key: "phone", label: "Phone", n: leads.filter(l => l.has_phone).length },
+              ] as const).map(p => {
+                const on = reachFilter === p.key;
+                return (
+                  <button key={p.key} type="button" onClick={() => setReachFilter(p.key)}
+                    aria-pressed={on}
+                    className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1 rounded-full transition-colors"
+                    style={on
+                      ? { backgroundColor: C.card, color: C.textPrimary, boxShadow: "0 1px 2px rgba(17,24,39,0.08)" }
+                      : { backgroundColor: "transparent", color: C.textMuted }}>
+                    {p.label}
+                    {/* The count is the point: these are LEADS, unlike the
+                        filter dropdowns which count their own options. */}
+                    <span className="tabular-nums font-bold" style={{ color: on ? gold : C.textDim }}>{p.n}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div
