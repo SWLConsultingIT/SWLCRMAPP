@@ -601,21 +601,11 @@ thead th {
    [data-theme]; honors prefers-reduced-motion. Used by <AuroraHero/> across
    Lead Miner / Outreach Flow / Leads / Results (and more).
    ════════════════════════════════════════════════════════════════════════ */
+/* Always-dark signature hero panel — identical in light & dark app themes
+   (boss 2026-08-27: preferred the dark Aurora over the light one). */
 :root {
-  --ah-wrapbg:   #F3ECDA;
-  --ah-glass:    rgba(255,255,255,0.54);
-  --ah-glass-bd: rgba(255,255,255,0.85);
-  --ah-glass-hi: rgba(255,255,255,0.78);
-  --ah-chip:     rgba(255,255,255,0.62);
-  --ah-chip-bd:  rgba(120,95,25,0.16);
-  --ah-ink:   #16171D; --ah-body: #4A5060; --ah-muted: #6F7686; --ah-gold: #7C5E12;
-  --ah-div:   rgba(18,20,28,0.10); --ah-gr: #2E8B57; --ah-rd: #C23B2E;
-  --ah-sheen: rgba(255,255,255,0.40);
-  --ah-a1: #F6D775; --ah-a2: #ECB63D; --ah-a3: #F9EBB4; --ah-a4: #EFCE6A; --ah-a5: #E2A82E;
-}
-[data-theme="dark"] {
   --ah-wrapbg:   #0B0E1A;
-  --ah-glass:    rgba(22,25,36,0.48);
+  --ah-glass:    rgba(22,25,36,0.50);
   --ah-glass-bd: rgba(255,255,255,0.11);
   --ah-glass-hi: rgba(255,255,255,0.16);
   --ah-chip:     rgba(255,255,255,0.05);
@@ -624,11 +614,12 @@ thead th {
   --ah-div:   rgba(255,255,255,0.10); --ah-gr: #5FCF97; --ah-rd: #EC8377;
   --ah-sheen: rgba(255,255,255,0.10);
   --ah-a1: #D2A32F; --ah-a2: #EBB945; --ah-a3: #8E6E24; --ah-a4: #DBB44C; --ah-a5: #B98A26;
+  --ah-bd: #2A3145;
 }
 .aurora-hero {
-  position: relative; overflow: hidden; border-radius: 18px;
-  background: var(--ah-wrapbg); border: 1px solid var(--c-border2);
-  box-shadow: 0 24px 54px -24px rgba(50,40,12,0.28);
+  position: relative; overflow: hidden; border-radius: 18px; display: flex;
+  background: var(--ah-wrapbg); border: 1px solid var(--ah-bd);
+  box-shadow: 0 24px 54px -24px rgba(0,0,0,0.55);
 }
 .aurora-mesh, .aurora-mesh2 {
   position: absolute; inset: -45%; z-index: 0; pointer-events: none; transform-origin: 52% 48%;
@@ -653,11 +644,12 @@ thead th {
 @keyframes ahSpinA { 0%{transform:rotate(0deg) scale(1.05)} 50%{transform:rotate(180deg) scale(1.14)} 100%{transform:rotate(360deg) scale(1.05)} }
 @keyframes ahSpinB { 0%{transform:rotate(0deg) scale(1.10)} 50%{transform:rotate(-180deg) scale(1.00)} 100%{transform:rotate(-360deg) scale(1.10)} }
 .aurora-glass {
-  position: relative; z-index: 1; margin: 13px; border-radius: 14px; padding: 22px 24px; overflow: hidden;
+  position: relative; z-index: 1; flex: 1 1 auto; margin: 13px; border-radius: 14px; padding: 22px 24px; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; min-height: 180px;
   background: var(--ah-glass);
   backdrop-filter: blur(22px) saturate(1.25); -webkit-backdrop-filter: blur(22px) saturate(1.25);
   border: 1px solid var(--ah-glass-bd);
-  box-shadow: inset 0 1px 0 var(--ah-glass-hi), 0 10px 28px -16px rgba(40,32,10,0.28);
+  box-shadow: inset 0 1px 0 var(--ah-glass-hi), 0 10px 28px -16px rgba(0,0,0,0.5);
 }
 .aurora-glass::after {
   content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
