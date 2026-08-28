@@ -43,7 +43,7 @@ export type FlowMetrics = {
   // pipeline distribution, per-seller. UI consumes these in the next increment. ──
   meetings: number; meetingRate: number; positiveLeadRate: number;
   callStage: { made: number; connected: number; connectRate: number; positiveOutcomes: number; meetings: number; meetingConversion: number; groups: Record<string, number>; outcomes: Record<string, number> } | null;
-  pipeline: { inLinkedin: number; inEmail: number; inCall: number; repliedExited: number; completedNoResponse: number; removed: number; other: number };
+  pipeline: { inLinkedin: number; inEmail: number; inCall: number; repliedExited: number; completedNoResponse: number; removed: number; failed: number; other: number };
   stageAging: Record<string, { active: number; stuckOver3d: number; avgDays: number | null; tracked: number }>;
   sellers: { sellerId: string; name: string; leads: number; contacted: number; linkedinSent: number; emailsSent: number; callsMade: number; callsConnected: number; replies: number; positiveReplies: number; positiveOutcomes: number; meetings: number; connectRate: number; positiveReplyRate: number; meetingsPer100: number; positivePer100: number }[];
   positivesByChannel: { linkedin: number; email: number };
@@ -255,6 +255,21 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       <div style={{ opacity: updating ? 0.5 : 1, transition: "opacity .18s", pointerEvents: updating ? "none" : "auto" }}>
       <div className="space-y-5">
 
+      {m.totalLeads === 0 ? (
+        /* Empty cohort — a filter (period / seller) matched no enrolled leads.
+           One clean state instead of a dozen zero-filled modules / an empty bar. */
+        <div className="rounded-2xl border flex flex-col items-center justify-center text-center px-6 py-16" style={{ borderColor: C.border2, backgroundColor: C.card, boxShadow: C.shadow }}>
+          <div className="w-11 h-11 rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)` }}>
+            <Search size={18} style={{ color: gold }} />
+          </div>
+          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>No leads in this view</p>
+          <p className="text-xs mt-1 max-w-xs" style={{ color: C.textMuted }}>
+            No leads were enrolled in the selected period{curSeller ? " for this seller" : ""}. Adjust the filters above to see activity.
+          </p>
+        </div>
+      ) : (
+      <>
+
       {/* ── COOLDOWN BANNER ── */}
       {m.cooldown && (
         <div className="rounded-xl border px-4 py-2.5 flex items-center gap-2.5" style={{ borderColor: "color-mix(in srgb, #D97706 38%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 8%, transparent)" }}>
@@ -363,6 +378,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
             { k: "Replied · exited", n: p.repliedExited, c: C.green },
             { k: "Completed · no response", n: p.completedNoResponse, c: C.textMuted },
             { k: "Removed", n: p.removed, c: C.textDim },
+            ...(p.failed ? [{ k: "Failed", n: p.failed, c: C.red }] : []),
             ...(p.other ? [{ k: "Other", n: p.other, c: C.textDim }] : []),
           ].filter(s => s.n > 0);
           const total = segs.reduce((a, s) => a + s.n, 0) || 1;
@@ -410,19 +426,6 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
             ? <ChannelCard ch="call" stats={[["calls", m.callStage.made], ["connected", m.callStage.connected], ["connect rate", `${m.callStage.connectRate}%`, m.callStage.made > 0 ? bench(m.callStage.connectRate, 40, 25) : undefined], ["positive", m.callStage.positiveOutcomes, m.callStage.positiveOutcomes > 0 ? C.green : undefined], ["meetings", m.callStage.meetings, m.callStage.meetings > 0 ? "var(--fg1)" : undefined]]} />
             : <ChannelCard ch="call" stats={[["dialed", m.call.dialed]]} />)}
         </div>
-        <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-1.5" style={{ borderColor: C.border }}>
-          <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: C.textDim }}>Replies</span>
-          <Tag label="positive" n={m.replyBreakdown.positive} color={C.green} />
-          <Tag label="question" n={m.replyBreakdown.question} color="#0EA5E9" />
-          <Tag label="follow-up" n={m.replyBreakdown.followup} color="#D97706" />
-          <Tag label="negative" n={m.replyBreakdown.negative} color={C.red} />
-          <Tag label="other" n={m.replyBreakdown.other} color={C.textMuted} />
-          <span className="text-[10px] font-bold uppercase tracking-wider mx-1" style={{ color: C.textDim }}>Status</span>
-          <Tag label="active" n={m.statusDist.active} color="#16A34A" />
-          <Tag label="paused" n={m.statusDist.paused} color="#D97706" />
-          <Tag label="completed" n={m.statusDist.completed} color={C.textMuted} />
-          <Tag label="cancelled" n={m.statusDist.cancelled} color={C.textDim} />
-        </div>
       </Section>
 
       {/* ── OUTCOMES & DIAGNOSTICS — why (call outcome groups + reply quality
@@ -459,21 +462,54 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
             <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Reply quality</p>
             <div className="flex flex-wrap gap-1.5">
               <Tag label="positive" n={m.replyBreakdown.positive} color={C.green} />
+              <Tag label="question" n={m.replyBreakdown.question} color="#0EA5E9" />
+              <Tag label="follow-up" n={m.replyBreakdown.followup} color="#D97706" />
               <Tag label="negative" n={m.replyBreakdown.negative} color={C.red} />
-              <Tag label="follow-up / other" n={m.replyBreakdown.followup + m.replyBreakdown.question + m.replyBreakdown.other} color="#D97706" />
+              <Tag label="other" n={m.replyBreakdown.other} color={C.textMuted} />
             </div>
           </div>
         </div>
         {(() => {
-          const ins: string[] = [];
-          if (m.email && m.email.bounceRate >= 5) ins.push(`Email bounce rate is ${m.email.bounceRate}% — verify the list before sending more.`);
-          if (m.linkedin && m.email && (m.linkedin.positiveReplyRate - m.email.positiveReplyRate) >= 10) ins.push(`LinkedIn converts replies ${m.linkedin.positiveReplyRate - m.email.positiveReplyRate}pp better than Email.`);
-          if (m.callStage && m.callStage.connectRate >= 40 && m.callStage.meetingConversion < 6 && m.callStage.connected > 0) ins.push(`Good connect rate (${m.callStage.connectRate}%) but low meeting conversion (${m.callStage.meetingConversion}% of connected).`);
-          if (m.pipeline.completedNoResponse > m.totalLeads * 0.4) ins.push(`${m.pipeline.completedNoResponse} leads finished the flow without responding.`);
-          if (!ins.length) return null;
+          // Diagnostic insights — comparative / actionable only. We never restate
+          // a headline number already visible above (e.g. "6 meetings"); each line
+          // is a bottleneck, an anomaly, a leader, or an accumulation. Prioritized
+          // (lower = more urgent), top 3 shown.
+          const ins: { pri: number; text: string }[] = [];
+          // 1 — deliverability anomaly: blocks everything downstream.
+          if (m.email && m.email.sent > 0 && m.email.bounceRate >= 5)
+            ins.push({ pri: 1, text: `Email bounce rate is ${m.email.bounceRate}% — verify the list before sending more.` });
+          // 2 — biggest funnel leak: where the cohort drops off most.
+          if (m.contacted > 0 && m.contactedReplyRate < 4 && m.replied < m.contacted)
+            ins.push({ pri: 2, text: `Biggest leak is engagement — only ${m.contactedReplyRate}% of contacted leads reply. The opener needs work.` });
+          else if (m.replied > 0 && m.positiveRate < 20)
+            ins.push({ pri: 2, text: `Replies aren't converting — only ${m.positiveRate}% are positive. Revisit targeting or the pitch.` });
+          // 3 — best-performing seller / LinkedIn profile (only meaningful with >1).
+          if (m.sellers.length > 1) {
+            const top = m.sellers[0]; // sorted by meetings desc, then positives
+            const rest = m.sellers.slice(1);
+            const avgOthers = rest.length ? rest.reduce((a, s) => a + s.meetingsPer100, 0) / rest.length : 0;
+            if (top && (top.meetings > 0 || top.positiveReplies > 0) && top.meetingsPer100 > avgOthers)
+              ins.push({ pri: 3, text: `${top.name} is converting best — ${top.meetingsPer100} meetings per 100 contacted.` });
+          }
+          // 4 — leads piling up without progress (rate-limit / paused seller).
+          const stuck = Object.values(m.stageAging).reduce((a, x) => a + x.stuckOver3d, 0);
+          if (stuck >= 5)
+            ins.push({ pri: 4, text: `${stuck} leads are stuck >3 days without progress — check for a rate-limit or a paused seller.` });
+          // 5 — channel efficiency gap.
+          if (m.linkedin && m.email && m.linkedin.replies > 0 && m.email.replies > 0 && (m.linkedin.positiveReplyRate - m.email.positiveReplyRate) >= 10)
+            ins.push({ pri: 5, text: `LinkedIn converts replies ${m.linkedin.positiveReplyRate - m.email.positiveReplyRate}pp better than Email — shift volume there.` });
+          // 6 — calls connect but don't book.
+          if (m.callStage && m.callStage.connected > 0 && m.callStage.connectRate >= 40 && m.callStage.meetingConversion < 6)
+            ins.push({ pri: 6, text: `Calls connect well (${m.callStage.connectRate}%) but few book — ${m.callStage.meetingConversion}% of connected become meetings.` });
+          // 7 — cohort finishing silent.
+          if (m.totalLeads > 0 && m.pipeline.completedNoResponse > m.totalLeads * 0.4)
+            ins.push({ pri: 7, text: `${m.pipeline.completedNoResponse} leads finished the flow without responding.` });
+          const shown = ins.sort((a, b) => a.pri - b.pri).slice(0, 3);
+          if (!shown.length) return null;
           return (
             <div className="mt-4 pt-3 border-t space-y-1.5" style={{ borderColor: C.border }}>
-              {ins.slice(0, 2).map((s, i) => (<div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: C.textBody }}><span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: gold }} />{s}</div>))}
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textDim }}>What to act on</p>
+              {shown.map((s, i) => (<div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: C.textBody }}><span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: gold }} />{s.text}</div>))}
             </div>
           );
         })()}
@@ -594,6 +630,8 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         {/* drill list — only when opened from Issues, so it appears RIGHT HERE */}
         {openFrom === "issues" && drillPanel}
       </Section>
+      </>
+      )}
       </div>{/* /space-y-5 (sections) */}
       </div>{/* /dim wrapper */}
     </div>

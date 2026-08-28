@@ -250,7 +250,7 @@ export async function getFlowMetrics(
   // sum to the cohort (def #6). current_step is 0-indexed over `sequence`. ──
   const stageChannel = (step: number | null) =>
     sequence[Math.max(0, Math.min(step ?? 0, sequence.length - 1))]?.channel ?? "linkedin";
-  const pipeline = { inLinkedin: 0, inEmail: 0, inCall: 0, repliedExited: 0, completedNoResponse: 0, removed: 0, other: 0 };
+  const pipeline = { inLinkedin: 0, inEmail: 0, inCall: 0, repliedExited: 0, completedNoResponse: 0, removed: 0, failed: 0, other: 0 };
   const agingAcc: Record<string, { active: number; stuck: number; sumDays: number; withTs: number }> = {
     linkedin: { active: 0, stuck: 0, sumDays: 0, withTs: 0 },
     email: { active: 0, stuck: 0, sumDays: 0, withTs: 0 },
@@ -275,9 +275,16 @@ export async function getFlowMetrics(
       if (replied) pipeline.repliedExited++; else pipeline.completedNoResponse++;
     } else if (c.status === "closed_lost") {
       pipeline.repliedExited++;
-    } else if (c.status === "cancelled") {
+    } else if (c.status === "cancelled" || c.status === "archived") {
+      // Both mean the lead was deliberately taken out of the pipeline.
       pipeline.removed++;
+    } else if (c.status === "failed") {
+      // The flow errored out on this lead (terminal send failure) — a distinct
+      // diagnostic signal, so it gets its own bucket instead of "other".
+      pipeline.failed++;
     } else {
+      // Genuinely unknown status — should be ~0 now that every real campaign
+      // status maps somewhere. If this grows, a new status appeared upstream.
       pipeline.other++;
     }
   }
