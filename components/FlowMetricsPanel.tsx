@@ -191,7 +191,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
   const flowStages = ([
     m.linkedin && {
       key: "linkedin", label: "LinkedIn", Icon: Share2, color: "var(--fg1)",
-      reached: m.stageReach.linkedin, danger: m.linkedin.failed > 0,
+      reached: m.stageReach.linkedin,
       metrics: [
         { k: "Invites", v: m.linkedin.invitesSent },
         { k: "Accepted", v: m.linkedin.accepted },
@@ -200,11 +200,14 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         { k: "Reply rate", v: fmtPct(m.linkedin.replyRate), c: m.linkedin.dmsSent > 0 ? bench(m.linkedin.replyRate, 10, 4) : undefined },
         { k: "Positive", v: m.linkedin.positive, c: m.linkedin.positive > 0 ? C.green : undefined },
         { k: "Pos. reply rate", v: fmtPct(m.linkedin.positiveReplyRate), c: m.linkedin.replies > 0 ? bench(m.linkedin.positiveReplyRate, 25, 12) : undefined },
+        // Failed sends surface as a per-metric warning (red), not a red border
+        // on the whole card — keeps the container consistent with Email/Call.
+        ...(m.linkedin.failed > 0 ? [{ k: "Failed", v: m.linkedin.failed, c: C.red }] : []),
       ],
     },
     m.email && {
       key: "email", label: "Email", Icon: Mail, color: "var(--fg3)",
-      reached: m.stageReach.email, danger: m.email.bounceRate > 5,
+      reached: m.stageReach.email,
       metrics: [
         { k: "Sent", v: m.email.sent },
         { k: "Bounces", v: m.email.bounced, c: m.email.bounced > 0 ? C.red : undefined },
@@ -217,7 +220,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
     },
     (m.call || m.callStage) && {
       key: "call", label: "Cold Calling", Icon: Phone, color: "var(--fg4)",
-      reached: m.stageReach.call, danger: false,
+      reached: m.stageReach.call,
       metrics: m.callStage ? [
         { k: "Calls made", v: m.callStage.made },
         { k: "Connected", v: m.callStage.connected },
@@ -227,7 +230,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         { k: "Meeting conv.", v: fmtPct(m.callStage.meetingConversion), c: m.callStage.connected > 0 ? bench(m.callStage.meetingConversion, 6, 3) : undefined },
       ] : [{ k: "Dialed", v: m.call!.dialed }],
     },
-  ].filter(Boolean)) as { key: string; label: string; Icon: typeof Mail; color: string; reached: number; danger: boolean; metrics: { k: string; v: string | number; c?: string }[] }[];
+  ].filter(Boolean)) as { key: string; label: string; Icon: typeof Mail; color: string; reached: number; metrics: { k: string; v: string | number; c?: string }[] }[];
 
   const RANGES: { k: string; label: string }[] = [
     { k: "all", label: "All time" }, { k: "7d", label: "7 days" }, { k: "4w", label: "4 weeks" }, { k: "90d", label: "90 days" }, { k: "custom", label: "Custom" },
@@ -359,7 +362,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
             <p className="text-[11px] mb-3" style={{ color: C.textDim }}>Leads reached on each channel across the whole sequence — independent activity, not a sequential cohort.</p>
             <div className="space-y-2.5">
               {flowStages.map(st => (
-                <div key={st.key} className="rounded-xl border overflow-hidden" style={{ borderColor: st.danger ? `color-mix(in srgb, ${C.red} 35%, ${C.border})` : C.border, backgroundColor: C.bg }}>
+                <div key={st.key} className="rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.bg }}>
                   <div className="h-1" style={{ backgroundColor: st.color }} />
                   <div className="p-3 flex flex-wrap items-center gap-x-6 gap-y-3">
                     <div className="flex items-center gap-2.5 min-w-[150px]">
@@ -517,7 +520,14 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       {m.sellers.length > 0 && (
         <Section title="Seller performance">
           <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto] gap-x-3 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
-            <span>Seller</span><span className="text-right">LI</span><span className="text-right">Email</span><span className="text-right">Calls</span><span className="text-right">Conn.</span><span className="text-right">Pos.</span><span className="text-right">Meet</span><span className="text-right">Meet/100</span>
+            <span>Seller</span>
+            <span className="text-right cursor-help" title="LinkedIn messages sent">LI</span>
+            <span className="text-right cursor-help" title="Emails sent">Email</span>
+            <span className="text-right cursor-help" title="Calls made">Calls</span>
+            <span className="text-right cursor-help" title="Calls connected">Conn.</span>
+            <span className="text-right cursor-help" title="Positive replies">Pos.</span>
+            <span className="text-right cursor-help" title="Meetings booked (leads qualified)">Meet</span>
+            <span className="text-right cursor-help" title="Meetings per 100 contacted">Meet/100</span>
           </div>
           <div className="space-y-0.5">
             {m.sellers.map(s => (
@@ -533,7 +543,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
               </div>
             ))}
           </div>
-          <p className="text-[10.5px] mt-2 pt-2 border-t" style={{ color: C.textDim, borderColor: C.border }}>Meet = booked meetings (leads qualified) · Meet/100 = meetings per 100 contacted, to compare sellers regardless of volume.</p>
+          <p className="text-[10.5px] mt-2 pt-2 border-t leading-relaxed" style={{ color: C.textDim, borderColor: C.border }}>LI = LinkedIn messages · Conn. = connected calls · Pos. = positive replies · Meet = booked meetings (leads qualified) · Meet/100 = meetings per 100 contacted, to compare sellers regardless of volume.</p>
         </Section>
       )}
 
@@ -812,7 +822,7 @@ const OUTCOME_LABELS: Record<string, string> = {
   positive: "Positive", meeting_booked: "Meeting booked", follow_up: "Follow-up",
   needs_info: "Needs info", negative: "Negative", voicemail: "Voicemail",
   wrong_number: "Wrong number", other_person: "Other person", no_answer: "No answer",
-  unclassified: "Unclassified",
+  unclassified: "No outcome logged",
 };
 const prettyOutcome = (raw: string) => OUTCOME_LABELS[raw] ?? raw.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
 
