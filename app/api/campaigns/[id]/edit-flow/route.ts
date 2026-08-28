@@ -100,6 +100,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // ── Message edits, per step, across every live campaign ───────────────
+  // One statement per step, via edit_flow_step_messages(). The obvious
+  // implementation — read the rows, update each by id — is one HTTP round
+  // trip per row: 6 592 of them on this flow, which is minutes of sequential
+  // requests and a timeout halfway through. The function also does the
+  // metadata merge in SQL, so eligible_at and the other dispatcher-written
+  // fields survive, and returns the counts we report back.
   let updatedMessages = 0;
   let leftSent = 0;
   let variantsCollapsed = 0;
@@ -110,42 +116,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const m = raw ?? {};
       if (typeof m.content !== "string") continue;
 
-      // Read the rows this step owns across the flow, so we can (a) merge each
-      // row's own metadata rather than clobbering dispatcher-written fields
-      // like eligible_at, and (b) report honestly on what we're changing.
-      type MRow = { id: string; status: string; content: string | null; metadata: Record<string, unknown> | null };
-      let rows: MRow[];
-      try {
-        rows = await selectByIds<MRow>("campaign_messages", liveCampaignIds, chunk =>
-          svc.from("campaign_messages")
-            .select("id, status, content, metadata")
-            .in("campaign_id", chunk)
-            .eq("step_number", stepNumber)
-            .order("id", { ascending: true }),
-        );
-      } catch (e) {
-        return NextResponse.json({ error: (e as Error).message }, { status: 500 });
-      }
+      const patch: Record<string, unknown> = {};
+      const remove: string[] = [];
+      if (m.subject) patch.subject = m.subject; else remove.push("subject");
+      if (Array.isArray(m.attachments) && m.attachments.length > 0) patch.attachments = m.attachments;
+      else remove.push("attachments");
 
-      const editable = rows.filter(r => r.status === "queued" || r.status === "draft");
-      leftSent += rows.length - editable.length;
-      // More than one wording behind this step (e.g. leads enrolled in two
-      // batches). The edit collapses them into one — worth telling the seller.
-      const distinct = new Set(editable.map(r => (r.content ?? "").trim()));
-      if (distinct.size > 1) variantsCollapsed++;
-
-      for (const row of editable) {
-        const meta: Record<string, unknown> = { ...(row.metadata ?? {}) };
-        if (m.subject) meta.subject = m.subject; else delete meta.subject;
-        if (Array.isArray(m.attachments) && m.attachments.length > 0) meta.attachments = m.attachments;
-        else delete meta.attachments;
-        const { error } = await svc.from("campaign_messages").update({
-          content: m.content,
-          metadata: Object.keys(meta).length > 0 ? meta : null,
-        }).eq("id", row.id);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        updatedMessages++;
-      }
+      // Ids travel in the POST body, so the whole flow goes in one call —
+      // no `.in()` URL ceiling to chunk around here.
+      const { data, error } = await svc.rpc("edit_flow_step_messages", {
+        p_campaign_ids: liveCampaignIds,
+        p_step_number: stepNumber,
+        p_content: m.content,
+        p_meta_patch: patch,
+        p_meta_remove: remove,
+      });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      const r = (data ?? {}) as { updated?: number; sent?: number; variants?: number };
+      updatedMessages += r.updated ?? 0;
+      leftSent += r.sent ?? 0;
+      if ((r.variants ?? 0) > 1) variantsCollapsed++;
     }
   }
 
