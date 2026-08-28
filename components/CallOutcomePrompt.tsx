@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight } from "lucide-react";
+import { Loader2, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
@@ -93,12 +93,14 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
   return (
     <div
       className="fixed inset-0 z-[1200] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
-      style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-      onClick={onClose}
+      style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
     >
+      {/* Mandatory (boss 2026-08-27): no backdrop-close, no X, no Skip — the
+          seller must register a call outcome before moving on. The
+          voicemail / wrong-number / other-person options are the valid
+          escape hatches when the call didn't really connect. */}
       <div
         className="rounded-2xl border shadow-2xl p-5 relative"
-        onClick={e => e.stopPropagation()}
         style={{
           backgroundColor: C.card,
           borderColor: `color-mix(in srgb, ${C.gold} 35%, ${C.border})`,
@@ -107,16 +109,6 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
           maxWidth: "calc(100vw - 3rem)",
         }}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("callOutcome.skip")}
-          className="absolute top-3 right-3 rounded p-1 hover:bg-black/[0.04] transition-colors"
-          style={{ color: C.textDim }}
-        >
-          <X size={14} />
-        </button>
-
         {saved ? (
           <div className="flex flex-col items-center justify-center py-6 gap-2">
             <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)` }}>
@@ -197,26 +189,23 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
 
             {err && <p className="text-[11px] mt-2" style={{ color: C.red }}>{err}</p>}
 
-            <div className="flex items-center gap-2 mt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-3 py-2 rounded-lg border text-[12px] font-semibold transition-opacity hover:opacity-80"
-                style={{ borderColor: C.border, color: C.textMuted }}
-              >
-                {t("callOutcome.skip")}
-              </button>
+            <div className="mt-4">
               <button
                 type="button"
                 disabled={!outcome || classifying}
                 onClick={submit}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-[12px] font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 70%, white))`, color: "#1A1505" }}
               >
                 {classifying ? <Loader2 size={13} className="animate-spin" /> : null}
                 {nextLeadId ? t("callOutcome.saveNext") : t("callOutcome.saveResult")}
                 {nextLeadId && !classifying ? <ArrowRight size={13} /> : null}
               </button>
+              {!outcome && (
+                <p className="text-[10.5px] text-center mt-2" style={{ color: C.textDim }}>
+                  {t("callOutcome.required")}
+                </p>
+              )}
             </div>
           </>
         )}
