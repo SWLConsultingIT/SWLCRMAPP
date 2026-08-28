@@ -232,6 +232,12 @@ async function getFlowMetrics(
     const inClause = `(${campaignIds.slice(i, i + 80).join(",")})`;
     msgs = msgs.concat(await restGet(`campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&select=lead_id,step_number,channel,status,sent_at,error_details,metadata`));
   }
+  // Cohort scoping (filters): campaign_messages are fetched by the flow's
+  // campaign ids, so restrict them to the leads actually in this cohort
+  // (seller/date-filtered leadIds) — otherwise a filtered view would still
+  // count the whole flow's activity. No-op when leadIds = full flow.
+  const cohortSet = new Set(leadIds);
+  msgs = msgs.filter(m => cohortSet.has(m.lead_id));
   const connected = new Set<string>(); const bouncedSet = new Set<string>(); const lostSet = new Set<string>();
   const qualifiedSet = new Set<string>(); // meetings = unique leads at status 'qualified' (single attribution — see def #5)
   for (let i = 0; i < leadIds.length; i += 100) {
@@ -585,7 +591,9 @@ async function getFlowMetrics(
   };
 }
 
-export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CampaignDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
+  const spStr = (k: string): string | null => { const v = sp[k]; return typeof v === "string" && v ? v : null; };
   const supabase = await getSupabaseServer();
   const { id } = await params;
   const [campaign, t] = await Promise.all([getCampaign(id), getT()]);
@@ -812,7 +820,47 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     .map(c => ({ lead_id: (c as any).leads?.id as string | undefined, status: c.status as string, current_step: (c.current_step ?? null) as number | null, started_at: ((c as any).started_at ?? null) as string | null, seller_id: ((c as any).seller_id ?? null) as string | null, last_step_at: ((c as any).last_step_at ?? null) as string | null }))
     .filter((r): r is { lead_id: string; status: string; current_step: number | null; started_at: string | null; seller_id: string | null; last_step_at: string | null } => !!r.lead_id);
   const sellerDailyLimit = (campaign.sellers?.linkedin_daily_limit as number | null | undefined) ?? null;
-  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows, sellerDailyLimit, sellerMap);
+
+  // ── Filters + temporal cohort (2026-08-28) ──
+  // POLICY: the date range picks the ENROLLMENT cohort — leads whose flow start
+  // (campaigns.started_at) falls in the window. ONE cohort → every section
+  // counts the same leads (totals close, zero double-counting). The Seller
+  // filter subsets that cohort (in this data model a LinkedIn profile == one
+  // seller / unipile account). Default `all` = the whole flow (no behavior
+  // change). Pipeline is current-state → seller-filtered, not date-windowed.
+  const sellerFilter = spStr("seller");
+  const range = spStr("range") ?? "all";
+  const nowMs = Date.now();
+  const rangeDays = range === "7d" ? 7 : range === "4w" ? 28 : range === "90d" ? 90 : null;
+  let winFrom: number | null = null; let winTo: number = nowMs;
+  if (rangeDays) winFrom = nowMs - rangeDays * 86400000;
+  else if (range === "custom") { const f = spStr("from"); const tt = spStr("to"); if (f) { winFrom = new Date(f).getTime(); winTo = tt ? new Date(tt).getTime() : nowMs; } }
+  const startedMs = (r: { started_at: string | null }) => (r.started_at ? new Date(r.started_at).getTime() : null);
+  const inWindow = (r: { started_at: string | null }, from: number | null, to: number) => {
+    if (from == null) return true; const t = startedMs(r); return t != null && t >= from && t <= to;
+  };
+  const cohortRows = campRows.filter(r => (!sellerFilter || r.seller_id === sellerFilter) && inWindow(r, winFrom, winTo));
+  const flowMetrics = await getFlowMetrics(allCampaignIds, cohortRows.map(r => r.lead_id), sequence, leadInfo, channels, pct, cohortRows, sellerDailyLimit, sellerMap);
+
+  // Period-over-period vs the equal window immediately before (same seller).
+  if (flowMetrics && winFrom != null) {
+    const len = winTo - winFrom;
+    const prevRows = campRows.filter(r => (!sellerFilter || r.seller_id === sellerFilter) && inWindow(r, winFrom - len, winFrom));
+    const prev = prevRows.length
+      ? await getFlowMetrics(allCampaignIds, prevRows.map(r => r.lead_id), sequence, leadInfo, channels, pct, prevRows, sellerDailyLimit, sellerMap)
+      : null;
+    const ppp = (a: number, b: number) => Math.round((a - b) * 10) / 10;
+    const grow = (a: number, b: number) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
+    flowMetrics.deltas = prev ? {
+      meetings: { curr: flowMetrics.meetings, prev: prev.meetings, pct: grow(flowMetrics.meetings, prev.meetings) },
+      positive: { curr: flowMetrics.positive, prev: prev.positive, pct: grow(flowMetrics.positive, prev.positive) },
+      positiveReplyRate: { curr: flowMetrics.positiveRate, prev: prev.positiveRate, pp: ppp(flowMetrics.positiveRate, prev.positiveRate) },
+      connectRate: { curr: flowMetrics.callStage?.connectRate ?? 0, prev: prev.callStage?.connectRate ?? 0, pp: ppp(flowMetrics.callStage?.connectRate ?? 0, prev.callStage?.connectRate ?? 0) },
+      replyRate: { curr: flowMetrics.contactedReplyRate, prev: prev.contactedReplyRate, pp: ppp(flowMetrics.contactedReplyRate, prev.contactedReplyRate) },
+    } : null;
+  }
+  const sellerList = [...sellerMap].map(([sid, name]) => ({ id: sid, name }));
+  const activeFilters = { seller: sellerFilter, range, from: spStr("from"), to: spStr("to") };
 
   // Attach each lead's reply bucket to the kanban campaigns so the board can
   // badge POSITIVE / NEGATIVE / REPLIED instead of stale dispatch plumbing.
@@ -976,6 +1024,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       {/* ═══ TABBED CONTENT (Client Component) — Metrics tab is first ═══ */}
       <CampaignDetailClient
         flowMetrics={flowMetrics}
+        metricsSellers={sellerList}
+        metricsFilters={activeFilters}
         campaignId={id}
         campaignName={campaign.name}
         campaignStatus={campaign.status}

@@ -2,6 +2,7 @@
 
 import { useState, Fragment } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
@@ -47,8 +48,18 @@ export type FlowMetrics = {
   sellers: { sellerId: string; name: string; leads: number; contacted: number; linkedinSent: number; emailsSent: number; callsMade: number; callsConnected: number; replies: number; positiveReplies: number; positiveOutcomes: number; meetings: number; connectRate: number; positiveReplyRate: number; meetingsPer100: number; positivePer100: number }[];
   positivesByChannel: { linkedin: number; email: number };
   health: { bounceRate: FlowHealth; connectRate: FlowHealth; meetingConversion: FlowHealth; positiveReplyRate: FlowHealth };
+  // Period-over-period vs the immediately-preceding equal window (only when a
+  // bounded date range is active). Volume metrics carry `pct`, rate metrics `pp`.
+  deltas?: FlowDeltas | null;
 };
 export type FlowHealth = "healthy" | "warning" | "critical";
+export type FlowDeltas = {
+  meetings?: { curr: number; prev: number; pct: number | null };
+  positive?: { curr: number; prev: number; pct: number | null };
+  positiveReplyRate?: { curr: number; prev: number; pp: number };
+  connectRate?: { curr: number; prev: number; pp: number };
+  replyRate?: { curr: number; prev: number; pp: number };
+};
 type DrillKey = keyof FlowMetrics["drill"];
 
 // Channels are identified by their LOGO tinted with the SWL gold ramp (--fg*)
@@ -79,8 +90,25 @@ function Section({ title, action, children, pad = true }: { title: string; actio
   );
 }
 
-export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics }) {
+export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: {
+  metrics: FlowMetrics;
+  sellers?: { id: string; name: string }[];
+  filters?: { seller: string | null; range: string; from: string | null; to: string | null };
+}) {
   const { t } = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const sp = useSearchParams();
+  // Filters drive server-side cohort recompute via searchParams (?seller & ?range).
+  // Keeps tab=0 (Metrics) and drops empty params so the URL stays clean.
+  const setFilter = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(sp.toString());
+    next.set("tab", "0");
+    for (const [k, v] of Object.entries(patch)) { if (v) next.set(k, v); else next.delete(k); }
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  };
+  const curRange = filters?.range ?? "all";
+  const curSeller = filters?.seller ?? null;
   const [open, setOpen] = useState<DrillKey | null>(null);
   // Which section opened the drill, so the lead list renders RIGHT THERE
   // (under the funnel vs under Issues) instead of always jumping to the top.
@@ -133,8 +161,41 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
   const maxV = Math.max(1, m.totalLeads, m.contacted);
   const stepMax = Math.max(1, ...m.steps.map(s => s.sent + s.failed + s.skipped + s.pending));
 
+  const RANGES: { k: string; label: string }[] = [
+    { k: "all", label: "All time" }, { k: "7d", label: "7 days" }, { k: "4w", label: "4 weeks" }, { k: "90d", label: "90 days" },
+  ];
   return (
     <div className="space-y-5">
+      {/* ── FILTERS — Seller (== LinkedIn profile) + Date range. Drive a
+          server-side cohort recompute; whole narrative recalculates. ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {sellers.length > 1 && (
+          <label className="inline-flex items-center gap-2 text-[12px] rounded-lg border px-3 py-1.5" style={{ borderColor: C.border2, backgroundColor: C.card }}>
+            <span className="font-semibold uppercase tracking-wider text-[9px]" style={{ color: C.textDim }}>Seller</span>
+            <select value={curSeller ?? ""} onChange={e => setFilter({ seller: e.target.value || null })}
+              className="bg-transparent outline-none font-semibold cursor-pointer" style={{ color: C.textBody }}>
+              <option value="">All sellers</option>
+              {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
+        )}
+        <div className="inline-flex rounded-lg border p-0.5" style={{ borderColor: C.border2, backgroundColor: C.card }}>
+          {RANGES.map(r => {
+            const on = curRange === r.k;
+            return (
+              <button key={r.k} type="button" onClick={() => setFilter({ range: r.k === "all" ? null : r.k, from: null, to: null })}
+                className="text-[12px] font-semibold px-3 py-1 rounded-md transition-colors"
+                style={{ backgroundColor: on ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent", color: on ? "var(--fg1)" : C.textMuted }}>
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
+        {curRange !== "all" && (
+          <span className="text-[11px]" style={{ color: C.textDim }}>· cohort = leads started in period{curSeller ? " · seller-scoped" : ""}</span>
+        )}
+      </div>
+
       {/* ── COOLDOWN BANNER ── */}
       {m.cooldown && (
         <div className="rounded-xl border px-4 py-2.5 flex items-center gap-2.5" style={{ borderColor: "color-mix(in srgb, #D97706 38%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 8%, transparent)" }}>
@@ -153,15 +214,22 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         <div className="absolute inset-x-0 top-0 h-[3px] pointer-events-none" style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 45%, var(--fg4) 80%, transparent)" }} />
         <div className="flex flex-wrap items-stretch px-2 py-1">
           {[
-            { v: m.totalLeads, l: "Leads", conv: null as string | null, color: C.textPrimary },
-            { v: m.contacted, l: "Contacted", conv: `${m.contactedRate}% of leads`, color: C.textPrimary },
-            { v: m.positive, l: "Positive replies", conv: `${m.positiveLeadRate}% of leads`, color: C.green },
-            { v: m.meetings, l: "Meetings", conv: `${m.meetingRate}% of leads`, color: "var(--fg1)" },
+            { v: m.totalLeads, l: "Leads", conv: null as string | null, color: C.textPrimary, delta: null as number | null },
+            { v: m.contacted, l: "Contacted", conv: `${m.contactedRate}% of leads`, color: C.textPrimary, delta: null },
+            { v: m.positive, l: "Positive replies", conv: `${m.positiveLeadRate}% of leads`, color: C.green, delta: m.deltas?.positive?.pct ?? null },
+            { v: m.meetings, l: "Meetings", conv: `${m.meetingRate}% of leads`, color: "var(--fg1)", delta: m.deltas?.meetings?.pct ?? null },
           ].map((k, i) => (
             <Fragment key={k.l}>
               {i > 0 && <div className="flex items-center px-1"><ChevronRight size={16} style={{ color: C.textDim }} /></div>}
               <div className="px-5 py-4 flex-1 min-w-[130px]">
-                <div className="text-[30px] font-extrabold leading-none tabular-nums" style={{ color: k.v === 0 ? C.textDim : k.color, fontFamily: OUTFIT, letterSpacing: "-0.03em" }}>{k.v}</div>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-[30px] font-extrabold leading-none tabular-nums" style={{ color: k.v === 0 ? C.textDim : k.color, fontFamily: OUTFIT, letterSpacing: "-0.03em" }}>{k.v}</div>
+                  {k.delta != null && k.delta !== 0 && (
+                    <span className="text-[11px] font-bold tabular-nums" style={{ color: k.delta > 0 ? C.green : C.red }}>
+                      {k.delta > 0 ? "↑" : "↓"}{Math.abs(k.delta)}%
+                    </span>
+                  )}
+                </div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] mt-2" style={{ color: C.textMuted }}>{k.l}</div>
                 {k.conv && <div className="text-[11px] font-bold mt-1.5" style={{ color: "var(--fg1)" }}>{k.conv}</div>}
               </div>

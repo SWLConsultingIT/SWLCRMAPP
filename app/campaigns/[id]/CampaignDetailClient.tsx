@@ -48,6 +48,7 @@ type LeadGroup = { profileName: string; leads: UnlinkedLead[] };
 export default function CampaignDetailClient({
   campaignId, campaignName, campaignStatus, campaignIcpId, sellerName, sequence, messages, dayPerStep, currentStep,
   allCampaigns, leadGroups, channels, autoReplies, connectionNote, messageTemplates, flowMetrics,
+  metricsSellers = [], metricsFilters,
 }: {
   campaignId: string;
   campaignName: string;
@@ -65,6 +66,8 @@ export default function CampaignDetailClient({
   connectionNote: string;
   messageTemplates: { channel: string; body: string; subject?: string }[];
   flowMetrics: FlowMetrics | null;
+  metricsSellers?: { id: string; name: string }[];
+  metricsFilters?: { seller: string | null; range: string; from: string | null; to: string | null };
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -449,7 +452,7 @@ export default function CampaignDetailClient({
       {/* ═══ TAB 0: METRICS — flow performance ═══ */}
       {tab === 0 && (
         flowMetrics
-          ? <FlowMetricsPanel metrics={flowMetrics} />
+          ? <FlowMetricsPanel metrics={flowMetrics} sellers={metricsSellers} filters={metricsFilters} />
           : <div className="rounded-xl border py-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <p className="text-sm" style={{ color: C.textDim }}>No metrics yet for this flow.</p>
             </div>
