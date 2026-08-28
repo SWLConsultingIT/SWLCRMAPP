@@ -109,6 +109,8 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
   };
   const curRange = filters?.range ?? "all";
   const curSeller = filters?.seller ?? null;
+  const [cFrom, setCFrom] = useState(filters?.from ?? "");
+  const [cTo, setCTo] = useState(filters?.to ?? "");
   const [open, setOpen] = useState<DrillKey | null>(null);
   // Which section opened the drill, so the lead list renders RIGHT THERE
   // (under the funnel vs under Issues) instead of always jumping to the top.
@@ -162,7 +164,7 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
   const stepMax = Math.max(1, ...m.steps.map(s => s.sent + s.failed + s.skipped + s.pending));
 
   const RANGES: { k: string; label: string }[] = [
-    { k: "all", label: "All time" }, { k: "7d", label: "7 days" }, { k: "4w", label: "4 weeks" }, { k: "90d", label: "90 days" },
+    { k: "all", label: "All time" }, { k: "7d", label: "7 days" }, { k: "4w", label: "4 weeks" }, { k: "90d", label: "90 days" }, { k: "custom", label: "Custom" },
   ];
   return (
     <div className="space-y-5">
@@ -183,7 +185,10 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
           {RANGES.map(r => {
             const on = curRange === r.k;
             return (
-              <button key={r.k} type="button" onClick={() => setFilter({ range: r.k === "all" ? null : r.k, from: null, to: null })}
+              <button key={r.k} type="button"
+                onClick={() => r.k === "custom"
+                  ? setFilter({ range: "custom", from: cFrom || null, to: cTo || null })
+                  : setFilter({ range: r.k === "all" ? null : r.k, from: null, to: null })}
                 className="text-[12px] font-semibold px-3 py-1 rounded-md transition-colors"
                 style={{ backgroundColor: on ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent", color: on ? "var(--fg1)" : C.textMuted }}>
                 {r.label}
@@ -191,7 +196,16 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
             );
           })}
         </div>
-        {curRange !== "all" && (
+        {curRange === "custom" && (
+          <span className="inline-flex items-center gap-1.5">
+            <input type="date" value={cFrom} onChange={e => setCFrom(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ borderColor: C.border2, backgroundColor: C.card, color: C.textBody }} />
+            <span className="text-[11px]" style={{ color: C.textDim }}>→</span>
+            <input type="date" value={cTo} onChange={e => setCTo(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ borderColor: C.border2, backgroundColor: C.card, color: C.textBody }} />
+            <button type="button" disabled={!cFrom} onClick={() => cFrom && setFilter({ range: "custom", from: cFrom, to: cTo || null })}
+              className="text-[11px] font-bold px-2.5 py-1 rounded-md disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>Apply</button>
+          </span>
+        )}
+        {curRange !== "all" && curRange !== "custom" && (
           <span className="text-[11px]" style={{ color: C.textDim }}>· cohort = leads started in period{curSeller ? " · seller-scoped" : ""}</span>
         )}
       </div>
