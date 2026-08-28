@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams, usePathname } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { fmtPct } from "@/lib/flow-metrics-lib";
 import {
   Users, Send, UserCheck, MessageSquare, Trophy, TrendingUp, AlertTriangle,
   Share2, Mail, Phone, ChevronRight, ChevronDown, XCircle, Hourglass, Search, Download,
@@ -45,7 +46,6 @@ export type FlowMetrics = {
   callStage: { made: number; connected: number; connectRate: number; positiveOutcomes: number; meetings: number; meetingConversion: number; groups: Record<string, number>; outcomes: Record<string, number>; outcomesByGroup: Record<string, { label: string; count: number }[]> } | null;
   pipeline: { inLinkedin: number; inEmail: number; inCall: number; repliedExited: number; completedNoResponse: number; removed: number; failed: number; other: number };
   stageReach: { linkedin: number; email: number; call: number };
-  stageContinuation: { linkedin: number | null; email: number | null; call: number | null };
   stageAging: Record<string, { active: number; stuckOver3d: number; avgDays: number | null; tracked: number }>;
   sellers: { sellerId: string; name: string; leads: number; contacted: number; linkedinSent: number; emailsSent: number; callsMade: number; callsConnected: number; replies: number; positiveReplies: number; positiveOutcomes: number; meetings: number; connectRate: number; positiveReplyRate: number; meetingsPer100: number; positivePer100: number }[];
   positivesByChannel: { linkedin: number; email: number };
@@ -153,6 +153,9 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
   // (under the funnel vs under Issues) instead of always jumping to the top.
   const [openFrom, setOpenFrom] = useState<"funnel" | "issues">("funnel");
   const [stepOpen, setStepOpen] = useState<number | null>(null);
+  // The main narrative ends at Seller performance; the operational sections
+  // (step-by-step / leads activity / issues) collapse below it.
+  const [showOps, setShowOps] = useState(false);
   const toggle = (k: DrillKey, from: "funnel" | "issues" = "funnel") => {
     setOpen(o => (o === k && openFrom === from ? null : k));
     setOpenFrom(from);
@@ -182,7 +185,6 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
 
   // Benchmark colour for a rate (higher = better). Signals good/ok/bad at a glance.
   const bench = (rate: number, hi: number, mid: number) => rate >= hi ? "#16A34A" : rate >= mid ? "#D97706" : C.red;
-  const fmtPct = (v: number) => `${v}%`;
   // Real 3-stage flow journey (LinkedIn → Email → Cold Calling). Only the stages
   // actually configured in the flow render; each uses its own per-channel
   // denominator. Connectors below show stageReach (leads that carried through).
@@ -318,9 +320,9 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         <div className="flex flex-wrap items-stretch px-2 py-1">
           {[
             { v: m.totalLeads, l: "Leads", conv: null as string | null, color: C.textPrimary, delta: null as number | null },
-            { v: m.contacted, l: "Contacted", conv: `${m.contactedRate}% of leads`, color: C.textPrimary, delta: null },
-            { v: m.positive, l: "Positive replies", conv: `${m.positiveLeadRate}% of leads`, color: C.green, delta: m.deltas?.positive?.pct ?? null },
-            { v: m.meetings, l: "Meetings", conv: `${m.meetingRate}% of leads`, color: "var(--fg1)", delta: m.deltas?.meetings?.pct ?? null },
+            { v: m.contacted, l: "Contacted", conv: `${fmtPct(m.contactedRate)} of leads`, color: C.textPrimary, delta: null },
+            { v: m.positive, l: "Positive replies", conv: `${fmtPct(m.positiveLeadRate)} of leads`, color: C.green, delta: m.deltas?.positive?.pct ?? null },
+            { v: m.meetings, l: "Meetings", conv: `${fmtPct(m.meetingRate)} of leads`, color: "var(--fg1)", delta: m.deltas?.meetings?.pct ?? null },
           ].map((k, i) => (
             <Fragment key={k.l}>
               {i > 0 && <div className="flex items-center px-1"><ChevronRight size={16} style={{ color: C.textDim }} /></div>}
@@ -341,33 +343,23 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         </div>
       </div>
 
-      {/* ── FLOW FUNNEL — the literal 3-stage journey the seller runs:
-          LinkedIn → Email → Cold Calling. Each stage shows its own metrics with
-          the correct per-channel denominator; the connectors show how many leads
-          carried through (stageReach — existing data, no new fetch). Replaces the
-          generic Leads→Contacted→Replied→Positive bars, which duplicated the
-          Executive Overview, and absorbs the old "By channel" cards. */}
-      <Section title="Flow funnel">
+      {/* ── CHANNEL PERFORMANCE — per-channel activity across the WHOLE
+          sequence, in the flow's channel order (LinkedIn → Email → Cold
+          Calling). Deliberately NOT a sequential funnel: leads take
+          heterogeneous paths (most email leads are email-only, no LinkedIn), so
+          "reached" is per-channel and we show NO "continued to …" transition —
+          that would imply Email volume derives from LinkedIn, which is false.
+          Absorbs the old "By channel" cards; keeps the correct per-channel
+          denominators. (Data-accuracy call, boss 2026-08-28.) */}
+      <Section title="Channel performance">
         {flowStages.length === 0 ? (
           <p className="text-xs" style={{ color: C.textDim }}>No channels configured for this flow.</p>
         ) : (
-          <div className="space-y-0">
-            {flowStages.map((st, i) => (
-              <Fragment key={st.key}>
-                {i > 0 && (() => {
-                  const cont = m.stageContinuation[st.key as "linkedin" | "email" | "call"];
-                  const prevReached = flowStages[i - 1].reached;
-                  return (
-                    <div className="flex items-center justify-center gap-1.5 py-1.5">
-                      <ChevronDown size={13} style={{ color: C.textDim }} />
-                      <span className="text-[11px] font-semibold" style={{ color: C.textMuted }}>
-                        <b className="tabular-nums" style={{ color: C.textBody, fontFamily: OUTFIT }}>{cont ?? st.reached}</b>
-                        {cont != null ? ` of ${prevReached} leads continued to ${st.label}` : ` leads in ${st.label}`}
-                      </span>
-                    </div>
-                  );
-                })()}
-                <div className="rounded-xl border overflow-hidden" style={{ borderColor: st.danger ? `color-mix(in srgb, ${C.red} 35%, ${C.border})` : C.border, backgroundColor: C.bg }}>
+          <>
+            <p className="text-[11px] mb-3" style={{ color: C.textDim }}>Leads reached on each channel across the whole sequence — independent activity, not a sequential cohort.</p>
+            <div className="space-y-2.5">
+              {flowStages.map(st => (
+                <div key={st.key} className="rounded-xl border overflow-hidden" style={{ borderColor: st.danger ? `color-mix(in srgb, ${C.red} 35%, ${C.border})` : C.border, backgroundColor: C.bg }}>
                   <div className="h-1" style={{ backgroundColor: st.color }} />
                   <div className="p-3 flex flex-wrap items-center gap-x-6 gap-y-3">
                     <div className="flex items-center gap-2.5 min-w-[150px]">
@@ -389,9 +381,9 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                     </div>
                   </div>
                 </div>
-              </Fragment>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
         {/* secondary chips + drill (awaiting acceptance is LinkedIn-stage detail) */}
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
@@ -481,12 +473,12 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           const ins: { pri: number; text: string }[] = [];
           // 1 — deliverability anomaly: blocks everything downstream.
           if (m.email && m.email.sent > 0 && m.email.bounceRate >= 5)
-            ins.push({ pri: 1, text: `Email bounce rate is ${m.email.bounceRate}% — verify the list before sending more.` });
+            ins.push({ pri: 1, text: `Email bounce rate is ${fmtPct(m.email.bounceRate)} — verify the list before sending more.` });
           // 2 — biggest funnel leak: where the cohort drops off most.
           if (m.contacted > 0 && m.contactedReplyRate < 4 && m.replied < m.contacted)
-            ins.push({ pri: 2, text: `Biggest leak is engagement — only ${m.contactedReplyRate}% of contacted leads reply. The opener needs work.` });
+            ins.push({ pri: 2, text: `Biggest leak is engagement — only ${fmtPct(m.contactedReplyRate)} of contacted leads reply. The opener needs work.` });
           else if (m.replied > 0 && m.positiveRate < 20)
-            ins.push({ pri: 2, text: `Replies aren't converting — only ${m.positiveRate}% are positive. Revisit targeting or the pitch.` });
+            ins.push({ pri: 2, text: `Replies aren't converting — only ${fmtPct(m.positiveRate)} are positive. Revisit targeting or the pitch.` });
           // 3 — best-performing seller / LinkedIn profile (only meaningful with >1).
           if (m.sellers.length > 1) {
             const top = m.sellers[0]; // sorted by meetings desc, then positives
@@ -501,10 +493,10 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
             ins.push({ pri: 4, text: `${stuck} leads are stuck >3 days without progress — check for a rate-limit or a paused seller.` });
           // 5 — channel efficiency gap.
           if (m.linkedin && m.email && m.linkedin.replies > 0 && m.email.replies > 0 && (m.linkedin.positiveReplyRate - m.email.positiveReplyRate) >= 10)
-            ins.push({ pri: 5, text: `LinkedIn converts replies ${m.linkedin.positiveReplyRate - m.email.positiveReplyRate}pp better than Email — shift volume there.` });
+            ins.push({ pri: 5, text: `LinkedIn converts replies ${Math.round(m.linkedin.positiveReplyRate - m.email.positiveReplyRate)}pp better than Email — shift volume there.` });
           // 6 — calls connect but don't book.
           if (m.callStage && m.callStage.connected > 0 && m.callStage.connectRate >= 40 && m.callStage.meetingConversion < 6)
-            ins.push({ pri: 6, text: `Calls connect well (${m.callStage.connectRate}%) but few book — ${m.callStage.meetingConversion}% of connected become meetings.` });
+            ins.push({ pri: 6, text: `Calls connect well (${fmtPct(m.callStage.connectRate)}) but few book — ${fmtPct(m.callStage.meetingConversion)} of connected become meetings.` });
           // 7 — cohort finishing silent.
           if (m.totalLeads > 0 && m.pipeline.completedNoResponse > m.totalLeads * 0.4)
             ins.push({ pri: 7, text: `${m.pipeline.completedNoResponse} leads finished the flow without responding.` });
@@ -545,6 +537,22 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         </Section>
       )}
 
+      {/* ── OPERATIONAL DETAIL (collapsed) — the narrative ends at Seller
+          performance; the per-step / per-lead / issues drill-downs live here,
+          available but out of the main story so Metrics isn't needlessly long. */}
+      <button type="button" onClick={() => setShowOps(v => !v)}
+        className="w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors"
+        style={{ borderColor: C.border2, backgroundColor: C.card, boxShadow: C.shadow }}>
+        <span className="flex items-center gap-2">
+          <span className="h-px w-5" style={{ backgroundColor: gold }} />
+          <span className="text-[10px] font-bold uppercase" style={{ color: gold, letterSpacing: "0.16em" }}>Operational detail</span>
+          <span className="text-[11px]" style={{ color: C.textDim }}>Step-by-step · Leads activity · Issues</span>
+        </span>
+        <ChevronDown size={16} style={{ color: C.textMuted, transform: showOps ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {showOps && (
+      <div className="space-y-5">
+
       {/* ── STEP-BY-STEP ── */}
       <Section title="Step-by-step" action={
         <div className="flex items-center gap-2.5 text-[10px]" style={{ color: C.textDim }}>
@@ -584,7 +592,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                   </div>
                   <span className="text-right w-10 tabular-nums font-semibold" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{s.sent}</span>
                   <span className="text-right w-14 tabular-nums text-[12px]" style={{ color: s.replies ? bench(s.replyRate, 10, 3) : C.textDim }}>
-                    {s.replies ? `${s.replies}·${s.replyRate}%` : "—"}
+                    {s.replies ? `${s.replies}·${fmtPct(s.replyRate)}` : "—"}
                   </span>
                   <span className="text-right w-10 tabular-nums" style={{ color: s.failed ? C.red : C.textDim }}>{s.failed}</span>
                   <span className="text-right w-10 tabular-nums" style={{ color: C.textDim }}>{s.skipped}</span>
@@ -635,6 +643,8 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         {/* drill list — only when opened from Issues, so it appears RIGHT HERE */}
         {openFrom === "issues" && drillPanel}
       </Section>
+      </div>
+      )}{/* /operational detail */}
       </>
       )}
       </div>{/* /space-y-5 (sections) */}
@@ -849,7 +859,7 @@ function CallOutcomes({ groups, outcomesByGroup }: { groups: Record<string, numb
             <div key={o.label} className="flex items-center justify-between gap-3 text-[12px]">
               <span style={{ color: C.textBody }}>{prettyOutcome(o.label)}</span>
               <span className="tabular-nums" style={{ color: C.textMuted }}>
-                <b style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{o.count}</b> · {Math.round((o.count / active.n) * 100)}%
+                <b style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{o.count}</b> · {fmtPct((o.count / active.n) * 100)}
               </span>
             </div>
           ))}

@@ -142,7 +142,7 @@ export async function getFlowMetrics(
     return {
       label: n === 0 ? "Invite" : `Step ${n}`, channel: ch,
       replies: repliesN,
-      replyRate: sentN > 0 ? Math.min(100, Math.round((repliesN / sentN) * 100)) : 0,
+      replyRate: pctOf(repliesN, sentN),
       sent: at.filter(m => m.status === "sent").length,
       failed: at.filter(m => m.status === "failed").length,
       skipped: at.filter(m => m.status === "skipped").length,
@@ -162,7 +162,7 @@ export async function getFlowMetrics(
   const liReplies = repliesByChannel["linkedin"]?.size ?? 0;
   const liPositive = positiveByChannel["linkedin"]?.size ?? 0;
   const linkedin = channelsUsed.includes("linkedin") ? {
-    invitesSent: requestsSent, accepted, acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
+    invitesSent: requestsSent, accepted, acceptRate: pctOf(accepted, requestsSent),
     pendingAccept: pendingAcceptSet.size,
     dmsSent: liDmsSent,
     replies: liReplies,
@@ -176,7 +176,7 @@ export async function getFlowMetrics(
   const emPositive = positiveByChannel["email"]?.size ?? 0;
   const email = channelsUsed.includes("email") ? {
     sent: emailSent, bounced: bouncedSet.size,
-    bounceRate: (emailSent + bouncedSet.size) ? Math.round((bouncedSet.size / (emailSent + bouncedSet.size)) * 100) : 0,
+    bounceRate: pctOf(bouncedSet.size, emailSent + bouncedSet.size),
     replies: emReplies,
     positive: emPositive,
     replyRate: pctOf(emReplies, emailSent),
@@ -256,22 +256,14 @@ export async function getFlowMetrics(
     outcomesByGroup,
   } : null;
 
-  // Stage reach — unique leads that entered each channel stage (≥1 sent message
-  // on the channel / ≥1 real call). Derived from existing data — no new fetch.
+  // Stage reach — unique leads TOUCHED on each channel (≥1 sent message on the
+  // channel / ≥1 real call), aggregated across the WHOLE sequence. NOT a
+  // sequential cohort: a lead can be email-only (no LinkedIn), so email reach
+  // can exceed LinkedIn reach. The UI presents these as per-channel activity
+  // ("Channel performance"), never as a false LinkedIn→Email→Call funnel.
   const liSet = new Set(sent.filter(m => m.channel === "linkedin").map(m => m.lead_id));
   const emSet = new Set(sent.filter(m => m.channel === "email").map(m => m.lead_id));
   const stageReach = { linkedin: liSet.size, email: emSet.size, call: callLeadSet.size };
-  // Stage continuation — TRUE progression: leads that reached a stage AND the
-  // previous existing stage (set intersection). This is the honest "continued
-  // to …" number — never larger than either stage's reach, and it accounts for
-  // leads that entered a later stage directly (e.g. email-only leads with no
-  // LinkedIn) without inflating the transition. null for the first stage.
-  const stageSets: Record<string, Set<string>> = { linkedin: liSet, email: emSet, call: callLeadSet };
-  const orderedStages = (["linkedin", "email", "call"] as const).filter(k => channelsUsed.includes(k));
-  const stageContinuation: { linkedin: number | null; email: number | null; call: number | null } = { linkedin: null, email: null, call: null };
-  orderedStages.forEach((k, i) => {
-    if (i > 0) { const prev = stageSets[orderedStages[i - 1]]; stageContinuation[k] = [...stageSets[k]].filter(id => prev.has(id)).length; }
-  });
 
   // ── Pipeline — where the leads are NOW. Buckets are mutually exclusive and
   // sum to the cohort (def #6). current_step is 0-indexed over `sequence`. ──
@@ -380,9 +372,10 @@ export async function getFlowMetrics(
     };
   }).sort((a, b) => (b.lastActivity ?? "").localeCompare(a.lastActivity ?? ""));
 
-  // Clamp every rate to 100% — a denominator/numerator mismatch (stale data,
-  // dedup edge) must never render a >100% funnel ("800% of accepted").
-  const pct = (num: number, den: number) => den > 0 ? Math.min(100, Math.round((num / den) * 100)) : 0;
+  // Every rate goes through the central pctOf (clamped to 100, 1-decimal
+  // precision) so a real sub-1% value isn't flattened to 0 and a stale
+  // numerator can't render a >100% funnel ("800% of accepted").
+  const pct = pctOf;
   return {
     leadsActivity, velocity, cooldown,
     totalLeads, invitesSent: requestsSent, accepted, messaged: messagedSet.size, replied: repliedSet.size, positive: positiveSet.size,
@@ -400,7 +393,7 @@ export async function getFlowMetrics(
     meetings: qualifiedSet.size,
     meetingRate: pct(qualifiedSet.size, totalLeads),
     positiveLeadRate: pct(positiveSet.size, totalLeads),
-    callStage, pipeline, stageAging, sellers, stageReach, stageContinuation,
+    callStage, pipeline, stageAging, sellers, stageReach,
     positivesByChannel: { linkedin: liPositive, email: emPositive },
     health: {
       bounceRate: healthOf("bounceRate", email?.bounceRate ?? 0),
