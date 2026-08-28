@@ -146,7 +146,29 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         </div>
       )}
 
-      {/* ── VELOCITY STRIP removed (boss 2026-06-08: didn't trust the number). ── */}
+      {/* ── EXECUTIVE OVERVIEW — "what happened" in seconds. Leads →
+          Contacted → Positive → Meetings, with lead-level conversions.
+          (Flow Metrics redesign 2026-08-27.) ── */}
+      <div className="rounded-2xl border overflow-hidden relative" style={{ borderColor: C.border2, backgroundColor: C.card, boxShadow: C.shadow }}>
+        <div className="absolute inset-x-0 top-0 h-[3px] pointer-events-none" style={{ background: "linear-gradient(90deg, var(--fg1), var(--fg3) 45%, var(--fg4) 80%, transparent)" }} />
+        <div className="flex flex-wrap items-stretch px-2 py-1">
+          {[
+            { v: m.totalLeads, l: "Leads", conv: null as string | null, color: C.textPrimary },
+            { v: m.contacted, l: "Contacted", conv: `${m.contactedRate}% of leads`, color: C.textPrimary },
+            { v: m.positive, l: "Positive replies", conv: `${m.positiveLeadRate}% of leads`, color: C.green },
+            { v: m.meetings, l: "Meetings", conv: `${m.meetingRate}% of leads`, color: "var(--fg1)" },
+          ].map((k, i) => (
+            <Fragment key={k.l}>
+              {i > 0 && <div className="flex items-center px-1"><ChevronRight size={16} style={{ color: C.textDim }} /></div>}
+              <div className="px-5 py-4 flex-1 min-w-[130px]">
+                <div className="text-[30px] font-extrabold leading-none tabular-nums" style={{ color: k.v === 0 ? C.textDim : k.color, fontFamily: OUTFIT, letterSpacing: "-0.03em" }}>{k.v}</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] mt-2" style={{ color: C.textMuted }}>{k.l}</div>
+                {k.conv && <div className="text-[11px] font-bold mt-1.5" style={{ color: "var(--fg1)" }}>{k.conv}</div>}
+              </div>
+            </Fragment>
+          ))}
+        </div>
+      </div>
 
       {/* ── OUTREACH FUNNEL (Totals merged in — boss 2026-06-08: the standalone
           Totals block duplicated the funnel, so it now lives inside this one
@@ -202,12 +224,64 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         </div>
       </Section>
 
+      {/* ── PIPELINE STATUS — where the leads are NOW (mutually exclusive,
+          partitions the cohort). Distribution bar + time-in-stage aging. ── */}
+      <Section title="Pipeline status">
+        {(() => {
+          const p = m.pipeline;
+          const segs = [
+            { k: "In LinkedIn", n: p.inLinkedin, c: "var(--fg1)" },
+            { k: "In Email", n: p.inEmail, c: "var(--fg3)" },
+            { k: "In Cold calling", n: p.inCall, c: "var(--fg4)" },
+            { k: "Replied · exited", n: p.repliedExited, c: C.green },
+            { k: "Completed · no response", n: p.completedNoResponse, c: C.textMuted },
+            { k: "Removed", n: p.removed, c: C.textDim },
+            ...(p.other ? [{ k: "Other", n: p.other, c: C.textDim }] : []),
+          ].filter(s => s.n > 0);
+          const total = segs.reduce((a, s) => a + s.n, 0) || 1;
+          const agingRows = Object.entries(m.stageAging).filter(([, a]) => a.active > 0);
+          return (
+            <>
+              <div className="flex h-3 rounded-full overflow-hidden mb-3" style={{ backgroundColor: C.border }}>
+                {segs.map(s => <div key={s.k} title={`${s.k}: ${s.n}`} style={{ width: `${(s.n / total) * 100}%`, backgroundColor: s.c }} />)}
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {segs.map(s => (
+                  <div key={s.k} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: s.c }} />
+                    <span className="text-[14px] font-bold tabular-nums" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{s.n}</span>
+                    <span className="text-[11px]" style={{ color: C.textMuted }}>{s.k}</span>
+                  </div>
+                ))}
+              </div>
+              {agingRows.length > 0 && (
+                <div className="mt-4 pt-3 border-t flex flex-wrap gap-2 items-center" style={{ borderColor: C.border }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: C.textDim }}>Time in stage</span>
+                  {agingRows.map(([ch, a]) => {
+                    const meta = CH[ch] ?? { label: ch, color: C.textMuted, Icon: Mail };
+                    const warn = a.stuckOver3d > 0;
+                    return (
+                      <span key={ch} className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border"
+                        style={{ borderColor: warn ? "color-mix(in srgb, #D97706 34%, transparent)" : C.border, backgroundColor: warn ? "color-mix(in srgb, #D97706 8%, transparent)" : C.bg, color: warn ? "#B45309" : C.textMuted }}>
+                        {meta.label}: {a.active} active{a.avgDays != null ? ` · avg ${a.avgDays}d` : ""}{warn ? ` · ${a.stuckOver3d} stuck >3d` : ""}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          );
+        })()}
+      </Section>
+
       {/* ── BY CHANNEL ── */}
       <Section title="By channel" pad>
         <div className="flex flex-wrap gap-3">
-          {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", m.linkedin.accepted], ["accept rate", `${m.linkedin.acceptRate}%`, m.linkedin.invitesSent > 0 ? bench(m.linkedin.acceptRate, 30, 15) : undefined], ["pending", m.linkedin.pendingAccept], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["failed", m.linkedin.failed]]} danger={m.linkedin.failed > 0} />}
-          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", m.email.bounced], ["bounce rate", `${m.email.bounceRate}%`, m.email.sent > 0 ? (m.email.bounceRate <= 2 ? "#16A34A" : m.email.bounceRate <= 5 ? "#D97706" : C.red) : undefined], ["replies", m.email.replies]]} danger={m.email.bounceRate > 5} />}
-          {m.call && <ChannelCard ch="call" stats={[["dialed", m.call.dialed]]} />}
+          {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", m.linkedin.accepted], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["reply rate", `${m.linkedin.replyRate}%`, m.linkedin.dmsSent > 0 ? bench(m.linkedin.replyRate, 10, 4) : undefined], ["positive", m.linkedin.positive, m.linkedin.positive > 0 ? C.green : undefined], ["pos. reply rate", `${m.linkedin.positiveReplyRate}%`, m.linkedin.replies > 0 ? bench(m.linkedin.positiveReplyRate, 25, 12) : undefined]]} danger={m.linkedin.failed > 0} />}
+          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", m.email.bounced], ["bounce rate", `${m.email.bounceRate}%`, m.email.sent > 0 ? (m.email.bounceRate <= 2 ? "#16A34A" : m.email.bounceRate <= 5 ? "#D97706" : C.red) : undefined], ["replies", m.email.replies], ["reply rate", `${m.email.replyRate}%`, m.email.sent > 0 ? bench(m.email.replyRate, 8, 3) : undefined], ["positive", m.email.positive, m.email.positive > 0 ? C.green : undefined], ["pos. reply rate", `${m.email.positiveReplyRate}%`, m.email.replies > 0 ? bench(m.email.positiveReplyRate, 25, 12) : undefined]]} danger={m.email.bounceRate > 5} />}
+          {m.call && (m.callStage
+            ? <ChannelCard ch="call" stats={[["calls", m.callStage.made], ["connected", m.callStage.connected], ["connect rate", `${m.callStage.connectRate}%`, m.callStage.made > 0 ? bench(m.callStage.connectRate, 40, 25) : undefined], ["positive", m.callStage.positiveOutcomes, m.callStage.positiveOutcomes > 0 ? C.green : undefined], ["meetings", m.callStage.meetings, m.callStage.meetings > 0 ? "var(--fg1)" : undefined]]} />
+            : <ChannelCard ch="call" stats={[["dialed", m.call.dialed]]} />)}
         </div>
         <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-1.5" style={{ borderColor: C.border }}>
           <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: C.textDim }}>Replies</span>
@@ -223,6 +297,85 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
           <Tag label="cancelled" n={m.statusDist.cancelled} color={C.textDim} />
         </div>
       </Section>
+
+      {/* ── OUTCOMES & DIAGNOSTICS — why (call outcome groups + reply quality
+          + the one or two insights that actually matter). ── */}
+      <Section title="Outcomes & diagnostics">
+        <div className="flex flex-wrap gap-6">
+          {m.callStage && (m.callStage.made > 0) && (
+            <div className="min-w-[260px] flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Call outcomes</p>
+              {(() => {
+                const g = m.callStage.groups;
+                const groups = [
+                  { k: "Positive", n: g.positive ?? 0, c: C.green },
+                  { k: "Follow-up", n: g.followup ?? 0, c: "#D97706" },
+                  { k: "Negative", n: g.negative ?? 0, c: C.red },
+                  { k: "Unreachable", n: g.unreachable ?? 0, c: C.textMuted },
+                  ...(g.other ? [{ k: "Other", n: g.other, c: C.textDim }] : []),
+                ].filter(x => x.n > 0);
+                const total = groups.reduce((a, x) => a + x.n, 0) || 1;
+                return (
+                  <>
+                    <div className="flex h-2.5 rounded-full overflow-hidden mb-2.5" style={{ backgroundColor: C.border }}>
+                      {groups.map(x => <div key={x.k} title={`${x.k}: ${x.n}`} style={{ width: `${(x.n / total) * 100}%`, backgroundColor: x.c }} />)}
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                      {groups.map(x => <span key={x.k} className="inline-flex items-center gap-1.5 text-[11.5px]" style={{ color: C.textBody }}><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: x.c }} /><b style={{ fontFamily: OUTFIT }}>{x.n}</b> {x.k}</span>)}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+          <div className="min-w-[220px]">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Reply quality</p>
+            <div className="flex flex-wrap gap-1.5">
+              <Tag label="positive" n={m.replyBreakdown.positive} color={C.green} />
+              <Tag label="negative" n={m.replyBreakdown.negative} color={C.red} />
+              <Tag label="follow-up / other" n={m.replyBreakdown.followup + m.replyBreakdown.question + m.replyBreakdown.other} color="#D97706" />
+            </div>
+          </div>
+        </div>
+        {(() => {
+          const ins: string[] = [];
+          if (m.email && m.email.bounceRate >= 5) ins.push(`Email bounce rate is ${m.email.bounceRate}% — verify the list before sending more.`);
+          if (m.linkedin && m.email && (m.linkedin.positiveReplyRate - m.email.positiveReplyRate) >= 10) ins.push(`LinkedIn converts replies ${m.linkedin.positiveReplyRate - m.email.positiveReplyRate}pp better than Email.`);
+          if (m.callStage && m.callStage.connectRate >= 40 && m.callStage.meetingConversion < 6 && m.callStage.connected > 0) ins.push(`Good connect rate (${m.callStage.connectRate}%) but low meeting conversion (${m.callStage.meetingConversion}% of connected).`);
+          if (m.pipeline.completedNoResponse > m.totalLeads * 0.4) ins.push(`${m.pipeline.completedNoResponse} leads finished the flow without responding.`);
+          if (!ins.length) return null;
+          return (
+            <div className="mt-4 pt-3 border-t space-y-1.5" style={{ borderColor: C.border }}>
+              {ins.slice(0, 2).map((s, i) => (<div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: C.textBody }}><span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: gold }} />{s}</div>))}
+            </div>
+          );
+        })()}
+      </Section>
+
+      {/* ── SELLER PERFORMANCE — who is driving the result. Activity →
+          engagement → outcomes → meetings, + meetings-per-100 to compare
+          sellers regardless of volume. ── */}
+      {m.sellers.length > 0 && (
+        <Section title="Seller performance">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
+            <span>Seller</span><span className="text-right">LI</span><span className="text-right">Email</span><span className="text-right">Calls</span><span className="text-right">Conn.</span><span className="text-right">Pos.</span><span className="text-right">Meet/100</span>
+          </div>
+          <div className="space-y-0.5">
+            {m.sellers.map(s => (
+              <div key={s.sellerId} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 items-center text-[13px] py-1.5">
+                <span className="font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}<span className="text-[10px] font-normal ml-1.5" style={{ color: C.textDim }}>{s.leads} leads</span></span>
+                <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.linkedinSent}</span>
+                <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.emailsSent}</span>
+                <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.callsMade}</span>
+                <span className="text-right tabular-nums" style={{ color: C.textMuted }}>{s.callsConnected}</span>
+                <span className="text-right tabular-nums font-semibold" style={{ color: s.positiveReplies ? C.green : C.textDim }}>{s.positiveReplies}</span>
+                <span className="text-right tabular-nums font-bold" style={{ color: s.meetings ? "var(--fg1)" : C.textDim, fontFamily: OUTFIT }}>{s.meetingsPer100}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10.5px] mt-2 pt-2 border-t" style={{ color: C.textDim, borderColor: C.border }}>Meet/100 = meetings per 100 contacted — compares sellers regardless of volume.</p>
+        </Section>
+      )}
 
       {/* ── STEP-BY-STEP ── */}
       <Section title="Step-by-step" action={
