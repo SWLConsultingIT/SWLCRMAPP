@@ -39,29 +39,30 @@ export async function getFlowMetrics(
     try { const r = await fetch(`${sbUrl}/rest/v1/${path}`, { headers, cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
   };
   type Msg = { lead_id: string; step_number: number; channel: string; status: string; sent_at: string | null; error_details: string | null; metadata: Record<string, unknown> | null };
-  let msgs: Msg[] = [];
-  for (let i = 0; i < campaignIds.length; i += 80) {
-    const inClause = `(${campaignIds.slice(i, i + 80).join(",")})`;
-    msgs = msgs.concat(await restGet(`campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&select=lead_id,step_number,channel,status,sent_at,error_details,metadata`));
-  }
-  // Cohort scoping (filters): campaign_messages are fetched by the flow's
-  // campaign ids, so restrict them to the leads actually in this cohort
-  // (seller/date-filtered leadIds) — otherwise a filtered view would still
-  // count the whole flow's activity. No-op when leadIds = full flow.
+  const chunk = <T,>(arr: T[], n: number): T[][] => { const o: T[][] = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o; };
+  const inCl = (a: string[]) => encodeURIComponent(`(${a.join(",")})`);
+  // Fetch every raw slice CONCURRENTLY — the 4 phases (messages / lead-status /
+  // replies / calls) are independent and each phase's chunks run in parallel.
+  // This replaced ~57 SEQUENTIAL REST round-trips (3-4 s on the 1166-lead PE&VC
+  // flow) with a few concurrent waves. Same data, same downstream logic.
+  const [msgsRaw, leadStatusRows, replyRowsRaw, callRowsRaw] = await Promise.all([
+    Promise.all(chunk(campaignIds, 80).map(c => restGet(`campaign_messages?campaign_id=in.${inCl(c)}&select=lead_id,step_number,channel,status,sent_at,error_details,metadata`))).then(a => a.flat() as Msg[]),
+    Promise.all(chunk(leadIds, 100).map(c => restGet(`leads?id=in.${inCl(c)}&select=id,linkedin_connected,primary_email_status,status`))).then(a => a.flat()),
+    Promise.all(chunk(leadIds, 100).map(c => restGet(`lead_replies?lead_id=in.${inCl(c)}&select=lead_id,classification,channel,reply_text,received_at`))).then(a => a.flat()),
+    Promise.all(chunk(leadIds, 100).map(c => restGet(`calls?lead_id=in.${inCl(c)}&select=lead_id,seller_id,status,duration,classification,aircall_call_id,started_at`))).then(a => a.flat()),
+  ]);
+  // Cohort scoping: campaign_messages are fetched by campaign id, so restrict
+  // to this cohort's leads. No-op when leadIds = full flow.
   const cohortSet = new Set(leadIds);
-  msgs = msgs.filter(m => cohortSet.has(m.lead_id));
+  const msgs: Msg[] = msgsRaw.filter(m => cohortSet.has(m.lead_id));
   const connected = new Set<string>(); const bouncedSet = new Set<string>(); const lostSet = new Set<string>();
   const qualifiedSet = new Set<string>(); // meetings = unique leads at status 'qualified' (single attribution — see def #5)
-  for (let i = 0; i < leadIds.length; i += 100) {
-    const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
-    const rows = await restGet(`leads?id=in.${encodeURIComponent(inClause)}&select=id,linkedin_connected,primary_email_status,status`);
-    rows.forEach((r: any) => {
-      if (r.linkedin_connected) connected.add(r.id);
-      if (r.primary_email_status === "bounced") bouncedSet.add(r.id);
-      if (r.status === "closed_lost") lostSet.add(r.id);
-      if (r.status === "qualified") qualifiedSet.add(r.id);
-    });
-  }
+  leadStatusRows.forEach((r: any) => {
+    if (r.linkedin_connected) connected.add(r.id);
+    if (r.primary_email_status === "bounced") bouncedSet.add(r.id);
+    if (r.status === "closed_lost") lostSet.add(r.id);
+    if (r.status === "qualified") qualifiedSet.add(r.id);
+  });
   // Reply classification per lead (strongest: positive > question > negative > other)
   // + the latest reply text so the UI can show exactly what each lead said.
   const replyClass = new Map<string, string>();
@@ -84,10 +85,7 @@ export async function getFlowMetrics(
     : (c === "voicemail") ? "voicemail"
     : (c === "negative") ? "negative"
     : "other";
-  for (let i = 0; i < leadIds.length; i += 100) {
-    const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
-    const rows = await restGet(`lead_replies?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,classification,channel,reply_text,received_at`);
-    rows.forEach((r: any) => {
+  replyRowsRaw.forEach((r: any) => {
       const c = (r.classification ?? "").toLowerCase();
       const bucket = bucketOf(c);
       const prev = replyClass.get(r.lead_id);
@@ -100,8 +98,7 @@ export async function getFlowMetrics(
       if (at) replyDates.push(at);
       const ch = r.channel ?? "other"; (repliesByChannel[ch] ||= new Set()).add(r.lead_id);
       if (bucket === "positive") (positiveByChannel[ch] ||= new Set()).add(r.lead_id);
-    });
-  }
+  });
   const repliedSet = new Set(replyClass.keys());
   const positiveSet = new Set([...replyClass].filter(([, b]) => b === "positive").map(([id]) => id));
 
@@ -224,12 +221,7 @@ export async function getFlowMetrics(
   // ── Cold-calling — the REAL calls table (campaign_messages channel=call is
   // only the queued STEP marker). Central rules from flow-metrics-lib so
   // connect-rate / positive / unreachable are defined in ONE place (def #4). ──
-  const callRows: CallRow[] = [];
-  for (let i = 0; i < leadIds.length; i += 100) {
-    const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
-    const rows = await restGet(`calls?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,seller_id,status,duration,classification,aircall_call_id,started_at`);
-    rows.forEach((r: any) => callRows.push(r as CallRow));
-  }
+  const callRows: CallRow[] = callRowsRaw as CallRow[];
   const realCalls = callRows.filter(isRealCall);
   const connectedCalls = realCalls.filter(isConnected);
   const callLeadSet = new Set(realCalls.map(c => c.lead_id));
@@ -480,14 +472,14 @@ export async function resolveFlowMetricsLite(campaignId: string, filters: Metric
 
   // Lead names — plaintext columns only, chunked, NO decrypt.
   const leadInfo = new Map<string, { name: string; company: string | null }>();
-  for (let i = 0; i < flowLeadIds.length; i += 200) {
-    const inC = `(${flowLeadIds.slice(i, i + 200).join(",")})`;
-    const ls = await rest(`leads?id=in.${encodeURIComponent(inC)}&select=id,primary_first_name,primary_last_name,company_name`);
-    ls.forEach((l: any) => leadInfo.set(l.id, {
-      name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || l.company_name || "Lead",
-      company: l.company_name ?? null,
-    }));
-  }
+  const leadChunks: string[][] = [];
+  for (let i = 0; i < flowLeadIds.length; i += 200) leadChunks.push(flowLeadIds.slice(i, i + 200));
+  const leadInfoPages = await Promise.all(leadChunks.map(c =>
+    rest(`leads?id=in.${encodeURIComponent(`(${c.join(",")})`)}&select=id,primary_first_name,primary_last_name,company_name`)));
+  leadInfoPages.flat().forEach((l: any) => leadInfo.set(l.id, {
+    name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || l.company_name || "Lead",
+    company: l.company_name ?? null,
+  }));
   const sellerDailyLimit = (camp.sellers?.linkedin_daily_limit ?? null) as number | null;
 
   const { sellerFilter, winFrom, winTo } = filters;
