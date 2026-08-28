@@ -164,34 +164,64 @@ export default function CampaignDetailClient({
 
   const isEditable = campaignStatus === "active" || campaignStatus === "paused";
 
-  async function callAction(ids: string[], action: "pause" | "resume" | "cancel") {
+  // Returns how many campaigns the server actually changed.
+  async function callAction(ids: string[], action: "pause" | "resume" | "cancel"): Promise<number> {
     const r = await fetch("/api/campaigns/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids, action }),
     });
+    const body = await r.json().catch(() => ({} as Record<string, unknown>));
     if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      console.error("campaign action failed:", err);
-      throw new Error(err.error ?? "action failed");
+      console.error("campaign action failed:", body);
+      throw new Error((body as { error?: string }).error ?? `action failed (${r.status})`);
+    }
+    return Number((body as { count?: number }).count ?? 0);
+  }
+
+  const ACTION_PAST = { pause: "paused", resume: "resumed", cancel: "cancelled" } as const;
+
+  // Both handlers used to be `try { … } catch {}` — the error was thrown,
+  // caught, and dropped, so a failed Pause was indistinguishable from a
+  // successful one: the page just refreshed unchanged (Fran 2026-08-27).
+  async function runAction(ids: string[], action: "pause" | "resume" | "cancel", key: string) {
+    if (ids.length === 0) return;
+    setActing(key);
+    try {
+      const count = await callAction(ids, action);
+      if (count === 0) {
+        toast.show({
+          kind: "warning",
+          title: `Nothing ${ACTION_PAST[action]}`,
+          description: "No campaign matched — it may already be in that state, or belong to another tenant.",
+        });
+      } else {
+        toast.show({
+          kind: "success",
+          title: `${count} lead${count === 1 ? "" : "s"} ${ACTION_PAST[action]}`,
+          description: action === "pause" ? "The dispatcher will skip them from the next cycle." : undefined,
+        });
+      }
+    } catch (e) {
+      toast.show({
+        kind: "error",
+        title: `Couldn't ${action} the flow`,
+        description: (e as Error).message,
+      });
+    } finally {
+      setActing(null);
+      setSelected(new Set());
+      router.refresh();
     }
   }
 
   async function act(campId: string, action: "pause" | "resume" | "cancel") {
-    setActing(`${campId}:${action}`);
-    try { await callAction([campId], action); } catch {}
-    setActing(null);
-    router.refresh();
+    await runAction([campId], action, `${campId}:${action}`);
   }
 
   async function bulkAct(action: "pause" | "resume" | "cancel") {
     const ids = selected.size > 0 ? Array.from(selected) : visibleCampaigns.filter(c => ["active", "paused"].includes(c.status)).map(c => c.id);
-    if (ids.length === 0) return;
-    setActing(`bulk:${action}`);
-    try { await callAction(ids, action); } catch {}
-    setActing(null);
-    setSelected(new Set());
-    router.refresh();
+    await runAction(ids, action, `bulk:${action}`);
   }
 
   async function addLeadsToCampaign(leadIds: string[]) {

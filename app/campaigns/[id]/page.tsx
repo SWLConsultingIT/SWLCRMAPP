@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { selectAllPages } from "@/lib/supabase-bulk";
 import { C } from "@/lib/design";
 import { getT } from "@/lib/i18n-server";
 import { notFound } from "next/navigation";
@@ -93,18 +94,25 @@ async function getMessages(campaignId: string) {
 
 async function getSiblingCampaigns(campaignName: string, excludeId: string) {
   const supabase = await getSupabaseServer();
-  const { data } = await supabase
-    .from("campaigns")
-    .select("id, status, current_step, sequence_steps, channel, last_step_at, started_at, seller_id, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, lead_score, is_priority, allow_linkedin, allow_email, allow_call), sellers(name)")
-    .eq("name", campaignName)
-    .neq("id", excludeId)
-    .order("created_at", { ascending: false })
-    // Was 500: a flow with >501 enrolled leads silently truncated the Leads
-    // tab and the "Total Leads" stat (De Vera read a fake 501 off a 536-row
-    // flow). Pathway flows already exceed this. Raised so large flows count
-    // and list in full.
-    .limit(5000);
-  const rows = data ?? [];
+  // PAGED. This was `.limit(5000)`, raised from 500 after a 536-lead flow read
+  // a fake 501 — but a limit does not lift PostgREST's max_rows, which caps a
+  // response at 1000 no matter what you ask for. So the 1 136-lead PE & VC USA
+  // flow read 1000 siblings + the one in the URL and displayed "1001 total
+  // leads · 1001 in flow", and Pause All only ever saw those 1001.
+  let rows: Record<string, unknown>[] = [];
+  try {
+    rows = await selectAllPages<Record<string, unknown>>("campaigns", () =>
+      supabase
+        .from("campaigns")
+        .select("id, status, current_step, sequence_steps, channel, last_step_at, started_at, seller_id, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, lead_score, is_priority, allow_linkedin, allow_email, allow_call), sellers(name)")
+        .eq("name", campaignName)
+        .neq("id", excludeId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true }),
+    );
+  } catch {
+    rows = [];
+  }
   // Decrypt all sibling leads in one pass. Each campaign carries an inner
   // `leads` object — collect them, hydrate, and re-attach in order.
   const innerLeads = rows.map((c: any) => c.leads).filter(Boolean) as Record<string, unknown>[];
