@@ -1,7 +1,23 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { selectAllPages, selectByIds } from "@/lib/supabase-bulk";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import TicketDetailClient from "./TicketDetailClient";
+
+// Row shapes for the bulk reads below. Only the columns each query selects.
+type CampaignRow = {
+  id: string; name: string | null; status: string; channel: string | null;
+  current_step: number | null; sequence_steps: unknown; last_step_at: string | null;
+  created_at: string; lead_id: string | null;
+  // A PostgREST embed is typed as an array even for a to-one relation.
+  sellers: { name: string | null }[] | null;
+};
+type ReplyRow = {
+  lead_id: string; classification: string | null; received_at: string;
+  channel: string | null; reply_text: string | null;
+};
+type MessageRow = { campaign_id: string; channel: string | null; step_number: number | null; sent_at: string | null };
+type CallRow = { id: string; lead_id: string; classification: string | null };
 
 async function getProfileData(profileId: string) {
   const supabase = await getSupabaseServer();
@@ -11,12 +27,22 @@ async function getProfileData(profileId: string) {
   // 2026-05-27 — moved from the deprecated /queue Updates tab). Two weeks
   // is the window the queue used; keep parity.
   const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-  const [profileRes, leadsRes, updatesRes] = await Promise.all([
+  // Every read below goes through the bulk helpers. Before that, this page
+  // read leads in one un-paged query (truncated at 1000) and then filtered
+  // campaigns/replies/calls by `.in("lead_id", <1000 uuids>)`, which is a
+  // 36 KB query string that PostgREST answers 400 to. A 400 left `data` null
+  // and null was read as "no matches" — so SWL's PE & VC USA profile, where
+  // all 1 166 leads sit in one active flow, rendered "1000 leads · 985
+  // unassigned · 0 in a flow" (Fran 2026-08-27).
+  const [profileRes, leadRows, updatesRes] = await Promise.all([
     supabase.from("icp_profiles").select("id, profile_name").eq("id", profileId).single(),
-    supabase.from("leads")
-      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, is_priority, current_channel, transferred_to_odoo_at")
-      .eq("icp_profile_id", profileId)
-      .order("created_at", { ascending: false }),
+    selectAllPages<Record<string, unknown>>("leads", () =>
+      supabase.from("leads")
+        .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, is_priority, current_channel, transferred_to_odoo_at")
+        .eq("icp_profile_id", profileId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true }),
+    ),
     supabase.from("campaign_requests")
       .select("id, name, status, created_at, target_leads_count")
       .eq("icp_profile_id", profileId)
@@ -26,7 +52,7 @@ async function getProfileData(profileId: string) {
       .limit(40),
   ]);
   const profile = profileRes.data;
-  const leads = await hydrateClientLeads((leadsRes.data ?? []) as Record<string, unknown>[]) as any[];
+  const leads = await hydrateClientLeads(leadRows) as any[];
   const updates = (updatesRes.data ?? []).map((r: any) => ({
     id: r.id as string,
     name: r.name as string,
@@ -46,17 +72,21 @@ async function getProfileData(profileId: string) {
   if (leadIds.length === 0) return { name: profile.profile_name, campaigns: [], leads: [], metrics: emptyMetrics, updates };
 
   // Campaigns + replies both only depend on leadIds — parallelize. Saves another ~150ms.
-  const [campaignsRes, repliesRes] = await Promise.all([
-    supabase.from("campaigns")
-      .select("id, name, status, channel, current_step, sequence_steps, last_step_at, created_at, lead_id, sellers(name)")
-      .in("lead_id", leadIds)
-      .order("created_at", { ascending: false }),
-    supabase.from("lead_replies")
-      .select("lead_id, classification, received_at, channel, reply_text")
-      .in("lead_id", leadIds),
+  const [campaigns, replies] = await Promise.all([
+    selectByIds<CampaignRow>("campaigns", leadIds, chunk =>
+      supabase.from("campaigns")
+        .select("id, name, status, channel, current_step, sequence_steps, last_step_at, created_at, lead_id, sellers(name)")
+        .in("lead_id", chunk)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true }),
+    ),
+    selectByIds<ReplyRow>("lead_replies", leadIds, chunk =>
+      supabase.from("lead_replies")
+        .select("lead_id, classification, received_at, channel, reply_text")
+        .in("lead_id", chunk)
+        .order("lead_id", { ascending: true }),
+    ),
   ]);
-  const campaigns = campaignsRes.data;
-  const replies = repliesRes.data;
 
   // Messages + calls depend on campIds / leadIds (after campaigns + leads).
   // We pull channel + step_number on messages so we can split LinkedIn
@@ -64,17 +94,23 @@ async function getProfileData(profileId: string) {
   // strip. Calls are joined separately by lead_id since they live outside
   // campaign_messages.
   const campIds = (campaigns ?? []).map(c => c.id);
-  const [{ data: messages }, { data: callsRows }] = await Promise.all([
-    campIds.length > 0
-      ? supabase.from("campaign_messages")
-          .select("campaign_id, channel, step_number, sent_at")
-          .in("campaign_id", campIds)
-      : Promise.resolve({ data: [] as any[] }),
-    leadIds.length > 0
-      ? supabase.from("calls")
-          .select("id, lead_id, classification")
-          .in("lead_id", leadIds)
-      : Promise.resolve({ data: [] as any[] }),
+  // campaign_messages is the biggest of these — one row per step per lead, so
+  // ~4 700 for this profile. Smaller id chunks keep each page well under the
+  // 1000-row cap on top of the per-chunk paging.
+  const [messages, callsRows] = await Promise.all([
+    selectByIds<MessageRow>("campaign_messages", campIds, chunk =>
+      supabase.from("campaign_messages")
+        .select("campaign_id, channel, step_number, sent_at")
+        .in("campaign_id", chunk)
+        .order("campaign_id", { ascending: true }),
+      { chunkSize: 100 },
+    ),
+    selectByIds<CallRow>("calls", leadIds, chunk =>
+      supabase.from("calls")
+        .select("id, lead_id, classification")
+        .in("lead_id", chunk)
+        .order("id", { ascending: true }),
+    ),
   ]);
 
   const repliesByLead: Record<string, any[]> = {};
@@ -209,7 +245,7 @@ async function getProfileData(profileId: string) {
   }));
 
   // Build lead → campaign lookup
-  const campsByLeadId: Record<string, { name: string; status: string; channel: string }[]> = {};
+  const campsByLeadId: Record<string, { name: string | null; status: string; channel: string | null }[]> = {};
   for (const c of campaigns ?? []) {
     if (!c.lead_id) continue;
     if (!campsByLeadId[c.lead_id]) campsByLeadId[c.lead_id] = [];
