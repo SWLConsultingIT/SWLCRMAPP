@@ -42,8 +42,10 @@ export type FlowMetrics = {
   // ── Flow Metrics redesign (2026-08-27): unique-lead outcomes, call stage,
   // pipeline distribution, per-seller. UI consumes these in the next increment. ──
   meetings: number; meetingRate: number; positiveLeadRate: number;
-  callStage: { made: number; connected: number; connectRate: number; positiveOutcomes: number; meetings: number; meetingConversion: number; groups: Record<string, number>; outcomes: Record<string, number> } | null;
+  callStage: { made: number; connected: number; connectRate: number; positiveOutcomes: number; meetings: number; meetingConversion: number; groups: Record<string, number>; outcomes: Record<string, number>; outcomesByGroup: Record<string, { label: string; count: number }[]> } | null;
   pipeline: { inLinkedin: number; inEmail: number; inCall: number; repliedExited: number; completedNoResponse: number; removed: number; failed: number; other: number };
+  stageReach: { linkedin: number; email: number; call: number };
+  stageContinuation: { linkedin: number | null; email: number | null; call: number | null };
   stageAging: Record<string, { active: number; stuckOver3d: number; avgDays: number | null; tracked: number }>;
   sellers: { sellerId: string; name: string; leads: number; contacted: number; linkedinSent: number; emailsSent: number; callsMade: number; callsConnected: number; replies: number; positiveReplies: number; positiveOutcomes: number; meetings: number; connectRate: number; positiveReplyRate: number; meetingsPer100: number; positivePer100: number }[];
   positivesByChannel: { linkedin: number; email: number };
@@ -180,23 +182,50 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
 
   // Benchmark colour for a rate (higher = better). Signals good/ok/bad at a glance.
   const bench = (rate: number, hi: number, mid: number) => rate >= hi ? "#16A34A" : rate >= mid ? "#D97706" : C.red;
-  // Funnel stages (top → bottom), with the conversion vs the previous stage.
-  // benchT = [good, ok] thresholds for the conversion INTO this stage (when it's
-  // a quality signal, not an operational one we fully control).
-  // Channel-agnostic funnel (boss 2026-06-11): Leads → Contacted → Replied →
-  // Positive. Works for any channel mix and stays monotonic. The LinkedIn-only
-  // mechanics (invites sent / accepted) and the email mechanics live in the
-  // "By channel" section below, where an accept-rate actually makes sense — in
-  // a multichannel flow they don't belong in the headline funnel (that's what
-  // produced "Messages 800% of accepted").
-  const stages: { key: string; label: string; value: number; icon: typeof Mail; color: string; drill: DrillKey | null; conv: number | null; convLabel: string; benchT?: [number, number] }[] = [
-    { key: "leads", label: "Leads", value: m.totalLeads, icon: Users, color: "var(--fg1)", drill: null, conv: null, convLabel: "" },
-    { key: "contacted", label: "Contacted", value: m.contacted, icon: Send, color: "var(--fg2)", drill: "contacted", conv: m.contactedRate, convLabel: "of leads" },
-    { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "var(--fg3)", drill: "replied", conv: m.contactedReplyRate, convLabel: "of contacted", benchT: [10, 3] },
-    { key: "positive", label: "Positive", value: m.positive, icon: Trophy, color: "var(--fg4)", drill: "positive", conv: m.positiveRate, convLabel: "of replied", benchT: [40, 20] },
-  ];
-  const maxV = Math.max(1, m.totalLeads, m.contacted);
-  const stepMax = Math.max(1, ...m.steps.map(s => s.sent + s.failed + s.skipped + s.pending));
+  const fmtPct = (v: number) => `${v}%`;
+  // Real 3-stage flow journey (LinkedIn → Email → Cold Calling). Only the stages
+  // actually configured in the flow render; each uses its own per-channel
+  // denominator. Connectors below show stageReach (leads that carried through).
+  const flowStages = ([
+    m.linkedin && {
+      key: "linkedin", label: "LinkedIn", Icon: Share2, color: "var(--fg1)",
+      reached: m.stageReach.linkedin, danger: m.linkedin.failed > 0,
+      metrics: [
+        { k: "Invites", v: m.linkedin.invitesSent },
+        { k: "Accepted", v: m.linkedin.accepted },
+        { k: "DMs sent", v: m.linkedin.dmsSent },
+        { k: "Replies", v: m.linkedin.replies },
+        { k: "Reply rate", v: fmtPct(m.linkedin.replyRate), c: m.linkedin.dmsSent > 0 ? bench(m.linkedin.replyRate, 10, 4) : undefined },
+        { k: "Positive", v: m.linkedin.positive, c: m.linkedin.positive > 0 ? C.green : undefined },
+        { k: "Pos. reply rate", v: fmtPct(m.linkedin.positiveReplyRate), c: m.linkedin.replies > 0 ? bench(m.linkedin.positiveReplyRate, 25, 12) : undefined },
+      ],
+    },
+    m.email && {
+      key: "email", label: "Email", Icon: Mail, color: "var(--fg3)",
+      reached: m.stageReach.email, danger: m.email.bounceRate > 5,
+      metrics: [
+        { k: "Sent", v: m.email.sent },
+        { k: "Bounces", v: m.email.bounced, c: m.email.bounced > 0 ? C.red : undefined },
+        { k: "Bounce rate", v: fmtPct(m.email.bounceRate), c: m.email.sent > 0 ? (m.email.bounceRate <= 2 ? "#16A34A" : m.email.bounceRate <= 5 ? "#D97706" : C.red) : undefined },
+        { k: "Replies", v: m.email.replies },
+        { k: "Reply rate", v: fmtPct(m.email.replyRate), c: m.email.sent > 0 ? bench(m.email.replyRate, 8, 3) : undefined },
+        { k: "Positive", v: m.email.positive, c: m.email.positive > 0 ? C.green : undefined },
+        { k: "Pos. reply rate", v: fmtPct(m.email.positiveReplyRate), c: m.email.replies > 0 ? bench(m.email.positiveReplyRate, 25, 12) : undefined },
+      ],
+    },
+    (m.call || m.callStage) && {
+      key: "call", label: "Cold Calling", Icon: Phone, color: "var(--fg4)",
+      reached: m.stageReach.call, danger: false,
+      metrics: m.callStage ? [
+        { k: "Calls made", v: m.callStage.made },
+        { k: "Connected", v: m.callStage.connected },
+        { k: "Connect rate", v: fmtPct(m.callStage.connectRate), c: m.callStage.made > 0 ? bench(m.callStage.connectRate, 40, 25) : undefined },
+        { k: "Positive", v: m.callStage.positiveOutcomes, c: m.callStage.positiveOutcomes > 0 ? C.green : undefined },
+        { k: "Meetings", v: m.callStage.meetings, c: m.callStage.meetings > 0 ? "var(--fg1)" : undefined },
+        { k: "Meeting conv.", v: fmtPct(m.callStage.meetingConversion), c: m.callStage.connected > 0 ? bench(m.callStage.meetingConversion, 6, 3) : undefined },
+      ] : [{ k: "Dialed", v: m.call!.dialed }],
+    },
+  ].filter(Boolean)) as { key: string; label: string; Icon: typeof Mail; color: string; reached: number; danger: boolean; metrics: { k: string; v: string | number; c?: string }[] }[];
 
   const RANGES: { k: string; label: string }[] = [
     { k: "all", label: "All time" }, { k: "7d", label: "7 days" }, { k: "4w", label: "4 weeks" }, { k: "90d", label: "90 days" }, { k: "custom", label: "Custom" },
@@ -312,58 +341,64 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         </div>
       </div>
 
-      {/* ── OUTREACH FUNNEL (Totals merged in — boss 2026-06-08: the standalone
-          Totals block duplicated the funnel, so it now lives inside this one
-          section). LEFT = funnel bars (overall drop-off + conversions); RIGHT =
-          totals per step. The per-channel split + negatives the bars don't
-          break out sit in the chip row below. */}
-      <Section title="Outreach funnel">
-        <div>
-        <div className="space-y-0.5">
-          {stages.map((s, i) => {
-            const w = s.value > 0 ? Math.max(4, Math.round((s.value / maxV) * 100)) : 0;
-            const Icon = s.icon;
-            const clickable = !!s.drill && has(s.drill);
-            const isOpen = open === s.drill;
-            return (
-              <Fragment key={s.key}>
-                {i > 0 && s.conv != null && (
-                  <div className="flex items-center gap-1.5 pl-[8.5rem] h-5">
-                    <ChevronDown size={12} style={{ color: C.textDim }} />
-                    <span className="text-[12px] font-bold tabular-nums" style={{ color: s.benchT ? bench(s.conv, s.benchT[0], s.benchT[1]) : s.color }}>{s.conv}%</span>
-                    <span className="text-[10px]" style={{ color: C.textDim }}>{s.convLabel}</span>
+      {/* ── FLOW FUNNEL — the literal 3-stage journey the seller runs:
+          LinkedIn → Email → Cold Calling. Each stage shows its own metrics with
+          the correct per-channel denominator; the connectors show how many leads
+          carried through (stageReach — existing data, no new fetch). Replaces the
+          generic Leads→Contacted→Replied→Positive bars, which duplicated the
+          Executive Overview, and absorbs the old "By channel" cards. */}
+      <Section title="Flow funnel">
+        {flowStages.length === 0 ? (
+          <p className="text-xs" style={{ color: C.textDim }}>No channels configured for this flow.</p>
+        ) : (
+          <div className="space-y-0">
+            {flowStages.map((st, i) => (
+              <Fragment key={st.key}>
+                {i > 0 && (() => {
+                  const cont = m.stageContinuation[st.key as "linkedin" | "email" | "call"];
+                  const prevReached = flowStages[i - 1].reached;
+                  return (
+                    <div className="flex items-center justify-center gap-1.5 py-1.5">
+                      <ChevronDown size={13} style={{ color: C.textDim }} />
+                      <span className="text-[11px] font-semibold" style={{ color: C.textMuted }}>
+                        <b className="tabular-nums" style={{ color: C.textBody, fontFamily: OUTFIT }}>{cont ?? st.reached}</b>
+                        {cont != null ? ` of ${prevReached} leads continued to ${st.label}` : ` leads in ${st.label}`}
+                      </span>
+                    </div>
+                  );
+                })()}
+                <div className="rounded-xl border overflow-hidden" style={{ borderColor: st.danger ? `color-mix(in srgb, ${C.red} 35%, ${C.border})` : C.border, backgroundColor: C.bg }}>
+                  <div className="h-1" style={{ backgroundColor: st.color }} />
+                  <div className="p-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <div className="flex items-center gap-2.5 min-w-[150px]">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${st.color} 14%, transparent)` }}>
+                        <st.Icon size={17} style={{ color: st.color }} />
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-bold" style={{ color: C.textPrimary }}>{st.label}</div>
+                        <div className="text-[10px]" style={{ color: C.textDim }}>{st.reached} leads reached</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-2 flex-1">
+                      {st.metrics.map(mt => (
+                        <div key={mt.k} className="flex items-baseline gap-1.5">
+                          <span className="text-[16px] font-bold tabular-nums" style={{ color: mt.c ?? C.textPrimary, fontFamily: OUTFIT }}>{mt.v}</span>
+                          <span className="text-[10px]" style={{ color: C.textMuted }}>{mt.k}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
-                <button
-                  type="button" disabled={!clickable} onClick={() => clickable && toggle(s.drill!)}
-                  className="w-full flex items-center gap-3 rounded-lg px-2.5 py-2 transition-colors disabled:cursor-default"
-                  style={{ backgroundColor: isOpen ? `color-mix(in srgb, ${s.color} 8%, transparent)` : "transparent", cursor: clickable ? "pointer" : "default" }}
-                >
-                  <div className="flex items-center gap-2 w-32 shrink-0">
-                    <Icon size={14} style={{ color: s.color }} />
-                    <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.textMuted }}>{s.label}</span>
-                  </div>
-                  <div className="flex-1 h-7 rounded-md relative overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${C.border} 70%, transparent)` }}>
-                    <div className="h-7 rounded-md transition-[width]" style={{ width: `${w}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${s.color} 85%, transparent), color-mix(in srgb, ${s.color} 60%, transparent))` }} />
-                  </div>
-                  <span className="text-[22px] font-bold tabular-nums w-14 text-right leading-none" style={{ color: s.value ? C.textPrimary : C.textDim, fontFamily: OUTFIT }}>{s.value}</span>
-                  {clickable && <ChevronRight size={13} style={{ color: C.textDim, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />}
-                  {!clickable && <span className="w-[13px] shrink-0" />}
-                </button>
+                </div>
               </Fragment>
-            );
-          })}
-        </div>
-        </div>{/* close funnel wrapper — per-step totals now live only in the Step-by-step section below (was duplicated here) */}
-
-        {/* drill list (who) — only when opened from the funnel */}
-        {openFrom === "funnel" && drillPanel}
-
-        {/* secondary chips */}
+            ))}
+          </div>
+        )}
+        {/* secondary chips + drill (awaiting acceptance is LinkedIn-stage detail) */}
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
           <MiniChip icon={Hourglass} label="awaiting acceptance" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "funnel"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "funnel")} clickable={has("pendingAccept")} />
           <MiniChip icon={XCircle} label="lost" n={m.lost} color={C.red} />
         </div>
+        {openFrom === "funnel" && drillPanel}
       </Section>
 
       {/* ── PIPELINE STATUS — where the leads are NOW (mutually exclusive,
@@ -417,45 +452,14 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         })()}
       </Section>
 
-      {/* ── BY CHANNEL ── */}
-      <Section title="By channel" pad>
-        <div className="flex flex-wrap gap-3">
-          {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", m.linkedin.accepted], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["reply rate", `${m.linkedin.replyRate}%`, m.linkedin.dmsSent > 0 ? bench(m.linkedin.replyRate, 10, 4) : undefined], ["positive", m.linkedin.positive, m.linkedin.positive > 0 ? C.green : undefined], ["pos. reply rate", `${m.linkedin.positiveReplyRate}%`, m.linkedin.replies > 0 ? bench(m.linkedin.positiveReplyRate, 25, 12) : undefined]]} danger={m.linkedin.failed > 0} />}
-          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", m.email.bounced], ["bounce rate", `${m.email.bounceRate}%`, m.email.sent > 0 ? (m.email.bounceRate <= 2 ? "#16A34A" : m.email.bounceRate <= 5 ? "#D97706" : C.red) : undefined], ["replies", m.email.replies], ["reply rate", `${m.email.replyRate}%`, m.email.sent > 0 ? bench(m.email.replyRate, 8, 3) : undefined], ["positive", m.email.positive, m.email.positive > 0 ? C.green : undefined], ["pos. reply rate", `${m.email.positiveReplyRate}%`, m.email.replies > 0 ? bench(m.email.positiveReplyRate, 25, 12) : undefined]]} danger={m.email.bounceRate > 5} />}
-          {m.call && (m.callStage
-            ? <ChannelCard ch="call" stats={[["calls", m.callStage.made], ["connected", m.callStage.connected], ["connect rate", `${m.callStage.connectRate}%`, m.callStage.made > 0 ? bench(m.callStage.connectRate, 40, 25) : undefined], ["positive", m.callStage.positiveOutcomes, m.callStage.positiveOutcomes > 0 ? C.green : undefined], ["meetings", m.callStage.meetings, m.callStage.meetings > 0 ? "var(--fg1)" : undefined]]} />
-            : <ChannelCard ch="call" stats={[["dialed", m.call.dialed]]} />)}
-        </div>
-      </Section>
-
       {/* ── OUTCOMES & DIAGNOSTICS — why (call outcome groups + reply quality
           + the one or two insights that actually matter). ── */}
       <Section title="Outcomes & diagnostics">
         <div className="flex flex-wrap gap-6">
           {m.callStage && (m.callStage.made > 0) && (
             <div className="min-w-[260px] flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Call outcomes</p>
-              {(() => {
-                const g = m.callStage.groups;
-                const groups = [
-                  { k: "Positive", n: g.positive ?? 0, c: C.green },
-                  { k: "Follow-up", n: g.followup ?? 0, c: "#D97706" },
-                  { k: "Negative", n: g.negative ?? 0, c: C.red },
-                  { k: "Unreachable", n: g.unreachable ?? 0, c: C.textMuted },
-                  ...(g.other ? [{ k: "Other", n: g.other, c: C.textDim }] : []),
-                ].filter(x => x.n > 0);
-                const total = groups.reduce((a, x) => a + x.n, 0) || 1;
-                return (
-                  <>
-                    <div className="flex h-2.5 rounded-full overflow-hidden mb-2.5" style={{ backgroundColor: C.border }}>
-                      {groups.map(x => <div key={x.k} title={`${x.k}: ${x.n}`} style={{ width: `${(x.n / total) * 100}%`, backgroundColor: x.c }} />)}
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                      {groups.map(x => <span key={x.k} className="inline-flex items-center gap-1.5 text-[11.5px]" style={{ color: C.textBody }}><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: x.c }} /><b style={{ fontFamily: OUTFIT }}>{x.n}</b> {x.k}</span>)}
-                    </div>
-                  </>
-                );
-              })()}
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Call outcomes <span className="font-normal normal-case tracking-normal" style={{ color: C.textDim }}>· click a group for the real outcomes</span></p>
+              <CallOutcomes groups={m.callStage.groups} outcomesByGroup={m.callStage.outcomesByGroup} />
             </div>
           )}
           <div className="min-w-[220px]">
@@ -520,23 +524,24 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           sellers regardless of volume. ── */}
       {m.sellers.length > 0 && (
         <Section title="Seller performance">
-          <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
-            <span>Seller</span><span className="text-right">LI</span><span className="text-right">Email</span><span className="text-right">Calls</span><span className="text-right">Conn.</span><span className="text-right">Pos.</span><span className="text-right">Meet/100</span>
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto] gap-x-3 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
+            <span>Seller</span><span className="text-right">LI</span><span className="text-right">Email</span><span className="text-right">Calls</span><span className="text-right">Conn.</span><span className="text-right">Pos.</span><span className="text-right">Meet</span><span className="text-right">Meet/100</span>
           </div>
           <div className="space-y-0.5">
             {m.sellers.map(s => (
-              <div key={s.sellerId} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 items-center text-[13px] py-1.5">
+              <div key={s.sellerId} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto] gap-x-3 items-center text-[13px] py-1.5">
                 <span className="font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}<span className="text-[10px] font-normal ml-1.5" style={{ color: C.textDim }}>{s.leads} leads</span></span>
                 <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.linkedinSent}</span>
                 <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.emailsSent}</span>
                 <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.callsMade}</span>
                 <span className="text-right tabular-nums" style={{ color: C.textMuted }}>{s.callsConnected}</span>
                 <span className="text-right tabular-nums font-semibold" style={{ color: s.positiveReplies ? C.green : C.textDim }}>{s.positiveReplies}</span>
-                <span className="text-right tabular-nums font-bold" style={{ color: s.meetings ? "var(--fg1)" : C.textDim, fontFamily: OUTFIT }}>{s.meetingsPer100}</span>
+                <span className="text-right tabular-nums font-bold" style={{ color: s.meetings ? "var(--fg1)" : C.textDim, fontFamily: OUTFIT }}>{s.meetings}</span>
+                <span className="text-right tabular-nums" style={{ color: s.meetings ? C.textBody : C.textDim, fontFamily: OUTFIT }}>{s.meetingsPer100}</span>
               </div>
             ))}
           </div>
-          <p className="text-[10.5px] mt-2 pt-2 border-t" style={{ color: C.textDim, borderColor: C.border }}>Meet/100 = meetings per 100 contacted — compares sellers regardless of volume.</p>
+          <p className="text-[10.5px] mt-2 pt-2 border-t" style={{ color: C.textDim, borderColor: C.border }}>Meet = booked meetings (leads qualified) · Meet/100 = meetings per 100 contacted, to compare sellers regardless of volume.</p>
         </Section>
       )}
 
@@ -786,6 +791,71 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
         </div>
       </div>
     </Section>
+  );
+}
+
+// Prettify a raw calls.classification value for display. These are the REAL
+// stored values (post-mapping in the call-outcome route) — nothing invented.
+// Several prompt options collapse to one classification (e.g. bad_timing +
+// callback → follow_up), so we show the literal value, not the prompt label.
+const OUTCOME_LABELS: Record<string, string> = {
+  positive: "Positive", meeting_booked: "Meeting booked", follow_up: "Follow-up",
+  needs_info: "Needs info", negative: "Negative", voicemail: "Voicemail",
+  wrong_number: "Wrong number", other_person: "Other person", no_answer: "No answer",
+  unclassified: "Unclassified",
+};
+const prettyOutcome = (raw: string) => OUTCOME_LABELS[raw] ?? raw.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
+
+// Call outcomes — grouped summary (fast read) with progressive disclosure to
+// the real outcomes that compose each group (count + % of the group). Only
+// groups/outcomes actually present render; grouping is the validated
+// callOutcomeGroup from the data layer.
+function CallOutcomes({ groups, outcomesByGroup }: { groups: Record<string, number>; outcomesByGroup: Record<string, { label: string; count: number }[]> }) {
+  const [openG, setOpenG] = useState<string | null>(null);
+  const GROUPS = ([
+    { key: "positive", label: "Positive", c: C.green },
+    { key: "followup", label: "Follow-up", c: "#D97706" },
+    { key: "negative", label: "Negative", c: C.red },
+    { key: "unreachable", label: "Unreachable", c: C.textMuted },
+    { key: "other", label: "Other", c: C.textDim },
+  ].map(g => ({ ...g, n: groups[g.key] ?? 0 }))).filter(g => g.n > 0);
+  const total = GROUPS.reduce((a, g) => a + g.n, 0) || 1;
+  const active = openG ? GROUPS.find(g => g.key === openG) : null;
+  const detail = active ? (outcomesByGroup[active.key] ?? []) : [];
+  return (
+    <>
+      <div className="flex h-2.5 rounded-full overflow-hidden mb-2.5" style={{ backgroundColor: C.border }}>
+        {GROUPS.map(g => <div key={g.key} title={`${g.label}: ${g.n}`} style={{ width: `${(g.n / total) * 100}%`, backgroundColor: g.c }} />)}
+      </div>
+      <div className="flex flex-wrap gap-x-1.5 gap-y-1.5">
+        {GROUPS.map(g => {
+          const canExpand = (outcomesByGroup[g.key] ?? []).length > 0;
+          const isOpen = openG === g.key;
+          return (
+            <button key={g.key} type="button" disabled={!canExpand} onClick={() => canExpand && setOpenG(o => (o === g.key ? null : g.key))}
+              className="inline-flex items-center gap-1.5 text-[11.5px] rounded-md px-1.5 py-0.5 transition-colors disabled:cursor-default"
+              style={{ color: C.textBody, backgroundColor: isOpen ? `color-mix(in srgb, ${g.c} 12%, transparent)` : "transparent", cursor: canExpand ? "pointer" : "default" }}>
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: g.c }} />
+              <b style={{ fontFamily: OUTFIT }}>{g.n}</b> {g.label}
+              {canExpand && <ChevronRight size={11} style={{ color: C.textDim, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />}
+            </button>
+          );
+        })}
+      </div>
+      {active && (
+        <div className="mt-2.5 rounded-lg border p-2.5 space-y-1" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: active.c }}>{active.label} · real outcomes</p>
+          {detail.map(o => (
+            <div key={o.label} className="flex items-center justify-between gap-3 text-[12px]">
+              <span style={{ color: C.textBody }}>{prettyOutcome(o.label)}</span>
+              <span className="tabular-nums" style={{ color: C.textMuted }}>
+                <b style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{o.count}</b> · {Math.round((o.count / active.n) * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

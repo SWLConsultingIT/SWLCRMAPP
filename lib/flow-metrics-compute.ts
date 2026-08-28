@@ -227,11 +227,20 @@ export async function getFlowMetrics(
   const callLeadSet = new Set(realCalls.map(c => c.lead_id));
   const callGroupCounts: Record<string, number> = { positive: 0, followup: 0, negative: 0, unreachable: 0, other: 0 };
   const callOutcomeCounts: Record<string, number> = {};
+  // Real outcomes that COMPOSE each group — for the progressive-disclosure
+  // detail under the grouped summary. Only REAL classifications appear here
+  // (nothing invented); grouping stays the validated callOutcomeGroup.
+  const outcomesByGroupAcc: Record<string, Record<string, number>> = { positive: {}, followup: {}, negative: {}, unreachable: {}, other: {} };
   realCalls.forEach(c => {
-    callGroupCounts[callOutcomeGroup(c)]++;
+    const g = callOutcomeGroup(c);
+    callGroupCounts[g]++;
     const raw = c.classification ?? "unclassified";
     callOutcomeCounts[raw] = (callOutcomeCounts[raw] ?? 0) + 1;
+    outcomesByGroupAcc[g][raw] = (outcomesByGroupAcc[g][raw] ?? 0) + 1;
   });
+  const outcomesByGroup: Record<string, { label: string; count: number }[]> = Object.fromEntries(
+    Object.entries(outcomesByGroupAcc).map(([g, mm]) => [g, Object.entries(mm).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)])
+  );
   // Meetings = unique 'qualified' leads (single source, def #5). Step-3
   // conversion counts only meetings whose lead actually reached the call stage.
   const meetingsFromCalls = [...qualifiedSet].filter(id => callLeadSet.has(id)).length;
@@ -244,7 +253,25 @@ export async function getFlowMetrics(
     meetingConversion: pctOf(meetingsFromCalls, connectedCalls.length),
     groups: callGroupCounts,
     outcomes: callOutcomeCounts,
+    outcomesByGroup,
   } : null;
+
+  // Stage reach — unique leads that entered each channel stage (≥1 sent message
+  // on the channel / ≥1 real call). Derived from existing data — no new fetch.
+  const liSet = new Set(sent.filter(m => m.channel === "linkedin").map(m => m.lead_id));
+  const emSet = new Set(sent.filter(m => m.channel === "email").map(m => m.lead_id));
+  const stageReach = { linkedin: liSet.size, email: emSet.size, call: callLeadSet.size };
+  // Stage continuation — TRUE progression: leads that reached a stage AND the
+  // previous existing stage (set intersection). This is the honest "continued
+  // to …" number — never larger than either stage's reach, and it accounts for
+  // leads that entered a later stage directly (e.g. email-only leads with no
+  // LinkedIn) without inflating the transition. null for the first stage.
+  const stageSets: Record<string, Set<string>> = { linkedin: liSet, email: emSet, call: callLeadSet };
+  const orderedStages = (["linkedin", "email", "call"] as const).filter(k => channelsUsed.includes(k));
+  const stageContinuation: { linkedin: number | null; email: number | null; call: number | null } = { linkedin: null, email: null, call: null };
+  orderedStages.forEach((k, i) => {
+    if (i > 0) { const prev = stageSets[orderedStages[i - 1]]; stageContinuation[k] = [...stageSets[k]].filter(id => prev.has(id)).length; }
+  });
 
   // ── Pipeline — where the leads are NOW. Buckets are mutually exclusive and
   // sum to the cohort (def #6). current_step is 0-indexed over `sequence`. ──
@@ -373,7 +400,7 @@ export async function getFlowMetrics(
     meetings: qualifiedSet.size,
     meetingRate: pct(qualifiedSet.size, totalLeads),
     positiveLeadRate: pct(positiveSet.size, totalLeads),
-    callStage, pipeline, stageAging, sellers,
+    callStage, pipeline, stageAging, sellers, stageReach, stageContinuation,
     positivesByChannel: { linkedin: liPositive, email: emPositive },
     health: {
       bounceRate: healthOf("bounceRate", email?.bounceRate ?? 0),
