@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useToast } from "@/lib/toast";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import LogoLoader from "@/components/LogoLoader";
@@ -69,6 +70,7 @@ const channelConfig: Record<string, { label: string; color: string; svgIcon: Rea
 
 export default function FlowEditorPage() {
   const router = useRouter();
+  const toast = useToast();
   const params = useParams();
   const campaignId = params.id as string;
 
@@ -348,6 +350,20 @@ export default function FlowEditorPage() {
         const err = await r.json().catch(() => ({}));
         throw new Error(err.error ?? "Save failed");
       }
+      // Report what the save actually did. A flow is one campaign per lead, so
+      // "saved" alone hid the only thing worth knowing: how many leads the new
+      // wording reaches, and that messages already sent were left alone.
+      const res = await r.json().catch(() => ({} as Record<string, number>));
+      const parts: string[] = [];
+      if (res.updatedMessages) parts.push(`${res.updatedMessages} pending message${res.updatedMessages === 1 ? "" : "s"} rewritten across ${res.liveCampaigns} lead${res.liveCampaigns === 1 ? "" : "s"}`);
+      if (res.createdMessages) parts.push(`${res.createdMessages} queued for the new step${res.createdMessages === 1 ? "" : "s"}`);
+      if (res.cancelledMessages) parts.push(`${res.cancelledMessages} cancelled for removed steps`);
+      if (res.leftSent) parts.push(`${res.leftSent} already sent — left untouched`);
+      toast.show({
+        kind: "success",
+        title: "Flow updated",
+        description: parts.length > 0 ? parts.join(" · ") : "Sequence and settings saved.",
+      });
       router.push(`/campaigns/${campaignId}`);
       router.refresh();
     } catch (e: any) {

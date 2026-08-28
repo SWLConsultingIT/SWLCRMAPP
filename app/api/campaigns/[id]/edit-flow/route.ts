@@ -1,9 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canCreateCampaigns } from "@/lib/scope";
+import { selectAllPages, selectByIds, chunkIds } from "@/lib/supabase-bulk";
+
+// Edit a flow that is already running.
+//
+// A "flow" is every campaign row sharing a name — one row per enrolled lead —
+// and each of those has its own campaign_messages rows. Two things about that
+// were wrong here until 2026-08-27:
+//
+//   1. Message edits were applied BY ROW ID. The editor loads the messages of
+//      the single campaign in the URL, so the payload carried one row id per
+//      step and the save rewrote exactly one lead's copy. On the PE & VC USA
+//      flow that is 1 of 1 166 leads: the seller changed the text, saw it
+//      saved, and 6 615 queued messages still went out with the old wording.
+//      Edits now apply per STEP across the whole flow.
+//
+//   2. Nothing was paged or chunked. Reading the siblings truncated at 1 000,
+//      and then `.in("id", <1 000+ uuids>)` is a ~36 KB query string that
+//      Supabase answers 400 to — so on the biggest flows the save didn't half
+//      work, it failed outright with a 500.
+//
+// And one rule that was missing entirely: a SENT message is history. Rewriting
+// its content makes the thread show wording that never left the building. Only
+// queued/draft rows are updated; sent ones are counted and reported back.
+
+type MsgPayload = { id?: string; content?: string; subject?: string; attachments?: unknown[] };
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Bug 12 fix: auth gate — same pattern as /api/campaigns/[id]/step/route.ts
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!canCreateCampaigns(scope.tier)) {
@@ -12,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { flowName, flowManagerId, steps, emailAccount, originalName, messages, newMessages, linkedinSellerIds, callSellerIds } = body;
+  const { flowName, flowManagerId, steps, originalName, messages, newMessages, linkedinSellerIds, callSellerIds } = body;
 
   if (!flowName || !Array.isArray(steps)) {
     return NextResponse.json({ error: "flowName + steps required" }, { status: 400 });
@@ -20,122 +44,174 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const svc = getSupabaseService();
 
-  // Resolve which campaigns to update. A flow spans all campaigns sharing the same name.
-  const targetName = originalName ?? flowName;
-  const { data: siblings } = await svc
-    .from("campaigns")
-    .select("id, lead_id, status")
-    .eq("name", targetName);
-  const allCampaigns = siblings ?? [];
-  const allCampaignIds = allCampaigns.map(c => c.id);
-  if (!allCampaignIds.includes(id)) {
-    const { data: self } = await svc.from("campaigns").select("id, lead_id, status").eq("id", id).single();
-    if (self) allCampaigns.push(self);
-    allCampaignIds.push(id);
+  // ── Which campaigns make up this flow ─────────────────────────────────
+  type CampRow = { id: string; lead_id: string | null; status: string };
+  let allCampaigns: CampRow[];
+  try {
+    allCampaigns = await selectAllPages<CampRow>("campaigns", () =>
+      svc.from("campaigns")
+        .select("id, lead_id, status")
+        .eq("name", originalName ?? flowName)
+        .order("id", { ascending: true }),
+    );
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
+  if (!allCampaigns.some(c => c.id === id)) {
+    const { data: self } = await svc.from("campaigns").select("id, lead_id, status").eq("id", id).single();
+    if (self) allCampaigns.push(self as CampRow);
+  }
+  const allCampaignIds = allCampaigns.map(c => c.id);
+  // Message edits only make sense for campaigns still running. A completed or
+  // closed campaign's leftover rows must not be revived by an edit.
+  const liveCampaigns = allCampaigns.filter(c => c.status === "active" || c.status === "paused");
+  const liveCampaignIds = liveCampaigns.map(c => c.id);
 
-  // Propagate the new sequence + seller + (new) name to every campaign in the group.
-  // NOTE: `email_account` is NOT a column on `campaigns` (it lives on `sellers`;
-  // the email account is auto-assigned per seller at dispatch time). Writing it
-  // here threw "Could not find the 'email_account' column of 'campaigns' in the
-  // schema cache" and blocked every save. The picker stays informational only.
-  const update: Record<string, any> = {
+  // ── Sequence + seller + name, across the whole flow ───────────────────
+  // `email_account` is deliberately absent: it is not a column on campaigns
+  // (it lives on sellers, auto-assigned at dispatch). Writing it used to throw
+  // a schema-cache error and block every save.
+  const update: Record<string, unknown> = {
     name: flowName,
     seller_id: flowManagerId ?? null,
     sequence_steps: steps,
     linkedin_seller_ids: Array.isArray(linkedinSellerIds) && linkedinSellerIds.length > 0 ? linkedinSellerIds : null,
     call_seller_ids: Array.isArray(callSellerIds) && callSellerIds.length > 0 ? callSellerIds : null,
   };
-  const { error: err1 } = await svc.from("campaigns").update(update).in("id", allCampaignIds);
-  if (err1) return NextResponse.json({ error: err1.message }, { status: 500 });
+  for (const chunk of chunkIds(allCampaignIds)) {
+    const { error } = await svc.from("campaigns").update(update).in("id", chunk);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  // Bug 4 fix: cancel queued/draft messages for steps removed from the sequence.
-  // Valid step_numbers: 0 (LinkedIn CR) through steps.length. Anything above
-  // steps.length is a deleted step — cancelling prevents the dispatcher from
-  // sending a message for a step the seller explicitly removed.
-  if (allCampaignIds.length > 0) {
-    const skippedAt = new Date().toISOString();
-    await svc.from("campaign_messages")
-      .update({ status: "skipped", metadata: { skipped_by: "edit-flow-step-removed", skipped_at: skippedAt } })
-      .in("campaign_id", allCampaignIds)
+  // ── Steps the seller removed ──────────────────────────────────────────
+  // Valid step_numbers run 0 (LinkedIn invite) through steps.length. Anything
+  // beyond that is a deleted step; cancel its unsent rows so the dispatcher
+  // doesn't send a step that no longer exists.
+  let cancelled = 0;
+  for (const chunk of chunkIds(allCampaignIds)) {
+    const { data, error } = await svc.from("campaign_messages")
+      .update({ status: "skipped", metadata: { skipped_by: "edit-flow-step-removed", skipped_at: new Date().toISOString() } })
+      .in("campaign_id", chunk)
       .gt("step_number", steps.length)
-      .in("status", ["queued", "draft"]);
+      .in("status", ["queued", "draft"])
+      .select("id");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    cancelled += (data ?? []).length;
   }
 
-  // Update existing message templates (each has an id tied to a specific row).
-  // Bug 1 fix: batch-read existing metadata first and merge instead of replacing —
-  // preserves eligible_at and other dispatcher-written fields on the row.
-  if (messages && typeof messages === "object") {
-    const msgIds = Object.values(messages as Record<string, any>)
-      .map((m: any) => m?.id).filter(Boolean) as string[];
-    const existingMetaMap: Record<string, Record<string, any>> = {};
-    if (msgIds.length > 0) {
-      const { data: existingRows } = await svc
-        .from("campaign_messages").select("id, metadata").in("id", msgIds);
-      for (const row of existingRows ?? []) {
-        existingMetaMap[(row as any).id] = ((row as any).metadata as Record<string, any> | null) ?? {};
+  // ── Message edits, per step, across every live campaign ───────────────
+  let updatedMessages = 0;
+  let leftSent = 0;
+  let variantsCollapsed = 0;
+  if (messages && typeof messages === "object" && liveCampaignIds.length > 0) {
+    for (const [stepKey, raw] of Object.entries(messages as Record<string, MsgPayload>)) {
+      const stepNumber = Number(stepKey);
+      if (!Number.isFinite(stepNumber)) continue;
+      const m = raw ?? {};
+      if (typeof m.content !== "string") continue;
+
+      // Read the rows this step owns across the flow, so we can (a) merge each
+      // row's own metadata rather than clobbering dispatcher-written fields
+      // like eligible_at, and (b) report honestly on what we're changing.
+      type MRow = { id: string; status: string; content: string | null; metadata: Record<string, unknown> | null };
+      let rows: MRow[];
+      try {
+        rows = await selectByIds<MRow>("campaign_messages", liveCampaignIds, chunk =>
+          svc.from("campaign_messages")
+            .select("id, status, content, metadata")
+            .in("campaign_id", chunk)
+            .eq("step_number", stepNumber)
+            .order("id", { ascending: true }),
+        );
+      } catch (e) {
+        return NextResponse.json({ error: (e as Error).message }, { status: 500 });
       }
-    }
-    for (const [, msg] of Object.entries(messages)) {
-      const m = msg as any;
-      if (!m?.id) continue;
-      const newMeta: Record<string, any> = { ...(existingMetaMap[m.id] ?? {}) };
-      if (m.subject) newMeta.subject = m.subject; else delete newMeta.subject;
-      if (Array.isArray(m.attachments) && m.attachments.length > 0) {
-        newMeta.attachments = m.attachments;
-      } else {
-        delete newMeta.attachments;
+
+      const editable = rows.filter(r => r.status === "queued" || r.status === "draft");
+      leftSent += rows.length - editable.length;
+      // More than one wording behind this step (e.g. leads enrolled in two
+      // batches). The edit collapses them into one — worth telling the seller.
+      const distinct = new Set(editable.map(r => (r.content ?? "").trim()));
+      if (distinct.size > 1) variantsCollapsed++;
+
+      for (const row of editable) {
+        const meta: Record<string, unknown> = { ...(row.metadata ?? {}) };
+        if (m.subject) meta.subject = m.subject; else delete meta.subject;
+        if (Array.isArray(m.attachments) && m.attachments.length > 0) meta.attachments = m.attachments;
+        else delete meta.attachments;
+        const { error } = await svc.from("campaign_messages").update({
+          content: m.content,
+          metadata: Object.keys(meta).length > 0 ? meta : null,
+        }).eq("id", row.id);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        updatedMessages++;
       }
-      await svc.from("campaign_messages").update({
-        content: m.content,
-        metadata: Object.keys(newMeta).length > 0 ? newMeta : null,
-      }).eq("id", m.id);
     }
   }
 
-  // Create campaign_messages rows for newly added steps.
-  // These get queued for all active/paused leads in the flow so they actually
-  // receive the new step — without this, only future (not-yet-approved) leads
-  // would see the step.
-  if (newMessages && typeof newMessages === "object") {
-    const activeCampaigns = allCampaigns.filter(c => c.status === "active" || c.status === "paused");
-    if (activeCampaigns.length > 0) {
-      const newStepNums = Object.keys(newMessages).map(Number);
-      // Find existing rows to avoid duplicates
-      const { data: existing } = await svc
-        .from("campaign_messages")
-        .select("campaign_id, step_number")
-        .in("campaign_id", activeCampaigns.map(c => c.id))
-        .in("step_number", newStepNums);
-      const existingKeys = new Set((existing ?? []).map((m: any) => `${m.campaign_id}:${m.step_number}`));
+  // ── Steps the seller added ────────────────────────────────────────────
+  let createdMessages = 0;
+  if (newMessages && typeof newMessages === "object" && liveCampaigns.length > 0) {
+    const newStepNums = Object.keys(newMessages).map(Number).filter(Number.isFinite);
+    if (newStepNums.length > 0) {
+      type ExistRow = { campaign_id: string; step_number: number };
+      let existing: ExistRow[];
+      try {
+        existing = await selectByIds<ExistRow>("campaign_messages", liveCampaignIds, chunk =>
+          svc.from("campaign_messages")
+            .select("campaign_id, step_number")
+            .in("campaign_id", chunk)
+            .in("step_number", newStepNums)
+            .order("campaign_id", { ascending: true }),
+        );
+      } catch (e) {
+        return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+      }
+      const seen = new Set(existing.map(r => `${r.campaign_id}:${r.step_number}`));
 
-      const inserts: any[] = [];
-      for (const campaign of activeCampaigns) {
+      const inserts: Record<string, unknown>[] = [];
+      for (const campaign of liveCampaigns) {
         if (!campaign.lead_id) continue;
-        for (const [stepNumStr, nm] of Object.entries(newMessages)) {
-          const stepNum = Number(stepNumStr);
-          const m = nm as any;
-          if (existingKeys.has(`${campaign.id}:${stepNum}`)) continue;
-          const eligibleAt = new Date(Date.now() + (m.waitDays ?? 3) * 86400000).toISOString();
-          const meta: Record<string, any> = { eligible_at: eligibleAt };
-          if (m.subject) meta.subject = m.subject;
+        for (const [stepKey, nm] of Object.entries(newMessages as Record<string, MsgPayload & { channel?: string; waitDays?: number }>)) {
+          const stepNum = Number(stepKey);
+          if (!Number.isFinite(stepNum)) continue;
+          if (seen.has(`${campaign.id}:${stepNum}`)) continue;
+          const meta: Record<string, unknown> = {
+            eligible_at: new Date(Date.now() + (nm.waitDays ?? 3) * 86400000).toISOString(),
+          };
+          if (nm.subject) meta.subject = nm.subject;
           inserts.push({
             campaign_id: campaign.id,
             lead_id: campaign.lead_id,
             step_number: stepNum,
-            channel: m.channel ?? "email",
-            content: m.content ?? "",
+            channel: nm.channel ?? "email",
+            content: nm.content ?? "",
             status: "queued",
             metadata: meta,
             created_at: new Date().toISOString(),
           });
         }
       }
-      if (inserts.length > 0) {
-        await svc.from("campaign_messages").insert(inserts);
+      // Insert in batches — one statement per 1 166-lead flow would be a very
+      // large body, and a failure mid-way should still report what landed.
+      for (let i = 0; i < inserts.length; i += 500) {
+        const part = inserts.slice(i, i + 500);
+        const { error } = await svc.from("campaign_messages").insert(part);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        createdMessages += part.length;
       }
     }
   }
 
-  return NextResponse.json({ ok: true, updatedCampaigns: allCampaignIds.length });
+  return NextResponse.json({
+    ok: true,
+    updatedCampaigns: allCampaignIds.length,
+    liveCampaigns: liveCampaignIds.length,
+    updatedMessages,
+    createdMessages,
+    cancelledMessages: cancelled,
+    // Sent rows are never rewritten — reported so the UI can say so.
+    leftSent,
+    variantsCollapsed,
+  });
 }

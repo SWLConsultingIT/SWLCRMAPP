@@ -31,6 +31,15 @@ export const PAGE_SIZE = 1000;
 /** Ids per `.in()` filter. 300 uuids ≈ 10 KB of query string. */
 export const ID_CHUNK = 300;
 
+/** Split ids into `.in()`-sized groups. Same limit as selectByIds, exposed
+ *  for writes (UPDATE ... IN (…)) which have the same URL ceiling. */
+export function chunkIds(ids: string[], size = ID_CHUNK): string[][] {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const out: string[][] = [];
+  for (let i = 0; i < unique.length; i += size) out.push(unique.slice(i, i + size));
+  return out;
+}
+
 export class BulkReadError extends Error {
   constructor(public table: string, public cause: unknown) {
     super(`bulk read of "${table}" failed: ${describe(cause)}`);
