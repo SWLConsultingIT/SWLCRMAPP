@@ -275,7 +275,21 @@ export default function CampaignDetailClient({
     router.refresh();
   }
 
-  const visibleCampaigns = allCampaigns.filter(c => c.status !== "completed" && c.status !== "failed");
+  // `completed` STAYS in the flow. It means the sequence ran to the end with
+  // no reply — the lead is still ours to work, which is exactly who the team
+  // calls next. Filtering it out here is why the Kanban's "Completed" column
+  // was permanently empty while promising "leads that finished the flow land
+  // here": the column exists and routes correctly, it was just never given
+  // the rows. 2 386 finished campaigns platform-wide were invisible, 1 388 of
+  // them having ended with no reply at all (Fran's boss, 2026-08-28).
+  //
+  // `failed` is still excluded — that's a delivery fault, not an outcome, and
+  // it belongs in /admin/reliability. Won/lost leave the flow on their own via
+  // isTerminalCampaign() inside the Kanban, because those DO have an outcome
+  // and live in Results.
+  const visibleCampaigns = allCampaigns.filter(c => c.status !== "failed");
+  const completedCount = visibleCampaigns.filter(c => c.status === "completed").length;
+  const runningCount = visibleCampaigns.length - completedCount;
 
   // "Results" tab — the /results outcome view scoped to THIS flow. A lead is
   // terminal (belongs here) once it either got a positive/negative reply or its
@@ -362,9 +376,11 @@ export default function CampaignDetailClient({
   // 3rd view; Add Leads is now a button (opens the picker at index 4) — it was
   // a confusing standalone tab with a "0" badge. `idx` maps each visible tab to
   // its content block so the blocks (tab===0/1/2/5) stay untouched.
-  const tabs = [
+  const tabs: Array<{ idx: number; label: string; icon: React.ElementType; count: number | null; badge?: string }> = [
     { idx: 0, label: "Metrics", icon: BarChart3, count: null },
-    { idx: 1, label: "Leads", icon: Users, count: visibleCampaigns.length },
+    // Running vs finished, because they're worked differently: one is waiting
+    // on the dispatcher, the other is waiting on someone to pick up the phone.
+    { idx: 1, label: "Leads", icon: Users, count: runningCount, badge: completedCount > 0 ? `+${completedCount} done` : undefined },
     { idx: 2, label: "Sequence", icon: Megaphone, count: sequence.length },
     { idx: 5, label: "Results", icon: Trophy, count: resultsCount },
   ];
@@ -442,6 +458,10 @@ export default function CampaignDetailClient({
               {t.count !== null && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                   style={{ backgroundColor: active ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.surface, color: active ? gold : C.textDim }}>{t.count}</span>
+              )}
+              {t.badge && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, color: C.green }}>{t.badge}</span>
               )}
               {active && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />}
             </button>
