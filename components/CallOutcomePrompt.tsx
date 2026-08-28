@@ -15,7 +15,7 @@ import { useLocale } from "@/lib/i18n";
 // ANY of them (not just pos/neg), and — for "Call back" — an inline recall
 // date/time (L-9). Each outcome → /api/leads/[id]/call-outcome maps to a
 // concrete CRM action; see that route for the side effects.
-type Outcome = "interested" | "info" | "callback" | "voicemail" | "not_interested" | "other_person" | "wrong_number";
+type Outcome = "interested" | "meeting" | "info" | "callback" | "voicemail" | "not_interested" | "other_person" | "wrong_number";
 
 // Default recall = tomorrow 10:00, local.
 function defaultCallbackDate(): string {
@@ -49,6 +49,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
 
   const OPTS: { v: Outcome; label: string; desc: string; icon: typeof ThumbsUp; color: string }[] = [
     { v: "interested",     label: t("callOutcome.interested"),    desc: t("callOutcome.book"),            icon: ThumbsUp,   color: C.green },
+    { v: "meeting",        label: t("callOutcome.meeting"),       desc: t("callOutcome.meetingDesc"),     icon: Calendar,   color: C.green },
     { v: "info",           label: t("callOutcome.info"),          desc: t("callOutcome.infoDesc"),        icon: FileText,   color: "#0EA5E9" },
     { v: "callback",       label: t("callOutcome.callback"),      desc: t("callOutcome.callbackDesc"),    icon: RotateCcw,  color: "#D97706" },
     { v: "voicemail",      label: t("callOutcome.voicemail"),     desc: t("callOutcome.voicemailDesc"),   icon: Voicemail,  color: "#7A8199" },

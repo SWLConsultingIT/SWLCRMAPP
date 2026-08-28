@@ -33,9 +33,9 @@ import { getUserScope } from "@/lib/scope";
 //   other_person → "asked for someone else" — campaign keeps running; the
 //                  observation captures who to route to (referral is a later
 //                  feature); lead is NOT closed.
-type Outcome = "interested" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number" | "info" | "callback" | "other_person";
+type Outcome = "interested" | "meeting" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number" | "info" | "callback" | "other_person";
 
-const VALID: ReadonlySet<Outcome> = new Set(["interested", "not_interested", "bad_timing", "voicemail", "wrong_number", "info", "callback", "other_person"] as const);
+const VALID: ReadonlySet<Outcome> = new Set(["interested", "meeting", "not_interested", "bad_timing", "voicemail", "wrong_number", "info", "callback", "other_person"] as const);
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const now = new Date().toISOString();
   const summaryMap: Record<Outcome, string> = {
     interested:     "Call outcome: interested — proceed to book meeting",
+    meeting:        "Call outcome: meeting booked",
     not_interested: "Call outcome: not interested",
     bad_timing:     "Call outcome: bad timing — answered but can't talk now, campaign continues",
     voicemail:      "Call outcome: voicemail — no answer / left a message, campaign continues",
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // for the dashboard breakdown.
   const classificationMap: Record<Outcome, string> = {
     interested: "positive",
+    meeting: "meeting_intent",
     not_interested: "negative",
     bad_timing: "not_now",
     voicemail: "not_now",
@@ -118,6 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   //     (positive/negative/follow_up + the new wrong_number).
   const callsClassificationMap: Record<Outcome, string> = {
     interested: "positive",
+    meeting: "meeting_booked",
     not_interested: "negative",
     bad_timing: "follow_up",
     voicemail: "voicemail",
@@ -143,13 +146,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // 2) Per-outcome side effects on the lead + its campaigns. Every outcome
   //    other than a fresh `callback` CLEARS any pending call-back reminder
   //    (callback_at/note) — acting on the lead supersedes the old recall.
-  if (outcome === "interested") {
-    await svc.from("leads").update({ status: "qualified", responded: true, response_outcome: "interested", callback_at: null, callback_note: null, updated_at: now }).eq("id", leadId);
+  if (outcome === "interested" || outcome === "meeting") {
+    // Both qualify the lead + complete the flow. 'meeting' records a booked
+    // meeting distinctly (response_outcome + stop_reason) so Metrics can tell
+    // interested-vs-meeting apart; meetings themselves stay = leads.status
+    // 'qualified' (single source), so no double counting.
+    const isMeeting = outcome === "meeting";
+    await svc.from("leads").update({ status: "qualified", responded: true, response_outcome: isMeeting ? "meeting" : "interested", callback_at: null, callback_note: null, updated_at: now }).eq("id", leadId);
     // Stop the flow on a positive — covers PAUSED campaigns too. Previously
     // this only matched status='active', so a positive call on a paused flow
     // (e.g. Lluís Vinas) left the campaign sitting paused with "next: First
     // Call ready to fire" instead of completing it.
-    await svc.from("campaigns").update({ status: "completed", stop_reason: "call_positive", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
+    await svc.from("campaigns").update({ status: "completed", stop_reason: isMeeting ? "call_meeting" : "call_positive", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
   } else if (outcome === "not_interested") {
     await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", callback_at: null, callback_note: null, updated_at: now }).eq("id", leadId);
     await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
