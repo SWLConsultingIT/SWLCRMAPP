@@ -17,6 +17,8 @@ const gold = "var(--brand, #c9a83a)";
 
 type Flow = {
   name: string;
+  /** A campaign row of this flow, supplied by /api/flows/active. */
+  campaignId: string;
   status: "active" | "paused" | "mixed";
   channels: string[];
   leadCount: number;
@@ -61,6 +63,8 @@ export default function AddToFlowModal({
 }) {
   const [flows, setFlows] = useState<Flow[] | null>(null);
   const [loading, setLoading] = useState(true);
+  // Pick by campaign id, not by flow name. Two flows can share a name across
+  // ICPs, and the name then had to be resolved against a second endpoint.
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,18 +89,16 @@ export default function AddToFlowModal({
     if (!picked || busy) return;
     setBusy(true); setError(null);
     try {
-      // /api/campaigns/[id]/add-leads takes a campaign row id; resolve the
-      // chosen flow name → first campaign id via the active-list endpoint
-      // (already exists, tenant-scoped). The server side will fan-out per lead.
-      const alt = await fetch("/api/campaigns/active-list");
-      const aj = await alt.json();
-      const campaignId = (aj.campaigns ?? []).find((c: { id: string; name: string }) => c.name === picked)?.id ?? null;
-      if (!campaignId) {
-        setError("Couldn't resolve flow to a campaign row.");
-        setBusy(false);
-        return;
-      }
-      const res = await fetch(`/api/campaigns/${campaignId}/add-leads`, {
+      // /api/flows/active already hands us a campaign id per flow, so `picked`
+      // IS the campaign id. This used to re-fetch /api/campaigns/active-list
+      // and match on the flow NAME — a list capped at 500 rows, one row per
+      // enrolled lead, newest first. Any flow whose campaigns weren't among
+      // the newest 500 simply wasn't there, and the seller got "Couldn't
+      // resolve flow to a campaign row" (Fran 2026-08-27, on a client call,
+      // picking a flow whose last activity was two months old). Matching by
+      // name could also have landed the leads in a same-named flow of a
+      // different ICP.
+      const res = await fetch(`/api/campaigns/${picked}/add-leads`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ leadIds }),
@@ -204,12 +206,12 @@ export default function AddToFlowModal({
               </p>
             </div>
           ) : visibleFlows.map(f => {
-            const isPicked = picked === f.name;
+            const isPicked = picked === f.campaignId;
             const stepProgress = f.totalSteps > 0 ? Math.min(100, Math.round((f.currentStep / f.totalSteps) * 100)) : 0;
             return (
               <button
                 key={f.name}
-                onClick={() => setPicked(f.name)}
+                onClick={() => setPicked(f.campaignId)}
                 className="w-full text-left rounded-xl border px-4 py-3 transition-[border-color,box-shadow,transform] hover:-translate-y-px"
                 style={{
                   borderColor: isPicked ? `color-mix(in srgb, ${gold} 55%, transparent)` : C.border,
