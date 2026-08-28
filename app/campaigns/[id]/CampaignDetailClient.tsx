@@ -452,7 +452,7 @@ export default function CampaignDetailClient({
       {/* ═══ TAB 0: METRICS — flow performance ═══ */}
       {tab === 0 && (
         flowMetrics
-          ? <FlowMetricsPanel metrics={flowMetrics} sellers={metricsSellers} filters={metricsFilters} />
+          ? <FlowMetricsPanel metrics={flowMetrics} sellers={metricsSellers} filters={metricsFilters} campaignId={campaignId} />
           : <div className="rounded-xl border py-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <p className="text-sm" style={{ color: C.textDim }}>No metrics yet for this flow.</p>
             </div>

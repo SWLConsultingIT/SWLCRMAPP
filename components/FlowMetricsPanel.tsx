@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
@@ -90,27 +90,62 @@ function Section({ title, action, children, pad = true }: { title: string; actio
   );
 }
 
-export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: {
+export default function FlowMetricsPanel({ metrics, sellers = [], filters, campaignId }: {
   metrics: FlowMetrics;
   sellers?: { id: string; name: string }[];
   filters?: { seller: string | null; range: string; from: string | null; to: string | null };
+  campaignId?: string;
 }) {
   const { t } = useLocale();
-  const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
-  // Filters drive server-side cohort recompute via searchParams (?seller & ?range).
-  // Keeps tab=0 (Metrics) and drops empty params so the URL stays clean.
-  const setFilter = (patch: Record<string, string | null>) => {
-    const next = new URLSearchParams(sp.toString());
-    next.set("tab", "0");
-    for (const [k, v] of Object.entries(patch)) { if (v) next.set(k, v); else next.delete(k); }
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-  };
-  const curRange = filters?.range ?? "all";
-  const curSeller = filters?.seller ?? null;
+  // Filter changes recompute ONLY this section via /api/campaigns/[id]/flow-metrics
+  // (no full-page rerender, no scroll loss). Previous data stays visible while
+  // the new response loads; a request id guards against out-of-order responses.
+  const [data, setData] = useState<FlowMetrics>(metrics);
+  const [sel, setSel] = useState(() => ({ seller: filters?.seller ?? null, range: filters?.range ?? "all", from: filters?.from ?? "", to: filters?.to ?? "" }));
+  const [updating, setUpdating] = useState(false);
+  const reqIdRef = useRef(0);
+  // Server-driven changes (deep-link / navigation) refresh the baseline data.
+  useEffect(() => { setData(metrics); }, [metrics]);
+  const m = data;
+  const curRange = sel.range;
+  const curSeller = sel.seller;
   const [cFrom, setCFrom] = useState(filters?.from ?? "");
   const [cTo, setCTo] = useState(filters?.to ?? "");
+
+  async function applyFilters(patch: Partial<typeof sel>) {
+    const next = { ...sel, ...patch };
+    setSel(next);
+    // Sync the URL (so a reload keeps the filter) WITHOUT a Next navigation —
+    // history.replaceState won't re-run the server component.
+    try {
+      const usp = new URLSearchParams(sp.toString());
+      usp.set("tab", "0");
+      const url: Record<string, string> = {};
+      if (next.seller) url.seller = next.seller;
+      if (next.range !== "all") url.range = next.range;
+      if (next.range === "custom") { if (next.from) url.from = next.from; if (next.to) url.to = next.to; }
+      for (const k of ["seller", "range", "from", "to"]) url[k] ? usp.set(k, url[k]) : usp.delete(k);
+      window.history.replaceState(null, "", `${pathname}?${usp.toString()}`);
+    } catch { /* ignore */ }
+    if (!campaignId) return;
+    const rid = ++reqIdRef.current;
+    setUpdating(true);
+    const q = new URLSearchParams();
+    if (next.seller) q.set("seller", next.seller);
+    if (next.range !== "all") q.set("range", next.range);
+    if (next.range === "custom") { if (next.from) q.set("from", next.from); if (next.to) q.set("to", next.to); }
+    try {
+      const r = await fetch(`/api/campaigns/${campaignId}/flow-metrics?${q.toString()}`, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (rid !== reqIdRef.current) return; // a newer selection already won
+      if (j?.metrics) setData(j.metrics as FlowMetrics);
+    } catch { /* keep previous data */ } finally {
+      if (rid === reqIdRef.current) setUpdating(false);
+    }
+  }
+
   const [open, setOpen] = useState<DrillKey | null>(null);
   // Which section opened the drill, so the lead list renders RIGHT THERE
   // (under the funnel vs under Issues) instead of always jumping to the top.
@@ -174,7 +209,7 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
         {sellers.length > 1 && (
           <label className="inline-flex items-center gap-2 text-[12px] rounded-lg border px-3 py-1.5" style={{ borderColor: C.border2, backgroundColor: C.card }}>
             <span className="font-semibold uppercase tracking-wider text-[9px]" style={{ color: C.textDim }}>Seller</span>
-            <select value={curSeller ?? ""} onChange={e => setFilter({ seller: e.target.value || null })}
+            <select value={curSeller ?? ""} onChange={e => applyFilters({ seller: e.target.value || null })}
               className="bg-transparent outline-none font-semibold cursor-pointer" style={{ color: C.textBody }}>
               <option value="">All sellers</option>
               {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -187,8 +222,8 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
             return (
               <button key={r.k} type="button"
                 onClick={() => r.k === "custom"
-                  ? setFilter({ range: "custom", from: cFrom || null, to: cTo || null })
-                  : setFilter({ range: r.k === "all" ? null : r.k, from: null, to: null })}
+                  ? applyFilters({ range: "custom", from: cFrom, to: cTo })
+                  : applyFilters({ range: r.k, from: "", to: "" })}
                 className="text-[12px] font-semibold px-3 py-1 rounded-md transition-colors"
                 style={{ backgroundColor: on ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent", color: on ? "var(--fg1)" : C.textMuted }}>
                 {r.label}
@@ -201,14 +236,24 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
             <input type="date" value={cFrom} onChange={e => setCFrom(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ borderColor: C.border2, backgroundColor: C.card, color: C.textBody }} />
             <span className="text-[11px]" style={{ color: C.textDim }}>→</span>
             <input type="date" value={cTo} onChange={e => setCTo(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ borderColor: C.border2, backgroundColor: C.card, color: C.textBody }} />
-            <button type="button" disabled={!cFrom} onClick={() => cFrom && setFilter({ range: "custom", from: cFrom, to: cTo || null })}
+            <button type="button" disabled={!cFrom} onClick={() => cFrom && applyFilters({ range: "custom", from: cFrom, to: cTo })}
               className="text-[11px] font-bold px-2.5 py-1 rounded-md disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>Apply</button>
           </span>
         )}
-        {curRange !== "all" && curRange !== "custom" && (
+        {updating && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--fg1)" }}>
+            <span className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: `color-mix(in srgb, ${gold} 60%, transparent)`, borderTopColor: "transparent" }} />
+            Updating…
+          </span>
+        )}
+        {!updating && curRange !== "all" && curRange !== "custom" && (
           <span className="text-[11px]" style={{ color: C.textDim }}>· cohort = leads started in period{curSeller ? " · seller-scoped" : ""}</span>
         )}
       </div>
+      {/* Everything below the filter bar dims while a new cohort loads — the
+          previous numbers stay readable, no flash, no layout jump. */}
+      <div style={{ opacity: updating ? 0.5 : 1, transition: "opacity .18s", pointerEvents: updating ? "none" : "auto" }}>
+      <div className="space-y-5">
 
       {/* ── COOLDOWN BANNER ── */}
       {m.cooldown && (
@@ -549,6 +594,8 @@ export default function FlowMetricsPanel({ metrics: m, sellers = [], filters }: 
         {/* drill list — only when opened from Issues, so it appears RIGHT HERE */}
         {openFrom === "issues" && drillPanel}
       </Section>
+      </div>{/* /space-y-5 (sections) */}
+      </div>{/* /dim wrapper */}
     </div>
   );
 }
