@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import CampaignDetailClient from "./CampaignDetailClient";
 import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
+import { isRealCall, isConnected, isPositiveOutcome, callOutcomeGroup, healthOf, pctOf, type CallRow } from "@/lib/flow-metrics-lib";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Hydrates client-source leads in a list by decrypting encrypted_payload
@@ -206,8 +207,9 @@ async function getFlowMetrics(
   leadInfo: Map<string, { name: string; company: string | null }>,
   channelsUsed: string[],
   progressPct: number,
-  campRows: { lead_id: string; status: string; current_step: number | null; started_at: string | null }[],
+  campRows: { lead_id: string; status: string; current_step: number | null; started_at: string | null; seller_id: string | null; last_step_at: string | null }[],
   dailyLimit: number | null,
+  sellerMap: Map<string, string>,
 ): Promise<FlowMetrics | null> {
   if (campaignIds.length === 0) return null;
   const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -223,6 +225,7 @@ async function getFlowMetrics(
     msgs = msgs.concat(await restGet(`campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&select=lead_id,step_number,channel,status,sent_at,error_details,metadata`));
   }
   const connected = new Set<string>(); const bouncedSet = new Set<string>(); const lostSet = new Set<string>();
+  const qualifiedSet = new Set<string>(); // meetings = unique leads at status 'qualified' (single attribution — see def #5)
   for (let i = 0; i < leadIds.length; i += 100) {
     const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
     const rows = await restGet(`leads?id=in.${encodeURIComponent(inClause)}&select=id,linkedin_connected,primary_email_status,status`);
@@ -230,6 +233,7 @@ async function getFlowMetrics(
       if (r.linkedin_connected) connected.add(r.id);
       if (r.primary_email_status === "bounced") bouncedSet.add(r.id);
       if (r.status === "closed_lost") lostSet.add(r.id);
+      if (r.status === "qualified") qualifiedSet.add(r.id);
     });
   }
   // Reply classification per lead (strongest: positive > question > negative > other)
@@ -237,6 +241,7 @@ async function getFlowMetrics(
   const replyClass = new Map<string, string>();
   const replyText = new Map<string, { text: string; at: string; channel: string }>();
   const repliesByChannel: Record<string, Set<string>> = {};
+  const positiveByChannel: Record<string, Set<string>> = {};
   const firstReplyAt = new Map<string, string>();
   const replyDates: string[] = [];
   // Bucketing aligned with the inbox classBadge so Metrics + Inbox + lead
@@ -268,6 +273,7 @@ async function getFlowMetrics(
       if (at && (!fr || at < fr)) firstReplyAt.set(r.lead_id, at);
       if (at) replyDates.push(at);
       const ch = r.channel ?? "other"; (repliesByChannel[ch] ||= new Set()).add(r.lead_id);
+      if (bucket === "positive") (positiveByChannel[ch] ||= new Set()).add(r.lead_id);
     });
   }
   const repliedSet = new Set(replyClass.keys());
@@ -329,18 +335,29 @@ async function getFlowMetrics(
     };
   });
 
+  const liDmsSent = sent.filter(m => m.channel === "linkedin" && m.step_number > 0).length;
+  const liReplies = repliesByChannel["linkedin"]?.size ?? 0;
+  const liPositive = positiveByChannel["linkedin"]?.size ?? 0;
   const linkedin = channelsUsed.includes("linkedin") ? {
     invitesSent: requestsSent, accepted, acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
     pendingAccept: pendingAcceptSet.size,
-    dmsSent: sent.filter(m => m.channel === "linkedin" && m.step_number > 0).length,
-    replies: repliesByChannel["linkedin"]?.size ?? 0,
+    dmsSent: liDmsSent,
+    replies: liReplies,
+    positive: liPositive,
+    replyRate: pctOf(liReplies, liDmsSent),
+    positiveReplyRate: pctOf(liPositive, liReplies),
     failed: msgs.filter(m => m.channel === "linkedin" && m.status === "failed").length,
   } : null;
   const emailSent = sent.filter(m => m.channel === "email").length;
+  const emReplies = repliesByChannel["email"]?.size ?? 0;
+  const emPositive = positiveByChannel["email"]?.size ?? 0;
   const email = channelsUsed.includes("email") ? {
     sent: emailSent, bounced: bouncedSet.size,
     bounceRate: (emailSent + bouncedSet.size) ? Math.round((bouncedSet.size / (emailSent + bouncedSet.size)) * 100) : 0,
-    replies: repliesByChannel["email"]?.size ?? 0,
+    replies: emReplies,
+    positive: emPositive,
+    replyRate: pctOf(emReplies, emailSent),
+    positiveReplyRate: pctOf(emPositive, emReplies),
   } : null;
   const call = channelsUsed.includes("call") ? { dialed: sent.filter(m => m.channel === "call").length } : null;
 
@@ -377,6 +394,104 @@ async function getFlowMetrics(
     const newest = Math.max(...rlTimes);
     if (now - newest < 4 * 3600 * 1000) cooldown = { until: new Date(newest + 4 * 3600 * 1000).toISOString(), channel: "linkedin" };
   }
+
+  // ── Cold-calling — the REAL calls table (campaign_messages channel=call is
+  // only the queued STEP marker). Central rules from flow-metrics-lib so
+  // connect-rate / positive / unreachable are defined in ONE place (def #4). ──
+  const callRows: CallRow[] = [];
+  for (let i = 0; i < leadIds.length; i += 100) {
+    const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
+    const rows = await restGet(`calls?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,seller_id,status,duration,classification,aircall_call_id,started_at`);
+    rows.forEach((r: any) => callRows.push(r as CallRow));
+  }
+  const realCalls = callRows.filter(isRealCall);
+  const connectedCalls = realCalls.filter(isConnected);
+  const callLeadSet = new Set(realCalls.map(c => c.lead_id));
+  const callGroupCounts: Record<string, number> = { positive: 0, followup: 0, negative: 0, unreachable: 0, other: 0 };
+  const callOutcomeCounts: Record<string, number> = {};
+  realCalls.forEach(c => {
+    callGroupCounts[callOutcomeGroup(c)]++;
+    const raw = c.classification ?? "unclassified";
+    callOutcomeCounts[raw] = (callOutcomeCounts[raw] ?? 0) + 1;
+  });
+  // Meetings = unique 'qualified' leads (single source, def #5). Step-3
+  // conversion counts only meetings whose lead actually reached the call stage.
+  const meetingsFromCalls = [...qualifiedSet].filter(id => callLeadSet.has(id)).length;
+  const callStage = channelsUsed.includes("call") ? {
+    made: realCalls.length,
+    connected: connectedCalls.length,
+    connectRate: pctOf(connectedCalls.length, realCalls.length),
+    positiveOutcomes: realCalls.filter(isPositiveOutcome).length,
+    meetings: meetingsFromCalls,
+    meetingConversion: pctOf(meetingsFromCalls, connectedCalls.length),
+    groups: callGroupCounts,
+    outcomes: callOutcomeCounts,
+  } : null;
+
+  // ── Pipeline — where the leads are NOW. Buckets are mutually exclusive and
+  // sum to the cohort (def #6). current_step is 0-indexed over `sequence`. ──
+  const stageChannel = (step: number | null) =>
+    sequence[Math.max(0, Math.min(step ?? 0, sequence.length - 1))]?.channel ?? "linkedin";
+  const pipeline = { inLinkedin: 0, inEmail: 0, inCall: 0, repliedExited: 0, completedNoResponse: 0, removed: 0, other: 0 };
+  const agingAcc: Record<string, { active: number; stuck: number; sumDays: number; withTs: number }> = {
+    linkedin: { active: 0, stuck: 0, sumDays: 0, withTs: 0 },
+    email: { active: 0, stuck: 0, sumDays: 0, withTs: 0 },
+    call: { active: 0, stuck: 0, sumDays: 0, withTs: 0 },
+  };
+  const STUCK_DAYS = 3;
+  for (const c of campRows) {
+    const replied = repliedSet.has(c.lead_id);
+    if (c.status === "active" || c.status === "paused") {
+      const ch = stageChannel(c.current_step);
+      if (ch === "linkedin") pipeline.inLinkedin++;
+      else if (ch === "email") pipeline.inEmail++;
+      else if (ch === "call") pipeline.inCall++;
+      else pipeline.other++;
+      const ag = agingAcc[ch] ?? (agingAcc[ch] = { active: 0, stuck: 0, sumDays: 0, withTs: 0 });
+      ag.active++;
+      if (c.last_step_at) {
+        const days = (now - new Date(c.last_step_at).getTime()) / 86400000;
+        if (days >= 0) { ag.withTs++; ag.sumDays += days; if (days > STUCK_DAYS) ag.stuck++; }
+      }
+    } else if (c.status === "completed") {
+      if (replied) pipeline.repliedExited++; else pipeline.completedNoResponse++;
+    } else if (c.status === "closed_lost") {
+      pipeline.repliedExited++;
+    } else if (c.status === "cancelled") {
+      pipeline.removed++;
+    } else {
+      pipeline.other++;
+    }
+  }
+  const stageAging = Object.fromEntries(Object.entries(agingAcc).map(([ch, a]) => [ch, {
+    active: a.active, stuckOver3d: a.stuck, avgDays: a.withTs ? Math.round((a.sumDays / a.withTs) * 10) / 10 : null, tracked: a.withTs,
+  }])) as Record<string, { active: number; stuckOver3d: number; avgDays: number | null; tracked: number }>;
+
+  // ── Seller performance — activity → engagement → outcomes → meetings, with
+  // normalized rates so different-volume sellers are comparable (def #5). ──
+  const sellerIds = [...new Set(campRows.map(c => c.seller_id).filter(Boolean) as string[])];
+  const sellers = sellerIds.map(sid => {
+    const leadSet = new Set(campRows.filter(c => c.seller_id === sid).map(c => c.lead_id));
+    const inSet = (id: string) => leadSet.has(id);
+    const sCalls = realCalls.filter(c => inSet(c.lead_id));
+    const contactedN = [...contactedSet].filter(inSet).length;
+    const repliesN = [...repliedSet].filter(inSet).length;
+    const positiveN = [...positiveSet].filter(inSet).length;
+    const meetingsN = [...qualifiedSet].filter(inSet).length;
+    return {
+      sellerId: sid, name: sellerMap.get(sid) ?? "—",
+      leads: leadSet.size, contacted: contactedN,
+      linkedinSent: sent.filter(m => m.channel === "linkedin" && inSet(m.lead_id)).length,
+      emailsSent: sent.filter(m => m.channel === "email" && inSet(m.lead_id)).length,
+      callsMade: sCalls.length, callsConnected: sCalls.filter(isConnected).length,
+      replies: repliesN, positiveReplies: positiveN,
+      positiveOutcomes: sCalls.filter(isPositiveOutcome).length, meetings: meetingsN,
+      connectRate: pctOf(sCalls.filter(isConnected).length, sCalls.length),
+      positiveReplyRate: pctOf(positiveN, repliesN),
+      meetingsPer100: contactedN > 0 ? Math.round((meetingsN / contactedN) * 1000) / 10 : 0,
+      positivePer100: contactedN > 0 ? Math.round((positiveN / contactedN) * 1000) / 10 : 0,
+    };
+  }).sort((a, b) => b.meetings - a.meetings || b.positiveReplies - a.positiveReplies);
 
   const failedMsgs = msgs.filter(m => m.status === "failed");
   const failCounts: Record<string, number> = {};
@@ -428,6 +543,19 @@ async function getFlowMetrics(
     replyRate: pct(repliedSet.size, messagedSet.size),
     positiveRate: pct(positiveSet.size, repliedSet.size),
     progressPct, pendingAccept: pendingAcceptSet.size, lost: lostSet.size,
+    // ── Flow Metrics redesign (2026-08-27) — unique-lead outcome metrics,
+    // call stage from the real calls table, pipeline distribution, sellers. ──
+    meetings: qualifiedSet.size,
+    meetingRate: pct(qualifiedSet.size, totalLeads),
+    positiveLeadRate: pct(positiveSet.size, totalLeads),
+    callStage, pipeline, stageAging, sellers,
+    positivesByChannel: { linkedin: liPositive, email: emPositive },
+    health: {
+      bounceRate: healthOf("bounceRate", email?.bounceRate ?? 0),
+      connectRate: callStage ? healthOf("connectRate", callStage.connectRate) : "healthy",
+      meetingConversion: callStage ? healthOf("meetingConversion", callStage.meetingConversion) : "healthy",
+      positiveReplyRate: healthOf("positiveReplyRate", pct(positiveSet.size, repliedSet.size)),
+    },
     statusDist, steps, linkedin, email, call, failureReasons,
     replyBreakdown: {
       positive: [...replyClass.values()].filter(b => b === "positive").length,
@@ -666,11 +794,17 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   // + the Leads activity table computed over a SINGLE lead. leads.id is present
   // on rep + siblings → fixes the counts to the full cohort.
   const flowLeadIds = [...new Set(allGroupCampaigns.map(c => ((c as any).leads?.id as string | undefined)).filter(Boolean) as string[])];
+  const sellerMap = new Map<string, string>();
+  for (const c of allGroupCampaigns) {
+    const sid = (c as any).seller_id as string | null | undefined;
+    const nm = (c as any).sellers?.name as string | null | undefined;
+    if (sid && nm && !sellerMap.has(sid)) sellerMap.set(sid, nm);
+  }
   const campRows = allGroupCampaigns
-    .map(c => ({ lead_id: (c as any).leads?.id as string | undefined, status: c.status as string, current_step: (c.current_step ?? null) as number | null, started_at: ((c as any).started_at ?? null) as string | null }))
-    .filter((r): r is { lead_id: string; status: string; current_step: number | null; started_at: string | null } => !!r.lead_id);
+    .map(c => ({ lead_id: (c as any).leads?.id as string | undefined, status: c.status as string, current_step: (c.current_step ?? null) as number | null, started_at: ((c as any).started_at ?? null) as string | null, seller_id: ((c as any).seller_id ?? null) as string | null, last_step_at: ((c as any).last_step_at ?? null) as string | null }))
+    .filter((r): r is { lead_id: string; status: string; current_step: number | null; started_at: string | null; seller_id: string | null; last_step_at: string | null } => !!r.lead_id);
   const sellerDailyLimit = (campaign.sellers?.linkedin_daily_limit as number | null | undefined) ?? null;
-  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows, sellerDailyLimit);
+  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows, sellerDailyLimit, sellerMap);
 
   // Attach each lead's reply bucket to the kanban campaigns so the board can
   // badge POSITIVE / NEGATIVE / REPLIED instead of stale dispatch plumbing.

@@ -32,13 +32,23 @@ export type FlowMetrics = {
     label: string; channel: string; replies: number; replyRate: number; sent: number; failed: number; skipped: number; pending: number;
     leads: { sent: DrillLead[]; failed: DrillLead[]; skipped: DrillLead[]; pending: DrillLead[] };
   }[];
-  linkedin: { invitesSent: number; accepted: number; acceptRate: number; pendingAccept: number; dmsSent: number; replies: number; failed: number } | null;
-  email: { sent: number; bounced: number; bounceRate: number; replies: number } | null;
+  linkedin: { invitesSent: number; accepted: number; acceptRate: number; pendingAccept: number; dmsSent: number; replies: number; positive: number; replyRate: number; positiveReplyRate: number; failed: number } | null;
+  email: { sent: number; bounced: number; bounceRate: number; replies: number; positive: number; replyRate: number; positiveReplyRate: number } | null;
   call: { dialed: number } | null;
   failureReasons: { reason: string; count: number }[];
   replyBreakdown: { positive: number; negative: number; question: number; followup: number; other: number };
   drill: { contacted: DrillLead[]; accepted: DrillLead[]; messaged: DrillLead[]; pendingAccept: DrillLead[]; replied: DrillLead[]; positive: DrillLead[]; bounced: DrillLead[]; failed: DrillLead[] };
+  // ── Flow Metrics redesign (2026-08-27): unique-lead outcomes, call stage,
+  // pipeline distribution, per-seller. UI consumes these in the next increment. ──
+  meetings: number; meetingRate: number; positiveLeadRate: number;
+  callStage: { made: number; connected: number; connectRate: number; positiveOutcomes: number; meetings: number; meetingConversion: number; groups: Record<string, number>; outcomes: Record<string, number> } | null;
+  pipeline: { inLinkedin: number; inEmail: number; inCall: number; repliedExited: number; completedNoResponse: number; removed: number; other: number };
+  stageAging: Record<string, { active: number; stuckOver3d: number; avgDays: number | null; tracked: number }>;
+  sellers: { sellerId: string; name: string; leads: number; contacted: number; linkedinSent: number; emailsSent: number; callsMade: number; callsConnected: number; replies: number; positiveReplies: number; positiveOutcomes: number; meetings: number; connectRate: number; positiveReplyRate: number; meetingsPer100: number; positivePer100: number }[];
+  positivesByChannel: { linkedin: number; email: number };
+  health: { bounceRate: FlowHealth; connectRate: FlowHealth; meetingConversion: FlowHealth; positiveReplyRate: FlowHealth };
 };
+export type FlowHealth = "healthy" | "warning" | "critical";
 type DrillKey = keyof FlowMetrics["drill"];
 
 // Channels are identified by their LOGO tinted with the SWL gold ramp (--fg*)
