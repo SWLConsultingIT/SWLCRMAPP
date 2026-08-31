@@ -55,6 +55,19 @@ export async function getFlowMetrics(
   // to this cohort's leads. No-op when leadIds = full flow.
   const cohortSet = new Set(leadIds);
   const msgs: Msg[] = msgsRaw.filter(m => cohortSet.has(m.lead_id));
+  // Per-lead enrollment time in THIS flow (earliest started_at across its rows).
+  // Lead-level EVENTS (calls, replies) are only veridical for this flow if they
+  // happened at/after the lead was enrolled here — a lead reused from an older
+  // flow otherwise drags its historical calls/replies into this one. (Calls
+  // carry no campaign_id, so time is the only signal available.)
+  const enrollAt = new Map<string, number>();
+  for (const c of campRows) {
+    if (!c.started_at) continue;
+    const t = Date.parse(c.started_at);
+    if (!isFinite(t)) continue;
+    const p = enrollAt.get(c.lead_id);
+    if (p === undefined || t < p) enrollAt.set(c.lead_id, t);
+  }
   const connected = new Set<string>(); const bouncedSet = new Set<string>(); const lostSet = new Set<string>();
   const qualifiedSet = new Set<string>(); // meetings = unique leads at status 'qualified' (single attribution — see def #5)
   leadStatusRows.forEach((r: any) => {
@@ -86,6 +99,10 @@ export async function getFlowMetrics(
     : (c === "negative") ? "negative"
     : "other";
   replyRowsRaw.forEach((r: any) => {
+      // Only replies received at/after this flow enrolled the lead count here —
+      // a reply from a prior flow (reused lead) is not this flow's activity.
+      const enr = enrollAt.get(r.lead_id) ?? 0;
+      if (enr && r.received_at && Date.parse(r.received_at) < enr) return;
       const c = (r.classification ?? "").toLowerCase();
       const bucket = bucketOf(c);
       const prev = replyClass.get(r.lead_id);
@@ -103,6 +120,14 @@ export async function getFlowMetrics(
   const positiveSet = new Set([...replyClass].filter(([, b]) => b === "positive").map(([id]) => id));
 
   const sent = msgs.filter(m => m.status === "sent");
+  // Scope lead-level channel FLAGS to THIS flow: a LinkedIn connection / email
+  // bounce only counts if this flow actually messaged the lead on that channel.
+  // (Otherwise a lead reused from a prior flow shows "accepted" here with 0
+  // invites sent, or a bounce this flow never triggered.)
+  const liTouchedSet = new Set(sent.filter(m => m.channel === "linkedin").map(m => m.lead_id));
+  const emailedSet = new Set(sent.filter(m => m.channel === "email").map(m => m.lead_id));
+  for (const id of [...connected]) if (!liTouchedSet.has(id)) connected.delete(id);
+  for (const id of [...bouncedSet]) if (!emailedSet.has(id)) bouncedSet.delete(id);
   const requestsSent = sent.filter(m => m.step_number === 0 && m.channel === "linkedin").length;
   const step0SentLeads = new Set(sent.filter(m => m.step_number === 0 && m.channel === "linkedin").map(m => m.lead_id));
   const accepted = connected.size;
@@ -114,6 +139,12 @@ export async function getFlowMetrics(
   // made the funnel non-monotonic (email-heavy flows showed Messages 40 >
   // Accepted 5 → "800% of accepted"). Boss 2026-06-11.
   const contactedSet = new Set(sent.map(m => m.lead_id));
+  // Lead-status OUTCOMES (meetings = qualified, lost) only count for this flow if
+  // the flow actually contacted the lead here — a reused lead keeps its status
+  // from a prior flow otherwise. (Best available scope; there is no per-flow
+  // status-change timestamp.)
+  for (const id of [...qualifiedSet]) if (!contactedSet.has(id)) qualifiedSet.delete(id);
+  for (const id of [...lostSet]) if (!contactedSet.has(id)) lostSet.delete(id);
   const pendingAcceptSet = new Set([...step0SentLeads].filter(id => !connected.has(id) && !lostSet.has(id)));
 
   // Per-step breakdown (CR = step 0, then sequence steps).
@@ -221,7 +252,16 @@ export async function getFlowMetrics(
   // ── Cold-calling — the REAL calls table (campaign_messages channel=call is
   // only the queued STEP marker). Central rules from flow-metrics-lib so
   // connect-rate / positive / unreachable are defined in ONE place (def #4). ──
-  const callRows: CallRow[] = callRowsRaw as CallRow[];
+  // Calls carry no campaign_id, so scope them to THIS flow by time: only calls
+  // made at/after the lead's enrollment here. Prevents a reused lead's historic
+  // calls (from a prior flow) counting as this flow's activity — a brand-new
+  // flow must show 0 calls even if its leads were called elsewhere before.
+  const callRows: CallRow[] = (callRowsRaw as CallRow[]).filter(c => {
+    const enr = enrollAt.get(c.lead_id) ?? 0;
+    if (!enr) return true; // enrollment time unknown → don't over-filter
+    const t = c.started_at ? Date.parse(c.started_at) : NaN;
+    return isFinite(t) && t >= enr;
+  });
   const realCalls = callRows.filter(isRealCall);
   const connectedCalls = realCalls.filter(isConnected);
   const callLeadSet = new Set(realCalls.map(c => c.lead_id));
