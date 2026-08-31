@@ -1043,14 +1043,15 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           <ArrowRight size={11} style={{ opacity: 0.5 }} />
         </Link>
 
-        {/* Support: help requests sellers/companies send from the Help menu. */}
+        {/* Requests: change/bug/question requests sent from the Help menu ("?"),
+            managed here as a status kanban. Route stays /admin/support. */}
         <Link
           href="/admin/support"
           className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative"
           style={{ color: C.textMuted }}
         >
           <LifeBuoy size={14} />
-          Support
+          Requests
           {openRequests > 0 && (
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
               style={{ backgroundColor: "color-mix(in srgb, #D97706 15%, transparent)", color: "#D97706" }}>
