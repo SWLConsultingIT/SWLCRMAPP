@@ -88,7 +88,6 @@ export default function CampaignDetailClient({
   }, [sp]);
   const [acting, setActing] = useState<string | null>(null);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [expandedStep, setExpandedStep] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -886,7 +885,12 @@ export default function CampaignDetailClient({
             );
           })()}
 
-          {/* ── STEPS ACCORDION ── */}
+          {/* ── STEPS ── every message rendered open.
+              This used to be an accordion: one step's copy at a time, behind a
+              click. Reviewing a flow means reading the whole sequence — the
+              click was a toll on the main thing this tab is for, and it hid
+              from a reviewer the one thing worth checking, that the messages
+              read well one after the other. (Fran's boss, 2026-08-31.) */}
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
             {(() => {
               // If step_number 0 exists (connection request slot), sequence steps are offset by 1
@@ -898,7 +902,6 @@ export default function CampaignDetailClient({
               const inviteStatus = connReqMsg?.status ?? null;
               const inviteIsSent = inviteStatus === "sent";
               const inviteIsSkipped = inviteStatus === "skipped";
-              const inviteOpen = expandedStep === -1;
               // The connection request is conceptually the entry point for any
               // LinkedIn-channel campaign — you have to send the invite before
               // anything else on LinkedIn can happen. Always render it as the
@@ -910,9 +913,7 @@ export default function CampaignDetailClient({
               const inviteDay = 0;
               const renderInvite = () => (
                 <div style={{ borderBottom: `1px solid ${C.border}` }}>
-                  <button
-                    onClick={() => setExpandedStep(inviteOpen ? null : -1)}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">
+                  <div className="w-full flex items-center gap-3 px-5 py-3.5">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                       style={{ backgroundColor: inviteIsSent ? "#0A66C2" : inviteIsSkipped ? C.green : C.border }}>
                       {inviteIsSent ? <Check size={12} color="#fff" /> : <Share2 size={12} color="#fff" />}
@@ -937,19 +938,17 @@ export default function CampaignDetailClient({
                       <span className="text-xs px-2 py-0.5 rounded-md"
                         style={{ backgroundColor: C.surface, color: C.textMuted }}>{inviteStatus ?? "queued"}</span>
                     )}
-                  </button>
-                  {inviteOpen && (
-                    <div className="px-5 pb-4 pt-1">
-                      <div className="rounded-lg border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C206" }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Share2 size={12} style={{ color: "#0A66C2" }} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>Connection Request Note</span>
-                          <span className="text-[10px]" style={{ color: C.textDim }}>· {inviteBody.length}/200 chars</span>
-                        </div>
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{inviteBody}</p>
+                  </div>
+                  <div className="px-5 pb-4 pt-1">
+                    <div className="rounded-lg border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C206" }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Share2 size={12} style={{ color: "#0A66C2" }} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>Connection Request Note</span>
+                        <span className="text-[10px]" style={{ color: C.textDim }}>· {inviteBody.length}/200 chars</span>
                       </div>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{inviteBody}</p>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
               // Legacy-format detection: before 2026-05-22 the wizard saved
@@ -1005,7 +1004,6 @@ export default function CampaignDetailClient({
               const isPending = msg?.status === "draft";
               const isPast = i < currentStep;
               const isCurrent = i === currentStep;
-              const isOpen = expandedStep === i;
               const isEditing = editingIdx === i;
               const daysAfter = seq?.daysAfter ?? 0;
               const isFirstLinkedinRow = channel === "linkedin" && rows.slice(0, i).every(r => r.channel !== "linkedin");
@@ -1017,8 +1015,7 @@ export default function CampaignDetailClient({
               return (
                 <div key={i}>
                 <div style={{ borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                  <button onClick={() => setExpandedStep(isOpen ? null : i)}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">
+                  <div className="w-full flex items-center gap-3 px-5 py-3.5">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                       style={{ backgroundColor: isPast ? meta.color : isCurrent ? gold : C.border }}>
                       {isPast ? <Check size={12} color="#fff" /> : isCurrent ? <PlayCircle size={12} color="#fff" /> : <span className="text-[10px] font-bold text-white">{i + 1}</span>}
@@ -1029,63 +1026,61 @@ export default function CampaignDetailClient({
                     <div className="flex-1" />
                     {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}><Send size={10} /> Sent</span>}
                     {isPending && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.surface, color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
-                  </button>
+                  </div>
 
-                  {isOpen && (
-                    <div className="px-5 pb-4 pt-1 fade-in space-y-3">
-                      {/* Connection request note — only in first LinkedIn step */}
-                      {/* Step message */}
-                      {displayBody && !isEditing && (
-                        <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `color-mix(in srgb, ${gold} 19%, transparent)` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `color-mix(in srgb, ${gold} 2%, transparent)` : C.bg }}>
-                          {displaySubject && (
-                            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Subject: {displaySubject}</p>
-                          )}
-                          {!msg && tmpl && (
-                            <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>Template — not yet sent</p>
-                          )}
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{displayBody}</p>
-                          {/* Per-step attachments from sequence_steps[i].attachments —
-                              render as paperclip chips so the operator can see
-                              what the dispatcher will (or did) attach via
-                              Unipile. The actual binary is fetched at send
-                              time; here we only surface metadata. */}
-                          {Array.isArray((seq as any)?.attachments) && (seq as any).attachments.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              {((seq as any).attachments as Array<{ name: string; mimeType?: string; sizeBytes?: number }>).map((a, idx) => (
-                                <span key={idx}
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border"
-                                  title={a.mimeType ? `${a.mimeType}${a.sizeBytes ? ` · ${Math.round(a.sizeBytes / 1024)}KB` : ""}` : undefined}
-                                  style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}>
-                                  <Paperclip size={10} style={{ color: C.textMuted }} /> {a.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {(isPending || (!msg && tmpl)) && isEditable && msg && (
-                            <button onClick={() => { setEditingIdx(i); setEditContent(msg.content ?? ""); }}
-                              className="absolute top-3 right-3 flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"
-                              style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                              <Pencil size={10} /> Edit
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {isEditing && msg && (
-                        <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
-                          <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none" style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }} value={editContent} onChange={e => setEditContent(e.target.value)} />
-                          <div className="flex gap-2">
-                            <button onClick={() => saveMsg(msg.id)} disabled={saving} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save</button>
-                            <button onClick={() => setEditingIdx(null)} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs" style={{ backgroundColor: C.surface, color: C.textBody }}><X size={12} /> Cancel</button>
+                  <div className="px-5 pb-4 pt-1 space-y-3">
+                    {/* Connection request note — only in first LinkedIn step */}
+                    {/* Step message */}
+                    {displayBody && !isEditing && (
+                      <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `color-mix(in srgb, ${gold} 19%, transparent)` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `color-mix(in srgb, ${gold} 2%, transparent)` : C.bg }}>
+                        {displaySubject && (
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Subject: {displaySubject}</p>
+                        )}
+                        {!msg && tmpl && (
+                          <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>Template — not yet sent</p>
+                        )}
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{displayBody}</p>
+                        {/* Per-step attachments from sequence_steps[i].attachments —
+                            render as paperclip chips so the operator can see
+                            what the dispatcher will (or did) attach via
+                            Unipile. The actual binary is fetched at send
+                            time; here we only surface metadata. */}
+                        {Array.isArray((seq as any)?.attachments) && (seq as any).attachments.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {((seq as any).attachments as Array<{ name: string; mimeType?: string; sizeBytes?: number }>).map((a, idx) => (
+                              <span key={idx}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border"
+                                title={a.mimeType ? `${a.mimeType}${a.sizeBytes ? ` · ${Math.round(a.sizeBytes / 1024)}KB` : ""}` : undefined}
+                                style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}>
+                                <Paperclip size={10} style={{ color: C.textMuted }} /> {a.name}
+                              </span>
+                            ))}
                           </div>
+                        )}
+                        {(isPending || (!msg && tmpl)) && isEditable && msg && (
+                          <button onClick={() => { setEditingIdx(i); setEditContent(msg.content ?? ""); }}
+                            className="absolute top-3 right-3 flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"
+                            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
+                            <Pencil size={10} /> Edit
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {isEditing && msg && (
+                      <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
+                        <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none" style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }} value={editContent} onChange={e => setEditContent(e.target.value)} />
+                        <div className="flex gap-2">
+                          <button onClick={() => saveMsg(msg.id)} disabled={saving} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save</button>
+                          <button onClick={() => setEditingIdx(null)} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs" style={{ backgroundColor: C.surface, color: C.textBody }}><X size={12} /> Cancel</button>
                         </div>
-                      )}
-                      {!displayBody && !showConnNote && (
-                        <div className="rounded-lg border border-dashed p-4 text-center" style={{ borderColor: C.border }}>
-                          <p className="text-xs" style={{ color: C.textDim }}>No message for this step</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )}
+                    {!displayBody && !showConnNote && (
+                      <div className="rounded-lg border border-dashed p-4 text-center" style={{ borderColor: C.border }}>
+                        <p className="text-xs" style={{ color: C.textDim }}>No message for this step</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 </div>
               );
