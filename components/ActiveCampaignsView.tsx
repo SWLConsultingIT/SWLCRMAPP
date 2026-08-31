@@ -692,62 +692,82 @@ function LeaderboardRibbon({ groups, t }: { groups: CampaignGroup[]; t: Tr }) {
   );
 }
 
-// Compact flow card for the horizontal-scroll row inside each ICP section
-// (redesign 2026-08-25). The deep funnel/step breakdown lives on the flow
-// detail (/campaigns/[id]) — the card links there. Channels are shown by their
-// LOGO in a uniform gold tile (no per-channel rainbow).
+// Full-width flow row inside each ICP section (boss 2026-08-31: replaced the
+// fixed-width horizontal-scroll cards with rows that span the container — more
+// flows per screen, easier to scan). Links to the flow detail (/campaigns/[id])
+// where the deep funnel/step breakdown lives. Channels shown by LOGO in uniform
+// gold tiles; a gold progress hairline sits on the row's bottom edge.
 function FlowCard({ group, t }: { group: CampaignGroup; t: Tr }) {
   const st = statusConfig[group.status] ?? statusConfig.active;
   const seller = group.sellers[0];
+  const responseRate = group.totalLeads > 0 ? Math.round((group.totalReplies / group.totalLeads) * 100) : 0;
+  const stats: Array<{ key: "leads" | "replies" | "positive"; v: number; l: string; c: string; dim: boolean }> = [
+    { key: "leads",    v: group.totalLeads,    l: t("flows.metric.leads"),    c: C.textPrimary, dim: false },
+    { key: "replies",  v: group.totalReplies,  l: t("flows.metric.replies"),  c: "var(--fg1)",  dim: group.totalReplies === 0 },
+    { key: "positive", v: group.totalPositive, l: t("flows.metric.positive"), c: C.green,       dim: group.totalPositive === 0 },
+  ];
   return (
     <Link
       href={`/campaigns/${group.firstId}`}
-      className="shrink-0 w-[300px] rounded-2xl overflow-hidden transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:shadow-md"
-      style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, boxShadow: C.shadow, scrollSnapAlign: "start" }}
+      className="group relative block rounded-2xl overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-md"
+      style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, boxShadow: C.shadow }}
     >
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--fg1)" }}>{t("ticket.flow.preTitle")}</span>
-          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
-            style={{ color: st.color, backgroundColor: st.bg, border: `1px solid color-mix(in srgb, ${st.color} 28%, transparent)` }}>
-            {group.status === "active" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />}
-            {t(`flows.status.${st.key}`)}
-          </span>
-        </div>
-        <h3 className="text-[15px] font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{group.name}</h3>
-        <p className="text-[11.5px] mt-0.5 truncate" style={{ color: C.textMuted }}>{seller ? seller : "—"}{group.sellers.length > 1 ? ` +${group.sellers.length - 1}` : ""}</p>
-        <div className="flex gap-1.5 mt-2.5">
-          {group.channels.map(ch => {
-            const m = channelMeta[ch]; if (!m) return null; const Icon = m.icon;
-            return (
-              <span key={ch} className="w-6 h-6 rounded-md grid place-items-center"
-                title={m.label}
-                style={{ background: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)`, color: "var(--fg1)" }}>
-                <Icon size={12} />
+      {/* status accent rail — bold left edge reads the state at a glance */}
+      <span aria-hidden className="absolute left-0 top-3 bottom-3 rounded-full" style={{ width: 3, backgroundColor: st.color }} />
+
+      <div className="flex items-center gap-4 flex-wrap pl-5 pr-4 py-3.5">
+        {/* identity: channels + status + name + seller */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {group.channels.map(ch => {
+              const m = channelMeta[ch]; if (!m) return null; const Icon = m.icon;
+              return (
+                <span key={ch} className="w-6 h-6 rounded-md grid place-items-center" title={m.label}
+                  style={{ background: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)`, color: "var(--fg1)" }}>
+                  <Icon size={12} />
+                </span>
+              );
+            })}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                style={{ color: st.color, backgroundColor: st.bg, border: `1px solid color-mix(in srgb, ${st.color} 28%, transparent)` }}>
+                {group.status === "active" && <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />}
+                {t(`flows.status.${st.key}`)}
               </span>
-            );
-          })}
+              <h3 className="text-[15px] font-bold truncate group-hover:underline"
+                style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>{group.name}</h3>
+            </div>
+            <p className="text-[11.5px] mt-1 truncate" style={{ color: C.textMuted }}>
+              {seller ? seller : "—"}{group.sellers.length > 1 ? ` +${group.sellers.length - 1}` : ""}
+            </p>
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 mt-3">
-          {[
-            { v: group.totalLeads,    l: t("flows.metric.leads"),    c: C.textPrimary },
-            { v: group.totalReplies,  l: t("flows.metric.replies"),  c: "var(--fg1)" },
-            { v: group.totalPositive, l: t("flows.metric.positive"), c: C.green },
-          ].map(s => (
-            <div key={s.l} className="rounded-lg py-1.5 text-center" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
-              <p className="text-[16px] font-bold tabular-nums leading-none" style={{ color: s.c, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{s.v}</p>
-              <p className="text-[8px] font-bold uppercase tracking-wider mt-1" style={{ color: C.textMuted }}>{s.l}</p>
+
+        {/* metrics + progress + chevron */}
+        <div className="flex items-center gap-5 sm:gap-7 shrink-0">
+          {stats.map(s => (
+            <div key={s.key} className="text-right min-w-[52px]">
+              <p className="text-[18px] font-bold tabular-nums leading-none" style={{ color: s.dim ? C.textDim : s.c, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {s.v}{s.key === "replies" && s.v > 0 ? <span className="text-[11px] font-bold ml-1" style={{ color: C.textDim }}>{responseRate}%</span> : null}
+              </p>
+              <p className="text-[8.5px] font-bold uppercase tracking-[0.12em] mt-1.5" style={{ color: C.textMuted }}>{s.l}</p>
             </div>
           ))}
+          <span aria-hidden className="hidden sm:block w-px self-stretch my-1" style={{ backgroundColor: C.border }} />
+          <span className="hidden sm:inline text-[11px] font-bold tabular-nums shrink-0 min-w-[64px] text-right" style={{ color: "var(--fg1)" }}>
+            {group.avgProgress}%
+            {group.acceptRate != null ? <span className="block text-[9px] font-semibold mt-0.5" style={{ color: C.textDim }}>{group.acceptRate}% accept</span> : null}
+          </span>
+          <ChevronRight size={18} className="shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: C.textDim }} />
         </div>
       </div>
-      <div className="px-4 py-2.5 border-t flex items-center gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
-          <div className="h-1.5 rounded-full" style={{ width: `${group.avgProgress}%`, background: "linear-gradient(90deg, var(--fg2), var(--fg4))" }} />
-        </div>
-        <span className="text-[10px] font-bold tabular-nums shrink-0" style={{ color: C.textMuted }}>{group.avgProgress}%</span>
-        {group.acceptRate != null && <span className="text-[10px] font-bold shrink-0" style={{ color: "var(--fg1)" }}>{group.acceptRate}% accept</span>}
-      </div>
+
+      {/* full-width progress hairline seated on the bottom edge */}
+      <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)" }}>
+        <span className="block h-full" style={{ width: `${group.avgProgress}%`, background: "linear-gradient(90deg, var(--fg2), var(--fg4))" }} />
+      </span>
     </Link>
   );
 }
@@ -923,10 +943,11 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
           {/* Within-ICP leaderboard ribbon (boss 2026-05-29): compact
               podium ranking the section's flows by conversion. */}
           <LeaderboardRibbon groups={section.groups} t={t} />
-          {/* Flow cards in a horizontal scroll row (boss 2026-08-25) — scales
-              regardless of how many flows the ICP has. The deep funnel/steps
-              view moved to the flow detail (each card links there). */}
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollSnapType: "x proximity" }}>
+          {/* Full-width flow rows stacked vertically (boss 2026-08-31) —
+              replaced the fixed-width horizontal-scroll cards so each flow spans
+              the ICP container. The deep funnel/steps view lives on the flow
+              detail (each row links there). */}
+          <div className="flex flex-col gap-2.5">
             {section.groups.map(g => <FlowCard key={g.name} group={g} t={t} />)}
           </div>
         </div>
