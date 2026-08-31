@@ -1,26 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Fragment } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   HelpCircle, X, LayoutDashboard, Building2, Bell, LifeBuoy, Loader2, CheckCircle2,
   Sparkles, Send, Users, BarChart3, Plug, Shield, Inbox, Settings,
+  MessageSquare, AlertTriangle, CreditCard, Clock, Lightbulb, ChevronDown, ArrowLeft,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+
+const gold = "var(--brand, #c9a83a)";
 
 // Global "?" help menu in the TopHeader. Opens a centered modal that (1) lets
 // the user send a support request to the SWL team (lands in /admin/support) and
 // (2) explains every view of the app, with a click-through link to each.
 
 // Category values are stable; labels are resolved with t() inside the component.
-const REQUEST_CATEGORIES: { value: string; labelKey: string }[] = [
-  { value: "general", labelKey: "help.cat.general" },
-  { value: "bug", labelKey: "help.cat.bug" },
-  { value: "feature", labelKey: "help.cat.feature" },
-  { value: "question", labelKey: "help.cat.question" },
-  { value: "billing", labelKey: "help.cat.billing" },
+// Each carries an icon (scan-fast picker) + a tailored description placeholder.
+const REQUEST_CATEGORIES: { value: string; labelKey: string; phKey: string; icon: React.ComponentType<{ size?: number | string; style?: React.CSSProperties }>; wide?: boolean }[] = [
+  { value: "general",  labelKey: "help.cat.general",  phKey: "help.ph.general",  icon: MessageSquare },
+  { value: "bug",      labelKey: "help.cat.bug",      phKey: "help.ph.bug",      icon: AlertTriangle },
+  { value: "feature",  labelKey: "help.cat.feature",  phKey: "help.ph.feature",  icon: Sparkles },
+  { value: "question", labelKey: "help.cat.question", phKey: "help.ph.question", icon: HelpCircle },
+  { value: "billing",  labelKey: "help.cat.billing",  phKey: "help.ph.billing",  icon: CreditCard, wide: true },
 ];
 
 type MyRequest = {
@@ -30,7 +34,25 @@ type MyRequest = {
   status: "open" | "in_progress" | "resolved" | "rejected";
   admin_notes: string | null;
   created_at: string;
+  resolved_at: string | null;
 };
+
+// Client-side archive: which resolved requests this user dismissed from their
+// "?" list. Kept in localStorage (per-browser) so it never needs a DB column.
+const DISMISS_KEY = "swl.help.dismissed";
+function loadDismissed(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISS_KEY) || "[]")); } catch { return new Set(); }
+}
+
+// Resolved requests older than this auto-drop from the client list (they live on
+// forever in the admin registry). Keeps "Your requests" from piling up.
+const ARCHIVE_DAYS = 7;
+
+// The three-stage pipeline a request moves through, for the mini stepper.
+const STATUS_STEPS = ["open", "in_progress", "resolved"] as const;
+function statusRank(s: string): number {
+  return s === "resolved" ? 2 : s === "in_progress" ? 1 : 0;
+}
 
 // Status pill colors for the requester's "Your requests" list. Labels resolved
 // with t() inside the component via help.status.* keyed on status.
@@ -102,6 +124,16 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
+  const [showResolved, setShowResolved] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  useEffect(() => { setDismissed(loadDismissed()); }, []);
+  function dismissReq(id: string) {
+    setDismissed(prev => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem(DISMISS_KEY, JSON.stringify([...next])); } catch { /* private mode */ }
+      return next;
+    });
+  }
 
   const loadMine = useCallback(async () => {
     try {
@@ -147,6 +179,17 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
       setSending(false);
     }
   }
+
+  // Split the caller's requests: active (open / in_progress) stay visible; the
+  // resolved/rejected ones collapse and auto-drop after ARCHIVE_DAYS so the list
+  // never piles up. `dismissed` lets the user archive one manually right away.
+  const now = Date.now();
+  const visibleReqs = myRequests.filter(r => !dismissed.has(r.id));
+  const activeReqs = visibleReqs.filter(r => r.status === "open" || r.status === "in_progress");
+  const resolvedReqs = visibleReqs.filter(r =>
+    (r.status === "resolved" || r.status === "rejected") &&
+    !(r.resolved_at && now - new Date(r.resolved_at).getTime() > ARCHIVE_DAYS * 86400000));
+  const currentPh = t(REQUEST_CATEGORIES.find(c => c.value === category)?.phKey ?? "help.describe");
 
   const modal = (
     <div
@@ -201,7 +244,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-start gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `color-mix(in srgb, ${C.aiAccent} 14%, transparent)`, color: C.aiAccent }}>
+                      style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: "var(--fg1)" }}>
                       <LifeBuoy size={16} />
                     </div>
                     <div className="min-w-0">
@@ -213,55 +256,75 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                   </div>
                   <button
                     onClick={() => setShowForm(true)}
-                    className="shrink-0 text-xs font-semibold rounded-lg px-3 py-2 text-white"
-                    style={{ backgroundColor: C.aiAccent }}
+                    className="shrink-0 text-xs font-bold rounded-lg px-3.5 py-2 inline-flex items-center gap-1.5"
+                    style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 68%, white))`, color: "#1A1505" }}
                   >
-                    {t("help.newRequest")}
+                    <Send size={13} /> {t("help.newRequest")}
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
+                  <button onClick={() => setShowForm(false)} className="inline-flex items-center gap-1.5 text-[11px] font-bold" style={{ color: C.textMuted }}>
+                    <ArrowLeft size={12} /> {t("help.backToRequests")}
+                  </button>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textDim }}>{t("help.newRequestAbout")}</p>
+                  {/* Category picker — icon per type; tailored placeholder on pick. */}
                   <div className="grid grid-cols-2 gap-2">
-                    {REQUEST_CATEGORIES.map(c => (
-                      <button
-                        key={c.value}
-                        onClick={() => setCategory(c.value)}
-                        className="text-[11px] font-semibold rounded-lg px-2.5 py-1.5 border transition-colors"
-                        style={category === c.value
-                          ? { backgroundColor: `color-mix(in srgb, ${C.aiAccent} 12%, transparent)`, borderColor: C.aiAccent, color: C.aiAccent }
-                          : { borderColor: C.border, color: C.textMuted }}
-                      >
-                        {t(c.labelKey)}
-                      </button>
-                    ))}
+                    {REQUEST_CATEGORIES.map(c => {
+                      const on = category === c.value;
+                      const Icon = c.icon;
+                      return (
+                        <button
+                          key={c.value}
+                          onClick={() => setCategory(c.value)}
+                          className={`flex items-center gap-2.5 text-[12px] font-semibold rounded-xl px-3 py-2.5 border transition-colors text-left ${c.wide ? "col-span-2" : ""}`}
+                          style={on
+                            ? { backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, borderColor: gold, color: "var(--fg1)", boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${gold} 45%, transparent)` }
+                            : { borderColor: C.border, color: C.textMuted, backgroundColor: C.card }}
+                        >
+                          <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                            style={on ? { backgroundColor: `color-mix(in srgb, ${gold} 24%, transparent)`, color: "var(--fg1)" } : { backgroundColor: C.surface, color: C.textDim }}>
+                            <Icon size={14} />
+                          </span>
+                          {t(c.labelKey)}
+                        </button>
+                      );
+                    })}
                   </div>
                   <input
                     value={subject}
                     onChange={e => setSubject(e.target.value)}
-                    placeholder={t("help.subject")}
+                    placeholder={t("help.subjectOneLine")}
                     maxLength={200}
-                    className="w-full text-xs rounded-lg border px-3 py-2 outline-none"
+                    className="w-full text-xs rounded-lg border px-3 py-2.5 outline-none"
                     style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
                   />
                   <textarea
                     value={message}
                     onChange={e => setMessage(e.target.value)}
-                    placeholder={t("help.describe")}
+                    placeholder={currentPh}
                     rows={4}
                     maxLength={4000}
-                    className="w-full text-xs rounded-lg border px-3 py-2 outline-none resize-none"
+                    className="w-full text-xs rounded-lg border px-3 py-2.5 outline-none resize-none"
                     style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
                   />
+                  <p className="flex items-start gap-1.5 text-[11px]" style={{ color: C.textDim }}>
+                    <Lightbulb size={12} style={{ color: "var(--fg1)", flexShrink: 0, marginTop: 1 }} /> {t("help.contextTip")}
+                  </p>
                   {err && <p className="text-[11px]" style={{ color: C.red }}>{err}</p>}
-                  <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setShowForm(false)} className="text-[11px] font-semibold px-2.5 py-1.5" style={{ color: C.textMuted }}>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: C.textDim }}>
+                      <Clock size={12} /> {t("help.eta")}
+                    </span>
+                    <span className="flex-1" />
+                    <button onClick={() => setShowForm(false)} className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ color: C.textMuted }}>
                       {t("help.cancel")}
                     </button>
                     <button
                       onClick={submitRequest}
                       disabled={!subject.trim() || !message.trim() || sending}
-                      className="text-xs font-semibold rounded-lg px-3 py-2 text-white inline-flex items-center gap-1.5 disabled:opacity-50"
-                      style={{ backgroundColor: C.aiAccent }}
+                      className="text-xs font-bold rounded-lg px-3.5 py-2 inline-flex items-center gap-1.5 disabled:opacity-50"
+                      style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 68%, white))`, color: "#1A1505" }}
                     >
                       {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                       {sending ? t("help.sending") : t("help.sendRequest")}
@@ -272,13 +335,23 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
             </div>
           </div>
 
-          {/* Your requests — status of what this user has submitted */}
-          {myRequests.length > 0 && (
+          {/* Your requests — active carry a status stepper; resolved collapse
+              below and auto-drop after ARCHIVE_DAYS so the list never piles up. */}
+          {(activeReqs.length > 0 || resolvedReqs.length > 0) && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>{t("help.yourRequests")}</p>
-              <div className="space-y-1.5">
-                {myRequests.map(rq => {
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2 flex items-center gap-2" style={{ color: C.textDim }}>
+                {t("help.yourRequests")}
+                {activeReqs.length > 0 && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: "var(--fg1)" }}>
+                    {activeReqs.length} {t("help.active").toLowerCase()}
+                  </span>
+                )}
+              </p>
+
+              <div className="space-y-2">
+                {activeReqs.map(rq => {
                   const pill = STATUS_PILL[rq.status] ?? STATUS_PILL.open;
+                  const rank = statusRank(rq.status);
                   return (
                     <div key={rq.id} className="rounded-xl border px-3 py-2.5" style={{ borderColor: C.border }}>
                       <div className="flex items-center justify-between gap-2">
@@ -286,15 +359,73 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                         <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
                           style={{ backgroundColor: pill.bg, color: pill.fg }}>{t(`help.status.${rq.status}`)}</span>
                       </div>
+                      {/* mini pipeline stepper */}
+                      <div className="flex items-center mt-2">
+                        {STATUS_STEPS.map((s, i) => {
+                          const done = i < rank, cur = i === rank;
+                          const col = done ? C.green : cur ? C.aiAccent : C.textDim;
+                          return (
+                            <Fragment key={s}>
+                              {i > 0 && <span className="flex-1 h-[2px] mx-1.5 rounded" style={{ backgroundColor: i <= rank ? C.green : C.border }} />}
+                              <span className="inline-flex items-center gap-1">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: done || cur ? col : "transparent", border: `2px solid ${done || cur ? col : C.border}` }} />
+                                <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: done || cur ? col : C.textDim }}>{t(`help.status.${s}`)}</span>
+                              </span>
+                            </Fragment>
+                          );
+                        })}
+                      </div>
                       {rq.admin_notes && (
-                        <p className="text-[11px] mt-1.5 rounded-lg px-2 py-1.5" style={{ backgroundColor: C.bg, color: C.textMuted }}>
+                        <p className="text-[11px] mt-2 rounded-lg px-2 py-1.5" style={{ backgroundColor: C.bg, color: C.textMuted }}>
                           <span className="font-semibold" style={{ color: C.textBody }}>{t("help.swlTeam")}</span> {rq.admin_notes}
                         </p>
                       )}
                     </div>
                   );
                 })}
+                {activeReqs.length === 0 && (
+                  <p className="text-[11px] italic px-1 py-1" style={{ color: C.textDim }}>{t("help.noneActive")}</p>
+                )}
               </div>
+
+              {/* resolved — collapsed + auto-archived */}
+              {resolvedReqs.length > 0 && (
+                <div className="mt-2.5">
+                  <button onClick={() => setShowResolved(v => !v)}
+                    className="w-full flex items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-[11px] font-bold"
+                    style={{ borderColor: C.border, color: C.textMuted }}>
+                    <ChevronDown size={13} style={{ transform: showResolved ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                    {t("help.resolvedGroup")}
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 15%, transparent)`, color: C.green }}>{resolvedReqs.length}</span>
+                    <span className="ml-auto text-[10px] font-medium" style={{ color: C.textDim }}>{t("help.autoArchive")}</span>
+                  </button>
+                  {showResolved && (
+                    <div className="space-y-1.5 mt-2">
+                      {resolvedReqs.map(rq => {
+                        const pill = STATUS_PILL[rq.status] ?? STATUS_PILL.resolved;
+                        return (
+                          <div key={rq.id} className="rounded-xl border px-3 py-2" style={{ borderColor: C.border, opacity: 0.92 }}>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-semibold truncate flex-1" style={{ color: C.textPrimary }}>{rq.subject}</p>
+                              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
+                                style={{ backgroundColor: pill.bg, color: pill.fg }}>{t(`help.status.${rq.status}`)}</span>
+                              <button onClick={() => dismissReq(rq.id)} title={t("help.archiveNow")}
+                                className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md border" style={{ borderColor: C.border, color: C.textDim }}>
+                                <X size={12} />
+                              </button>
+                            </div>
+                            {rq.admin_notes && (
+                              <p className="text-[11px] mt-1.5 rounded-lg px-2 py-1.5" style={{ backgroundColor: C.bg, color: C.textMuted }}>
+                                <span className="font-semibold" style={{ color: C.textBody }}>{t("help.swlTeam")}</span> {rq.admin_notes}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
