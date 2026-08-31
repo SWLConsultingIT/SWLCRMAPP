@@ -359,7 +359,10 @@ type DispatchOutcome =
   | { kind: "parked_awaiting_acceptance"; msgId: string; leadId: string; nextEligibleAt: string }
   | { kind: "failed"; msgId: string; leadId: string; reason: string }
   | { kind: "rate_limited"; msgId: string; leadId: string; reason: string; cascadedCount: number }
-  | { kind: "lost_race"; msgId: string; leadId: string };
+  | { kind: "lost_race"; msgId: string; leadId: string }
+  // The campaign is paused: the message stays queued, untouched, and goes out
+  // when the flow resumes. Distinct from skipped, which is permanent.
+  | { kind: "held"; msgId: string; leadId: string; reason: string };
 
 // ────── DB helpers — mutate state, return shape (no NextResponse) ──────
 
@@ -693,6 +696,7 @@ async function dispatchOneMessage(
   // at send time, not trust that the queue was cleaned.
   const leadStatus = (rawLead as { status?: string | null }).status ?? "";
   const campaignActive = (campaign as { status?: string | null }).status === "active";
+  const campaignPaused = (campaign as { status?: string | null }).status === "paused";
   // Fran 2026-06-03 (per seller): a lead who replied AT ALL stops the flow
   // COMPLETELY — no auto-resume. Once the lead engages, the seller takes over
   // manually; the sequence must never re-fire on its own. Any lead_replies row
@@ -722,6 +726,19 @@ async function dispatchOneMessage(
   const NON_BLOCKING_REPLY = new Set(["connection_greeting"]);
   const hasReplied = Array.isArray(anyReply)
     && anyReply.some(r => !NON_BLOCKING_REPLY.has(((r as { classification?: string | null }).classification) ?? ""));
+  // PAUSE HOLDS, it does not discard. A paused campaign leaves its queued
+  // messages exactly as they are; they go out when the flow is resumed.
+  // Until 2026-08-31 `campaignActive` meant strictly "active", so every due
+  // message of a paused flow was marked `skipped` — permanently, because
+  // resuming does not revive a skipped row. Pausing the 1 136-lead PE & VC USA
+  // flow to edit its copy destroyed 785 queued LinkedIn DMs that way, 794
+  // platform-wide (Fran 2026-08-31).
+  if (campaignPaused && !leadTerminal && !hasReplied) {
+    return { kind: "held", msgId: candidate.id, leadId: candidate.lead_id, reason: "campaign paused" };
+  }
+  // Terminal states still skip: a completed / closed / cancelled campaign is
+  // over, and a lead who replied or went terminal must never get another step
+  // (the Diego @ Lanai guard above).
   if (!campaignActive || leadTerminal || hasReplied) {
     return await skipMessage(
       svc, candidate.id, candidate.lead_id,
@@ -1329,12 +1346,16 @@ async function handle(req: NextRequest) {
   let rateLimited = 0;
   let failed = 0;
   let skipped = 0;
+  // Messages a paused flow is holding — reported so a paused flow reads as
+  // "waiting", not as a silent no-op tick.
+  let held = 0;
   for (const r of sellerResults) {
     for (const o of r.outcomes) {
       if (o.kind === "sent") processed += 1;
       else if (o.kind === "rate_limited") rateLimited += 1;
       else if (o.kind === "failed") failed += 1;
       else if (o.kind === "skipped_connected" || o.kind === "skipped_invited") skipped += 1;
+      else if (o.kind === "held") held += 1;
     }
   }
 
@@ -1344,6 +1365,7 @@ async function handle(req: NextRequest) {
     rate_limited: rateLimited,
     failed,
     skipped,
+    held,
     sellers: sellerResults.map((r) => ({
       sellerId: r.sellerId,
       sellerName: r.sellerName,

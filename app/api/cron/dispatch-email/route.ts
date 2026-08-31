@@ -180,7 +180,10 @@ type EmailResult =
   | { kind: "failed"; msgId: string; leadId: string; reason: string }
   | { kind: "skipped"; msgId: string; leadId: string; reason: string }
   | { kind: "rate_limited"; msgId: string; leadId: string; reason: string }
-  | { kind: "lost_race"; msgId: string; leadId: string };
+  | { kind: "lost_race"; msgId: string; leadId: string }
+  // Paused campaign: the message stays queued and goes out on resume.
+  // Distinct from "skipped", which is permanent.
+  | { kind: "held"; msgId: string; leadId: string; reason: string };
 
 async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
@@ -330,10 +333,18 @@ async function dispatchOneEmail(
   const NON_BLOCKING_REPLY = new Set(["connection_greeting"]);
   const hasReplied = Array.isArray(anyReply)
     && anyReply.some(r => !NON_BLOCKING_REPLY.has(((r as { classification?: string | null }).classification) ?? ""));
-  if ((campaign as { status?: string | null }).status !== "active" || leadTerminal || hasReplied) {
+  // PAUSE HOLDS (mirrors dispatch-queue, 2026-08-31): a paused campaign leaves
+  // its queued messages alone instead of skipping them permanently. Skipping
+  // on pause is what destroyed 794 queued messages when a flow was paused to
+  // edit its copy — resuming does not revive a skipped row.
+  const campaignStatus = (campaign as { status?: string | null }).status;
+  if (campaignStatus === "paused" && !leadTerminal && !hasReplied) {
+    return { kind: "held", msgId: candidate.id, leadId: candidate.lead_id, reason: "campaign paused" };
+  }
+  if (campaignStatus !== "active" || leadTerminal || hasReplied) {
     return await skipMessage(
       svc, candidate.id, candidate.lead_id,
-      `stopped — campaign ${(campaign as { status?: string | null }).status}${leadTerminal ? " / lead terminal" : hasReplied ? " / lead replied (flow stopped)" : ""}`,
+      `stopped — campaign ${campaignStatus}${leadTerminal ? " / lead terminal" : hasReplied ? " / lead replied (flow stopped)" : ""}`,
     );
   }
 
