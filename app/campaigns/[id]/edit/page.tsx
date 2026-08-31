@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { LinkedInIcon, EmailIcon, PhoneIcon, WhatsAppIcon } from "@/components/SocialIcons";
 import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
+import { PlaceholdersHint } from "@/components/ChannelMessageConfig";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 
 const gold = C.gold;
@@ -559,6 +560,32 @@ export default function FlowEditorPage() {
 
         {/* ── RIGHT MAIN: Sequence Steps ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Placeholder validation. This screen had NONE: a token the
+              dispatcher can't render — or bracket syntax like [First Name] —
+              was saved straight onto the copy of every enrolled lead, and the
+              row is then refused at send time with nothing on screen to say
+              why. Same component and same rules as the creation wizard, so
+              the two can't drift. */}
+          <div className="mb-4">
+            <PlaceholdersHint
+              bodies={Object.values(messages)
+                .flatMap(m => [m?.content ?? "", m?.subject ?? ""])
+                .filter(Boolean)}
+              onAutoFix={(rewriter) => {
+                setMessages(prev => {
+                  const next: typeof prev = {};
+                  for (const [k, m] of Object.entries(prev)) {
+                    next[Number(k)] = {
+                      ...m,
+                      content: rewriter(m?.content ?? ""),
+                      subject: m?.subject ? rewriter(m.subject) : m?.subject,
+                    };
+                  }
+                  return next;
+                });
+              }}
+            />
+          </div>
           <div className="rounded-xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <div>

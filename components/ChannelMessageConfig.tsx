@@ -521,7 +521,11 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
 //   "Auto-fix" button that rewrites every recognised foreign token to
 //   its canonical {{snake_case}} form. The button calls back into the
 //   parent so the actual message bodies update in state.
-function PlaceholdersHint({
+// Exported so the flow editor (/campaigns/[id]/edit) validates with exactly
+// the same rules as the creation wizard. It had no placeholder checking at
+// all, which is the screen where a bad token is most expensive: the copy it
+// edits goes straight to every enrolled lead.
+export function PlaceholdersHint({
   bodies,
   onAutoFix,
   flowType = "generic",
