@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
-import { getDashboardData, getMyMetricsHeadline, getSellerActivity, getTeamMembers } from "@/lib/dashboard-data";
+import { getDashboardData, getSellerActivity, getTeamMembers } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
@@ -265,12 +265,15 @@ export default async function DashboardPage({
   // Always load filter options — they feed both the tab-level TabFilterBar
   // AND the per-chart ChartFilterChips (Donut on Overview also needs them).
   // 3 cheap queries, no point conditionally skipping.
-  const [data, t, locale, filterOptions, myHeadline, sellerActivity, teamMembers] = await Promise.all([
+  // getMyMetricsHeadline was removed here (2026-09-02): "My Metrics" is no
+  // longer rendered on the dashboard, but its fetch stayed — 2 queries per
+  // login (one a full campaign_messages re-scan) whose result `myHeadline` was
+  // never consumed. Dropping it takes that work off the login critical path.
+  const [data, t, locale, filterOptions, sellerActivity, teamMembers] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
     loadFilterOptions(bioId),
-    getMyMetricsHeadline(filters.myp),
     getSellerActivity(bioId),
     getTeamMembers(bioId),
   ]);

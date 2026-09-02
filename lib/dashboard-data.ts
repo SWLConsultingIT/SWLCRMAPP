@@ -229,6 +229,22 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     return bioId ? q.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : q;
   };
 
+  // Calls type + query hoisted here so the calls fetch joins the SAME parallel
+  // batch below instead of running as an extra sequential stage after it
+  // (perf 2026-09-02). Its own .catch keeps the "degrade to empty on RLS /
+  // column / FK-metadata failure" behavior the separate try/catch used to give.
+  type CallRow = {
+    id: string; lead_id: string | null; status: string | null;
+    duration: number | null; classification: string | null; started_at: string | null;
+    dialed_by_user_id: string | null; phone_number: string | null; coach_score: number | null;
+  };
+  const makeCallsQ = () => {
+    const q = supabase
+      .from("calls")
+      .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, coach_score, leads!inner(company_bio_id)");
+    return bioId ? q.eq("leads.company_bio_id", bioId) : q;
+  };
+
   const [
     allLeadsRaw,
     allCampsRaw,
@@ -236,6 +252,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     allMsgsRaw,
     allProfilesRaw,
     allSellersRaw,
+    allCallsRaw,
   ] = await Promise.all([
     fetchAllRows(makeLeadsQ),
     fetchAllRows(makeCampsQ),
@@ -243,6 +260,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     fetchAllRows(makeMsgsQ),
     fetchAllRows(makeProfilesQ),
     fetchAllRows(makeSellersQ),
+    fetchAllRows<CallRow>(makeCallsQ).catch((e) => {
+      console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
+      return [] as CallRow[];
+    }),
   ]);
 
   const allLeadsRawTyped = (allLeadsRaw ?? []) as Array<LeadRow & { source?: string | null; encrypted_payload?: unknown }>;
@@ -283,37 +304,12 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const allProfiles = (allProfilesRaw ?? []) as { id: string; profile_name: string }[];
   const allSellers = (allSellersRaw ?? []) as { id: string; name: string; active: boolean; user_id: string | null }[];
 
-  // Calls — fetched separately so any failure (RLS / missing column /
-  // FK metadata mismatch) doesn't bring the whole dashboard down. Scopes
-  // through the `leads!inner(company_bio_id)` embed instead of a
-  // `lead_id=in.(…)` filter.
-  //
-  // The old `.in("lead_id", cappedLeadIds)` approach broke silently for any
-  // large tenant: SWL has 1264 leads, so the generated PostgREST URL was
-  // ~47 KB of comma-joined UUIDs → the server rejected it with HTTP 400 →
-  // the catch below swallowed it → `allCalls = []` → the "Calls by user"
-  // panel rendered "No calls yet" even though 361 SWL calls existed. The
-  // embed join is bio-scoped server-side, so the URL stays tiny regardless
-  // of lead count (verified 2026-06-10).
-  type CallRow = {
-    id: string; lead_id: string | null; status: string | null;
-    duration: number | null; classification: string | null; started_at: string | null;
-    dialed_by_user_id: string | null; phone_number: string | null; coach_score: number | null;
-  };
-  let allCalls: CallRow[] = [];
-  try {
-    const makeCallsQ = () => {
-      const q = supabase
-        .from("calls")
-        .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, coach_score, leads!inner(company_bio_id)");
-      return bioId ? q.eq("leads.company_bio_id", bioId) : q;
-    };
-    allCalls = await fetchAllRows<CallRow>(makeCallsQ);
-    console.log(`[dashboard-data] loaded ${allCalls.length} calls (bio: ${bioId ?? "all"})`);
-  } catch (e) {
-    console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
-    allCalls = [];
-  }
+  // Calls — fetched in the parallel batch above (was a sequential stage here
+  // until 2026-09-02). Scoped through the `leads!inner(company_bio_id)` embed
+  // (NOT a `lead_id=in.(…)` filter, which built a ~47 KB URL for SWL's 1264
+  // leads and 400'd → silently empty "Calls by user" despite 361 real calls;
+  // verified 2026-06-10). Failures already degraded to [] via the batch .catch.
+  const allCalls = (allCallsRaw ?? []) as CallRow[];
 
   // ── Apply user-supplied filters in-memory ───────────────────────────────
   const fromMs = filters.from ? new Date(`${filters.from}T00:00:00Z`).getTime() : null;
@@ -654,7 +650,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const unknownDialerIds = [...new Set(
       allCalls.map(c => c.dialed_by_user_id).filter((id): id is string => !!id && !userToSeller.has(id))
     )];
-    for (const uid of unknownDialerIds) {
+    // Resolve identities in PARALLEL (was a sequential await-per-id loop until
+    // 2026-09-02 — negligible for a scoped tenant, but O(n) round-trips on the
+    // unscoped super_admin cross-tenant path).
+    await Promise.all(unknownDialerIds.map(async (uid) => {
       try {
         const { data } = await svc.auth.admin.getUserById(uid);
         const meta = data?.user?.user_metadata as Record<string, unknown> | undefined;
@@ -664,7 +663,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
           ?? uid.slice(0, 8);
         dialerIdentityMap.set(uid, name);
       } catch { dialerIdentityMap.set(uid, uid.slice(0, 8)); }
-    }
+    }));
   }
 
   type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string; hour: number; phone: string | null; campaignName: string | null; duration: number; coachScore: number | null };
