@@ -210,7 +210,12 @@ export function renderPlaceholders(
       `Seller name "${seller.name ?? ""}" looks like a system default — update sellers.name before dispatching.`,
     );
   }
-  const normalized = normalizePlaceholderBraces(template);
+  // Last-line-of-defense (incident 2026-09-02): even if a literal first name
+  // was baked into the greeting at generation time and slipped past the
+  // approve-time guardrail (legacy flows, imported copy, edited steps), catch
+  // it HERE — every send renders through this function, so "Hola Victor" →
+  // "Hola {{first_name}}" → the real lead's name, never a hardcoded one.
+  const normalized = normalizeGreetingName(normalizePlaceholderBraces(template));
 
   // A column the query never selected arrives as `undefined`, which is
   // indistinguishable from "the lead has no value" once we default to "".
