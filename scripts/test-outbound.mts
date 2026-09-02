@@ -3,7 +3,7 @@
 // Exercises the SHARED gate every channel sender uses (resolveOutbound) plus
 // the raw validator. If these pass, every channel behaves identically because
 // they all call resolveOutbound.
-import { renderPlaceholders, validateOutboundMessage, resolveOutbound, namesMatch } from "../lib/placeholders.ts";
+import { renderPlaceholders, validateOutboundMessage, resolveOutbound, namesMatch, autoNormalizePlaceholders } from "../lib/placeholders.ts";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];
@@ -116,6 +116,39 @@ console.log("\n== ALL placeholders: fill when present, BLOCK when missing ==");
   // seller_company (no data source) → block.
   const sc = resolveOutbound("Regards from {{seller_company}}", lead("Ana"), seller);
   check("seller_company (no data) BLOCKS", sc.ok === false && sc.code === "unresolved_placeholder", sc.ok ? sc.text : (sc as any).error);
+}
+
+console.log("\n== INCIDENT REPRO: PE Spain — add-leads copied a baked sibling (2026-08-28) ==");
+{
+  // Exact content shapes from the incident: an existing lead's row was stored
+  // already-rendered with THEIR name, and add-leads copied it as the template.
+  const sibStep1 = "Hola Marcos, Quería compartir un insight que estamos viendo de forma recurrente.";
+  const sibStep4 = "Hola Carlos, Volviendo a la conversación sobre AI Native en deal flow.";
+  const sibStep2 = "Hola Victor, hace unos dias te mandé un email sobre AI Native aplicado al deal flow.";
+
+  // FIX #1 (add-leads): copying now runs autoNormalizePlaceholders → de-bakes
+  // the baked greeting name back to the {{first_name}} token.
+  const t1 = autoNormalizePlaceholders(sibStep1).normalized;
+  const t4 = autoNormalizePlaceholders(sibStep4).normalized;
+  const t2 = autoNormalizePlaceholders(sibStep2).normalized;
+  check("add-leads de-bakes 'Hola Marcos' → {{first_name}}", t1.startsWith("Hola {{first_name}}"), t1);
+  check("add-leads de-bakes 'Hola Carlos' → {{first_name}}", t4.startsWith("Hola {{first_name}}"), t4);
+  check("add-leads de-bakes 'Hola Victor' → {{first_name}}", t2.startsWith("Hola {{first_name}}"), t2);
+
+  // A new lead seeded with the de-baked template renders THEIR OWN name.
+  const david = resolveOutbound(t1, lead("David"), seller, "email");
+  check("new lead David → 'Hola David' (never Marcos)", david.ok && david.text.startsWith("Hola David") && noBanned(david.text, "David") && !david.text.includes("Marcos"), david.ok ? david.text : (david as any).error);
+  const laura = resolveOutbound(t4, lead("Laura"), seller, "email");
+  check("new lead Laura → 'Hola Laura' (never Carlos)", laura.ok && laura.text.startsWith("Hola Laura") && !laura.text.includes("Carlos"), laura.ok ? laura.text : (laura as any).error);
+
+  // FIX #2 (send gate belt): even if the de-bake were skipped and the RAW baked
+  // sibling reached the sender for lead David, resolveOutbound must never ship
+  // "Marcos" — it self-heals the greeting to the real lead (or blocks).
+  const belt = resolveOutbound(sibStep1, lead("David"), seller, "email");
+  check("send gate never ships 'Marcos' to David (self-heal/block)", belt.ok ? (belt.text.includes("David") && !belt.text.includes("Marcos")) : true, belt.ok ? belt.text : (belt as any).error);
+  // And if that lead had NO first name, it must BLOCK rather than ship "Marcos".
+  const beltNoName = resolveOutbound(sibStep1, lead(null), seller, "email");
+  check("send gate BLOCKS baked 'Marcos' when lead has no name", beltNoName.ok === false, beltNoName.ok ? (beltNoName as any).text : "blocked");
 }
 
 console.log(`\n──────────\n${pass} passed, ${fail} failed`);
