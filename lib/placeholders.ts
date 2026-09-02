@@ -246,57 +246,35 @@ export function renderPlaceholders(
   const country = lead.company_country ?? "";
   const website = lead.company_website ?? "";
   const sellerName = seller.name ?? "";
-  // First name — snake, camel, and "name" alone. When the lead has NO first
-  // name we DELIBERATELY leave the {{…}} token unresolved (no silent "there"
-  // fallback) so validateOutboundMessage BLOCKS the send instead of shipping a
-  // placeholder-less greeting. Incident 2026-09-02 hardening.
-  let firstStep = normalized;
-  if (first) {
-    firstStep = firstStep
-      .replaceAll("{{first_name}}", first)
-      .replaceAll("{{firstName}}", first)
-      .replaceAll("{{name}}", first);
+  // Uniform rule for EVERY placeholder (incident 2026-09-02 hardening): a token
+  // is substituted ONLY when this lead actually has that value. When the value
+  // is empty we DELIBERATELY leave the `{{…}}` token unresolved so
+  // validateOutboundMessage BLOCKS the send instead of shipping a message with
+  // a hole where the seller expected real data (no silent blanks, no "there"
+  // fallback). The system honors the seller's message verbatim and fills each
+  // placeholder with this lead's data — or it doesn't send at all.
+  //
+  // NOTE: `seller_company` was previously mapped to "" (SWL has no such field).
+  // It is intentionally NOT substituted here, so if any template ever uses it
+  // the row is blocked for review rather than shipping a blank.
+  const substitutions: Array<[string, string[]]> = [
+    [first,      ["{{first_name}}", "{{firstName}}", "{{name}}"]],
+    [last,       ["{{last_name}}", "{{lastName}}"]],
+    [full,       ["{{full_name}}", "{{fullName}}"]],
+    [company,    ["{{company_name}}", "{{companyName}}", "{{company}}", "{{fund_name}}", "{{fundName}}", "{{firm_name}}", "{{firmName}}"]],
+    [role,       ["{{role}}", "{{title}}", "{{position}}"]],
+    [sellerName, ["{{seller_name}}", "{{sellerName}}", "{{sender_name}}", "{{senderName}}", "{{my_name}}"]],
+    [city,       ["{{company_city}}", "{{companyCity}}", "{{city}}"]],
+    [industry,   ["{{company_industry}}", "{{companyIndustry}}", "{{industry}}"]],
+    [country,    ["{{company_country}}", "{{companyCountry}}", "{{country}}"]],
+    [website,    ["{{company_website}}", "{{companyWebsite}}", "{{website}}"]],
+  ];
+  let out = normalized;
+  for (const [value, tokens] of substitutions) {
+    if (!value) continue; // leave unresolved → validateOutboundMessage blocks
+    for (const token of tokens) out = out.replaceAll(token, value);
   }
-  return firstStep
-    // Last name.
-    .replaceAll("{{last_name}}", last)
-    .replaceAll("{{lastName}}", last)
-    // Full name.
-    .replaceAll("{{full_name}}", full)
-    .replaceAll("{{fullName}}", full)
-    // Company — including PE-specific `fund_name` / `firm_name` aliases.
-    .replaceAll("{{company_name}}", company)
-    .replaceAll("{{companyName}}", company)
-    .replaceAll("{{company}}", company)
-    .replaceAll("{{fund_name}}", company)
-    .replaceAll("{{fundName}}", company)
-    .replaceAll("{{firm_name}}", company)
-    .replaceAll("{{firmName}}", company)
-    // Role / title.
-    .replaceAll("{{role}}", role)
-    .replaceAll("{{title}}", role)
-    .replaceAll("{{position}}", role)
-    // Seller name — several aliases sellers wrote by hand.
-    .replaceAll("{{seller_name}}", sellerName)
-    .replaceAll("{{sellerName}}", sellerName)
-    .replaceAll("{{sender_name}}", sellerName)
-    .replaceAll("{{senderName}}", sellerName)
-    .replaceAll("{{my_name}}", sellerName)
-    .replaceAll("{{seller_company}}", "")
-    .replaceAll("{{sellerCompany}}", "")
-    // Company facts.
-    .replaceAll("{{company_city}}", city)
-    .replaceAll("{{companyCity}}", city)
-    .replaceAll("{{city}}", city)
-    .replaceAll("{{company_industry}}", industry)
-    .replaceAll("{{companyIndustry}}", industry)
-    .replaceAll("{{industry}}", industry)
-    .replaceAll("{{company_country}}", country)
-    .replaceAll("{{companyCountry}}", country)
-    .replaceAll("{{country}}", country)
-    .replaceAll("{{company_website}}", website)
-    .replaceAll("{{companyWebsite}}", website)
-    .replaceAll("{{website}}", website);
+  return out;
 }
 
 /** Token → the lead column that backs it, for the guard above. */

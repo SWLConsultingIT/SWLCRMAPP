@@ -96,6 +96,28 @@ console.log("\n== extra: invalid seller + empty ==");
   check("namesMatch accent/case", namesMatch("JOSE", "José") && namesMatch("iñigo", "Inigo") === false ? true : namesMatch("Iñigo", "inigo"));
 }
 
+console.log("\n== ALL placeholders: fill when present, BLOCK when missing ==");
+{
+  // Present → filled verbatim, message respected.
+  const r = resolveOutbound("Hi {{first_name}}, saw {{company}} in {{industry}}.", lead("Ana", { company_name: "Kanoar", company_industry: "fintech" }), seller);
+  check("multi-placeholder all present fills exactly", r.ok && r.text === "Hi Ana, saw Kanoar in fintech.", r.ok ? r.text : (r as any).error);
+  // Missing company → block (not a silent blank).
+  const c = resolveOutbound("Hi {{first_name}}, I looked at {{company}}.", lead("Ana", { company_name: null }), seller);
+  check("missing company BLOCKS", c.ok === false && c.code === "unresolved_placeholder", c.ok ? c.text : (c as any).error);
+  // Missing role → block.
+  const rl = resolveOutbound("Hi {{first_name}}, as {{title}} you...", lead("Ana", { primary_title_role: null }), seller);
+  check("missing role/title BLOCKS", rl.ok === false && rl.code === "unresolved_placeholder", rl.ok ? rl.text : (rl as any).error);
+  // Missing website → block.
+  const w = resolveOutbound("Hi {{first_name}}, vs {{website}}", lead("Ana", { company_website: null }), seller);
+  check("missing website BLOCKS", w.ok === false && w.code === "unresolved_placeholder", w.ok ? w.text : (w as any).error);
+  // Present website → fills.
+  const w2 = resolveOutbound("Hi {{first_name}}, vs {{website}}", lead("Ana", { company_website: "acme.com" }), seller);
+  check("present website fills", w2.ok && w2.text === "Hi Ana, vs acme.com", w2.ok ? w2.text : (w2 as any).error);
+  // seller_company (no data source) → block.
+  const sc = resolveOutbound("Regards from {{seller_company}}", lead("Ana"), seller);
+  check("seller_company (no data) BLOCKS", sc.ok === false && sc.code === "unresolved_placeholder", sc.ok ? sc.text : (sc as any).error);
+}
+
 console.log(`\n──────────\n${pass} passed, ${fail} failed`);
 if (fail) { console.log("FAILURES:\n - " + fails.join("\n - ")); process.exit(1); }
 console.log("ALL GREEN ✅");
