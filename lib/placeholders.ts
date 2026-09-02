@@ -473,6 +473,38 @@ function suggestCanonical(token: string): string | null {
  *  its canonical `{{…}}` equivalent. Tokens we don't recognise are left
  *  untouched (so the suspicious-placeholders check still fires on them
  *  and the operator gets to decide). Pure function — caller persists. */
+// Greeting guardrail (incident 2026-09-02). The AI generator sometimes bakes a
+// LITERAL first name into the opening salutation ("Hola Victor,") instead of
+// the {{first_name}} merge token. Because message bodies are persisted per-lead
+// and copied verbatim to every enrolled lead, ONE bad generation shipped "Hola
+// Victor" to 260 non-Victor leads. We catch it at the same choke point that
+// normalizes foreign syntax, rewriting the baked name to {{first_name}} so the
+// dispatcher renders each lead's real name.
+//
+// Deliberately conservative: only the FIRST salutation at the very START, only
+// a single Capitalized word (a name), never an existing token, and a stopword
+// set skips common non-name greetings ("Hi there", "Hola equipo"). Salutation
+// alternatives carry both cases explicitly (no /i flag) so the name anchor can
+// stay uppercase-only and not match "hi there".
+const GREETING_LEAD_NAME = /^(\s*(?:[Hh]ola|[Hh]i|[Hh]ey|[Hh]ello|[Hh]allo|[Cc]iao|[Bb]uenas(?:\s+(?:tardes|noches|d[ií]as))?|[Bb]uenos\s+d[ií]as|[Ee]stimad[oa]|[Qq]uerid[oa]|[Dd]ear)\b[\s,]+)([\p{Lu}][\p{L}'’\-]{1,30})(?=$|[\s,.:;!?¡¿—–-])/u;
+const GREETING_NON_NAMES = new Set([
+  "there", "team", "all", "everyone", "everybody", "folks", "guys", "again",
+  "friend", "friends", "equipo", "gente", "todos", "todas", "estimados",
+  "señor", "senor", "sir", "madam",
+]);
+
+/** Rewrite a literal first name baked into the opening greeting to the
+ *  {{first_name}} token. Pure; returns the text unchanged when no bare-name
+ *  greeting is found. Exported for reuse/tests. */
+export function normalizeGreetingName(text: string): string {
+  if (!text) return text ?? "";
+  const m = text.match(GREETING_LEAD_NAME);
+  if (!m) return text;
+  if (/\{\{/.test(m[0])) return text;                       // already a token
+  if (GREETING_NON_NAMES.has(m[2].toLowerCase())) return text; // not a name
+  return text.replace(GREETING_LEAD_NAME, "$1{{first_name}}");
+}
+
 export function autoNormalizePlaceholders(body: string): { normalized: string; changes: Array<{ from: string; to: string }> } {
   if (!body) return { normalized: body ?? "", changes: [] };
   let out = body;
@@ -484,6 +516,12 @@ export function autoNormalizePlaceholders(body: string): { normalized: string; c
     // gobbled by a shorter pattern.
     out = out.split(m.token).join(m.suggested);
     changes.push({ from: m.token, to: m.suggested });
+  }
+  // Greeting guardrail — a literal name after the salutation → {{first_name}}.
+  const gm = out.match(GREETING_LEAD_NAME);
+  if (gm && !/\{\{/.test(gm[0]) && !GREETING_NON_NAMES.has(gm[2].toLowerCase())) {
+    out = out.replace(GREETING_LEAD_NAME, "$1{{first_name}}");
+    changes.push({ from: gm[2], to: "{{first_name}}" });
   }
   return { normalized: out, changes };
 }
