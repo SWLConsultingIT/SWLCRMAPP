@@ -1,5 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
+import { autoNormalizePlaceholders } from "@/lib/placeholders";
 import { NextRequest, NextResponse } from "next/server";
 
 // Enrolling N leads used to run as single giant INSERTs (N campaigns + ~8N
@@ -120,8 +121,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const templateByStep = new Map<number, { step_number: number; channel: string; content: string; subject: string | null }>();
   for (const m of (tmplRows ?? [])) {
     if (m.step_number == null || templateByStep.has(m.step_number)) continue;
-    const subject = (m.metadata as { subject?: string } | null)?.subject ?? null;
-    templateByStep.set(m.step_number, { step_number: m.step_number, channel: m.channel, content: m.content, subject });
+    const subjectRaw = (m.metadata as { subject?: string } | null)?.subject ?? null;
+    // Blindar el write path (2026-09-02): the sibling row we copy from may hold
+    // a fully-rendered body with a BAKED greeting name (e.g. "Hi Oscar"). Run
+    // the same write-path normalizer approve uses — it rewrites foreign syntax
+    // AND de-bakes a literal greeting name back to {{first_name}}, so the new
+    // lead renders THEIR own name instead of inheriting the sibling's.
+    const content = autoNormalizePlaceholders(m.content ?? "").normalized;
+    const subject = subjectRaw ? autoNormalizePlaceholders(subjectRaw).normalized : null;
+    templateByStep.set(m.step_number, { step_number: m.step_number, channel: m.channel, content, subject });
   }
   const templates = Array.from(templateByStep.values());
 

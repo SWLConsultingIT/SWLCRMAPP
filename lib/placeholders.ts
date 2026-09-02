@@ -236,8 +236,8 @@ export function renderPlaceholders(
     }
   }
 
-  const first = lead.primary_first_name ?? "there";
-  const last = lead.primary_last_name ?? "";
+  const first = (lead.primary_first_name ?? "").trim();
+  const last = (lead.primary_last_name ?? "").trim();
   const full = `${first} ${last}`.trim();
   const company = lead.company_name ?? "";
   const role = lead.primary_title_role ?? "";
@@ -246,11 +246,18 @@ export function renderPlaceholders(
   const country = lead.company_country ?? "";
   const website = lead.company_website ?? "";
   const sellerName = seller.name ?? "";
-  return normalized
-    // First name — snake, camel, and "name" alone.
-    .replaceAll("{{first_name}}", first)
-    .replaceAll("{{firstName}}", first)
-    .replaceAll("{{name}}", first)
+  // First name — snake, camel, and "name" alone. When the lead has NO first
+  // name we DELIBERATELY leave the {{…}} token unresolved (no silent "there"
+  // fallback) so validateOutboundMessage BLOCKS the send instead of shipping a
+  // placeholder-less greeting. Incident 2026-09-02 hardening.
+  let firstStep = normalized;
+  if (first) {
+    firstStep = firstStep
+      .replaceAll("{{first_name}}", first)
+      .replaceAll("{{firstName}}", first)
+      .replaceAll("{{name}}", first);
+  }
+  return firstStep
     // Last name.
     .replaceAll("{{last_name}}", last)
     .replaceAll("{{lastName}}", last)
@@ -550,4 +557,105 @@ export function autoFixPlaceholders(body: string): { normalized: string; changes
     }
   }
   return { normalized: out, changes };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Outbound resolution + validation — the SINGLE gate every channel sender must
+// pass through before handing text to a provider (Unipile / Instantly / Meta /
+// Telegram). Incident 2026-09-02 hardening: no channel may keep its own
+// placeholder logic, and nothing renders-and-ships without this validation.
+// ─────────────────────────────────────────────────────────────────────────
+
+function stripDiacritics(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+/** Case/accent-insensitive name match, allowing a compound-name prefix
+ *  ("José" ↔ "José María"). Used to confirm a literal greeting name is really
+ *  the lead's own first name and not a baked-in stranger. */
+export function namesMatch(a: string, b: string): boolean {
+  const na = stripDiacritics((a ?? "").toLowerCase().trim());
+  const nb = stripDiacritics((b ?? "").toLowerCase().trim());
+  if (!na || !nb) return false;
+  return na === nb || nb.startsWith(na) || na.startsWith(nb);
+}
+
+/** Canonical {{…}} tokens present in a template — for the audit log. */
+export function placeholdersUsed(template: string): string[] {
+  const m = (template ?? "").match(/\{\{\s*[^}]+\s*\}\}/g);
+  return m ? [...new Set(m.map(t => t.replace(/\s+/g, "")))] : [];
+}
+
+export type OutboundValidation = { ok: true } | { ok: false; code: string; error: string };
+
+/** The one validation every sender runs on the FINAL rendered text, right
+ *  before the provider call. Blocks (never ships) on any risk condition. */
+export function validateOutboundMessage(
+  rendered: string,
+  ctx: { lead: PlaceholderLead; seller: PlaceholderSeller },
+): OutboundValidation {
+  const text = (rendered ?? "").trim();
+  if (!text) return { ok: false, code: "empty", error: "Message is empty after rendering." };
+  const unresolved = findUnresolvedPlaceholders(text);
+  if (unresolved.length) return { ok: false, code: "unresolved_placeholder", error: `Unresolved placeholder(s): ${unresolved.join(", ")} — required lead data is missing.` };
+  const foreign = findSuspiciousPlaceholders(text);
+  if (foreign.length) return { ok: false, code: "foreign_placeholder", error: `Foreign placeholder syntax not rendered: ${foreign.map(f => f.token).join(", ")}` };
+  if (isInvalidSellerName(ctx.seller.name)) return { ok: false, code: "invalid_seller", error: `Seller name "${ctx.seller.name ?? ""}" looks like a system default — fix sellers.name before sending.` };
+  // A literal name in the OPENING greeting must be the lead's own first name.
+  // (renderPlaceholders already normalizes a baked greeting name to the token,
+  // so this is the belt-and-suspenders block if that is ever bypassed.)
+  const gm = text.match(GREETING_LEAD_NAME);
+  if (gm && !GREETING_NON_NAMES.has(gm[2].toLowerCase())) {
+    const first = (ctx.lead.primary_first_name ?? "").trim();
+    if (!namesMatch(gm[2], first)) {
+      return { ok: false, code: "greeting_name_mismatch", error: `Greeting name "${gm[2]}" does not match the lead's first name "${first || "(none)"}".` };
+    }
+  }
+  return { ok: true };
+}
+
+export type OutboundLog = {
+  template: string;
+  rendered: string | null;
+  channel?: string;
+  placeholders: string[];
+  validation: string;   // "ok" or the failing code
+  error: string | null;
+  at: string;
+};
+
+export type OutboundResult =
+  | { ok: true; text: string; log: OutboundLog }
+  | { ok: false; code: string; error: string; log: OutboundLog };
+
+/** render + validate + build an audit log, in one call. EVERY sender uses this;
+ *  no sender may re-implement placeholder substitution or validation. On a
+ *  block the caller must fail-the-row (status='failed', persist log.error) and
+ *  NOT send. `channel` is only for the log. */
+export function resolveOutbound(
+  template: string,
+  lead: PlaceholderLead,
+  seller: PlaceholderSeller,
+  channel?: string,
+): OutboundResult {
+  const tpl = template ?? "";
+  let text: string | null = null;
+  let v: OutboundValidation;
+  try {
+    text = renderPlaceholders(tpl, lead, seller); // strict: throws on invalid seller / unselected company-fact column
+    v = validateOutboundMessage(text, { lead, seller });
+  } catch (e) {
+    v = { ok: false, code: "render_error", error: e instanceof Error ? e.message : String(e) };
+  }
+  const log: OutboundLog = {
+    template: tpl,
+    rendered: text,
+    channel,
+    placeholders: placeholdersUsed(tpl),
+    validation: v.ok ? "ok" : v.code,
+    error: v.ok ? null : v.error,
+    at: new Date().toISOString(),
+  };
+  if (!v.ok) return { ok: false, code: v.code, error: v.error, log };
+  return { ok: true, text: text as string, log };
 }

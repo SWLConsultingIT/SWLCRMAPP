@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
-import { renderPlaceholders } from "@/lib/placeholders";
+import { resolveOutbound } from "@/lib/placeholders";
 
 export const runtime = "nodejs";
 // Up to ~4.5s of post-send delivery polling on top of the send itself.
@@ -81,11 +81,16 @@ export async function POST(
     const { data: s } = await svc.from("sellers").select("name").eq("id", sellerId).maybeSingle();
     sellerName = (s as any)?.name ?? null;
   }
-  const outgoing = renderPlaceholders(text, lead as any, { name: sellerName })
-    .replace(/\{\{[^}]*\}\}/g, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
-  if (!outgoing) return NextResponse.json({ error: "message empty after placeholder cleanup" }, { status: 400 });
+  // SINGLE outbound gate — same render + validation stack every channel uses.
+  // A manual/auto reply is still an outbound message, so it must not ship an
+  // unresolved `{{token}}`, foreign syntax, or a stranger greeting name. This
+  // replaces the old "strip leftover tokens to blank" behavior (which could
+  // silently gut a greeting) with a hard block + a clear error for the seller.
+  const resolved = resolveOutbound(text, lead as any, { name: sellerName }, "reply");
+  if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: 400 });
+  const outgoing = resolved.text.replace(/[ \t]{2,}/g, " ").trim();
+  const outboundLog = resolved.log;
+  if (!outgoing) return NextResponse.json({ error: "message empty after rendering" }, { status: 400 });
 
   // Channel: explicit override, else infer from the lead's latest inbound reply.
   let channel: Channel | null =
@@ -317,6 +322,7 @@ export async function POST(
   // renders exactly what we sent.
   const nowIso = new Date().toISOString();
   sentMeta.rendered_content = outgoing;
+  sentMeta.outbound = outboundLog;
   const insertRow: Record<string, unknown> = {
     lead_id: leadId,
     campaign_id: campaignId,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canCreateCampaigns } from "@/lib/scope";
 import { selectAllPages, selectByIds, chunkIds } from "@/lib/supabase-bulk";
+import { autoNormalizePlaceholders } from "@/lib/placeholders";
 
 // Edit a flow that is already running.
 //
@@ -116,9 +117,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const m = raw ?? {};
       if (typeof m.content !== "string") continue;
 
+      // Blindar el write path (2026-09-02): a human is typing/pasting flow copy
+      // here, so run the same normalizer approve uses — rewrites foreign
+      // placeholder syntax and de-bakes a literal greeting name to
+      // {{first_name}} before it is stored (and later rendered per lead).
+      const content = autoNormalizePlaceholders(m.content).normalized;
+
       const patch: Record<string, unknown> = {};
       const remove: string[] = [];
-      if (m.subject) patch.subject = m.subject; else remove.push("subject");
+      if (m.subject) patch.subject = autoNormalizePlaceholders(m.subject).normalized; else remove.push("subject");
       if (Array.isArray(m.attachments) && m.attachments.length > 0) patch.attachments = m.attachments;
       else remove.push("attachments");
 
@@ -127,7 +134,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const { data, error } = await svc.rpc("edit_flow_step_messages", {
         p_campaign_ids: liveCampaignIds,
         p_step_number: stepNumber,
-        p_content: m.content,
+        p_content: content,
         p_meta_patch: patch,
         p_meta_remove: remove,
       });
@@ -169,13 +176,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           const meta: Record<string, unknown> = {
             eligible_at: new Date(Date.now() + (nm.waitDays ?? 3) * 86400000).toISOString(),
           };
-          if (nm.subject) meta.subject = nm.subject;
+          if (nm.subject) meta.subject = autoNormalizePlaceholders(nm.subject).normalized;
           inserts.push({
             campaign_id: campaign.id,
             lead_id: campaign.lead_id,
             step_number: stepNum,
             channel: nm.channel ?? "email",
-            content: nm.content ?? "",
+            // Same write-path normalizer as the edit branch above.
+            content: autoNormalizePlaceholders(nm.content ?? "").normalized,
             status: "queued",
             metadata: meta,
             created_at: new Date().toISOString(),

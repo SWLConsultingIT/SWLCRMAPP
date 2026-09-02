@@ -18,6 +18,24 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(__dirname);
 
+// ─────────────────────────────────────────────────────────────────────────
+// DISABLED 2026-09-02 — outbound-safety hardening.
+//
+// This one-shot script carried its OWN 2-token `personalize()` and sent to
+// Unipile directly, bypassing the central render+validation gate
+// (lib/placeholders.resolveOutbound) that now guards every production sender.
+// A local script with a private placeholder function is exactly the bypass
+// that let a hardcoded greeting name ("Hola Victor") reach real leads. It is
+// intentionally neutered rather than deleted so the historical logic stays
+// readable. To (re-)dispatch queued messages, use the cron dispatcher
+// (/api/cron/dispatch-queue) — it renders + validates through resolveOutbound.
+console.error(
+  "scripts/dispatch-pathway-8.mjs is DISABLED (2026-09-02 outbound-safety hardening).\n" +
+  "It bypassed the central resolveOutbound render+validation gate.\n" +
+  "Use the cron dispatcher /api/cron/dispatch-queue instead.",
+);
+process.exit(1);
+
 // Read .env.local manually (no dependency on dotenv).
 const envText = readFileSync(join(ROOT, ".env.local"), "utf8");
 const env = Object.fromEntries(

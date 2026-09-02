@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { resolveOutbound, LEAD_PLACEHOLDER_COLUMNS, type OutboundLog } from "@/lib/placeholders";
 
 // Cron-driven WhatsApp dispatcher.
 //
@@ -40,16 +41,6 @@ function authorized(req: NextRequest, scopeRole: string | null): boolean {
   if (scopeRole === "admin") return true;
   if (!CRON_SECRET) return false;
   return (req.headers.get("authorization") ?? "") === `Bearer ${CRON_SECRET}`;
-}
-
-function personalize(text: string, lead: any, seller: any): string {
-  const first = lead?.primary_first_name ?? "there";
-  const sellerName = seller?.name ?? "";
-  const company = lead?.company_name ?? "";
-  return (text ?? "")
-    .replaceAll("{{first_name}}", first)
-    .replaceAll("{{company_name}}", company)
-    .replaceAll("{{seller_name}}", sellerName);
 }
 
 function normalizePhone(raw: string | null): string | null {
@@ -157,7 +148,7 @@ async function handle(req: NextRequest) {
     // Hydrate lead + campaign + seller + company config
     const [{ data: lead }, { data: campaign }] = await Promise.all([
       svc.from("leads")
-        .select("id, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, company_name, company_bio_id, primary_title_role")
+        .select(`id, ${LEAD_PLACEHOLDER_COLUMNS}, primary_phone, primary_secondary_phone, company_bio_id`)
         .eq("id", msg.lead_id).maybeSingle(),
       svc.from("campaigns")
         .select("id, seller_id")
@@ -210,12 +201,22 @@ async function handle(req: NextRequest) {
       ? await svc.from("sellers").select("name").eq("id", campaign.seller_id).maybeSingle()
       : { data: null };
 
-    const body = personalize(msg.content ?? "", lead, seller);
-    if (!body.trim()) {
-      await svc.from("campaign_messages").update({ status: "failed", error_details: "empty message body after personalization" }).eq("id", msg.id);
-      outcomes.push({ msgId: msg.id, kind: "failed", reason: "empty body" });
+    // SINGLE outbound gate — identical render + validation as every other
+    // channel. Blocks (never sends) on unresolved/foreign placeholders, a
+    // missing required first name, a stranger greeting name, invalid seller
+    // or empty body. Persists the audit log either way.
+    const resolved = resolveOutbound(msg.content ?? "", lead as any, seller ?? {}, "whatsapp");
+    if (!resolved.ok) {
+      await svc.from("campaign_messages").update({
+        status: "failed",
+        error_details: resolved.error,
+        metadata: { ...(msg.metadata ?? {}), dispatched_by: "cron-dispatch-whatsapp", failed_at: new Date().toISOString(), outbound: resolved.log },
+      }).eq("id", msg.id);
+      outcomes.push({ msgId: msg.id, kind: "failed", reason: resolved.error });
       continue;
     }
+    const body = resolved.text;
+    const outboundLog: OutboundLog = resolved.log;
 
     // Determine template language from message content (default en_US)
     const templateLanguage = ((msg.metadata as any)?.language as string) === "es" ? "es_AR" : "en_US";
@@ -245,6 +246,8 @@ async function handle(req: NextRequest) {
           phone_number_id: phoneNumberId,
           used_session: useSession,
           template_name: useSession ? null : templateName,
+          rendered_content: body,
+          outbound: outboundLog,
         },
       }).eq("id", msg.id),
       svc.from("leads").update({ status: "contacted", current_channel: "whatsapp" }).eq("id", msg.lead_id),

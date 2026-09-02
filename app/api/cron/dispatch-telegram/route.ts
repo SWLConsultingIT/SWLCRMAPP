@@ -26,7 +26,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
-import { renderPlaceholders } from "@/lib/placeholders";
+import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -195,18 +195,22 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Personalize content.
-      const sellerName = seller.name ?? "";
-      const content = renderPlaceholders(
-        msg.content ?? "",
-        {
-          primary_first_name: (lead as any)?.primary_first_name ?? null,
-          primary_last_name: (lead as any)?.primary_last_name ?? null,
-          company_name: (lead as any)?.company_name ?? null,
-          primary_title_role: (lead as any)?.primary_title_role ?? null,
-        },
-        { name: sellerName },
-      );
+      // SINGLE outbound gate (resolveOutbound) — same render + full validation
+      // stack as LinkedIn/Email/WhatsApp. Blocks on unresolved/foreign
+      // placeholders, missing required first name, stranger greeting name,
+      // invalid seller or empty body, and persists the audit log either way.
+      // Previously Telegram rendered with only 4 fields and NO validation.
+      const resolved = resolveOutbound(msg.content ?? "", lead as any, { name: seller.name ?? "" }, "telegram");
+      if (!resolved.ok) {
+        await svc.from("campaign_messages").update({
+          status: "failed",
+          error_details: resolved.error,
+          metadata: { ...msg.metadata, dispatched_by: "cron-dispatch-telegram", failed_at: new Date().toISOString(), outbound: resolved.log },
+        }).eq("id", msg.id);
+        continue;
+      }
+      const content = resolved.text;
+      const outboundLog: OutboundLog = resolved.log;
 
       // Find or create the Telegram chat via Unipile.
       // First check if we already have a chat_id from a previous step.
@@ -275,7 +279,7 @@ export async function POST(req: NextRequest) {
         status: "sent",
         sent_at: now,
         provider_message_id: sendData.id ?? null,
-        metadata: { ...msg.metadata, telegram_chat_id: chatId },
+        metadata: { ...msg.metadata, telegram_chat_id: chatId, rendered_content: content, outbound: outboundLog },
         error_details: null,
       }).eq("id", msg.id);
 

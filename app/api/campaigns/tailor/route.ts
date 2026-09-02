@@ -159,6 +159,35 @@ export async function POST(req: NextRequest) {
     ? ((campaign as { sellers?: Array<{ name?: string }> }).sellers?.[0]?.name)
     : ((campaign as { sellers?: { name?: string } }).sellers?.name)) ?? null;
 
+  // ── Post-approval AI freeze (2026-09-02 outbound-safety hardening) ──
+  // Principle: IA genera → aprueba → template congelado → solo sustitución
+  // determinística. The tailor pass is an LLM (Haiku) that REWRITES
+  // campaign_messages.content, so it may run ONLY before the flow starts
+  // sending. approve() creates the campaign as status='active' and THEN runs
+  // this pass synchronously, so we can't gate on campaign.status — instead we
+  // freeze on the first real send: once ANY message of this campaign has
+  // shipped, no LLM may touch its content again. This still allows the
+  // approve-time pass and a retry after a failed approve (nothing sent yet),
+  // and blocks every standalone "refresh on demand" call on a live flow.
+  // dryRun previews never write, so they stay allowed at any time.
+  if (!dryRun) {
+    const { count: sentCount } = await svc
+      .from("campaign_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .eq("status", "sent");
+    if ((sentCount ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Campaign is already live (messages have been sent) — refusing to run the AI tailor pass on approved content. Tailored slots must be resolved before approval; edit the flow manually (deterministic) if a fix is needed.",
+          code: "post_approve_ai_frozen",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   // Bio + ICP.
   const [bioRes, icpRes] = await Promise.all([
     svc.from("company_bios").select("company_name, tagline, value_proposition, differentiators, main_services, tone_of_voice").eq("id", campaign.company_bio_id).maybeSingle(),

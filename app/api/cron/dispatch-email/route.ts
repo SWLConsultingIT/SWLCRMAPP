@@ -5,7 +5,7 @@ import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveFlowCampaignId } from "@/lib/instantly-flow-campaign";
 import { signStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders, isInvalidSellerName } from "@/lib/placeholders";
+import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -68,14 +68,11 @@ function authorized(req: NextRequest, scopeRole: string | null): boolean {
   return header === `Bearer ${CRON_SECRET}`;
 }
 
-// Render + leftover-token guard live in lib/placeholders.ts so this
-// dispatcher and the LinkedIn one (/api/cron/dispatch-queue) cannot drift.
-// Pre-2026-05-31 the local table here was missing `{{fund_name}}` and the
-// other PE-Spain aliases — a US PE follow-up shipped to Daniel Robin with
-// the literal `{{fund_name}}` because of that drift.
-const personalize = (template: string, lead: any, seller: any) =>
-  renderPlaceholders(template, lead, seller);
-
+// Render + the full validation stack live behind resolveOutbound() in
+// lib/placeholders.ts, shared by every channel dispatcher (LinkedIn, email,
+// Telegram, WhatsApp, inbox reply) so they cannot drift. Pre-2026-05-31 the
+// local table here was missing `{{fund_name}}` and the other PE-Spain aliases
+// — a US PE follow-up shipped to Daniel Robin with the literal `{{fund_name}}`.
 async function instantlyFetch(apiKey: string, method: "POST" | "DELETE", path: string, body?: any): Promise<any> {
   // Instantly v2 rejects requests with `content-type: application/json` and no
   // body — DELETE /leads/:id was failing 400 "Body cannot be empty when
@@ -188,6 +185,7 @@ type EmailResult =
 async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
+  outboundLog?: OutboundLog,
 ): Promise<EmailResult> {
   // Merge metadata — see dispatch-queue.failMessage for context.
   const { data: existing } = await svc
@@ -200,6 +198,7 @@ async function failMessage(
       ...prevMeta,
       dispatched_by: "cron-dispatch-email",
       failed_at: new Date().toISOString(),
+      ...(outboundLog ? { outbound: outboundLog } : {}),
     },
   }).eq("id", msgId);
   return { kind: "failed", msgId, leadId, reason };
@@ -427,42 +426,20 @@ async function dispatchOneEmail(
   const subjectRaw = (meta.subject as string | undefined) ?? `Quick idea for ${lead.company_name ?? "you"}`;
   const bodyRaw = candidate.content ?? "";
 
-  // First, scan the RAW template + subject for foreign placeholder syntax
-  // (`[First Name]`, `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`,
-  // `{First Name}`). The dispatcher only knows `{{snake_case}}`; foreign
-  // forms ship literally if we don't catch them. 2026-05-31: a LinkedIn
-  // DM to Craig Wilson went out with raw `[First Name]` for this reason.
-  if (isInvalidSellerName(seller?.name)) {
-    return await failMessage(
-      svc, candidate.id, candidate.lead_id,
-      `Seller name "${seller?.name ?? ""}" looks like a system default — update sellers.name in Settings → Sellers before dispatching.`,
-    );
-  }
-
-  const suspicious = findSuspiciousPlaceholders(`${subjectRaw}\n${bodyRaw}`);
-  if (suspicious.length > 0) {
-    const tokens = suspicious.map(s => s.token).join(", ");
-    return await failMessage(
-      svc, candidate.id, candidate.lead_id,
-      `Template contains foreign placeholder syntax (${tokens}) that the dispatcher cannot render. Use {{first_name}}, {{company_name}}, etc.`,
-    );
-  }
-
-  const subject = personalize(subjectRaw, lead, seller).slice(0, 200);
-  let body = personalize(bodyRaw, lead, seller);
-  if (!body.trim()) return await failMessage(svc, candidate.id, candidate.lead_id, "empty body after personalization");
-
-  // Defense-in-depth (PE Spain 2026-05-27 incident + Daniel Robin 2026-05-31
-  // recurrence): any leftover `{{…}}` is an unsupported / unfilled token.
-  // Never ship that raw — fail the row so the operator fixes the template
-  // before the next tick. Same guard the LinkedIn dispatcher uses.
-  const unresolved = findUnresolvedPlaceholders(`${subject}\n${body}`);
-  if (unresolved.length > 0) {
-    return await failMessage(
-      svc, candidate.id, candidate.lead_id,
-      `unresolved placeholder(s): ${unresolved.join(", ")} — fix the template before resending`,
-    );
-  }
+  // SINGLE outbound gate (resolveOutbound) — same render + full validation
+  // stack as every other channel: foreign syntax (`[First Name]`,
+  // `%FIRST_NAME%`…), invalid seller, unresolved `{{…}}`, missing required
+  // first name, a literal greeting name that isn't the lead's (2026-09-02
+  // "Hola Victor" incident) and empty bodies all BLOCK. Email personalizes
+  // two fields, so subject and body each pass the same gate; either failing
+  // fails the row with the reason + audit log. No per-sender validation.
+  const subjectRes = resolveOutbound(subjectRaw, lead, seller, "email-subject");
+  if (!subjectRes.ok) return await failMessage(svc, candidate.id, candidate.lead_id, `subject: ${subjectRes.error}`, subjectRes.log);
+  const bodyRes = resolveOutbound(bodyRaw, lead, seller, "email");
+  if (!bodyRes.ok) return await failMessage(svc, candidate.id, candidate.lead_id, bodyRes.error, bodyRes.log);
+  const subject = subjectRes.text.slice(0, 200);
+  let body = bodyRes.text;
+  const outboundLog = bodyRes.log;
 
   // Per-step attachments. Instantly v2 passthrough campaigns don't expose
   // per-lead attachments (attachments live on the campaign object, but we
@@ -529,6 +506,8 @@ async function dispatchOneEmail(
         ...meta,
         dispatched_by: "cron-dispatch-email",
         subject,
+        rendered_content: body,
+        outbound: outboundLog,
         instantly_campaign_id: instantlyCampaignId,
         instantly_lead_id: providerLeadId,
         ...(recreated ? { instantly_lead_recreated: true } : {}),

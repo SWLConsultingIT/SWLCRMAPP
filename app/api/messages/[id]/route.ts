@@ -1,5 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
+import { autoNormalizePlaceholders } from "@/lib/placeholders";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
@@ -40,9 +41,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Cannot edit a sent message" }, { status: 403 });
   }
 
+  // Blindar el write path (2026-09-02): a human is editing message copy, so
+  // run the same normalizer approve/edit-flow use — it rewrites foreign
+  // placeholder syntax and de-bakes a literal greeting name to {{first_name}}
+  // before storing. Send time re-validates through resolveOutbound regardless.
+  const normalized = autoNormalizePlaceholders(content.trim()).normalized;
+
   const { error } = await supabase
     .from("campaign_messages")
-    .update({ content: content.trim() })
+    .update({ content: normalized })
     .eq("id", id);
 
   if (error) {

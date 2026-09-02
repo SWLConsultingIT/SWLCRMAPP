@@ -4,7 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { fetchStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders, isInvalidSellerName } from "@/lib/placeholders";
+import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -222,15 +222,10 @@ function nameMatches(
   return slugUnique;
 }
 
-// renderPlaceholders + findUnresolvedPlaceholders live in lib/placeholders.ts
-// as of 2026-05-31 so dispatch-queue (LinkedIn) and dispatch-email (Instantly)
-// share one substitution table. Pre-extraction, dispatch-email had its own
-// table that was missing the PE-Spain aliases (`fund_name`, camelCase, etc.)
-// — that drift shipped a US PE follow-up with literal `{{fund_name}}` on
-// 2026-05-31 to Daniel Robin. Single source of truth fixes both halves.
-const personalizeNote = (template: string, lead: LeadRow, seller: SellerRow) =>
-  renderPlaceholders(template, lead, seller);
-
+// Render + validation now live behind resolveOutbound() in lib/placeholders.ts
+// (2026-09-02): dispatch-queue (LinkedIn), dispatch-email, dispatch-telegram,
+// dispatch-whatsapp and inbox/reply all call that ONE gate, so there is a
+// single substitution table and a single validation stack across channels.
 async function unipileGet(url: string): Promise<any> {
   const res = await fetch(url, {
     headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
@@ -424,6 +419,7 @@ async function skipAndAdvance(
 async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
+  outboundLog?: OutboundLog,
 ): Promise<DispatchOutcome> {
   // Merge metadata instead of overwriting. Pre-2026-05-29 this clobbered
   // existing fields like eligible_at, awaiting_acceptance, parked_since,
@@ -439,6 +435,7 @@ async function failMessage(
       ...prevMeta,
       dispatched_by: "cron-dispatch-queue",
       failed_at: new Date().toISOString(),
+      ...(outboundLog ? { outbound: outboundLog } : {}),
     },
   }).eq("id", msgId);
   return { kind: "failed", msgId, leadId, reason };
@@ -879,44 +876,20 @@ async function dispatchOneMessage(
 
   const rawTemplate = candidate.content ?? "";
 
-  // First, refuse-on-foreign-syntax — `[First Name]`, `{First Name}`,
-  // `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`. These never get
-  // substituted (the dispatcher only knows {{snake_case}}) so they would
-  // ship raw if we didn't catch them here. 2026-05-31: a LinkedIn DM
-  // shipped to Craig Wilson with literal `[First Name]` because nothing
-  // upstream was scanning for foreign syntaxes — only {{…}} was checked.
-  const suspicious = findSuspiciousPlaceholders(rawTemplate);
-  if (suspicious.length > 0) {
-    const tokens = suspicious.map(s => s.token).join(", ");
-    return await failMessage(
-      svc, candidate.id, candidate.lead_id,
-      `Template contains foreign placeholder syntax (${tokens}) that the dispatcher cannot render. Open the flow and fix the template — use {{first_name}}, {{company_name}}, etc.`,
-    );
+  // SINGLE outbound gate (lib/placeholders.resolveOutbound) — render + the
+  // full validation stack in one call, identical across every channel. It
+  // blocks on: foreign syntax (`[First Name]`, `%FIRST_NAME%`…), invalid
+  // seller name, any unresolved `{{…}}`, a missing required first name, a
+  // literal greeting name that isn't the lead's own (the 2026-09-02 "Hola
+  // Victor" incident), and empty bodies. On a block we fail the row with the
+  // exact reason AND persist the audit log so /queue and the reliability
+  // page can show what was refused and why. No per-sender validation logic.
+  const resolved = resolveOutbound(rawTemplate, lead as LeadRow, seller, "linkedin");
+  if (!resolved.ok) {
+    return await failMessage(svc, candidate.id, candidate.lead_id, resolved.error, resolved.log);
   }
-
-  if (isInvalidSellerName(seller.name)) {
-    return await failMessage(
-      svc, candidate.id, candidate.lead_id,
-      `Seller name "${seller.name ?? ""}" looks like a system default — update sellers.name in Settings → Sellers before dispatching.`,
-    );
-  }
-
-  const personalized = personalizeNote(rawTemplate, lead as LeadRow, seller).trim();
-
-  // Belt-and-braces: if any `{{...}}` slipped through (typo, unknown alias,
-  // new placeholder no one taught the dispatcher), we MUST refuse to send.
-  // Mark the row failed with a clear error so it shows up in /queue or the
-  // failures audit and the seller can fix the template before re-running.
-  // Without this guard the 2026-05-27 PE Spain incident — 8 mails shipped
-  // with raw `{{firstName}}` and `{{fund_name}}` — repeats every time a
-  // template author types a placeholder we don't support.
-  const leftover = findUnresolvedPlaceholders(personalized);
-  if (leftover.length > 0) {
-    return await failMessage(
-      svc, candidate.id, candidate.lead_id,
-      `Unsupported placeholders in template — refusing to send: ${leftover.join(", ")}. Update the wizard copy to use a supported placeholder (see lib/placeholders.ts).`,
-    );
-  }
+  const personalized = resolved.text.trim();
+  const outboundLog = resolved.log;
 
   // Per-step attachments. LinkedIn connection requests (step_number=0) can't
   // carry files — the invite note body is the only payload LinkedIn accepts,
@@ -1066,6 +1039,7 @@ async function dispatchOneMessage(
         dispatched_by: "cron-dispatch-queue",
         truncated_note: truncated,
         rendered_content: outgoing,
+        outbound: outboundLog,
         ...(chatId ? { chat_id: chatId } : {}),
       },
     }).eq("id", candidate.id),
