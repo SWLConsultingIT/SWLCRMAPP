@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
-import { getDashboardData, getSellerActivity, getTeamMembers } from "@/lib/dashboard-data";
+import { getDashboardData } from "@/lib/dashboard-data";
+import SellerPulseSection from "@/components/dashboard/SellerPulseSection";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
@@ -268,13 +269,15 @@ export default async function DashboardPage({
   // longer rendered on the dashboard, but its fetch stayed — 2 queries per
   // login (one a full campaign_messages re-scan) whose result `myHeadline` was
   // never consumed. Dropping it takes that work off the login critical path.
-  const [data, t, locale, filterOptions, sellerActivity, teamMembers] = await Promise.all([
+  // getSellerActivity + getTeamMembers (each a slow GoTrue admin listUsers over
+  // ALL project users) were removed from this blocking Promise.all 2026-09-03 —
+  // they only feed the Sellers tab, so they now load inside a <Suspense>
+  // boundary (SellerPulseSection) and no longer block the initial dashboard load.
+  const [data, t, locale, filterOptions] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
     loadFilterOptions(bioId),
-    getSellerActivity(bioId),
-    getTeamMembers(bioId),
   ]);
   const tabFilterLabels = {
     campaigns: t("dashx.filters.campaigns"),
@@ -1549,52 +1552,14 @@ export default async function DashboardPage({
       {/* ── Seller Pulse: last login (realtime) + calls today + queue ────────
           Server fetches last_seen_at per seller via sellers.user_id → user_profiles.
           Client only needs presence subscription (no name-match needed). */}
-      {(() => {
-        // Argentina is UTC-3 — use the same offset as dashboard-data.ts so
-        // "today" matches local midnight, not UTC midnight.
-        const todayStr = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
-        // Index call outcomes by sellerId (which after attribution fix can be
-        // sellers.id OR user_id for non-seller dialers like super_admin).
-        const callsRowBySellerId = new Map<string, typeof data.callOutcomesBySeller[0]>();
-        for (const row of data.callOutcomesBySeller) callsRowBySellerId.set(row.sellerId, row);
-        // Pending calls, replied, positive indexed by sellers.id
-        const pendingBySellerId = new Map<string, number>();
-        const repliedBySellerId = new Map<string, number>();
-        const positiveBySellerId = new Map<string, number>();
-        for (const s of data.sellerPerformance as Array<{ id: string; pendingCalls: number; replied: number; positive: number }>) {
-          pendingBySellerId.set(s.id, s.pendingCalls);
-          repliedBySellerId.set(s.id, s.replied);
-          positiveBySellerId.set(s.id, s.positive);
-        }
-        // Show all team members (not just those with a sellers row)
-        const sellers = teamMembers.map(m => {
-          // Match calls by sellers.id first, then by userId (non-seller dialers)
-          const callsRow = (m.sellerId ? callsRowBySellerId.get(m.sellerId) : null)
-            ?? callsRowBySellerId.get(m.userId);
-          const callsToday = callsRow?.byDay?.[todayStr]?.made ?? 0;
-          const callsPeriod = callsRow?.made ?? 0;
-          const lastCallAt = callsRow?.byDay
-            ? Object.keys(callsRow.byDay).filter(d => (callsRow.byDay[d]?.made ?? 0) > 0).sort().at(-1) ?? null
-            : null;
-          // LinkedIn status from sellerActivity (enriched in getSellerActivity)
-          const activity = m.sellerId ? sellerActivity.get(m.sellerId) : null;
-          return {
-            id:                 m.userId,
-            name:               m.displayName,
-            userId:             m.userId,
-            lastSeenAt:         m.lastSeenAt,
-            lastCallAt,
-            callsToday,
-            callsPeriod,
-            pendingCalls:       m.sellerId ? (pendingBySellerId.get(m.sellerId) ?? 0) : 0,
-            repliedPeriod:      m.sellerId ? (repliedBySellerId.get(m.sellerId) ?? 0) : 0,
-            positivePeriod:     m.sellerId ? (positiveBySellerId.get(m.sellerId) ?? 0) : 0,
-            linkedinStatus:     (activity as any)?.linkedinStatus ?? null,
-            linkedinStatusNote: (activity as any)?.linkedinStatusNote ?? null,
-          };
-        });
-        return <section><SellerPulseTable sellers={sellers} periodLabel={periodLabel} /></section>;
-      })()}
+      <Suspense fallback={null}>
+        <SellerPulseSection
+          bioId={bioId}
+          callOutcomesBySeller={data.callOutcomesBySeller}
+          sellerPerformance={data.sellerPerformance as unknown as { id: string; pendingCalls: number; replied: number; positive: number }[]}
+          periodLabel={periodLabel}
+        />
+      </Suspense>
 
       {/* Call outcomes by seller — per-seller, per-day call monitoring with
           outcome reasons. Moved here from Channels (Fran 2026-06-11): it's a
