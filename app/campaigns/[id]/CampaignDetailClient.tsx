@@ -16,6 +16,7 @@ import CampaignKanban from "@/components/CampaignKanban";
 import FlowMetricsPanel, { type FlowMetrics } from "@/components/FlowMetricsPanel";
 import CampaignCallsTab from "@/components/CampaignCallsTab";
 import MoveForwardButton from "@/components/MoveForwardButton";
+import ReassignSellersModal from "@/components/ReassignSellersModal";
 import { classifyUrgency } from "@/lib/overdue";
 import { useToast } from "@/lib/toast";
 
@@ -48,7 +49,7 @@ type LeadGroup = { profileName: string; leads: UnlinkedLead[] };
 export default function CampaignDetailClient({
   campaignId, campaignName, campaignStatus, campaignIcpId, sellerName, sequence, messages, dayPerStep, currentStep,
   allCampaigns, leadGroups, channels, autoReplies, connectionNote, messageTemplates, flowMetrics,
-  metricsSellers = [], metricsFilters,
+  metricsSellers = [], metricsFilters, tenantBioId = null,
 }: {
   campaignId: string;
   campaignName: string;
@@ -68,6 +69,7 @@ export default function CampaignDetailClient({
   flowMetrics: FlowMetrics | null;
   metricsSellers?: { id: string; name: string }[];
   metricsFilters?: { seller: string | null; range: string; from: string | null; to: string | null };
+  tenantBioId?: string | null;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -105,6 +107,7 @@ export default function CampaignDetailClient({
   const [tplError, setTplError] = useState<string | null>(null);
   const [tplDone, setTplDone] = useState(false);
   const toast = useToast();
+  const [showReassign, setShowReassign] = useState(false);
 
   async function handleDial(leadId: string, phone: string) {
     if (!phone || callingId) return;
@@ -514,6 +517,7 @@ export default function CampaignDetailClient({
             <button onClick={() => setTab(4)} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold hover:opacity-90" style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", color: "#241B04", border: "1px solid var(--fg2)" }}><UserPlus size={11} /> Add leads</button>
             <span className="text-xs font-medium ml-2" style={{ color: C.textMuted }}>{selected.size > 0 ? `${selected.size} selected` : "All"}:</span>
             <Link href={`/campaigns/${campaignId}/edit`} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><Pencil size={11} /> Edit</Link>
+            <button onClick={() => setShowReassign(true)} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }} title="Split this flow's leads across your team (who calls whom) — safe on active flows"><Users size={11} /> Assign callers</button>
             {campaignStatus === "active" ? (
               <button onClick={() => bulkAct("pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}><Pause size={11} /> Pause</button>
             ) : campaignStatus === "paused" ? (
@@ -522,6 +526,15 @@ export default function CampaignDetailClient({
             <button onClick={() => { if (confirm("Cancel this campaign for " + (selected.size > 0 ? "selected leads" : "all leads") + "?")) bulkAct("cancel"); }} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={11} /> Cancel</button>
             {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs underline ml-1" style={{ color: C.textMuted }}>Clear</button>}
           </div>
+
+          {showReassign && (
+            <ReassignSellersModal
+              flowCampaignIds={allCampaigns.map(c => c.id)}
+              tenantBioId={tenantBioId}
+              onClose={() => setShowReassign(false)}
+              onDone={() => { setShowReassign(false); router.refresh(); }}
+            />
+          )}
 
           {/* Filter bar — LIST view only. In Pipeline/kanban the filters were
               confusing (boss 2026-08-19: "de qué sirve que aparezcan si no

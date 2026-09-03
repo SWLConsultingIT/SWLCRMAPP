@@ -633,6 +633,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
         flowMetrics={flowMetrics}
         metricsSellers={sellerList}
         metricsFilters={activeFilters}
+        tenantBioId={tenantBioId}
         campaignId={id}
         campaignName={campaign.name}
         campaignStatus={campaign.status}

@@ -316,11 +316,19 @@ export async function POST(req: NextRequest) {
   // Resolve seller (LinkedIn account) names for the leads.linkedin_assigned_account
   // stamp. Covers every seller referenced by the quota map + the fallback.
   const sellerNameById = new Map<string, string>();
+  // seller_id → the seller's linked human (sellers.user_id). Seeds each new
+  // campaign's assigned_user_id (the owner/caller), so the lead-division among
+  // sellers at creation also divides the WORK among their humans. A seller with
+  // no linked user leaves assigned_user_id null (backfill/flow-detail can set it).
+  const sellerUserById = new Map<string, string>();
   {
     const ids = [...new Set([...leadSellerMap.values(), fallbackSellerId].filter(Boolean) as string[])];
     if (ids.length > 0) {
-      const { data: sRows } = await supabase.from("sellers").select("id, name").in("id", ids);
-      for (const s of sRows ?? []) sellerNameById.set((s as any).id, (s as any).name);
+      const { data: sRows } = await supabase.from("sellers").select("id, name, user_id").in("id", ids);
+      for (const s of sRows ?? []) {
+        sellerNameById.set((s as any).id, (s as any).name);
+        if ((s as any).user_id) sellerUserById.set((s as any).id, (s as any).user_id as string);
+      }
     }
   }
 
@@ -470,9 +478,14 @@ export async function POST(req: NextRequest) {
   });
 
   // ── 4a. Insert campaigns in chunks, mapping each back to its lead ────
-  const campaignRows = leadIds.map(leadId => ({
+  const campaignRows = leadIds.map(leadId => {
+    const sid = leadSellerMap.get(leadId) ?? fallbackSellerId;
+    return {
     lead_id: leadId,
-    seller_id: leadSellerMap.get(leadId) ?? fallbackSellerId,
+    seller_id: sid,
+    // Owner/caller (human). Decoupled from seller_id (the sending identity);
+    // seeded from the sending seller's user, reassignable from the flow detail.
+    assigned_user_id: sid ? (sellerUserById.get(sid) ?? null) : null,
     name: request.name,
     channel: primaryChannel,
     status: "active",
@@ -492,7 +505,8 @@ export async function POST(req: NextRequest) {
     metadata: { autoReplies },
     started_at: now,
     created_at: now,
-  }));
+    };
+  });
 
   // leadId → campaign id, for building the message rows below.
   const campaignIdByLead = new Map<string, string>();
