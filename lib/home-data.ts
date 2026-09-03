@@ -25,7 +25,8 @@ export type HomePriority = {
   leadId: string;
   name: string | null;
   company: string;
-  detail: string | null;
+  detail: string | null;        // reply: the message snippet (language-neutral)
+  overdueDays: number | null;   // call: days overdue (0 = due today) — formatted client-side for i18n
   tag: string | null;
   when: string | null;
 };
@@ -153,11 +154,11 @@ export async function getHomeData(): Promise<HomeData> {
   const priorities: HomePriority[] = [];
   if (topPositive?.lead_id) {
     const l = leadById.get(topPositive.lead_id);
-    priorities.push({ kind: "reply", leadId: topPositive.lead_id, name: nameOf(l), company: l?.company_name ?? "—", detail: (topPositive.reply_text ?? "").replace(/\s+/g, " ").trim().slice(0, 80) || null, tag: "Positiva", when: topPositive.received_at });
+    priorities.push({ kind: "reply", leadId: topPositive.lead_id, name: nameOf(l), company: l?.company_name ?? "—", detail: (topPositive.reply_text ?? "").replace(/\s+/g, " ").trim().slice(0, 80) || null, overdueDays: null, tag: "positive", when: topPositive.received_at });
   }
   if (topCall?.leadId) {
     const l = leadById.get(topCall.leadId);
-    priorities.push({ kind: "call", leadId: topCall.leadId, name: nameOf(l), company: l?.company_name ?? "—", detail: topCall.overdueDays > 0 ? `Vencida hace ${topCall.overdueDays}d` : "Programada para hoy", tag: null, when: null });
+    priorities.push({ kind: "call", leadId: topCall.leadId, name: nameOf(l), company: l?.company_name ?? "—", detail: null, overdueDays: topCall.overdueDays, tag: null, when: null });
   }
   return {
     firstName,
