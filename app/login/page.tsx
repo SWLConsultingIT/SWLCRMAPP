@@ -58,7 +58,7 @@ export default function LoginPage() {
       } catch {}
       if (remember) localStorage.setItem(REMEMBER_KEY, email);
       else localStorage.removeItem(REMEMBER_KEY);
-      router.push("/");
+      router.push("/home");
       router.refresh();
     } catch {
       setError("Connection error. Try again.");
