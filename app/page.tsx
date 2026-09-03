@@ -48,7 +48,6 @@ import SellerPerformanceChart from "@/components/dashboard/SellerPerformanceChar
 import DimWhileLoading from "@/components/DimWhileLoading";
 import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
-import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
 import { DashboardTabsProvider, TabPanel, TabChrome } from "@/components/dashboard/DashboardTabs";
 
@@ -176,7 +175,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 export const revalidate = 0;
 
-const DASHBOARD_TABS = ["today", "overview", "icps", "campaigns", "channels", "sellers", "portfolio"] as const;
+const DASHBOARD_TABS = ["overview", "icps", "campaigns", "channels", "sellers", "portfolio"] as const;
 type DashboardTab = (typeof DASHBOARD_TABS)[number];
 
 function parseFilters(sp: Record<string, string | string[] | undefined>) {
@@ -191,7 +190,7 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
   const rawTab = get("tab");
   const tab: DashboardTab = (DASHBOARD_TABS as readonly string[]).includes(rawTab ?? "")
     ? (rawTab as DashboardTab)
-    : "today";
+    : "overview";
   return {
     from: get("from"),
     to: get("to"),
@@ -364,22 +363,9 @@ export default async function DashboardPage({
         <DashboardKeyboardShortcuts />
       </Suspense>
 
-      {/* ─── Welcome hero — context-aware.
-          Today tab: SWL pro welcome hero with live pulse + animated glow.
-          Other tabs: original "Sales Engine / Your pipeline in depth"
-          analytical hero (the data tabs need the analytical framing).
-          Boss feedback 2026-05-28: the landing screen must read pro and
-          alive; the analytical hero is wrong copy for the action list.
-          Both variants render; TabChrome reveals the right one per tab. */}
-      <TabChrome include={["today"]}>
-      <AuroraHero
-        eyebrow={t("dashx.hero.section")}
-        title={t("dashx.today.heroTitle")}
-        subtitle={t("dashx.today.heroDesc")}
-      />
-      </TabChrome>
-
-      <TabChrome exclude={["today"]}>
+      {/* ─── Analytical hero. The "What to do today" action list moved to the
+          dedicated Home (/home) 2026-09-03, so the dashboard is now purely
+          analytics and always shows the analytical hero. */}
       <AuroraHero
         eyebrow={t("dashx.hero.section")}
         title={t("dashx.hero.title")}
@@ -410,21 +396,19 @@ export default async function DashboardPage({
           </>
         }
       />
-      </TabChrome>
 
-      {/* ─── Tab bar. The six analytics tabs switch client-side (see
+      {/* ─── Tab bar. The analytics tabs switch client-side (see
           components/dashboard/DashboardTabs.tsx); Portfolio navigates. */}
       <Suspense fallback={<div className="h-12" />}>
         <ChapterNav
           items={[
-            { id: "today",     number: 1, label: t("dashx.chapter.today") },
-            { id: "overview",  number: 2, label: t("dashx.chapter.overview") },
-            { id: "icps",      number: 3, label: t("dashx.chapter.icps") },
-            { id: "campaigns", number: 4, label: t("dashx.chapter.campaigns") },
-            { id: "channels",  number: 5, label: t("dashx.chapter.channels") },
-            { id: "sellers",   number: 6, label: t("dashx.chapter.sellers") },
+            { id: "overview",  number: 1, label: t("dashx.chapter.overview") },
+            { id: "icps",      number: 2, label: t("dashx.chapter.icps") },
+            { id: "campaigns", number: 3, label: t("dashx.chapter.campaigns") },
+            { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
+            { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
             // Portfolio — cross-tenant comparison, super-admin only.
-            ...(isSuperAdmin ? [{ id: "portfolio", number: 7, label: "Portfolio" }] : []),
+            ...(isSuperAdmin ? [{ id: "portfolio", number: 6, label: "Portfolio" }] : []),
           ]}
         />
       </Suspense>
@@ -456,36 +440,7 @@ export default async function DashboardPage({
         <PortfolioView companies={portfolioData} days={pdays} locale={locale === "es" ? "es" : "en"} />
       )}
 
-      {/* ═══ CHAPTER 1 · TODAY ═══════════════════════════════════════════
-          Boss feedback 2026-05-28: "What to do today" should be the landing
-          screen, not buried under metrics. The welcome hero now lives at
-          the page top (context-aware on filters.tab); this section is
-          just the action list. */}
-      <TabPanel id="today">
-      <section className="space-y-5 pt-3">
-      <TodayCard
-        locale={locale === "es" ? "es" : "en"}
-        labels={{
-          title: t("dashx.today.title"),
-          subtitle: t("dashx.today.subtitle"),
-          empty: t("dashx.today.empty"),
-          noIcp: t("dashx.tbl.icp.unknown"),
-          sections: {
-            replies:    { label: t("dashx.today.replies"),         hint: t("dashx.today.repliesHint"),       cta: t("dashx.today.openInbox") },
-            positives:  { label: t("dashx.today.positives"),       hint: t("dashx.today.positivesHint"),     cta: t("dashx.today.openOpps") },
-            calls:      { label: t("dashx.today.calls"),           hint: t("dashx.today.callsHint"),         cta: t("dashx.today.openCalls") },
-            unassigned: { label: t("dashx.today.leadsNoCampaign"), hint: t("dashx.today.leadsNoCampaignHint"), cta: t("dashx.today.openLeads") },
-            stale:      { label: t("dashx.today.stale"),           hint: t("dashx.today.staleHint"),         cta: t("dashx.today.openLeads") },
-          },
-        }}
-        data={data.todayLists}
-        counts={data.todayLists.counts}
-      />
-
-      </section>
-      </TabPanel>
-
-      {/* ═══ CHAPTER 2 · OVERVIEW ═══════════════════════════════════════════ */}
+      {/* ═══ OVERVIEW ═══════════════════════════════════════════ */}
       <TabPanel id="overview">
       <section className="space-y-8 pt-3">
 

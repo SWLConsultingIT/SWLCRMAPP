@@ -12,16 +12,16 @@
 // getServerLocale() in the same request share one DB lookup.
 
 import { cache } from "react";
-import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getOrFetchProfile } from "@/lib/user-profile-cache";
+import { getUserScope } from "@/lib/scope";
 import { dicts, type Locale } from "@/lib/i18n-dicts";
 
 export const getServerLocale = cache(async function getServerLocale(): Promise<Locale> {
   try {
-    const supabase = await getSupabaseServer();
-    const { data } = await supabase.auth.getUser();
-    const userId = data.user?.id;
+    // Reuse getUserScope's (React.cache'd) auth.getUser() instead of a second
+    // GoTrue round-trip — saves one serial network hop on every localized page.
+    const { userId } = await getUserScope();
     if (!userId) return "en";
     // Use the shared profile cache — same source the rest of the app reads
     // for locale/theme. Avoids a duplicate user_profiles round-trip and

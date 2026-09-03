@@ -57,7 +57,7 @@ export default function HomeClient() {
     return () => { alive = false; };
   }, []);
 
-  const total = data ? data.counts.replies + data.counts.calls + data.counts.followup + data.counts.unassigned : 0;
+  const total = data ? data.counts.replies + data.counts.calls + data.counts.unassigned : 0;
   const arrow = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
 
   return (

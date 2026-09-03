@@ -58,8 +58,16 @@ export async function getHomeData(): Promise<HomeData> {
     try {
       const { data } = await svc.auth.admin.getUserById(scope.userId);
       const meta = data?.user?.user_metadata as Record<string, unknown> | undefined;
-      const full = (meta?.full_name as string | undefined) ?? (meta?.name as string | undefined) ?? "";
-      firstName = full ? full.trim().split(/\s+/)[0] : null;
+      const email = data?.user?.email as string | undefined;
+      // Match /api/auth/me's display-name resolution (display_name is the primary
+      // key the app stores names under; full_name/name were missing it).
+      const nm = (meta?.display_name ?? meta?.name ?? meta?.full_name) as string | undefined;
+      let first = nm ? nm.trim().split(/\s+/)[0] : "";
+      if (!first && email) {
+        const lp = email.split("@")[0].split(/[._-]+/)[0];
+        first = lp ? lp.charAt(0).toUpperCase() + lp.slice(1) : "";
+      }
+      firstName = first || null;
     } catch { /* greeting falls back to no name */ }
   }
 

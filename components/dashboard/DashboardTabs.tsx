@@ -35,7 +35,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 /** Tabs rendered from the shared `getDashboardData` result — switchable with
  *  zero server work. `portfolio` is deliberately NOT here: it has its own
  *  `getPortfolioComparison()` fetch and stays URL-driven. */
-export const CLIENT_TABS = ["today", "overview", "icps", "campaigns", "channels", "sellers"] as const;
+export const CLIENT_TABS = ["overview", "icps", "campaigns", "channels", "sellers"] as const;
 export type ClientTab = (typeof CLIENT_TABS)[number];
 
 export function isClientTab(id: string): id is ClientTab {

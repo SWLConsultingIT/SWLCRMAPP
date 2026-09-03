@@ -205,7 +205,12 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Each source uses a query FACTORY (fresh builder per page) because
   // .range() can only be applied to a builder once.
   const makeLeadsQ = () => {
-    const q = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, allow_call, source, encrypted_payload");
+    // encrypted_payload (a large bytea) + the per-lead decrypt pass below were
+    // ONLY needed for lead names in the Today card, which moved to /home
+    // (2026-09-03). Dropping the column shrinks the leads fetch a lot and makes
+    // the decrypt pass a no-op (hasClient=false) — a big chunk of the dashboard
+    // load. Names/phone kept in the select but are unused by the analytics tabs.
+    const q = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, source");
     return bioId ? q.eq("company_bio_id", bioId) : q;
   };
   const makeCampsQ = () => {
