@@ -16,6 +16,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { renderPlaceholders } from "@/lib/placeholders";
+import { hasPlayableRecording } from "@/lib/call-recording";
 
 export const runtime = "nodejs";
 
@@ -141,7 +142,7 @@ export async function GET(
     // skipped below to avoid a duplicate row.
     svc
       .from("calls")
-      .select("id, classification, status, duration, notes, transcript, recording_url, aircall_call_id, started_at")
+      .select("id, classification, status, duration, notes, transcript, recording_url, recording_storage_path, aircall_call_id, started_at")
       .eq("lead_id", leadId)
       .order("started_at", { ascending: true }),
   ]);
@@ -237,7 +238,7 @@ export async function GET(
     for (const c of byMinute.values()) {
       const note = (c.notes ?? "").toString().trim();
       const summary = note ? (note.length > 140 ? note.slice(0, 140) + "…" : note) : "";
-      const hasRec = !!c.recording_url || (c.status === "answered" && (c.duration ?? 0) > 0 && !!c.aircall_call_id);
+      const hasRec = hasPlayableRecording(c);
       entries.push({
         id: `call-${c.id}`,
         direction: "event",

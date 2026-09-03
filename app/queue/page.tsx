@@ -4,6 +4,7 @@ import { prettyDisplayName } from "@/lib/display-name";
 import { getUserScope, getMyAssignedSellerIds, canViewAllTenantData } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { computePendingCalls } from "@/lib/pending-calls";
+import { hasPlayableRecording } from "@/lib/call-recording";
 import QueueClient from "./QueueClient";
 
 // Decrypts client-source `leads` objects nested inside join responses (eg
@@ -232,11 +233,7 @@ async function getQueueData() {
   const callHistory = realCalls.map((c: any) => {
     const lead = c.leads;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown" : "Unknown";
-    // Mirror CallCard's recording heuristic: a real recording_url, OR an
-    // answered call with duration that Aircall will have a recording for
-    // (the /play endpoint lazily archives it on first access).
-    const hasRecording = !!c.recording_url
-      || (c.status === "answered" && (c.duration ?? 0) > 0 && !!c.aircall_call_id);
+    const hasRecording = hasPlayableRecording(c);
     return {
       id: c.id as string,
       leadId: (lead?.id ?? c.lead_id ?? null) as string | null,

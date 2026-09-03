@@ -8,6 +8,7 @@ import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
 import CallSummary from "@/components/CallSummary";
 import { useLocale } from "@/lib/i18n";
+import { hasPlayableRecording } from "@/lib/call-recording";
 
 export type CallRecord = {
   id: string;
@@ -17,6 +18,7 @@ export type CallRecord = {
   duration: number | null;
   phone_number: string | null;
   recording_url: string | null;
+  recording_storage_path?: string | null;
   transcript: string | null;
   notes: string | null;
   started_at: string | null;
@@ -126,14 +128,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
     }
   }
 
-  // Show a player whenever the call might have a recording — not just when
-  // recording_url is populated. Aircall sometimes fires call.ended before the
-  // recording is ready, leaving recording_url null even though the MP3 exists.
-  // The /play endpoint fetches a fresh URL from Aircall API and archives it
-  // on first access, so the player will work even with recording_url=null as
-  // long as aircall_call_id is set and the call was answered.
-  const hasRecording = !!call.recording_url
-    || (call.status === "answered" && (call.duration ?? 0) > 0 && !!call.aircall_call_id);
+  const hasRecording = hasPlayableRecording(call);
   const canTranscribe = hasRecording && !call.transcript && !!call.aircall_call_id;
   const canRetranscribe = hasRecording && !!call.transcript && !!call.aircall_call_id;
 

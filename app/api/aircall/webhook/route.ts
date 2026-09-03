@@ -1,6 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "node:crypto";
 import { phoneSuffixMatch, ilikeDigitPattern } from "@/lib/phone-match";
+
+// `after` work counts against the route's budget, and archiving a recording
+// means downloading an MP3 from Aircall's S3 and uploading it to Storage.
+// The default cap cuts that off mid-flight on longer calls.
+export const maxDuration = 60;
 
 const SB_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -212,28 +217,40 @@ export async function POST(req: NextRequest) {
 
   const updated = await patchRes.json().catch(() => []);
 
-  // Kick off Whisper transcription if a recording just arrived. Fire-and-forget
-  // — the webhook should return 200 quickly so Aircall doesn't retry. The
-  // transcribe endpoint is idempotent so duplicate triggers (e.g., from
-  // call.ended + a later call.created update) are safe.
+  // Kick off Whisper transcription if a recording just arrived. Deferred with
+  // `after` so the webhook still returns 200 immediately (Aircall retries on a
+  // slow response) while the work actually gets to run. The transcribe endpoint
+  // is idempotent, so duplicate triggers (call.ended + a later call.created
+  // update) are safe.
   const updatedRow = Array.isArray(updated) && updated[0] ? updated[0] : null;
   if (updatedRow?.id && update.recording_url && !updatedRow.transcript) {
     const origin = req.nextUrl.origin;
-    fetch(`${origin}/api/aircall/transcribe`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callId: updatedRow.id }),
-    }).catch(() => { /* don't fail the webhook on transcription error */ });
+    after(
+      fetch(`${origin}/api/aircall/transcribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId: updatedRow.id }),
+      }).catch(() => { /* don't fail the webhook on transcription error */ }),
+    );
   }
 
   // Archive the recording into our own Supabase Storage bucket. Aircall's
-  // recording URLs are S3 presigned and expire (hours/days), so without
-  // this archive step old calls stop playing in the UI. Fire-and-forget —
-  // the /play endpoint also has a lazy-archive fallback in case this misses.
+  // recording URLs are S3 presigned and expire (hours/days), so without this
+  // archive step old calls stop playing in the UI.
+  //
+  // This has to run under `after`, not as a floating promise. A bare
+  // `.then()` here is abandoned the moment the response is returned — the
+  // serverless invocation is frozen and a download + upload that takes
+  // seconds never finishes. Measured 2026-09-03: 6 of 280 answered calls in
+  // 30 days were archived, and the transcription trigger above (same shape,
+  // same bug) had landed 8 of 595. The ~2% that did survive were the calls
+  // somebody happened to press play on, which archives synchronously.
   if (updatedRow?.id && update.recording_url && !updatedRow.recording_storage_path) {
-    import("@/lib/archive-call-recording")
-      .then(m => m.archiveCallRecording(updatedRow.id as string))
-      .catch(() => { /* don't fail webhook on archive error */ });
+    after(
+      import("@/lib/archive-call-recording")
+        .then(m => m.archiveCallRecording(updatedRow.id as string))
+        .catch(() => { /* don't fail webhook on archive error */ }),
+    );
   }
 
   // Outbound reconciliation: the /api/aircall/dial endpoint inserts a row
@@ -343,14 +360,20 @@ export async function POST(req: NextRequest) {
       const inserted = Array.isArray(insertedRows) && insertedRows[0] ? insertedRows[0] : null;
       if (inserted?.id && (call.recording || call.asset)) {
         const origin = req.nextUrl.origin;
-        fetch(`${origin}/api/aircall/transcribe`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ callId: inserted.id }),
-        }).catch(() => {});
-        import("@/lib/archive-call-recording")
-          .then(m => m.archiveCallRecording(inserted.id as string))
-          .catch(() => {});
+        // Same `after` requirement as the update path above — floating
+        // promises here are abandoned when the response returns.
+        after(
+          fetch(`${origin}/api/aircall/transcribe`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ callId: inserted.id }),
+          }).catch(() => {}),
+        );
+        after(
+          import("@/lib/archive-call-recording")
+            .then(m => m.archiveCallRecording(inserted.id as string))
+            .catch(() => {}),
+        );
       }
       return NextResponse.json({ ok: true, status, linkedLead: leadId, callId: inserted?.id ?? null, orphanDialer });
     }

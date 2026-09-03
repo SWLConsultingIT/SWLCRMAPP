@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   // artifacts — they must never leak cross-tenant via ?leadIds= enumeration).
   const { data, error } = await svc
     .from("calls")
-    .select("id, aircall_call_id, lead_id, direction, status, duration, phone_number, recording_url, transcript, notes, started_at, ended_at, classification, ai_confidence, ai_summary, coach_analysis, coach_score, coach_generated_at, coach_model, summary, summary_generated_at, leads!inner(company_bio_id)")
+    .select("id, aircall_call_id, lead_id, direction, status, duration, phone_number, recording_url, recording_storage_path, transcript, notes, started_at, ended_at, classification, ai_confidence, ai_summary, coach_analysis, coach_score, coach_generated_at, coach_model, summary, summary_generated_at, leads!inner(company_bio_id)")
     .in("lead_id", ids)
     .order("started_at", { ascending: false });
 
