@@ -8,7 +8,7 @@ import { useAuthUser } from "@/lib/auth-context";
 import TenantSwitcher from "@/components/TenantSwitcher";
 import HelpMenu from "@/components/HelpMenu";
 import {
-  LayoutDashboard, Users, Megaphone,
+  LayoutDashboard, Users, Megaphone, Home,
   Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
   PanelLeftClose, PanelLeftOpen, Trophy, X,
 } from "lucide-react";
@@ -48,6 +48,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
   {
     labelKey: "nav.section.main",
     items: [
+      { href: "/home", labelKey: "", brandLabel: "Home", icon: Home, shortcut: "H" },
       { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, shortcut: "D" },
       { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2, shortcut: "B" },
       { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "pendingReplies", shortcut: "I" },
