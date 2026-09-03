@@ -221,10 +221,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const q = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, requires_human_review, review_status, leads!inner(company_bio_id)");
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
-  const makeMsgsQ = () => {
-    const q = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, channel, campaigns!inner(leads!inner(company_bio_id))");
-    return bioId ? q.eq("campaigns.leads.company_bio_id", bioId) : q;
-  };
+  // campaign_messages is fetched via the dashboard_campaign_messages RPC (in the
+  // Promise.all below), NOT paginated here. SWL has ~22k message rows and
+  // fetchAllRows paged them 1000-at-a-time SERIALLY = ~23 sequential round-trips
+  // — the measured dashboard bottleneck (each DB query is only ~40ms, so the
+  // cost was the serial network hops, not the DB). The RPC returns the SAME
+  // bio-scoped rows (same joins; RLS still applies via SECURITY INVOKER) in ONE
+  // round-trip, so the downstream in-memory aggregations are byte-for-byte the
+  // same — identical metrics, ~23× fewer round-trips.
   const makeProfilesQ = () => {
     const q = supabase.from("icp_profiles").select("id, profile_name, company_bio_id").eq("status", "approved");
     return bioId ? q.eq("company_bio_id", bioId) : q;
@@ -262,7 +266,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     fetchAllRows(makeLeadsQ),
     fetchAllRows(makeCampsQ),
     fetchAllRows(makeRepliesQ),
-    fetchAllRows(makeMsgsQ),
+    supabase.rpc("dashboard_campaign_messages", { p_bio: bioId }).then(({ data, error }) => {
+      if (error) throw error;
+      return data ?? [];
+    }),
     fetchAllRows(makeProfilesQ),
     fetchAllRows(makeSellersQ),
     fetchAllRows<CallRow>(makeCallsQ).catch((e) => {
