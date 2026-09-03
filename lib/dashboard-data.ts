@@ -180,7 +180,11 @@ async function fetchAllRows<T = Record<string, unknown>>(
 // ── Perf instrumentation (temporary — attribution study, no behavior change) ──
 // Emits [DASH-PERF] lines to the server log so Vercel shows where the dashboard
 // load time goes. Remove once the profiling decision is made.
+// Collector so /api/dash-perf can return the breakdown as JSON (no Vercel log
+// digging). Module-level; fine for a single manual diagnostic request.
+export const __dashPerf: Array<{ label: string; ms: number; rows?: number }> = [];
 function dperf(label: string, ms: number, rows?: number) {
+  __dashPerf.push({ label, ms: Math.round(ms), rows });
   console.log(`[DASH-PERF] ${label}: ${ms.toFixed(0)}ms${rows != null ? ` / ${rows} rows` : ""}`);
 }
 async function dtimed<T>(label: string, fn: () => Promise<T>): Promise<T> {
@@ -197,6 +201,7 @@ function dtimedSync<T>(label: string, fn: () => T): T {
 }
 
 export async function getDashboardData(filters: DashboardFilters) {
+  __dashPerf.length = 0;
   const __t0 = performance.now();
   try {
     const r = await getDashboardDataInternal(filters);
@@ -289,10 +294,11 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     dtimed("leads", () => fetchAllRows(makeLeadsQ)),
     dtimed("campaigns", () => fetchAllRows(makeCampsQ)),
     dtimed("lead_replies", () => fetchAllRows(makeRepliesQ)),
-    dtimed("campaign_messages_rpc", () => supabase.rpc("dashboard_campaign_messages", { p_bio: bioId }).then(({ data, error }) => {
+    dtimed("campaign_messages_rpc", async () => {
+      const { data, error } = await supabase.rpc("dashboard_campaign_messages", { p_bio: bioId });
       if (error) throw error;
       return data ?? [];
-    })),
+    }),
     dtimed("icp_profiles", () => fetchAllRows(makeProfilesQ)),
     dtimed("sellers", () => fetchAllRows(makeSellersQ)),
     dtimed("calls", () => fetchAllRows<CallRow>(makeCallsQ).catch((e) => {
