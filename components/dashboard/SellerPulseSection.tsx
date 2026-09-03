@@ -20,14 +20,10 @@ export default async function SellerPulseSection({
   sellerPerformance: Perf[];
   periodLabel: string;
 }) {
-  const __tSellers = performance.now();
   const [sellerActivity, teamMembers] = await Promise.all([
     getSellerActivity(bioId),
     getTeamMembers(bioId),
   ]);
-  // Perf (temporary): these each call the GoTrue admin listUsers; streamed via
-  // Suspense so they don't block the initial dashboard, but timed for attribution.
-  console.log(`[DASH-PERF] sellers_listUsers (getSellerActivity + getTeamMembers, Suspense): ${(performance.now() - __tSellers).toFixed(0)}ms / ${teamMembers.length} members`);
 
   // Argentina is UTC-3 — match dashboard-data.ts so "today" is local midnight.
   const todayStr = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);

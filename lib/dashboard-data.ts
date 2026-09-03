@@ -177,36 +177,9 @@ async function fetchAllRows<T = Record<string, unknown>>(
   return out;
 }
 
-// ── Perf instrumentation (temporary — attribution study, no behavior change) ──
-// Emits [DASH-PERF] lines to the server log so Vercel shows where the dashboard
-// load time goes. Remove once the profiling decision is made.
-// Collector so /api/dash-perf can return the breakdown as JSON (no Vercel log
-// digging). Module-level; fine for a single manual diagnostic request.
-export const __dashPerf: Array<{ label: string; ms: number; rows?: number }> = [];
-function dperf(label: string, ms: number, rows?: number) {
-  __dashPerf.push({ label, ms: Math.round(ms), rows });
-  console.log(`[DASH-PERF] ${label}: ${ms.toFixed(0)}ms${rows != null ? ` / ${rows} rows` : ""}`);
-}
-async function dtimed<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  const s = performance.now();
-  const r = await fn();
-  dperf(label, performance.now() - s, Array.isArray(r) ? r.length : undefined);
-  return r;
-}
-function dtimedSync<T>(label: string, fn: () => T): T {
-  const s = performance.now();
-  const r = fn();
-  dperf(label, performance.now() - s);
-  return r;
-}
-
 export async function getDashboardData(filters: DashboardFilters) {
-  __dashPerf.length = 0;
-  const __t0 = performance.now();
   try {
-    const r = await getDashboardDataInternal(filters);
-    dperf("getDashboardData_total", performance.now() - __t0);
-    return r;
+    return await getDashboardDataInternal(filters);
   } catch (e) {
     console.error("[dashboard-data] unrecoverable error — serving empty dashboard:", e);
     return EMPTY_DASHBOARD;
@@ -309,7 +282,6 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
 
-  const __tFetch = performance.now();
   const [
     allLeadsRaw,
     allCampsRaw,
@@ -319,19 +291,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     allSellersRaw,
     allCallsRaw,
   ] = await Promise.all([
-    dtimed("leads", () => fetchAllRows(makeLeadsQ)),
-    dtimed("campaigns", () => fetchAllRows(makeCampsQ)),
-    dtimed("lead_replies", () => fetchAllRows(makeRepliesQ)),
-    dtimed("campaign_messages", () => fetchAllMessages()),
-    dtimed("icp_profiles", () => fetchAllRows(makeProfilesQ)),
-    dtimed("sellers", () => fetchAllRows(makeSellersQ)),
-    dtimed("calls", () => fetchAllRows<CallRow>(makeCallsQ).catch((e) => {
+    fetchAllRows(makeLeadsQ),
+    fetchAllRows(makeCampsQ),
+    fetchAllRows(makeRepliesQ),
+    fetchAllMessages(),
+    fetchAllRows(makeProfilesQ),
+    fetchAllRows(makeSellersQ),
+    fetchAllRows<CallRow>(makeCallsQ).catch((e) => {
       console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
       return [] as CallRow[];
-    })),
+    }),
   ]);
-  dperf("fetch_wall (all sources, parallel)", performance.now() - __tFetch);
-  const __tAgg = performance.now();
 
   const allLeadsRawTyped = (allLeadsRaw ?? []) as Array<LeadRow & { source?: string | null; encrypted_payload?: unknown }>;
 
@@ -1847,8 +1817,6 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     insights.push({ tone: "warning", kind: "channelMismatch", vars: { n: channelMismatchRate }, text: `${channelMismatchRate}% of replies arrived on the wrong channel — check routing config.` });
   }
 
-  dperf("aggregate_metrics_js (excl. todayLists)", performance.now() - __tAgg);
-
   return {
     period: { from: filters.from, to: filters.to, days: Math.round(periodMs / 86_400_000) },
     headline: {
@@ -1934,7 +1902,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     // deep-linked views. Uses non-encrypted company_name only (no
     // decryption needed). Calls list intentionally omitted in this commit
     // — re-introduced separately once the calls fetch is stabilized.
-    todayLists: dtimedSync("todayLists", () => {
+    todayLists: (() => {
       // "What to do today" is a LIVE action hero — it must reflect the current
       // actionable state of the workspace, NOT the analytics period selector.
       // So every bucket reads the UNFILTERED sources (allLeads/allReplies/
@@ -2100,7 +2068,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
           stale: staleCandidates.length,
         },
       };
-    }),
+    })(),
     velocity: {
       perDay: Math.round(velocityPerDay * 10) / 10,
       winRate,
