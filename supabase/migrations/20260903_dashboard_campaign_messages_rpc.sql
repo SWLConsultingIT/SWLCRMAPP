@@ -1,3 +1,12 @@
+-- ⚠️ SUPERSEDED / UNUSED (2026-09-03). This RPC was Fase 1A's attempt to fetch
+-- campaign_messages in ONE round-trip. It DOES NOT WORK through the app: PostgREST
+-- caps EVERY response (rpc included) at 1000 rows and ignores Range pagination on
+-- an rpc POST, so `supabase.rpc(...)` returned only 1,000 of ~22,013 messages —
+-- silently undercounting every message metric. The dashboard now fetches messages
+-- via keyset pagination over the campaign_messages PK (see lib/dashboard-data.ts
+-- `fetchAllMessages`), which is correct and fast. This function is left in the DB
+-- (harmless, unused). Kept here for history. Do NOT wire it back to a bare .rpc().
+--
 -- Dashboard perf (Phase 1): fetch campaign_messages for the dashboard in ONE
 -- round-trip instead of ~23 serial paginated ones.
 --

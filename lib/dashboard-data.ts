@@ -248,14 +248,42 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const q = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, requires_human_review, review_status, leads!inner(company_bio_id)");
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
-  // campaign_messages is fetched via the dashboard_campaign_messages RPC (in the
-  // Promise.all below), NOT paginated here. SWL has ~22k message rows and
-  // fetchAllRows paged them 1000-at-a-time SERIALLY = ~23 sequential round-trips
-  // — the measured dashboard bottleneck (each DB query is only ~40ms, so the
-  // cost was the serial network hops, not the DB). The RPC returns the SAME
-  // bio-scoped rows (same joins; RLS still applies via SECURITY INVOKER) in ONE
-  // round-trip, so the downstream in-memory aggregations are byte-for-byte the
-  // same — identical metrics, ~23× fewer round-trips.
+  // campaign_messages — paginated via fetchAllRows (table select, where .range()
+  // works). We tried a single dashboard_campaign_messages RPC (Fase 1A) to cut
+  // the ~23 serial round-trips, but PostgREST caps EVERY response at 1000 rows
+  // and does NOT honor Range pagination on an rpc POST (verified: every page
+  // returned the same first 1000), so it silently delivered 1,000 of ~22,013
+  // messages — undercounting every message metric. The real load cost was never
+  // the fetch anyway; it was the O(n²) aggregation, now fixed with index Maps
+  // below. So we keep the correct paginated embed fetch. The RPC is left unused.
+  const makeMsgsQ = () => {
+    const q = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, channel, campaigns!inner(leads!inner(company_bio_id))");
+    return bioId ? q.eq("campaigns.leads.company_bio_id", bioId) : q;
+  };
+  // Keyset pagination (id PK) — NOT fetchAllRows' OFFSET. PostgREST caps every
+  // page at 1000 rows; OFFSET on this embed is O(offset) (measured 655ms at
+  // depth 21k and growing), while keyset (id > lastId, ORDER BY id) rides the
+  // PK index at a flat ~125ms/page. Correct because id is a unique, non-null
+  // uuid PK, so the cursor strictly increases — pages never overlap or skip.
+  const fetchAllMessages = async (): Promise<MsgRow[]> => {
+    const out: MsgRow[] = [];
+    let afterId = "00000000-0000-0000-0000-000000000000";
+    for (;;) {
+      const { data, error } = await makeMsgsQ()
+        .gt("id", afterId)
+        .order("id", { ascending: true })
+        .limit(1000);
+      if (error) {
+        console.warn("[dashboard-data] message keyset fetch error — degrading to partial:", error);
+        break;
+      }
+      const rows = (data ?? []) as unknown as MsgRow[];
+      out.push(...rows);
+      if (rows.length < 1000) break;
+      afterId = rows[rows.length - 1].id;
+    }
+    return out;
+  };
   const makeProfilesQ = () => {
     const q = supabase.from("icp_profiles").select("id, profile_name, company_bio_id").eq("status", "approved");
     return bioId ? q.eq("company_bio_id", bioId) : q;
@@ -294,11 +322,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     dtimed("leads", () => fetchAllRows(makeLeadsQ)),
     dtimed("campaigns", () => fetchAllRows(makeCampsQ)),
     dtimed("lead_replies", () => fetchAllRows(makeRepliesQ)),
-    dtimed("campaign_messages_rpc", async () => {
-      const { data, error } = await supabase.rpc("dashboard_campaign_messages", { p_bio: bioId });
-      if (error) throw error;
-      return data ?? [];
-    }),
+    dtimed("campaign_messages", () => fetchAllMessages()),
     dtimed("icp_profiles", () => fetchAllRows(makeProfilesQ)),
     dtimed("sellers", () => fetchAllRows(makeSellersQ)),
     dtimed("calls", () => fetchAllRows<CallRow>(makeCallsQ).catch((e) => {
@@ -407,6 +431,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     list.push(c);
     campByName.set(c.name, list);
   }
+  // id → row index maps. The per-message loops below used to call
+  // `campaigns.find(x => x.id === m.campaign_id)` / `leads.find(...)` INSIDE a
+  // scan of the ~22k messages, ~7 times over — ~0.5B closure calls for SWL,
+  // the entire 25-30s load. These Maps make each lookup O(1). Behavior is
+  // identical: ids are unique, so find(x => x.id === k) === get(k).
+  const campById = new Map<string, CampRow>(campaigns.map(c => [c.id, c]));
+  const leadById = new Map<string, LeadRow>(leads.map(l => [l.id, l]));
+  const allCampById = new Map<string, CampRow>(allCampaigns.map(c => [c.id, c]));
 
   // ── Funnel sets ─────────────────────────────────────────────────────────
   //   leads imported (everything in `leads`)
@@ -421,7 +453,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const connectedLeadIds = new Set<string>();
   for (const m of messages) {
     if ((m.step_number ?? 0) >= 1 && m.campaign_id) {
-      const c = campaigns.find(x => x.id === m.campaign_id);
+      const c = campById.get(m.campaign_id);
       if (c?.lead_id) connectedLeadIds.add(c.lead_id);
     }
   }
@@ -1119,7 +1151,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
   for (const m of messages) {
     if (!m.campaign_id) continue;
-    const c = campaigns.find(x => x.id === m.campaign_id);
+    const c = campById.get(m.campaign_id);
     if (!c) continue;
     const g = campAgg.get(c.name);
     if (!g) continue;
@@ -1270,7 +1302,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
     // Per-ICP attribution (via the lead's icp_profile_id)
     if (c.lead_id) {
-      const lead = leads.find(l => l.id === c.lead_id);
+      const lead = leadById.get(c.lead_id);
       const icpId = lead?.icp_profile_id ?? "_unknown";
       let icp = g.byIcp.get(icpId);
       if (!icp) {
@@ -1287,7 +1319,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
   for (const m of messages) {
     if (!m.campaign_id) continue;
-    const c = campaigns.find(x => x.id === m.campaign_id);
+    const c = campById.get(m.campaign_id);
     if (!c?.seller_id) continue;
     const g = sellerAgg.get(c.seller_id);
     if (!g) continue;
@@ -1318,7 +1350,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const camp = g.byCampaign.get(c.name);
     if (camp) camp.sent++;
     if (c.lead_id) {
-      const lead = leads.find(l => l.id === c.lead_id);
+      const lead = leadById.get(c.lead_id);
       const icpId = lead?.icp_profile_id ?? "_unknown";
       const icp = g.byIcp.get(icpId);
       if (icp) icp.sent++;
@@ -1330,7 +1362,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   for (const m of allMessages) {
     if (m.status !== "queued" && m.status !== "pending") continue;
     if (!m.campaign_id) continue;
-    const c = campaigns.find(x => x.id === m.campaign_id);
+    const c = campById.get(m.campaign_id);
     if (!c?.seller_id) continue;
     if (m.channel !== "call") continue; // use message-level channel, not campaign's
     const g = sellerAgg.get(c.seller_id);
@@ -1407,7 +1439,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   };
   const sparkByCampaign = new Map<string, number[]>();
   for (const c of campaigns) {
-    const msgsForC = messages.filter(m => m.campaign_id === c.id).map(m => ({ at: m.sent_at }));
+    const msgsForC = (sentByCampaign.get(c.id) ?? []).map(m => ({ at: m.sent_at }));
     const existing = sparkByCampaign.get(c.name) ?? new Array(14).fill(0);
     const next = spark14d(msgsForC);
     for (let i = 0; i < 14; i++) existing[i] += next[i];
@@ -1431,7 +1463,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const sparkBySeller = new Map<string, number[]>();
   for (const c of campaigns) {
     if (!c.seller_id) continue;
-    const msgsForC = messages.filter(m => m.campaign_id === c.id).map(m => ({ at: m.sent_at }));
+    const msgsForC = (sentByCampaign.get(c.id) ?? []).map(m => ({ at: m.sent_at }));
     const existing = sparkBySeller.get(c.seller_id) ?? new Array(14).fill(0);
     const next = spark14d(msgsForC);
     for (let i = 0; i < 14; i++) existing[i] += next[i];
@@ -1488,7 +1520,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const firstMsgAt = new Map<string, number>();
   for (const m of messages) {
     if (!m.sent_at || !m.campaign_id) continue;
-    const c = campaigns.find(x => x.id === m.campaign_id);
+    const c = campById.get(m.campaign_id);
     if (!c?.lead_id) continue;
     const t = new Date(m.sent_at).getTime();
     const prev = firstMsgAt.get(c.lead_id);
@@ -1679,7 +1711,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const firstMsgAtAll = new Map<string, number>();
   for (const m of allMessages) {
     if (m.status !== "sent" || !m.sent_at || !m.campaign_id) continue;
-    const c = allCampaigns.find(x => x.id === m.campaign_id);
+    const c = allCampById.get(m.campaign_id);
     if (!c?.lead_id) continue;
     const t = new Date(m.sent_at).getTime();
     const prev = firstMsgAtAll.get(c.lead_id);
