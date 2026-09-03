@@ -14,7 +14,7 @@ import {
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
 import { C, N } from "@/lib/design";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { getDashboardData } from "@/lib/dashboard-data";
 import SellerPulseSection from "@/components/dashboard/SellerPulseSection";
 import { getT, getServerLocale } from "@/lib/i18n-server";
@@ -255,6 +255,9 @@ export default async function DashboardPage({
   const filters = parseFilters(sp);
   const bioId = scope.isScoped ? scope.companyBioId! : null;
   const isSuperAdmin = scope.tier === "super_admin";
+  // Seller-tier users see a dashboard scoped to ONLY their assigned flows/leads
+  // (campaigns.assigned_user_id). null for everyone else → whole-tenant view.
+  const myAssignedUserId = await getMyAssignedUserId();
   // Portfolio is a super-admin-only cross-tenant comparison. Non-super-admins
   // who hit ?tab=portfolio fall back to Overview (so the page isn't blank).
   if (filters.tab === "portfolio" && !isSuperAdmin) filters.tab = "overview";
@@ -274,7 +277,7 @@ export default async function DashboardPage({
   // they only feed the Sellers tab, so they now load inside a <Suspense>
   // boundary (SellerPulseSection) and no longer block the initial dashboard load.
   const [data, t, locale, filterOptions] = await Promise.all([
-    getDashboardData(filters),
+    getDashboardData({ ...filters, assignedUserId: myAssignedUserId }),
     getT(),
     getServerLocale(),
     loadFilterOptions(bioId),

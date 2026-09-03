@@ -21,6 +21,12 @@ export type DashboardFilters = {
   sellerIds?: string[];
   /** Restrict to specific ICP profile ids. */
   icpIds?: string[];
+  /**
+   * Seller-tier scope: restrict the ENTIRE dashboard to the flows this human is
+   * assigned to (campaigns.assigned_user_id = this user id) and their leads.
+   * null/undefined = no restriction (admin/owner/manager see the whole tenant).
+   */
+  assignedUserId?: string | null;
 };
 
 type LeadRow = {
@@ -45,6 +51,7 @@ type CampRow = {
   sequence_steps: unknown;
   lead_id: string | null;
   seller_id: string | null;
+  assigned_user_id: string | null;
   created_at: string | null;
   stop_reason?: string | null;
 };
@@ -214,7 +221,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     return bioId ? q.eq("company_bio_id", bioId) : q;
   };
   const makeCampsQ = () => {
-    const q = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, last_step_at, stop_reason, leads!inner(company_bio_id)");
+    const q = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, assigned_user_id, created_at, last_step_at, stop_reason, leads!inner(company_bio_id)");
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
   const makeRepliesQ = () => {
@@ -355,7 +362,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const sellerSet = filters.sellerIds && filters.sellerIds.length > 0 ? new Set(filters.sellerIds) : null;
   const icpSet    = filters.icpIds && filters.icpIds.length > 0 ? new Set(filters.icpIds) : null;
 
+  // Seller-tier scope: restrict the WHOLE dashboard to the flows this human is
+  // assigned to (campaigns.assigned_user_id) and their leads. When null (admin/
+  // owner/manager) every guard below is a no-op, so the tenant-wide path is
+  // byte-for-byte unchanged.
+  const assignedUserId = filters.assignedUserId ?? null;
+  const assignedLeadIds: Set<string> | null = assignedUserId
+    ? new Set(allCampaigns.filter(c => c.assigned_user_id === assignedUserId && c.lead_id).map(c => c.lead_id as string))
+    : null;
+
   const leads = allLeads.filter(l => {
+    if (assignedLeadIds && !assignedLeadIds.has(l.id)) return false;
     if (icpSet && !icpSet.has(l.icp_profile_id ?? "")) return false;
     if (fromMs !== null || toMs !== null) {
       if (!inWindow(l.created_at, fromMs, toMs)) return false;
@@ -365,6 +382,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const leadIdSet = new Set(leads.map(l => l.id));
 
   const campaigns = allCampaigns.filter(c => {
+    if (assignedUserId && c.assigned_user_id !== assignedUserId) return false;
     if (campSet && !campSet.has(c.name)) return false;
     if (sellerSet && !sellerSet.has(c.seller_id ?? "")) return false;
     if (icpSet && c.lead_id && !leadIdSet.has(c.lead_id)) return false;
@@ -377,7 +395,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       if (!inWindow(r.received_at, fromMs, toMs)) return false;
     }
     if (icpSet && r.lead_id && !leadIdSet.has(r.lead_id)) return false;
-    if ((campSet || sellerSet) && r.campaign_id && !campaignIdSet.has(r.campaign_id)) return false;
+    if ((campSet || sellerSet || assignedUserId) && r.campaign_id && !campaignIdSet.has(r.campaign_id)) return false;
     return true;
   });
 
@@ -386,7 +404,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (fromMs !== null || toMs !== null) {
       if (!inWindow(m.sent_at, fromMs, toMs)) return false;
     }
-    if ((campSet || sellerSet || icpSet) && m.campaign_id && !campaignIdSet.has(m.campaign_id)) return false;
+    if ((campSet || sellerSet || icpSet || assignedUserId) && m.campaign_id && !campaignIdSet.has(m.campaign_id)) return false;
     return true;
   });
 
@@ -620,6 +638,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Completed/Answered/Positive/Negative come from the calls table,
   // period-filtered by started_at.
   const callsInPeriod = allCalls.filter(c => {
+    if (assignedLeadIds && (!c.lead_id || !assignedLeadIds.has(c.lead_id))) return false;
     if (fromMs !== null || toMs !== null) {
       if (!inWindow(c.started_at, fromMs, toMs)) return false;
     }

@@ -13,7 +13,7 @@
 // stays light and fast (it must not run the 24 analytics aggregations).
 
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { selectAllPages } from "@/lib/supabase-bulk";
 import { computePendingCalls, type PendingCallCampaign, type PendingCallLead } from "@/lib/pending-calls";
 
@@ -43,14 +43,14 @@ type LeadRow = {
   primary_phone: string | null; primary_secondary_phone: string | null; allow_call: boolean | null;
   created_at: string | null;
 };
-type CampRow = { id: string; lead_id: string | null; seller_id: string | null; status: string | null; current_step: number | null; sequence_steps: unknown; last_step_at: string | null };
+type CampRow = { id: string; lead_id: string | null; seller_id: string | null; assigned_user_id: string | null; status: string | null; current_step: number | null; sequence_steps: unknown; last_step_at: string | null };
 type ReplyRow = { id: string; lead_id: string | null; classification: string | null; channel: string | null; received_at: string | null; requires_human_review: boolean | null; review_status: string | null; reply_text: string | null };
 type MsgRow = { id: string; campaign_id: string | null; step_number: number | null; status: string | null; sent_at: string | null; channel: string | null };
 
 export async function getHomeData(): Promise<HomeData> {
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId : null;
-  const sellerIds = await getMyAssignedSellerIds(); // null = admin/owner/manager (whole team)
+  const myUserId = await getMyAssignedUserId(); // null = admin/owner/manager (whole team)
   const svc = getSupabaseService();
 
   // Greeting name — from the auth user's metadata (user_profiles has no name).
@@ -78,7 +78,7 @@ export async function getHomeData(): Promise<HomeData> {
       return (bioId ? q.eq("company_bio_id", bioId) : q) as never;
     }),
     selectAllPages<CampRow>("campaigns", () => {
-      const q = svc.from("campaigns").select("id, lead_id, seller_id, status, current_step, sequence_steps, last_step_at, leads!inner(company_bio_id)").order("id", { ascending: true });
+      const q = svc.from("campaigns").select("id, lead_id, seller_id, assigned_user_id, status, current_step, sequence_steps, last_step_at, leads!inner(company_bio_id)").order("id", { ascending: true });
       return (bioId ? q.eq("leads.company_bio_id", bioId) : q) as never;
     }),
     selectAllPages<ReplyRow>("lead_replies", () => {
@@ -93,12 +93,12 @@ export async function getHomeData(): Promise<HomeData> {
 
   const leadById = new Map(leads.map(l => [l.id, l]));
 
-  // Seller scope: the set of leads owned by this seller's campaigns. null = team
-  // (no restriction). Empty set = seller with no assignments → sees nothing.
-  const sellerSet = new Set(sellerIds ?? []);
-  const isSeller = sellerIds !== null;
+  // Seller scope: the set of leads this human is assigned to work
+  // (campaigns.assigned_user_id = them). null = team (no restriction). A seller
+  // with no assignments → empty set → sees nothing.
+  const isSeller = myUserId !== null;
   const myLeadIds: Set<string> | null = isSeller
-    ? new Set(camps.filter(c => c.lead_id && c.seller_id && sellerSet.has(c.seller_id)).map(c => c.lead_id as string))
+    ? new Set(camps.filter(c => c.lead_id && c.assigned_user_id === myUserId).map(c => c.lead_id as string))
     : null;
   const mine = (leadId: string | null | undefined): boolean => !leadId ? false : (myLeadIds ? myLeadIds.has(leadId) : true);
 
@@ -128,7 +128,7 @@ export async function getHomeData(): Promise<HomeData> {
     set.add(m.step_number as number);
     handledCallStepsByCampaign.set(m.campaign_id, set);
   }
-  const callCamps = isSeller ? camps.filter(c => c.seller_id && sellerSet.has(c.seller_id)) : camps;
+  const callCamps = isSeller ? camps.filter(c => c.assigned_user_id === myUserId) : camps;
   const pendingCalls = computePendingCalls({
     campaigns: callCamps as unknown as PendingCallCampaign[],
     leadById: leadById as unknown as Map<string, PendingCallLead>,

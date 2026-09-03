@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope, getMyAssignedSellerIds, canEditTenantSettings } from "@/lib/scope";
+import { getUserScope, getMyAssignedLeadIds, canEditTenantSettings } from "@/lib/scope";
 import {
   resolveTenantKey,
   decryptWithResolvedKey,
@@ -24,9 +24,12 @@ async function getData() {
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
-  // Seller-tier users only see leads where leads.seller_id IN (their linked
-  // seller IDs). For other tiers this is null = no extra filter.
-  const sellerIds = await getMyAssignedSellerIds();
+  // Seller-tier users only see the leads they're assigned to work — the lead_id
+  // of their campaigns (campaigns.assigned_user_id = them). null = no filter.
+  // (The old path filtered leads.seller_id, which is now always null → sellers
+  // saw nothing.) `myLeadIdArr` is their (small) assigned slice.
+  const myLeadIds = await getMyAssignedLeadIds();
+  const myLeadIdArr = myLeadIds ? [...myLeadIds] : null;
 
   // Round 1 — profiles + leads run in parallel (both only depend on bioId).
   // Previously these were two sequential awaits, doubling the wall-clock cost.
@@ -35,21 +38,13 @@ async function getData() {
     .select("id, profile_name, target_industries, target_roles, status")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
-  // Seller-tier filter: only leads where seller_id ∈ their linked sellers.
-  // Empty array (sellerIds.length=0) → in([]) returns no rows (a seller with
-  // no link sees nothing until linked). Resolved once, reused by the factory.
-  const sellerInIds = sellerIds !== null
-    ? (sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"])
-    : null;
 
-  // Factory: a fresh leads query per page. A Supabase builder is single-use —
-  // re-calling .range() on the same instance won't paginate — so we rebuild.
+  const LEADS_SELECT = "id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at";
+
+  // Factory: a fresh leads query per page (team path). A Supabase builder is
+  // single-use — re-calling .range() won't paginate — so we rebuild.
   const mkLeadsQuery = () => {
-    let q = supabase
-      .from("leads")
-      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
-      .order("created_at", { ascending: false });
-    if (sellerInIds) q = q.in("seller_id", sellerInIds);
+    let q = supabase.from("leads").select(LEADS_SELECT).order("created_at", { ascending: false });
     if (bioId) q = q.eq("company_bio_id", bioId);
     return q;
   };
@@ -59,6 +54,19 @@ async function getData() {
   // truncated larger tenants — Pathway showed "1000 of 1400". Loop 1000-row
   // pages until a short page; 50k hard ceiling as a runaway guard.
   const fetchAllLeads = async () => {
+    // Seller: fetch exactly their assigned leads, chunked by id (their slice is
+    // small; avoids a giant .in() URL and the PostgREST 1000-row cap).
+    if (myLeadIdArr !== null) {
+      if (myLeadIdArr.length === 0) return [];
+      const all: Record<string, unknown>[] = [];
+      for (let i = 0; i < myLeadIdArr.length; i += 300) {
+        let q = supabase.from("leads").select(LEADS_SELECT).in("id", myLeadIdArr.slice(i, i + 300)).order("created_at", { ascending: false });
+        if (bioId) q = q.eq("company_bio_id", bioId);
+        const { data } = await q;
+        if (data) all.push(...(data as Record<string, unknown>[]));
+      }
+      return all;
+    }
     const PAGE = 1000;
     const all: Record<string, unknown>[] = [];
     for (let from = 0; from < 50000; from += PAGE) {
@@ -70,15 +78,21 @@ async function getData() {
     return all;
   };
 
-  // Companion count() for the true tenant-wide total (head-only, ~free).
-  let leadsCountQ = supabase.from("leads").select("id", { count: "exact", head: true });
-  if (sellerInIds) leadsCountQ = leadsCountQ.in("seller_id", sellerInIds);
-
-  const [{ data: profiles }, rawLeads, { count: totalLeadCount }] = await Promise.all([
+  const [{ data: profiles }, rawLeads] = await Promise.all([
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
     fetchAllLeads(),
-    bioId ? leadsCountQ.eq("company_bio_id", bioId) : leadsCountQ,
   ]);
+
+  // True total. For a seller it's their assigned slice; otherwise a head-only
+  // tenant-wide count(). (~free.)
+  let totalLeadCount: number | null;
+  if (myLeadIdArr !== null) {
+    totalLeadCount = myLeadIdArr.length;
+  } else {
+    let leadsCountQ = supabase.from("leads").select("id", { count: "exact", head: true });
+    if (bioId) leadsCountQ = leadsCountQ.eq("company_bio_id", bioId);
+    totalLeadCount = (await leadsCountQ).count ?? null;
+  }
 
   // Privacy pass: client-uploaded leads have their PII inside encrypted_payload.
   //  - Same tenant → decrypt and merge into the row so the UI sees real values.

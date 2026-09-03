@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { C } from "@/lib/design";
 import { Megaphone, Send, MessageSquare, ThumbsUp, Sparkles, Percent } from "lucide-react";
 import PageHero from "@/components/PageHero";
@@ -38,6 +38,9 @@ async function getData() {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
+  // Seller-tier: only the flows this human is assigned to work
+  // (campaigns.assigned_user_id = them). null = team → all tenant flows.
+  const myUserId = await getMyAssignedUserId();
 
   // Each of these can exceed 1000 rows on a large tenant. Previously they used
   // a single-shot .range(0, 9999/99999), which the comments believed lifted the
@@ -53,6 +56,7 @@ async function getData() {
       .in("status", ["active", "paused", "completed", "failed"])
       .order("created_at", { ascending: false });
     if (bioId) q = q.eq("leads.company_bio_id", bioId);
+    if (myUserId) q = q.eq("assigned_user_id", myUserId);
     return q;
   };
 

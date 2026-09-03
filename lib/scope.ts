@@ -106,6 +106,55 @@ export const getMyAssignedSellerIds = cache(async function getMyAssignedSellerId
 });
 
 /**
+ * Seller-tier work scope, keyed by the HUMAN (auth user id) via
+ * `campaigns.assigned_user_id` — the owner/caller of a lead, decoupled from the
+ * LinkedIn sending identity (`campaigns.seller_id`). This is the source of truth
+ * for what a seller sees; it replaces the old `sellers.user_id → seller_id` path
+ * (which also relied on the now-dead `leads.seller_id`).
+ *
+ * Returns:
+ *   - null   → caller is not a seller (no filter — sees the whole tenant)
+ *   - userId → caller IS a seller; scope campaigns to assigned_user_id = userId
+ *
+ * A logged-in seller always has a userId, so there's no empty-sentinel case:
+ * a seller with zero assigned flows simply matches no campaigns → sees nothing.
+ */
+export const getMyAssignedUserId = cache(async function getMyAssignedUserId(): Promise<string | null> {
+  const scope = await getUserScope();
+  if (scope.tier !== "seller") return null;
+  return scope.userId ?? null;
+});
+
+/**
+ * The set of lead ids a seller is assigned to work (the lead_id of every
+ * campaign where `assigned_user_id = them`). For the lead-centric surfaces
+ * (/leads, /results) that list leads directly — the old path filtered the
+ * now-always-null `leads.seller_id`, so a seller saw nothing.
+ *
+ * Returns null for non-sellers (no filter). A seller's assigned set is small
+ * (their slice of the flows), so a page-sized scan is cheap.
+ */
+export const getMyAssignedLeadIds = cache(async function getMyAssignedLeadIds(): Promise<Set<string> | null> {
+  const userId = await getMyAssignedUserId();
+  if (userId === null) return null;
+  const svc = getSupabaseService();
+  const ids = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await svc
+      .from("campaigns")
+      .select("lead_id")
+      .eq("assigned_user_id", userId)
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) break;
+    const rows = data ?? [];
+    for (const r of rows) if (r.lead_id) ids.add(r.lead_id as string);
+    if (rows.length < 1000) break;
+  }
+  return ids;
+});
+
+/**
  * Resolves the current user's tenancy scope.
  * - Admins see everything across all clients UNLESS they've entered a demo
  *   tenant — in which case the cookie forces scope to that bio_id.

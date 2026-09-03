@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
+import { getUserScope, getMyAssignedLeadIds } from "@/lib/scope";
 import {
   resolveTenantKey,
   decryptWithResolvedKey,
@@ -28,11 +28,10 @@ async function getData() {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
-  const sellerIds = await getMyAssignedSellerIds();
-
-  const sellerFilterIds = sellerIds !== null
-    ? (sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"])
-    : null;
+  // Seller scope: their assigned leads (campaigns.assigned_user_id = them).
+  // null = team (no filter). We intersect the outcome set with this below —
+  // the old path filtered the now-dead leads.seller_id.
+  const myLeadIds = await getMyAssignedLeadIds();
 
   // Outcome-driven lead set — NOT "the 500 newest leads". Won/Lost/Re-nurture
   // are about OUTCOMES, not recency, so capping at the most recent 500 silently
@@ -86,7 +85,8 @@ async function getData() {
   for (const r of repSig) if (r.lead_id) outcomeLeadIds.add(r.lead_id);
   for (const c of campSig) if (c.lead_id) outcomeLeadIds.add(c.lead_id);
   for (const l of odooSig) if (l.id) outcomeLeadIds.add(l.id);
-  const outcomeIds = [...outcomeLeadIds];
+  // Seller sees only outcomes among their assigned leads.
+  const outcomeIds = myLeadIds ? [...outcomeLeadIds].filter(id => myLeadIds.has(id)) : [...outcomeLeadIds];
 
   // Fetch exactly the outcome leads (chunked — PostgREST .in lists get unwieldy
   // past a few hundred). Scope + seller filter applied here.
@@ -97,7 +97,6 @@ async function getData() {
       .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at, opportunity_stage")
       .in("id", outcomeIds.slice(i, i + 300));
     if (bioId) lq = lq.eq("company_bio_id", bioId);
-    if (sellerFilterIds) lq = lq.in("seller_id", sellerFilterIds);
     const { data } = await lq;
     if (data) rawLeads.push(...data);
   }

@@ -1,7 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { prettyDisplayName } from "@/lib/display-name";
-import { getUserScope, getMyAssignedSellerIds, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId, canViewAllTenantData } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { computePendingCalls } from "@/lib/pending-calls";
 import { hasPlayableRecording } from "@/lib/call-recording";
@@ -37,9 +37,9 @@ async function getQueueData() {
   const scope = await getUserScope();
   const scopedCompanyBioId = scope.isScoped ? scope.companyBioId : null;
 
-  // For tier='seller', restrict campaigns/leads to those whose seller_id is
-  // in the user's linked sellers. null → no extra filter.
-  const sellerIds = await getMyAssignedSellerIds();
+  // For tier='seller', restrict campaigns/replies to the flows the user is
+  // assigned to work/call (campaigns.assigned_user_id = them). null → no filter.
+  const myUserId = await getMyAssignedUserId();
 
   // The current user's own seller identities (by name) — powers the Inbox
   // per-seller "My leads" quick filter. Empty for users with no seller row
@@ -61,7 +61,7 @@ async function getQueueData() {
 
   // Campaigns
   let campQuery = supabase.from("campaigns")
-    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, aircall_number_id, call_advance_mode, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_secondary_phone, primary_work_email, company_bio_id, call_talking_points, allow_call), sellers(name)")
+    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, assigned_user_id, aircall_number_id, call_advance_mode, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_secondary_phone, primary_work_email, company_bio_id, call_talking_points, allow_call), sellers(name)")
     .eq("status", "active")
     .order("last_step_at", { ascending: true })
     // Was .limit(200): a hard cap silently dropped pending calls for any tenant
@@ -69,11 +69,10 @@ async function getQueueData() {
     // the dashboard. Range to 10k covers every real tenant (2026-07-01).
     .range(0, 9999);
   if (scopedCompanyBioId) campQuery = campQuery.eq("leads.company_bio_id", scopedCompanyBioId);
-  // Seller-tier filter on campaigns. Empty array → match nothing. The
-  // sentinel UUID is a no-op match used because PostgREST .in([]) is
-  // disallowed; this guarantees zero rows for unlinked sellers.
-  if (sellerIds !== null) {
-    campQuery = campQuery.in("seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
+  // Seller-tier filter: only flows this human is assigned to. A seller with no
+  // assignments simply matches no campaigns (no sentinel needed — it's one id).
+  if (myUserId !== null) {
+    campQuery = campQuery.eq("assigned_user_id", myUserId);
   }
 
   // Replies — exclude 'auto_reply' (OOO messages handled by the auto-reply
@@ -82,7 +81,7 @@ async function getQueueData() {
   // destructure produced { data: null } and the Inbox tab rendered empty
   // (incident: De Vera Grill positive replies invisible 2026-05-24).
   let replyQuery = supabase.from("lead_replies")
-    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, review_status, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id, status), campaigns!inner(name, seller_id, sellers(name))")
+    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, review_status, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id, status), campaigns!inner(name, seller_id, assigned_user_id, sellers(name))")
     .neq("classification", "auto_reply")
     // Never surface replies from leads the seller explicitly closed — if a
     // closed_lost lead sends a follow-up it goes to History, not Pending.
@@ -90,8 +89,8 @@ async function getQueueData() {
     .order("received_at", { ascending: false })
     .limit(30);
   if (scopedCompanyBioId) replyQuery = replyQuery.eq("leads.company_bio_id", scopedCompanyBioId);
-  if (sellerIds !== null) {
-    replyQuery = replyQuery.in("campaigns.seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
+  if (myUserId !== null) {
+    replyQuery = replyQuery.eq("campaigns.assigned_user_id", myUserId);
   }
 
   // LinkedIn connection accepts. We surface accepts as a Reply-like signal:
