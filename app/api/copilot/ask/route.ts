@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
@@ -16,9 +15,6 @@ import { hydrateClientLeads } from "@/lib/leads-crypto";
 // vector index can come later if the corpus outgrows the context window.
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
-
   const body = await req.json().catch(() => ({}));
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   if (!question) return NextResponse.json({ error: "Empty question" }, { status: 400 });
@@ -82,29 +78,22 @@ export async function POST(req: NextRequest) {
     callLines.length ? `CALL OUTCOMES (most recent first):\n${callLines.join("\n")}` : "",
   ].filter(Boolean).join("\n\n").slice(0, 14000);
 
-  const priorTurns = history.slice(-6).map((t) => ({ role: t.role, content: t.text }));
+  const historyStr = history.slice(-6).map((t) => `${t.role === "assistant" ? "Copilot" : "User"}: ${t.text}`).join("\n");
 
   try {
-    const client = new Anthropic({ apiKey });
-    const res = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1100,
-      temperature: 0.4,
-      system: `You are the GrowthAI Copilot — the assistant inside GrowthAI (also called Growth Engine), a B2B sales-outreach platform. You help the user with TWO things only:
-1) THEIR SALES DATA — analyse and compare the INTERACTION CORPUS below (replies + call outcomes across their prospects): common objections, what messaging gets positive reactions, patterns by industry/seniority. Cite specific prospects (name @ company) as evidence. Use ONLY the corpus for data questions; if it doesn't cover something, say so. Never invent prospects or quotes.
-2) HOW TO USE GROWTHAI — its features: Home ("Tu día", the day's actions), Lead Miner (find & import leads), Outreach Flow (create multichannel LinkedIn / email / WhatsApp / call campaigns), Inbox (review & reply to prospect replies), Results (pipeline & meetings booked), Company Bio, Accounts, Sellers. Give clear, practical steps.
-
-LANGUAGE: detect the language of the user's question and reply in that SAME language — Spanish, English, or French.
-
-OFF-TOPIC: if the question is NOT about GrowthAI, sales outreach, or the user's prospects (e.g. general trivia, coding help, news, weather, personal topics), do NOT answer it. Politely decline in the user's language — say something like that you can only help with GrowthAI and their outreach, and invite a related question. Do not attempt an answer.
-
-STYLE: concise, structured (short bullets), friendly and practical.
-
-INTERACTION CORPUS:
-${corpus}`,
-      messages: [...priorTurns, { role: "user", content: question }] as any,
+    // AI runs in n8n (workflow "SWL - CRM - Copilot"), NOT a direct LLM call —
+    // per the "AI generation via n8n only" rule. The app assembles the corpus
+    // (tenant-scoped replies + calls); n8n runs the model with the multilingual
+    // + topic-gated system prompt and returns { answer }.
+    const base = process.env.N8N_API_BASE_URL || "https://n8n.srv949269.hstgr.cloud";
+    const res = await fetch(`${base}/webhook/copilot-ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, corpus, history: historyStr }),
     });
-    const answer = (res.content[0].type === "text" ? res.content[0].text : "").trim();
+    if (!res.ok) throw new Error(`n8n copilot webhook ${res.status}`);
+    const data = (await res.json().catch(() => ({}))) as { answer?: unknown };
+    const answer = (typeof data.answer === "string" ? data.answer : "").trim();
     if (!answer) return NextResponse.json({ error: "Empty answer" }, { status: 500 });
     return NextResponse.json({ answer, corpusSize: replyLines.length + callLines.length });
   } catch (e) {
