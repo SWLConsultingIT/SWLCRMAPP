@@ -246,6 +246,8 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Perf instrumentation (temporary attribution study — no behavior change).
+  const __tPage = performance.now();
   const scope = await getUserScope();
   if (scope.userId && scope.tier !== "super_admin" && !scope.companyBioId) {
     redirect("/onboarding");
@@ -273,12 +275,14 @@ export default async function DashboardPage({
   // ALL project users) were removed from this blocking Promise.all 2026-09-03 —
   // they only feed the Sellers tab, so they now load inside a <Suspense>
   // boundary (SellerPulseSection) and no longer block the initial dashboard load.
+  const __tData = performance.now();
   const [data, t, locale, filterOptions] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
     loadFilterOptions(bioId),
   ]);
+  console.log(`[DASH-PERF] page_data_wall (getDashboardData + t + locale + filters, parallel): ${(performance.now() - __tData).toFixed(0)}ms`);
   const tabFilterLabels = {
     campaigns: t("dashx.filters.campaigns"),
     icps: t("dashx.filters.icps"),
@@ -353,6 +357,11 @@ export default async function DashboardPage({
   // here (not on client) so it reflects when the page was actually rendered;
   // the UI shows the human delta from this anchor.
   const renderedAt = new Date().toISOString();
+
+  // Perf: server work from page start until just before the JSX return (data
+  // fetch + setup). The React tree serialization/streaming happens AFTER this
+  // point inside Next and is not measurable from the component itself.
+  console.log(`[DASH-PERF] page_total_before_return (data + setup): ${(performance.now() - __tPage).toFixed(0)}ms`);
 
   return (
     // Every analytics tab renders from the single `data` object above, so the
