@@ -356,7 +356,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
                 </a>
               )}
               {lead.phone && (
-                <a href={`tel:${lead.phone}`}
+                <a href={`tel:${(lead.phone ?? "").replace(/[^\d+]/g, "")}`}
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold hover:underline"
                   style={{ color: "#F97316" }}>
                   <Phone size={12} /> {lead.phone}

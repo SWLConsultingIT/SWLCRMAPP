@@ -316,7 +316,7 @@ function TodayLeadRow({
           </span>
         )}
         {lead.phone ? (
-          <a href={`tel:${lead.phone}`}
+          <a href={`tel:${(lead.phone ?? "").replace(/[^\d+]/g, "")}`}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-opacity hover:opacity-90 shrink-0"
             style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent, border: `1px solid color-mix(in srgb, ${accent} 30%, transparent)` }}
             aria-label={`Dial ${lead.phone}`}

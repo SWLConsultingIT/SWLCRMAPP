@@ -35,7 +35,7 @@ function DisplayValue({ value, displayAs, className }: { value: string | null; d
   }
   const cls = className ?? "text-sm font-medium hover:underline";
   const styl = { color: C.textBody };
-  if (displayAs === "tel") return <a href={`tel:${value}`} className={cls} style={styl}>{value}</a>;
+  if (displayAs === "tel") return <a href={`tel:${String(value ?? "").replace(/[^\d+]/g, "")}`} className={cls} style={styl}>{value}</a>;
   if (displayAs === "email") return <a href={`mailto:${value}`} className={cls} style={styl}>{value}</a>;
   if (displayAs === "url") return <a href={value} target="_blank" rel="noreferrer" className={cls} style={styl}>{value}</a>;
   return <span className={cls} style={styl}>{value}</span>;

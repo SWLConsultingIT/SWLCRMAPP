@@ -1439,7 +1439,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                       <div className="opacity-0 group-hover/lr:opacity-100 transition-opacity flex items-center gap-1">
                         {lead.phone && (
                           <a
-                            href={`tel:${lead.phone}`}
+                            href={`tel:${(lead.phone ?? "").replace(/[^\d+]/g, "")}`}
                             title={t("leadsPage.table.callTitle", { phone: lead.phone })}
                             className="w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors hover:bg-black/[0.05]"
                             style={{ color: "#F97316" }}

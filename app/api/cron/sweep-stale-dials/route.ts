@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   for (const row of stale ?? []) {
     const { error: upErr } = await svc
       .from("calls")
-      .update({ status: "failed", notes: NOTE })
+      .update({ status: "failed", notes: NOTE, ended_at: new Date().toISOString() })
       .eq("id", row.id)
       .eq("status", "initiated")        // race-safe — don't overwrite if webhook just fired
       .is("aircall_call_id", null);
