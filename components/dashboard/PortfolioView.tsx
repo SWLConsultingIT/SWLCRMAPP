@@ -143,7 +143,9 @@ export default function PortfolioView({
   ] as const;
   const ACT_ROWS = [
     ...METRICS.map(m => ({ key: m.key, prevKey: m.prevKey, label: m.label, Icon: m.Icon as React.ElementType, color: m.color, green: m.key === "positives", rate: false })),
-    { key: "meetings", prevKey: "meetingsPrev", label: L.meetings, Icon: undefined, color: undefined, green: false, rate: false },
+    // AUDIT BLOCK 10 — removed. There is no meeting event in the schema, and
+    // `meeting_intent` is a lead saying they would meet, not a booked meeting.
+    // A column of guaranteed zeros reads as a measured result.
     { key: "winsPeriod", prevKey: "winsPeriodPrev", label: L.winsPeriod, Icon: undefined, color: undefined, green: true, rate: false },
     { key: "__rate", prevKey: "", label: L.respRate, Icon: undefined, color: undefined, green: false, rate: true },
   ];
@@ -157,7 +159,7 @@ export default function PortfolioView({
   const sellerRows = shown.flatMap(c => c.sellers.map(s => ({ ...s, company: c.name }))).sort((a, b) => b.calls - a.calls || b.replies - a.replies);
 
   const agg = (k: string) => shown.reduce((s, c) => s + num(c, k), 0);
-  const sumText = `${fmt(agg("contacted"))} ${L.sLeads} (${pctStr(agg("contacted"), agg("contactedPrev"))}) · ${fmt(agg("calls"))} ${L.sCalls} (${pctStr(agg("calls"), agg("callsPrev"))}) · ${fmt(agg("positives"))} ${L.sPos} · ${fmt(agg("meetings"))} ${L.sMeet} · ${fmt(agg("winsPeriod"))} ${L.sWins}.`;
+  const sumText = `${fmt(agg("contacted"))} ${L.sLeads} (${pctStr(agg("contacted"), agg("contactedPrev"))}) · ${fmt(agg("calls"))} ${L.sCalls} (${pctStr(agg("calls"), agg("callsPrev"))}) · ${fmt(agg("positives"))} ${L.sPos} · ${fmt(agg("winsPeriod"))} ${L.sWins}.`;
   const alerts: string[] = [];
   if (agg("callsPrev") > 0 && agg("calls") < agg("callsPrev") * 0.7) alerts.push(L.aCallsDown);
   if (agg("positives") === 0) alerts.push(L.aNoPos);

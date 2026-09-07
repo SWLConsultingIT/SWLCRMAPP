@@ -9,6 +9,7 @@
 // use .range() to dodge PostgREST's 1000-row cap.
 
 import { getSupabaseService } from "@/lib/supabase-service";
+import { isRealCall } from "@/lib/flow-metrics-lib";
 
 export type PortfolioCompany = {
   bioId: string;
@@ -100,7 +101,11 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
 
   const calls = await pageAll((f, t) => svc
     .from("calls")
-    .select("lead_id, started_at, created_at, dialed_by_user_id, seller_id, leads!inner(company_bio_id)")
+    // AUDIT BLOCK 5 — aircall_call_id / status / duration / classification are
+    // what flow-metrics-lib needs to tell a real dial from a click-to-dial
+    // marker. Without them this file counted markers as calls: 372 for SWL
+    // against 282 real.
+    .select("lead_id, started_at, created_at, dialed_by_user_id, seller_id, aircall_call_id, status, duration, classification, leads!inner(company_bio_id)")
     .in("leads.company_bio_id" as string, bioIds)
     .gte("created_at", prevStart)
     .range(f, t));
@@ -175,13 +180,16 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
   for (const r of repliesAll) {
     const a = acc[bioOf(r) as string]; if (!a) continue;
     const cls = (r.classification as string) || "";
-    const isPos = POS.has(cls); const isMeet = cls === "meeting_intent";
+    const isPos = POS.has(cls);
     if (inThis(r.received_at as string)) {
-      a.replies++; if (isPos) a.positives++; if (isMeet) a.meetings++;
+      // AUDIT BLOCK 10 — `meeting_intent` is a lead SAYING they'd meet, not a
+      // booked meeting. No meeting event exists in the schema. The counter is
+      // left summing nothing so the shape holds; the view renders "—".
+      a.replies++; if (isPos) a.positives++;
       const ls = leadSeller.get(r.lead_id as string);
       const nm = ls && sidName.has(ls) ? sidName.get(ls)! : "__unassigned__";
       const st = sellerStat(a, nm); st.replies++; if (isPos) st.positives++;
-    } else if (inPrev(r.received_at as string)) { a.repliesPrev++; if (isPos) a.positivesPrev++; if (isMeet) a.meetingsPrev++; }
+    } else if (inPrev(r.received_at as string)) { a.repliesPrev++; if (isPos) a.positivesPrev++; }
   }
 
   const callSeller = (c: Row): string => {
@@ -193,17 +201,29 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
     if (ls && sidName.has(ls)) return sidName.get(ls)!;
     return "__unassigned__";
   };
-  for (const c of calls) {
-    const a = acc[bioOf(c) as string]; if (!a) continue;
-    const lead = c.lead_id as string;
-    const ts = (c.started_at as string) || (c.created_at as string);
-    const key = minuteKey(lead, ts);
-    if (a._seenCall.has(key)) continue;
-    a._seenCall.add(key);
-    if (inThis(c.created_at as string)) {
-      a.calls++; a._callLeads.add(lead);
-      const st = sellerStat(a, callSeller(c)); st.calls++; st._leads.add(lead);
-    } else if (inPrev(c.created_at as string)) a.callsPrev++;
+  // AUDIT BLOCK 5 — dedup by lead+minute PREFERRING the real Aircall row over
+  // the marker written in the same minute, then keep only real calls. Taking
+  // whichever row came first silently discarded real calls.
+  {
+    const best = new Map<string, Row>();
+    for (const c of calls) {
+      const ts = (c.started_at as string) || (c.created_at as string);
+      const key = `${bioOf(c)}|${minuteKey(c.lead_id as string, ts)}`;
+      const prev = best.get(key);
+      if (!prev || (isRealCall(c as never) && !isRealCall(prev as never))) best.set(key, c);
+    }
+    for (const c of best.values()) {
+      if (!isRealCall(c as never)) continue; // click-to-dial marker, not a call
+      const a = acc[bioOf(c) as string]; if (!a) continue;
+      const lead = c.lead_id as string;
+      // Window on started_at (when the call happened), not created_at (when
+      // the row was written) — audit Block 1.
+      const ts = (c.started_at as string) || (c.created_at as string);
+      if (inThis(ts)) {
+        a.calls++; a._callLeads.add(lead);
+        const st = sellerStat(a, callSeller(c)); st.calls++; st._leads.add(lead);
+      } else if (inPrev(ts)) a.callsPrev++;
+    }
   }
 
   for (const c of campaigns) {
@@ -216,9 +236,13 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
   for (const l of leads) {
     const a = acc[l.company_bio_id as string]; if (!a) continue;
     a.totalLeads++;
+    // AUDIT BLOCK 10 — "wins" mixed three different events: an Odoo transfer,
+    // `closed_won` (never set on any lead in any tenant) and `qualified`
+    // (a positive reply reached the CRM — not a win, and already counted as a
+    // positive reply). The Odoo transfer is the only one with a timestamp and
+    // a meaning, so it is the only one kept, under its own name.
     const odoo = l.transferred_to_odoo_at as string | null;
-    if (odoo || l.status === "closed_won" || l.status === "qualified") a.wins++;
-    // Wins THIS period — only the Odoo transfer is timestamped, so window on it.
+    if (odoo) a.wins++;
     if (inThis(odoo)) a.winsPeriod++;
     else if (inPrev(odoo)) a.winsPeriodPrev++;
   }
