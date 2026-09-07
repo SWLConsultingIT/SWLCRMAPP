@@ -6,6 +6,10 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // Standalone scripts import lib modules by path with the .ts extension
+    // (scripts/test-outbound.mts already did); tsx resolves them, and noEmit
+    // means this never reaches the build output.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

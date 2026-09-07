@@ -370,9 +370,9 @@ export const channelCards: ChannelCard[] = [
     ],
     caveat: "Acceptance has no timestamp, so this is anchored on the invitation date and counted as of today. An accept rate is not a reply rate." },
   { key: "li_dm", label: "LinkedIn DM", icon: "dm",
-    sent: 235, sentLabel: "messages sent", reach: 160, reachLabel: "leads reached",
-    result: 28, resultLabel: "replied", rate: 17.5, rateLabel: "reply rate",
-    delta: { v: 12.2, unit: "pp" }, comparable: true,
+    sent: 235, sentLabel: "messages sent", reach: 164, reachLabel: "leads reached",
+    result: 30, resultLabel: "replied", rate: 18.3, rateLabel: "reply rate",
+    delta: { v: 13.0, unit: "pp" }, comparable: true,
     outcomes: [
       { label: "Interested", n: 1, tone: "good" },
       { label: "Needs info", n: 14, tone: "info" },
@@ -414,11 +414,11 @@ export const headToHeadNote =
   "Only LinkedIn DM and Email are ranked here: same measurement, same window, same unit — leads that replied over leads reached. Invitation acceptance and call connect rate are real numbers with real bases, but they measure different events, so putting all four on one axis would invite a comparison none of them can carry.";
 
 export const channelWorthALook = {
-  title: "Email carries 94% of the volume and 49% of the replies",
+  title: "Email carries 94% of the volume and 52% of the replies",
   facts: [
     "Email: 3,205 messages reached 2,265 leads; 32 replied (1.4%).",
-    "LinkedIn DM: 235 messages reached 160 leads; 28 replied (17.5%).",
-    "The two are the same measurement over the same window, so the 12.2 pp gap is like-for-like. What it does not say is why — a DM only goes out after an invitation was accepted, so the people who receive one are not the same population as the people who receive an email.",
+    "LinkedIn DM: 235 messages reached 164 leads; 30 replied (18.3%).",
+    "The two are the same measurement over the same window, so the 16.9 pp gap is like-for-like. What it does not say is why — a DM only goes out after an invitation was accepted, so the people who receive one are not the same population as the people who receive an email.",
   ],
 };
 

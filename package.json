@@ -7,7 +7,9 @@
     "build": "next build",
     "vercel-build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npx tsx scripts/test-metric-defs.mts && npx tsx scripts/test-outbound.mts",
+    "verify:metrics": "npx tsx scripts/verify-dashboard-metrics.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
