@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Brain, Loader2 } from "lucide-react";
+import { Send, Brain, Loader2, Plus } from "lucide-react";
 import { C } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
 type Turn = { role: "user" | "assistant"; text: string };
+const STORAGE_KEY = "copilot.turns";
 
 const SUGGESTIONS = [
   "What are the most common objections across my prospects?",
@@ -15,15 +16,34 @@ const SUGGESTIONS = [
 ];
 
 // Cross-prospect Copilot chat — queries the team's interaction memory across
-// ALL prospects (replies + call outcomes) via /api/copilot/ask. Session memory
-// (history kept client-side for the conversation).
-export default function CopilotChat({ initialQuestion }: { initialQuestion?: string }) {
+// ALL prospects (replies + call outcomes) via /api/copilot/ask.
+//
+// The conversation is PERSISTED in localStorage, so closing the floating panel
+// (which unmounts this component) no longer wipes it — it comes back on reopen.
+// "Nueva conversación" is the explicit way to clear it.
+//
+// `embedded` = rendered inside the floating panel (which already has its own
+// header) → we drop our internal header + card chrome to avoid a header-in-a-
+// header and a box-in-a-box. The standalone /copilot page keeps the full card.
+export default function CopilotChat({ initialQuestion, embedded = false }: { initialQuestion?: string; embedded?: boolean }) {
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const ranInitial = useRef(false);
+
+  // Load persisted conversation once (client-only → no SSR hydration mismatch).
+  useEffect(() => {
+    try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) setTurns(JSON.parse(raw)); } catch { /* ignore */ }
+    setHydrated(true);
+  }, []);
+  // Persist after hydration (so we never clobber the stored turns with []).
+  useEffect(() => {
+    if (!hydrated) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(turns)); } catch { /* ignore */ }
+  }, [turns, hydrated]);
 
   async function ask(q: string) {
     const question = q.trim();
@@ -53,27 +73,65 @@ export default function CopilotChat({ initialQuestion }: { initialQuestion?: str
     }
   }
 
-  // Auto-run a question passed in via ?q= (from the "Ask the Copilot" bar).
+  function clearConversation() {
+    if (loading) return;
+    setTurns([]);
+    setError(null);
+    setInput("");
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  }
+
+  // Auto-run a question passed in via ?q= (from the "Ask the Copilot" bar), but
+  // only after hydration and only when there's no stored conversation to keep.
   useEffect(() => {
-    if (ranInitial.current) return;
-    if (initialQuestion && initialQuestion.trim()) { ranInitial.current = true; ask(initialQuestion); }
+    if (!hydrated || ranInitial.current) return;
+    if (initialQuestion && initialQuestion.trim() && turns.length === 0) {
+      ranInitial.current = true;
+      ask(initialQuestion);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated]);
+
+  const newBtn = (
+    <button
+      onClick={clearConversation}
+      disabled={loading}
+      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors disabled:opacity-40 hover:shadow-sm shrink-0"
+      style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${gold} 6%, transparent)` }}
+      title="Empezar una conversación nueva">
+      <Plus size={12} /> Nueva conversación
+    </button>
+  );
+
+  const containerStyle = embedded
+    ? { backgroundColor: "transparent", height: "100%" }
+    : { backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)", minHeight: "60vh" };
 
   return (
-    <div className="rounded-2xl border overflow-hidden flex flex-col" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)", minHeight: "60vh" }}>
-      <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: C.border }}>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 65%, white))` }}>
-          <Brain size={17} style={{ color: "#fff" }} />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>Copilot</p>
-            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#fff", letterSpacing: "0.06em" }}>AI</span>
+    <div className={`flex flex-col ${embedded ? "h-full" : "rounded-2xl border overflow-hidden"}`} style={containerStyle}>
+      {/* Full header only in standalone; the floating panel already has one. */}
+      {!embedded && (
+        <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: C.border }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 65%, white))` }}>
+            <Brain size={17} style={{ color: "#fff" }} />
           </div>
-          <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>Memory across all your prospects — compare objections, reactions and what's working.</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>Copilot</p>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#fff", letterSpacing: "0.06em" }}>AI</span>
+            </div>
+            <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>Memory across all your prospects — compare objections, reactions and what&apos;s working.</p>
+          </div>
+          {turns.length > 0 && newBtn}
         </div>
-      </div>
+      )}
+
+      {/* Embedded: a slim row that just carries the "new conversation" action. */}
+      {embedded && turns.length > 0 && (
+        <div className="flex items-center justify-end px-3 py-2 border-b" style={{ borderColor: C.border }}>
+          {newBtn}
+        </div>
+      )}
 
       <div ref={scrollRef} className="px-5 py-4 space-y-3 flex-1" style={{ overflowY: "auto" }}>
         {turns.length === 0 && !loading && (

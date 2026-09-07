@@ -754,4 +754,4 @@ thead th {
 .hm-both-mark { width:20px; height:28px; }
 .hm-bt { line-height:1.2; } .hm-bt b { font-size:14px; font-weight:800; } .hm-bt span { display:block; font-size:11px; color:var(--ah-body); }
 .hm-botx { margin-left:auto; background:none; border:none; color:var(--ah-body); font-size:22px; cursor:pointer; line-height:1; padding:0 4px; }
-.hm-botbody { padding:12px; max-height:min(72vh,580px); overflow:auto; background:var(--c-bg); }
+.hm-botbody { height:min(72vh,580px); overflow:hidden; background:var(--c-bg); }

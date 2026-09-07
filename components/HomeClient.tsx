@@ -158,7 +158,7 @@ export default function HomeClient() {
             <div className="hm-bt"><b>Copilot</b><span>{t("home.copilot.subtitle")}</span></div>
             <button className="hm-botx" onClick={() => setBotOpen(false)} aria-label="Copilot">×</button>
           </div>
-          <div className="hm-botbody"><CopilotChat /></div>
+          <div className="hm-botbody"><CopilotChat embedded /></div>
         </div>
       ) : (
         <button className="hm-fab" onClick={() => setBotOpen(true)} aria-label="Copilot">
