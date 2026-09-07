@@ -826,18 +826,21 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       } catch { userNameById.set(uid, uid.slice(0, 8)); }
     }));
   }
-  const attributeOwner = (g: { leadId: string | null; dialer: string | null }): string | null =>
-    (g.leadId ? leadToAssignedUser.get(g.leadId) ?? null : null) ?? g.dialer ?? null;
+  // Attribution: who actually DIALED (dialed_by_user_id). Even though the Aircall
+  // SEAT is shared, our app records the real caller at click time (scope.userId →
+  // dial marker → this call), so a person's dials are truly theirs. Fall back to
+  // the lead's assigned owner ONLY when there is no dialer (inbound / SDK call
+  // with no app marker). (Was owner-first until 2026-09-07 — that mis-credited a
+  // caller's dials to whoever owned the lead, e.g. Lucía's calls under Isaac/Fran.)
+  const attributeCaller = (g: { leadId: string | null; dialer: string | null }): string | null =>
+    g.dialer ?? (g.leadId ? leadToAssignedUser.get(g.leadId) ?? null : null) ?? null;
 
-  // Per-caller call CONTACTED / ANSWERED. Manual dials log to the `calls` table,
-  // NOT campaign_messages. Attribution: the HUMAN who OWNS the lead's flow
-  // (assigned_user_id) — the shared Aircall number makes the dialer ambiguous —
-  // falling back to the dialer only when the lead has no owner.
+  // Per-caller call CONTACTED / ANSWERED (manual dials live in `calls`, not campaign_messages).
   const callContactedBySeller = new Map<string, Set<string>>();
   const callAnsweredBySeller = new Map<string, Set<string>>();
   for (const g of callGroups.values()) {
     if (!g.leadId) continue;
-    const attributeId = attributeOwner(g); // owner user id (dialer fallback)
+    const attributeId = attributeCaller(g); // caller (dialer) user id, owner fallback
     if (!attributeId) continue;
     let cset = callContactedBySeller.get(attributeId);
     if (!cset) { cset = new Set(); callContactedBySeller.set(attributeId, cset); }
@@ -856,11 +859,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const blankDayCounts = (): DayCounts => ({ ...blankCounts(), campaigns: [] });
   const callSellerAgg = new Map<string, SellerCallStats>();
   for (const g of callGroups.values()) {
-    // Attribution: the HUMAN who OWNS the lead's flow (assigned_user_id). The
-    // Aircall number is shared, so dialed_by_user_id can't distinguish callers —
-    // the owner is who the lead was divided to. Dialer only as a last resort
-    // (lead with no owner). `sid` is now a USER id (not a sellers.id).
-    const sid = attributeOwner(g) ?? "unassigned";
+    // Credit the CALLER (dialed_by_user_id); the lead owner only when there is no
+    // dialer. `sid` is a USER id (not a sellers.id).
+    const sid = attributeCaller(g) ?? "unassigned";
     const sname = sid === "unassigned" ? "Unassigned" : (userNameById.get(sid) ?? sid.slice(0, 8));
     if (callUserScope && !callUserScope.has(sid)) continue; // seller-chip filter, translated to owner user ids
     let agg = callSellerAgg.get(sid);
@@ -1635,7 +1636,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       // Same attribution as the current period: the lead's OWNER user (shared
       // Aircall number → dialer is ambiguous), dialer only as a fallback. Keyed
       // by user id so period-over-period lines up with callOutcomesBySeller.
-      const sid = (c.lead_id ? leadToAssignedUser.get(c.lead_id) ?? null : null) ?? c.dialed_by_user_id ?? "unassigned";
+      const sid = c.dialed_by_user_id ?? (c.lead_id ? leadToAssignedUser.get(c.lead_id) ?? null : null) ?? "unassigned";
       if (!priorCallsBySeller[sid]) priorCallsBySeller[sid] = { made: 0, answered: 0, interested: 0 };
       priorCallsBySeller[sid].made++;
       if ((c.duration ?? 0) > 0) priorCallsBySeller[sid].answered++;
