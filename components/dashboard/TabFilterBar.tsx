@@ -15,6 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Filter, ChevronDown, X, Calendar } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { presetRange, businessToday } from "@/lib/metric-defs";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -28,8 +29,10 @@ const PERIODS = [
   { id: "all",   labelKey: "dashx.filters.all",   days: null as number | null },
 ];
 
+// AUDIT BLOCK 6 — `toISOString()` is UTC. The preset a user picks has to mean
+// the same days the server counts, and the server counts in business time.
 function toIsoDay(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return businessToday(d);
 }
 
 export default function TabFilterBar({
@@ -100,17 +103,12 @@ export default function TabFilterBar({
     const p = PERIODS.find(x => x.id === id);
     if (!p) return;
     apply(next => {
-      if (p.days === null) { next.delete("from"); next.delete("to"); }
-      else if (p.days === 0) {
-        const today = toIsoDay(new Date());
-        next.set("from", today);
-        next.set("to", today);
-      } else {
-        const to = new Date();
-        const from = new Date(Date.now() - p.days * 86_400_000);
-        next.set("from", from.toISOString().slice(0, 10));
-        next.set("to", to.toISOString().slice(0, 10));
-      }
+      // AUDIT BLOCK 6 — one preset helper, business-local, shared with the
+      // server. `days` is the INCLUSIVE length, so "30 days" is 30 days, not
+      // the 31 the old `now − 30d` produced.
+      const r = presetRange(p.days === 0 ? 1 : p.days);
+      if (!r) { next.delete("from"); next.delete("to"); }
+      else { next.set("from", r.from); next.set("to", r.to); }
     });
   }
 

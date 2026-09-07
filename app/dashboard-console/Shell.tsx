@@ -1,0 +1,142 @@
+"use client";
+
+// ─────────────────────────────────────────────────────────────────────────
+// The page chrome shared by all six tabs: title, tab bar, period, filters.
+//
+// The tab bar is deliberately plain. The live one numbers its tabs like
+// chapters, which implies a reading order that nobody follows — people
+// arrive at the tab that matches the question they already have. So: names,
+// one underline, no numerals.
+//
+// The filter row is shared, but not every filter applies to every tab. A
+// control that would do nothing is not rendered rather than rendered inert
+// — the live bar shows Seller on the Portfolio tab, where it cannot apply.
+// ─────────────────────────────────────────────────────────────────────────
+
+import { useState } from "react";
+import { CalendarDays, X } from "lucide-react";
+import { C } from "@/lib/design";
+import { gold, Pick } from "./ui";
+import * as D from "./data";
+import { TABS, type Tab } from "./tabs-data";
+
+import Overview from "./Console";
+import Icps from "./Icps";
+import Campaigns from "./Campaigns";
+import Channels from "./Channels";
+import Sellers from "./Sellers";
+import Portfolio from "./Portfolio";
+
+/** Which filters mean anything on which tab. Portfolio is cross-tenant, so
+ *  a campaign / ICP / seller picker there would be filtering by something
+ *  that belongs to one client. */
+const APPLIES: Record<Tab, Array<"campaign" | "icp" | "seller">> = {
+  Overview: ["campaign", "icp", "seller"],
+  ICPs: ["campaign", "seller"],
+  Campaigns: ["icp", "seller"],
+  Channels: ["campaign", "icp", "seller"],
+  Sellers: ["campaign", "icp"],
+  Portfolio: [],
+};
+
+function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPeriod: (p: string) => void }) {
+  const [camp, setCamp] = useState(D.filters.campaigns[0]);
+  const [icp, setIcp] = useState(D.filters.icps[0]);
+  const [seller, setSeller] = useState(D.filters.sellers[0]);
+  const on = APPLIES[tab];
+  const active = [
+    on.includes("campaign") && camp !== D.filters.campaigns[0],
+    on.includes("icp") && icp !== D.filters.icps[0],
+    on.includes("seller") && seller !== D.filters.sellers[0],
+  ].filter(Boolean).length;
+
+  return (
+    <div className="sticky top-0 z-40 -mx-8 px-8 py-3 flex items-center gap-2.5 flex-wrap"
+      style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 92%, transparent)`, backdropFilter: "blur(12px)" }}>
+      <div className="inline-flex rounded-full border overflow-hidden" style={{ borderColor: C.border }}>
+        {D.period.presets.map(p => (
+          <button key={p} onClick={() => setPeriod(p)} className="px-3 py-1 font-medium"
+            style={{ fontSize: 12.5, backgroundColor: p === period ? gold : "transparent", color: p === period ? "#1A1405" : C.textBody }}>
+            {p}
+          </button>
+        ))}
+      </div>
+      <button onClick={() => setPeriod("Custom")} className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium"
+        style={{ fontSize: 12.5, borderColor: period === "Custom" ? gold : C.border, color: period === "Custom" ? gold : C.textBody }}>
+        <CalendarDays size={12} /> {period === "Custom" ? D.period.range : "Custom"}
+      </button>
+
+      {on.length > 0 && <span className="w-px h-4" style={{ backgroundColor: C.border }} />}
+      {on.includes("campaign") && <Pick label="Campaign" options={D.filters.campaigns} value={camp} onChange={setCamp} />}
+      {on.includes("icp") && <Pick label="ICP" options={D.filters.icps} value={icp} onChange={setIcp} />}
+      {on.includes("seller") && <Pick label="Seller" options={D.filters.sellers} value={seller} onChange={setSeller} />}
+      {active > 0 && (
+        <button onClick={() => { setCamp(D.filters.campaigns[0]); setIcp(D.filters.icps[0]); setSeller(D.filters.sellers[0]); }}
+          className="inline-flex items-center gap-1 font-medium" style={{ fontSize: 12, color: C.textMuted }}>
+          <X size={11} /> Clear
+        </button>
+      )}
+      {tab === "Portfolio" && (
+        <span style={{ fontSize: 11, color: C.textDim }}>filters apply within one client — not on this tab</span>
+      )}
+
+      <div className="flex-1" />
+      <span style={{ fontSize: 11.5, color: C.textDim }}>{D.period.range}</span>
+    </div>
+  );
+}
+
+export default function Shell() {
+  const [tab, setTab] = useState<Tab>("Overview");
+  const [period, setPeriod] = useState("30 days");
+  const label = period === "All time" ? "all time" : period === "Custom" ? "the selected range" : `the last ${period.toLowerCase()}`;
+
+  const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[tab];
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: C.bg }}>
+      <div className="mx-auto px-8" style={{ maxWidth: 1300, paddingBottom: 96 }}>
+
+        <div className="flex items-center gap-3 pt-4 pb-1">
+          <div>
+            <div className="font-semibold uppercase tracking-[.14em]" style={{ fontSize: 10, color: gold }}>Growth Engine</div>
+            <h1 className="font-semibold tracking-tight" style={{ fontSize: 21, color: C.textPrimary, letterSpacing: "-0.02em" }}>Dashboard</h1>
+          </div>
+          <div className="flex-1" />
+          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full border"
+            style={{ fontSize: 10.5, borderColor: `color-mix(in srgb, ${C.orange} 40%, transparent)`, color: C.orange }}>
+            MOCK · static data
+          </span>
+        </div>
+
+        {/* tabs — names, one underline, no chapter numerals */}
+        <nav className="flex items-center gap-1 mt-3" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
+          {TABS.map(t => {
+            const on = t === tab;
+            return (
+              <button key={t} role="tab" aria-selected={on} onClick={() => setTab(t)}
+                className="px-3 py-2 font-medium relative"
+                style={{ fontSize: 13, color: on ? C.textPrimary : C.textMuted }}>
+                {t}
+                {t === "Portfolio" && (
+                  <span className="ml-1.5 align-middle rounded-full px-1.5 py-px font-bold"
+                    style={{ fontSize: 8.5, border: `1px solid ${C.border}`, color: C.textDim }}>SA</span>
+                )}
+                {on && <span aria-hidden className="absolute left-2 right-2 -bottom-px" style={{ height: 2, backgroundColor: gold, borderRadius: 2 }} />}
+              </button>
+            );
+          })}
+        </nav>
+
+        <Controls tab={tab} period={period} setPeriod={setPeriod} />
+
+        <Body label={label} />
+
+        <p className="mt-16 text-center" style={{ fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
+          Diagnostic Console · figures verified against the SWL tenant on 2026-09-07 · no query, no write, no change to the live dashboard<br />
+          Every figure is scoped to activity in the period, not to leads loaded in it — which is why four ICPs that the live tab drops at 30 days are present here.
+        </p>
+      </div>
+    </div>
+  );
+}

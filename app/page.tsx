@@ -50,6 +50,7 @@ import DimWhileLoading from "@/components/DimWhileLoading";
 import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
+import { NOT_MEASURED_REASON } from "@/lib/metric-defs";
 import { DashboardTabsProvider, TabPanel, TabChrome } from "@/components/dashboard/DashboardTabs";
 
 const gold = "var(--brand, #c9a83a)";
@@ -558,25 +559,27 @@ export default async function DashboardPage({
                 noPriorLabel={t("dashx.kpi.noPrior")}
                 href="/inbox"
               />
+              {/* AUDIT BLOCK 10 — `closed_won` has never been set on any lead in
+                  any tenant, and `lost` mixes a negative reply with a manual
+                  close. Rendering 0 for something nobody tracks reads as a
+                  measured result, so both say what they are. */}
               <MicroKpi
                 label={t("dashx.kpi.won")}
-                value={headline.wonCount.toLocaleString(dateLoc)}
+                value="—"
                 icon={Trophy}
-                accent={C.green}
-                hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
+                accent={C.textDim}
+                hint={NOT_MEASURED_REASON.won}
                 vsPriorLabel={t("dashx.kpi.vsPrior")}
                 noPriorLabel={t("dashx.kpi.noPrior")}
-                href="/results?tab=won"
               />
               <MicroKpi
                 label={t("dashx.kpi.lost")}
-                value={headline.lostCount.toLocaleString(dateLoc)}
+                value="—"
                 icon={AlertTriangle}
-                accent="#DC2626"
-                hint={t("dashx.kpi.lostHint")}
+                accent={C.textDim}
+                hint={NOT_MEASURED_REASON.lost}
                 vsPriorLabel={t("dashx.kpi.vsPrior")}
                 noPriorLabel={t("dashx.kpi.noPrior")}
-                href="/results?tab=lost"
               />
             </div>
             {/* Rates column — 2 cards on a subtly different background so
@@ -593,15 +596,16 @@ export default async function DashboardPage({
                 noPriorLabel={t("dashx.kpi.noPrior")}
                 href="/inbox"
               />
+              {/* AUDIT BLOCK 10 — win rate divides `won` by contacted, and `won`
+                  is never set. A permanent 0% is not a measurement. */}
               <MicroKpi
                 label={t("dashx.pulse.winRate")}
-                value={`${data.velocity.winRate}%`}
+                value="—"
                 icon={ThumbsUp}
-                accent={gold}
-                hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+                accent={C.textDim}
+                hint={NOT_MEASURED_REASON.won}
                 vsPriorLabel={t("dashx.kpi.vsPrior")}
                 noPriorLabel={t("dashx.kpi.noPrior")}
-                href="/results?tab=won"
               />
             </div>
           </div>
@@ -705,9 +709,13 @@ export default async function DashboardPage({
             insight={(() => {
               const sent = data.linkedinConnections?.sent ?? 0;
               const accepted = data.linkedinConnections?.accepted ?? 0;
-              const won = data.funnel.find(s => s.stage === "won")?.count ?? 0;
+              // AUDIT BLOCKS 4 + 10 — "won" is no longer a stage (never set) and
+              // acceptance now comes from the one shared object, so the insight
+              // quotes the same number the card shows.
+              const won = data.funnel.find(s => s.stage === "positive")?.count ?? 0;
               if (sent < 3) return null;
-              const acceptPct = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
+              const acceptPct = data.linkedinConnections?.rate != null
+                ? Math.round(data.linkedinConnections.rate) : 0;
               // Reply rate MUST match the global "Reply rate" KPI
               // (headline.responseRate = replied / contacted). Previously this
               // used replied/accepted → different denominator → didn't match

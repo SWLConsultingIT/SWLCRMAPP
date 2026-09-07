@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { presetRange, businessToday } from "@/lib/metric-defs";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -24,8 +25,10 @@ const PERIODS = [
   { id: "all", labelKey: "dashx.filters.all", days: null as number | null },
 ];
 
+// AUDIT BLOCK 6 — `toISOString()` is UTC. The preset a user picks has to mean
+// the same days the server counts, and the server counts in business time.
 function toIsoDay(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return businessToday(d);
 }
 
 export default function FiltersBar() {

@@ -41,6 +41,8 @@ type LeadRow = {
   primary_first_name?: string | null;
   primary_last_name?: string | null;
   primary_phone?: string | null;
+  /** AUDIT BLOCK 4 — the only source of truth for LinkedIn acceptance. */
+  linkedin_connected?: boolean | null;
 };
 type CampRow = {
   id: string;
@@ -77,6 +79,15 @@ type MsgRow = {
   channel: string | null;
 };
 
+import {
+  SourceUnavailableError, NOT_MEASURED, type Measurable,
+  resolveWindow, inWindow as inWin, priorWindow, businessDayKey, businessHour, businessWeekday,
+  isInboundReply, isPositiveReply, isNegativeReply,
+  contactedLeadIds as contactedFrom, enrolledLeadIds, invitedLeadIds, linkedinAcceptance,
+  realCallsInWindow, callOwner, isConnected as callConnected, callOutcomeGroup as callGroup,
+  type Window as MetricWindow,
+} from "@/lib/metric-defs";
+
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
 // "not_now" (bad timing) is a follow-up, NOT a negative/lost outcome — excluded.
 const NEGATIVE_CLASS = new Set(["negative", "unsubscribe"]);
@@ -108,7 +119,20 @@ function pctDelta(curr: number, prev: number): number | null {
 // renderable. Boss-feedback rule: live clients never see a blank 500.
 const EMPTY_DASHBOARD = {
   period: { from: null as string | null, to: null as string | null, days: 30 },
-  headline: { totalLeads: 0, contactedLeads: 0, connectedLeads: 0, repliedCount: 0, positiveCount: 0, negativeCount: 0, meetingCount: 0, wonCount: 0, lostCount: 0, responseRate: 0, conversionRate: 0 },
+  headline: {
+    totalLeads: 0, contactedLeads: 0, connectedLeads: 0, enrolledLeads: 0, leadsLoadedInPeriod: 0,
+    repliedCount: 0, positiveCount: 0, negativeCount: 0,
+    // AUDIT BLOCK 10 — the empty shape carries the same NOT_MEASURED values as
+    // the real one, so an empty dashboard can't render 0 where the loaded one
+    // renders "—".
+    meetingCount: NOT_MEASURED as Measurable<number>,
+    wonCount: NOT_MEASURED as Measurable<number>,
+    lostCount: NOT_MEASURED as Measurable<number>,
+    responseRate: 0, conversionRate: 0, positiveRate: 0,
+    acceptanceRate: null as number | null,
+    acceptance: { invited: 0, accepted: 0, rate: null as number | null, caveat: "of the leads invited in this period, accepted as of today" },
+    replyEvents: 0, unattributedReplies: 0,
+  },
   deltas: { contacted: null as number | null, replied: null as number | null, positive: null as number | null },
   funnel: [
     { stage: "imported",          count: 0, prior: null as number | null, color: "neutral" },
@@ -120,7 +144,7 @@ const EMPTY_DASHBOARD = {
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
   callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
   callOutcomesBySeller: [] as Array<{ sellerId: string; sellerName: string; made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number }> }>,
-  linkedinConnections: { sent: 0, accepted: 0 },
+  linkedinConnections: { sent: 0, accepted: 0, rate: null as number | null, caveat: "of the leads invited in this period, accepted as of today" },
   icpPerformance: [] as Array<any>,
   campaignPerformance: [] as Array<any>,
   sellerPerformance: [] as Array<any>,
@@ -163,20 +187,31 @@ const EMPTY_DASHBOARD = {
 // Pages through a PostgREST query 1000 rows at a time until the tail is
 // short. `makeQuery` MUST return a fresh builder each call — .range()
 // configures a builder in place, so a reused builder would only ever
-// fetch one page. On error we log and return what we gathered so far,
-// matching the prior "degrade this source to empty, keep the dashboard
-// alive" behaviour (one bad source must not blank every tab).
+// fetch one page.
+//
+// AUDIT BLOCK 8. This used to log "degrading source to partial" and return
+// the rows it had. Pages 1-10 succeed, page 11 fails, and the dashboard
+// renders confident, wrong totals — the worst possible failure for a
+// metrics surface. A partial read is now an error; the caller turns it into
+// an "unavailable" panel rather than a smaller number.
+//
+// `.order("id")` is not optional: PostgREST gives no stable order without
+// ORDER BY, so OFFSET paging can repeat or skip rows between pages.
 async function fetchAllRows<T = Record<string, unknown>>(
-  makeQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }> },
+  makeQuery: () => {
+    order: (col: string, opts: { ascending: boolean }) => {
+      range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>;
+    };
+  },
   pageSize = 1000,
+  sourceName = "unknown",
 ): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
-    if (error) {
-      console.warn("[dashboard-data] paginated fetch error — degrading source to partial:", error);
-      break;
-    }
+    const { data, error } = await makeQuery()
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw new SourceUnavailableError(sourceName, error);
     const rows = (data ?? []) as T[];
     out.push(...rows);
     if (rows.length < pageSize) break;
@@ -186,10 +221,16 @@ async function fetchAllRows<T = Record<string, unknown>>(
 
 export async function getDashboardData(filters: DashboardFilters) {
   try {
-    return await getDashboardDataInternal(filters);
+    return { ...(await getDashboardDataInternal(filters)), unavailable: null as string | null };
   } catch (e) {
+    // AUDIT BLOCK 8 — an empty dashboard and an unreadable one look identical
+    // on screen, and only one of them is a fact about the business. Say which.
+    if (e instanceof SourceUnavailableError) {
+      console.error(`[dashboard-data] ${e.source} unreadable — rendering unavailable state:`, e.cause ?? e);
+      return { ...EMPTY_DASHBOARD, unavailable: e.source };
+    }
     console.error("[dashboard-data] unrecoverable error — serving empty dashboard:", e);
-    return EMPTY_DASHBOARD;
+    return { ...EMPTY_DASHBOARD, unavailable: "dashboard" };
   }
 }
 
@@ -217,7 +258,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     // (2026-09-03). Dropping the column shrinks the leads fetch a lot and makes
     // the decrypt pass a no-op (hasClient=false) — a big chunk of the dashboard
     // load. Names/phone kept in the select but are unused by the analytics tabs.
-    const q = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, source");
+    // AUDIT BLOCK 4 — `linkedin_connected` is the ONLY source of truth for
+    // acceptance, so it has to come back with the row.
+    const q = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, source, linkedin_connected");
     return bioId ? q.eq("company_bio_id", bioId) : q;
   };
   const makeCampsQ = () => {
@@ -253,10 +296,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         .gt("id", afterId)
         .order("id", { ascending: true })
         .limit(1000);
-      if (error) {
-        console.warn("[dashboard-data] message keyset fetch error — degrading to partial:", error);
-        break;
-      }
+      // AUDIT BLOCK 8 — a half-read message table is not a smaller dashboard,
+      // it is a wrong one. Fail the source instead of truncating it.
+      if (error) throw new SourceUnavailableError("campaign_messages", error);
       const rows = (data ?? []) as unknown as MsgRow[];
       out.push(...rows);
       if (rows.length < 1000) break;
@@ -277,15 +319,21 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // batch below instead of running as an extra sequential stage after it
   // (perf 2026-09-02). Its own .catch keeps the "degrade to empty on RLS /
   // column / FK-metadata failure" behavior the separate try/catch used to give.
+  // AUDIT BLOCK 5 — `aircall_call_id` and `seller_id` were NOT selected, which
+  // is precisely why the dashboard could not use flow-metrics-lib and grew its
+  // own weaker rules instead: isRealCall() needs the Aircall id to tell a real
+  // dial from a click-to-dial marker, and the attribution order needs
+  // seller_id. Both come back now.
   type CallRow = {
-    id: string; lead_id: string | null; status: string | null;
+    id: string; lead_id: string; status: string | null;
     duration: number | null; classification: string | null; started_at: string | null;
     dialed_by_user_id: string | null; phone_number: string | null; coach_score: number | null;
+    aircall_call_id: number | string | null; seller_id: string | null;
   };
   const makeCallsQ = () => {
     const q = supabase
       .from("calls")
-      .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, coach_score, leads!inner(company_bio_id)");
+      .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, coach_score, aircall_call_id, seller_id, leads!inner(company_bio_id)");
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
 
@@ -298,16 +346,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     allSellersRaw,
     allCallsRaw,
   ] = await Promise.all([
-    fetchAllRows(makeLeadsQ),
-    fetchAllRows(makeCampsQ),
-    fetchAllRows(makeRepliesQ),
+    fetchAllRows(makeLeadsQ, 1000, "leads"),
+    fetchAllRows(makeCampsQ, 1000, "campaigns"),
+    fetchAllRows(makeRepliesQ, 1000, "lead_replies"),
     fetchAllMessages(),
-    fetchAllRows(makeProfilesQ),
-    fetchAllRows(makeSellersQ),
-    fetchAllRows<CallRow>(makeCallsQ).catch((e) => {
-      console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
-      return [] as CallRow[];
-    }),
+    fetchAllRows(makeProfilesQ, 1000, "icp_profiles"),
+    fetchAllRows(makeSellersQ, 1000, "sellers"),
+    // AUDIT BLOCK 8 — calls used to degrade to an empty breakdown on failure,
+    // which renders "0 calls" and "0% connect rate" as if they were measured.
+    // It now fails the whole load like every other source.
+    fetchAllRows<CallRow>(makeCallsQ, 1000, "calls"),
   ]);
 
   const allLeadsRawTyped = (allLeadsRaw ?? []) as Array<LeadRow & { source?: string | null; encrypted_payload?: unknown }>;
@@ -356,8 +404,13 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const allCalls = (allCallsRaw ?? []) as CallRow[];
 
   // ── Apply user-supplied filters in-memory ───────────────────────────────
-  const fromMs = filters.from ? new Date(`${filters.from}T00:00:00Z`).getTime() : null;
-  const toMs   = filters.to   ? new Date(`${filters.to}T23:59:59Z`).getTime()   : null;
+  // AUDIT BLOCK 6 — the window is business-local (America/Argentina/
+  // Buenos_Aires), not UTC. `${from}T00:00:00Z` cut the day three hours early
+  // and disagreed with the `toArgDay` buckets further down: 95 sent messages
+  // landed in a different period depending on which convention ran.
+  const win: MetricWindow = resolveWindow(filters.from, filters.to);
+  const fromMs = win.fromMs;
+  const toMs   = win.toMs;
   const campSet   = filters.campaignNames && filters.campaignNames.length > 0 ? new Set(filters.campaignNames) : null;
   const sellerSet = filters.sellerIds && filters.sellerIds.length > 0 ? new Set(filters.sellerIds) : null;
   const icpSet    = filters.icpIds && filters.icpIds.length > 0 ? new Set(filters.icpIds) : null;
@@ -371,15 +424,25 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     ? new Set(allCampaigns.filter(c => c.assigned_user_id === assignedUserId && c.lead_id).map(c => c.lead_id as string))
     : null;
 
+  // AUDIT BLOCK 1 — `leads` is the SCOPE (tenant + ICP + assignment), never
+  // the period. Windowing it by `created_at` and then counting lifetime
+  // activity for the survivors is what made a "last 30 days" view mean
+  // "leads loaded in the last 30 days, carrying all of their history" — and
+  // what erased four of eight ICPs from the screen while 484 of their leads
+  // were being actively worked. Activity is windowed by each event's OWN
+  // timestamp, further down.
   const leads = allLeads.filter(l => {
     if (assignedLeadIds && !assignedLeadIds.has(l.id)) return false;
     if (icpSet && !icpSet.has(l.icp_profile_id ?? "")) return false;
-    if (fromMs !== null || toMs !== null) {
-      if (!inWindow(l.created_at, fromMs, toMs)) return false;
-    }
     return true;
   });
   const leadIdSet = new Set(leads.map(l => l.id));
+
+  // Intake is the ONE metric that legitimately uses `created_at`, and it is
+  // labelled as intake rather than as activity.
+  const leadsLoadedInPeriod = (fromMs !== null || toMs !== null)
+    ? leads.filter(l => inWin(l.created_at, win)).length
+    : leads.length;
 
   const campaigns = allCampaigns.filter(c => {
     if (assignedUserId && c.assigned_user_id !== assignedUserId) return false;
@@ -390,19 +453,42 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   });
   const campaignIdSet = new Set(campaigns.map(c => c.id));
 
+  // AUDIT BLOCK 3 — `lead_replies` stores logged CALL OUTCOMES next to real
+  // inbound messages. 232 of 313 rows in the audited window were call
+  // outcomes; counting them put the reply rate at 10% against a real 2.8%.
+  // A call outcome is never a reply. One predicate, imported, used here and
+  // nowhere re-implemented.
+  //
+  // AUDIT BLOCK 9 — the old campaign/seller guard read
+  //   `&& r.campaign_id && !campaignIdSet.has(r.campaign_id)`
+  // so a reply with a NULL campaign_id made the condition false and sailed
+  // through every campaign and seller filter. If a scope filter is active and
+  // the reply cannot be placed inside that scope, it is excluded. It is still
+  // counted once, at workspace level, as Unattributed — never redistributed.
+  const scopeFilterActive = !!(campSet || sellerSet || assignedUserId);
   const replies = allReplies.filter(r => {
+    if (!isInboundReply(r)) return false;
     if (fromMs !== null || toMs !== null) {
-      if (!inWindow(r.received_at, fromMs, toMs)) return false;
+      if (!inWin(r.received_at, win)) return false;
     }
     if (icpSet && r.lead_id && !leadIdSet.has(r.lead_id)) return false;
-    if ((campSet || sellerSet || assignedUserId) && r.campaign_id && !campaignIdSet.has(r.campaign_id)) return false;
+    if (scopeFilterActive) {
+      if (!r.campaign_id) return false;
+      if (!campaignIdSet.has(r.campaign_id)) return false;
+    }
     return true;
   });
 
+  // Every inbound reply in the window, before scope filtering — the base the
+  // Unattributed figure is measured against.
+  const repliesInWindowAll = allReplies.filter(r =>
+    isInboundReply(r) && ((fromMs === null && toMs === null) || inWin(r.received_at, win)));
+
   const messages = allMessages.filter(m => {
     if (m.status !== "sent") return false;
+    // AUDIT BLOCK 1 — the message's own sent_at, always.
     if (fromMs !== null || toMs !== null) {
-      if (!inWindow(m.sent_at, fromMs, toMs)) return false;
+      if (!inWin(m.sent_at, win)) return false;
     }
     if ((campSet || sellerSet || icpSet || assignedUserId) && m.campaign_id && !campaignIdSet.has(m.campaign_id)) return false;
     return true;
@@ -437,19 +523,45 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   //   positive: classification ∈ POSITIVE_CLASS
   //   meeting: lead.status = 'qualified'  (the manual cascade / odoo path)
   //   won: lead.status = 'closed_won'
-  const leadsWithCampaign = new Set(campaigns.map(c => c.lead_id).filter(Boolean) as string[]);
-  const connectedLeadIds = new Set<string>();
-  for (const m of messages) {
-    if ((m.step_number ?? 0) >= 1 && m.campaign_id) {
-      const c = campById.get(m.campaign_id);
-      if (c?.lead_id) connectedLeadIds.add(c.lead_id);
-    }
-  }
-  for (const c of campaigns) if ((c.current_step ?? 0) >= 1 && c.lead_id) connectedLeadIds.add(c.lead_id);
+  // ── AUDIT BLOCK 2 — Contacted is NOT "a campaign row exists" ───────────
+  // That is Enrolled, and 785 leads sit in exactly that gap: enrolled, never
+  // messaged. Contacted requires a message that actually went out, inside
+  // the window, timestamped by the send.
+  const leadOfCampaign = new Map<string, string>();
+  for (const c of campaigns) if (c.lead_id) leadOfCampaign.set(c.id, c.lead_id);
+
+  const enrolledLeadIdSet = enrolledLeadIds(campaigns);          // stock
+  const contactedLeadIdSet = contactedFrom(messages, leadOfCampaign, win); // activity
+  // Kept under its historical name for the blocks below that mean "enrolled".
+  const leadsWithCampaign = enrolledLeadIdSet;
+
+  // ── AUDIT BLOCK 4 — LinkedIn acceptance ───────────────────────────────
+  // `connectedLeadIds` was `step_number >= 1 OR current_step >= 1` on ANY
+  // channel. It measured "the sequence advanced past step 0", not
+  // acceptance, and counted 2,888 leads whose `linkedin_connected` is false.
+  // Deleted. Acceptance now has exactly one source — the boolean on the lead
+  // — and one formula, shared by the card, the subtitle and the signal.
+  //
+  // `linkedin_connected` carries no timestamp, so acceptance cannot be
+  // windowed. The denominator is windowed (leads INVITED in this period) and
+  // the numerator is "connected as of today". The caveat travels with the
+  // number so the UI cannot render it as something it is not.
+  const linkedinConnectedLeads = new Set(allLeads.filter(l => l.linkedin_connected).map(l => l.id));
+  const invitedLeadIdSet = invitedLeadIds(messages, leadOfCampaign, win);
+  const acceptance = linkedinAcceptance(invitedLeadIdSet, linkedinConnectedLeads);
+
+  // ── AUDIT BLOCK 3 — replies are already call-outcome-free (filtered above)
   const repliedLeadIds = new Set(replies.map(r => r.lead_id).filter(Boolean) as string[]);
-  const positiveReplies = replies.filter(r => POSITIVE_CLASS.has(r.classification ?? ""));
-  const negativeReplies = replies.filter(r => NEGATIVE_CLASS.has(r.classification ?? ""));
+  const positiveReplies = replies.filter(isPositiveReply);
+  const negativeReplies = replies.filter(isNegativeReply);
   const positiveLeadIds = new Set(positiveReplies.map(r => r.lead_id).filter(Boolean) as string[]);
+
+  // ── AUDIT BLOCK 10 — no source of truth ───────────────────────────────
+  // `qualified` means a positive reply reached the CRM; it is not a booked
+  // meeting, and no meeting event exists. `closed_won` has never been set on
+  // any lead in any tenant. Both are reported as Not measured rather than as
+  // a number, because a zero reads as a measured result. The sets stay so
+  // the shapes below don't change; the VALUES are gated at the return.
   const meetingLeadIds = new Set(leads.filter(l => l.status === "qualified").map(l => l.id));
   const wonLeadIds = new Set(leads.filter(l => l.status === "closed_won").map(l => l.id));
 
@@ -505,20 +617,24 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // scoped lead, so this is a no-op and the full pipeline shows.
   const inScope = (s: Set<string>): number => { let n = 0; for (const id of s) if (leadIdSet.has(id)) n++; return n; };
   const totalLeads = leads.length;
-  const contactedLeads = inScope(leadsWithCampaign);
-  const connectedLeads = inScope(connectedLeadIds);
+  // AUDIT BLOCK 2 — Contacted and Enrolled are now two figures, not one.
+  const contactedLeads = inScope(contactedLeadIdSet);
+  const enrolledLeads  = inScope(enrolledLeadIdSet);
+  // AUDIT BLOCK 4 — "connected" as a funnel stage is gone; the only LinkedIn
+  // acceptance figure in the file is `acceptance`, computed once above.
+  const connectedLeads = acceptance.accepted;
   const repliedCount = inScope(repliedLeadIds);
   const positiveCount = inScope(positiveLeadIds);
-  const meetingCount = meetingLeadIds.size; // already derived from windowed `leads`
-  const wonCount = wonLeadIds.size;         // already derived from windowed `leads`
+  // AUDIT BLOCK 10 — kept as counts for internal use only; the return gates
+  // them to NOT_MEASURED so nothing renders a zero for an untracked event.
+  const meetingCount = meetingLeadIds.size;
+  const wonCount = wonLeadIds.size;
   const negativeCount = inScope(new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]));
   const linkedinSentCount = inScope(linkedinSentLeadIds);
-  // Accepted invites among those actually SENT in this period. `connectedLeadIds`
-  // is an all-time lead state (includes leads whose CR went out before the
-  // period), so using it as the acceptance numerator over a period-scoped `sent`
-  // denominator produced impossible rates (>100%). Gate accepted ⊆ sent (and ⊆
-  // the in-scope cohort) for any acceptance-RATE display.
-  const linkedinAcceptedInPeriod = new Set([...connectedLeadIds].filter(id => linkedinSentLeadIds.has(id) && leadIdSet.has(id))).size;
+  // AUDIT BLOCK 4 — one acceptance number for the whole file. Denominator is
+  // the leads invited in this window; numerator is how many of THOSE are
+  // connected as of today. `acceptance.caveat` ships with it to the UI.
+  const linkedinAcceptedInPeriod = acceptance.accepted;
   const linkedinMessageCount = inScope(linkedinMessageLeadIds);
   const emailTouchCount = inScope(emailTouchLeadIds);
   const callTouchCount = inScope(callTouchLeadIds);
@@ -637,14 +753,15 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Pending = queued/pending call-channel messages (state, not period).
   // Completed/Answered/Positive/Negative come from the calls table,
   // period-filtered by started_at.
-  const callsInPeriod = allCalls.filter(c => {
-    if (assignedLeadIds && (!c.lead_id || !assignedLeadIds.has(c.lead_id))) return false;
-    if (fromMs !== null || toMs !== null) {
-      if (!inWindow(c.started_at, fromMs, toMs)) return false;
-    }
-    return true;
-  });
-  console.log(`[dashboard-data] filtered to ${callsInPeriod.length} calls in period (from: ${filters.from}, to: ${filters.to})`);
+  // AUDIT BLOCK 5 — the canonical call rules live in lib/flow-metrics-lib.ts
+  // and are NOT re-derived here. `realCallsInWindow` applies them: window by
+  // started_at, dedup by lead+minute PREFERRING the real Aircall row over the
+  // click-to-dial marker written in the same minute, then keep only real
+  // calls. Taking whichever row arrived first discarded real calls — 189
+  // survived where 282 exist.
+  const scopedCalls = allCalls.filter(c =>
+    !assignedLeadIds || (c.lead_id && assignedLeadIds.has(c.lead_id)));
+  const callsInPeriod = realCallsInWindow(scopedCalls, win);
   // "Made" = one row per physical dial. Each call can surface as up to TWO
   // rows — a dial-marker (status 'initiated', no aircall_call_id) plus an
   // Aircall webhook record once it connects (status 'answered'…). Collapse by
@@ -652,16 +769,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // off status === 'completed', which the calls table NEVER emits (real
   // statuses: answered / initiated / missed / voicemail) → it was always 0,
   // which is why "Phones made" read 0 for Graeme/Pathway (boss 2026-06-08).
-  const madeKeys = new Set<string>();
-  for (const c of callsInPeriod) {
-    const minute = (c.started_at ?? "").slice(0, 16); // yyyy-mm-ddThh:mm
-    // Use phone suffix when available to deduplicate across phone-format variants
-    // (e.g. "+54 9 261..." vs "+54 261...") that land as separate rows.
-    const phoneSfx = (c.phone_number ?? "").replace(/\D/g, "").slice(-9);
-    const key = phoneSfx.length >= 7 ? `phone:${phoneSfx}|${minute}` : `${c.lead_id ?? "?"}|${minute}`;
-    madeKeys.add(key);
-  }
-  const callsMadeCount = madeKeys.size;
+  // `callsInPeriod` is already one row per real dial, so "made" is its length.
+  const callsMadeCount = callsInPeriod.length;
+  const callsConnectedCount = callsInPeriod.filter(callConnected).length;
   const callsBreakdown = {
     pending: (() => {
       let n = 0;
@@ -673,10 +783,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       return n;
     })(),
     made:      callsMadeCount,
-    completed: callsMadeCount, // repurposed: real dials made (status 'completed' never exists)
-    answered:  callsInPeriod.filter(c => (c.duration ?? 0) > 0).length,
-    positive:  callsInPeriod.filter(c => POSITIVE_CLASS.has(c.classification ?? "")).length,
-    negative:  callsInPeriod.filter(c => NEGATIVE_CLASS.has(c.classification ?? "")).length,
+    completed: callsMadeCount,
+    // AUDIT BLOCK 5 — "answered" was `duration > 0`, which counts a voicemail
+    // that recorded for four seconds. isConnected() is the validated rule:
+    // voicemail / wrong number / no answer are NOT connected.
+    answered:  callsConnectedCount,
+    positive:  callsInPeriod.filter(c => callGroup(c) === "positive").length,
+    negative:  callsInPeriod.filter(c => callGroup(c) === "negative").length,
+    unclassified: callsInPeriod.filter(c => !c.classification).length,
     total:     callsMadeCount,
   };
 
@@ -712,10 +826,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     : null;
   // Argentina is UTC-3 (no DST). All day-bucket keys use this offset so that
   // "today" in the Seller Pulse table matches local midnight, not UTC midnight.
-  const toArgDay = (iso: string | null) => {
-    if (!iso) return "";
-    return new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  };
+  // AUDIT BLOCK 6 — was a local re-implementation of the business day. Now
+  // the shared helper, so the day buckets, the presets and the heatmap can no
+  // longer drift apart.
+  const toArgDay = (iso: string | null) => businessDayKey(iso);
   const userToSeller = new Map<string, { id: string; name: string }>();
   for (const s of allSellers) if (s.user_id) userToSeller.set(s.user_id, { id: s.id, name: s.name });
 
@@ -748,7 +862,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const callGroups = new Map<string, CallGroup>();
   for (const c of callsInPeriod) {
     const key = `${c.lead_id ?? "?"}|${(c.started_at ?? "").slice(0, 16)}`;
-    const argHour = c.started_at ? new Date(new Date(c.started_at).getTime() - 3 * 60 * 60 * 1000).getUTCHours() : 0;
+    const argHour = businessHour(c.started_at) ?? 0;
     const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: toArgDay(c.started_at), hour: argHour, phone: c.phone_number ?? null, campaignName: c.lead_id ? (leadToCampaignName.get(c.lead_id) ?? null) : null, duration: 0, coachScore: null };
     if (!g.dialer && c.dialed_by_user_id) g.dialer = c.dialed_by_user_id;
     if (!g.classification && c.classification) g.classification = c.classification;
@@ -832,8 +946,24 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // the lead's assigned owner ONLY when there is no dialer (inbound / SDK call
   // with no app marker). (Was owner-first until 2026-09-07 — that mis-credited a
   // caller's dials to whoever owned the lead, e.g. Lucía's calls under Isaac/Fran.)
+  //
+  // AUDIT BLOCK 5 — the closed order is dialer → flow's assigned caller →
+  // flow's LinkedIn sender. The third step was missing, so a call with no
+  // dialer and no assigned caller fell to "unassigned" even when the flow had
+  // a sender. It is the LAST resort, never the first: everyone shares one
+  // Aircall seat, so the dialler field is the only thing that separates them.
+  // When nothing resolves the call stays Unattributed — never spread.
+  const leadToFlowSellerUser = new Map<string, string>();
+  for (const c of campaigns) {
+    if (!c.lead_id || !c.seller_id) continue;
+    const uid = allSellers.find(sl => sl.id === c.seller_id)?.user_id;
+    if (uid && !leadToFlowSellerUser.has(c.lead_id)) leadToFlowSellerUser.set(c.lead_id, uid);
+  }
   const attributeCaller = (g: { leadId: string | null; dialer: string | null }): string | null =>
-    g.dialer ?? (g.leadId ? leadToAssignedUser.get(g.leadId) ?? null : null) ?? null;
+    g.dialer
+    ?? (g.leadId ? leadToAssignedUser.get(g.leadId) ?? null : null)
+    ?? (g.leadId ? leadToFlowSellerUser.get(g.leadId) ?? null : null)
+    ?? null;
 
   // Per-caller call CONTACTED / ANSWERED (manual dials live in `calls`, not campaign_messages).
   const callContactedBySeller = new Map<string, Set<string>>();
@@ -1305,9 +1435,11 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         // acceptance whose invite was sent BEFORE the period (not in
         // linkedinSentLeadIds) inflated accepted past sent → rates like 533% /
         // 7500%. Gate accepted ⊆ sent so the ratio can never exceed 100%.
+        // AUDIT BLOCK 4 — same source as everywhere else: the boolean on the
+        // lead, over the leads this seller actually invited.
         if (linkedinSentLeadIds.has(c.lead_id)) {
           g.connectionsSent.add(c.lead_id);
-          if (connectedLeadIds.has(c.lead_id)) g.connectionsAccepted.add(c.lead_id);
+          if (linkedinConnectedLeads.has(c.lead_id)) g.connectionsAccepted.add(c.lead_id);
         }
       }
       // Per-channel contacted/replied are built in the messages loop below
@@ -1511,9 +1643,12 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   };
   for (const r of replies) {
     if (!r.received_at) continue;
-    const d = new Date(r.received_at);
-    const day = d.getDay();
-    const hour = d.getHours();
+    // AUDIT BLOCK 6 — `getDay()` / `getHours()` are the SERVER's timezone,
+    // which on Vercel is UTC. The heatmap was reading "peak Mon 12-15" when
+    // locally that is 09-12. Business time, like everything else.
+    const day = businessWeekday(r.received_at);
+    const hour = businessHour(r.received_at);
+    if (day === null || hour === null) continue;
     heatmap[day][hour]++;
     // Reply has its own channel field (recorded at receipt time); falls
     // back to the campaign's channel when the reply row is bare.
@@ -1614,11 +1749,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const trend30d = { sent: trendSent, replies: trendReplies, positive: trendPositive };
 
   // ── Prior-period deltas (same window, immediately before) ──────────────
-  const periodMs = (fromMs !== null && toMs !== null)
-    ? toMs - fromMs
-    : 30 * 86_400_000;
-  const priorTo = fromMs !== null ? fromMs : (Date.now() - 30 * 86_400_000);
-  const priorFrom = priorTo - periodMs;
+  // AUDIT BLOCK 7 — the prior window is the same length, immediately before,
+  // and it EXISTS ONLY IF the current window is bounded. With "All time" the
+  // old code fell back to `now − 30d`, so the delta compared the entire
+  // history against the last thirty days: that is where +2522% and +5700%
+  // came from. When there is no comparable window the delta is null and the
+  // UI renders "—".
+  const prior = priorWindow(win);
+  const periodMs = (fromMs !== null && toMs !== null) ? toMs - fromMs : 30 * 86_400_000;
+  const priorFrom = prior?.fromMs ?? Number.NaN;
+  const priorTo   = prior?.toMs   ?? Number.NaN;
+  const hasPrior  = prior !== null;
 
   // Per-seller call stats for the prior period — powers the SellerTrendTable
   // comparison widget in the Sellers tab. Single-pass dedup by lead+minute
@@ -1636,7 +1777,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       // Same attribution as the current period: the lead's OWNER user (shared
       // Aircall number → dialer is ambiguous), dialer only as a fallback. Keyed
       // by user id so period-over-period lines up with callOutcomesBySeller.
-      const sid = c.dialed_by_user_id ?? (c.lead_id ? leadToAssignedUser.get(c.lead_id) ?? null : null) ?? "unassigned";
+      // AUDIT BLOCK 5 + 7 — the prior period must attribute exactly like the
+      // current one, or the trend compares two different populations.
+      const sid = attributeCaller({ leadId: c.lead_id ?? null, dialer: c.dialed_by_user_id ?? null }) ?? "unassigned";
       if (!priorCallsBySeller[sid]) priorCallsBySeller[sid] = { made: 0, answered: 0, interested: 0 };
       priorCallsBySeller[sid].made++;
       if ((c.duration ?? 0) > 0) priorCallsBySeller[sid].answered++;
@@ -1644,11 +1787,44 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
   }
 
-  const priorReplies = allReplies.filter(r => {
-    if (!r.received_at) return false;
-    const t = new Date(r.received_at).getTime();
-    return t >= priorFrom && t < priorTo;
-  });
+  // ── AUDIT BLOCK 7 — one function, two windows ─────────────────────────
+  // Before: current "contacted" was `campaigns that exist`, prior "contacted"
+  // was `campaigns CREATED in the prior window`. Two different measurements
+  // divided by each other, so no delta on the page meant anything.
+  //
+  // Now both windows run the SAME code. Only from/to differ.
+  const funnelFor = (w: MetricWindow) => {
+    const msgs = allMessages.filter(m =>
+      m.status === "sent" && inWin(m.sent_at, w) &&
+      (!scopeFilterActive || (m.campaign_id && campaignIdSet.has(m.campaign_id))));
+    const reps = allReplies.filter(r =>
+      isInboundReply(r) && inWin(r.received_at, w) &&
+      (!icpSet || (r.lead_id && leadIdSet.has(r.lead_id))) &&
+      (!scopeFilterActive || (r.campaign_id && campaignIdSet.has(r.campaign_id))));
+    const contacted = contactedFrom(msgs, leadOfCampaign, w);
+    const replied = new Set(reps.map(r => r.lead_id).filter(Boolean) as string[]);
+    const positive = new Set(reps.filter(isPositiveReply).map(r => r.lead_id).filter(Boolean) as string[]);
+    return {
+      // Enrolled is a stock: the leads a flow existed for by the end of the
+      // window. Comparing stock to stock, activity to activity.
+      enrolled: new Set(campaigns.filter(c => c.lead_id && c.created_at &&
+        (w.toMs === null || new Date(c.created_at).getTime() <= w.toMs)).map(c => c.lead_id as string)).size,
+      imported: leads.filter(l => inWin(l.created_at, w)).length,
+      contacted: contacted.size,
+      replied: replied.size,
+      positive: positive.size,
+    };
+  };
+  const priorFunnel = hasPrior
+    ? funnelFor(prior)
+    : { enrolled: null, imported: null, contacted: null, replied: null, positive: null };
+
+  // AUDIT BLOCK 3 — the prior window's replies exclude call outcomes too, or
+  // the delta compares a clean number against a dirty one.
+  const priorReplies = prior
+    ? allReplies.filter(r => isInboundReply(r) && inWin(r.received_at, prior))
+    : [];
+
 
   // ── Prior-period trend (ghost line on the 30-day chart) ────────────────
   // Same shape and length as trend30d, but anchored at priorTo (= the
@@ -1661,10 +1837,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const tMs = new Date(iso).getTime();
     return trendDays - 1 - Math.floor((priorTo - tMs) / 86_400_000);
   };
-  for (const m of allMessages) {
+  for (const m of prior ? allMessages : []) {
     if (m.status !== "sent" || !m.sent_at) continue;
-    const tMs = new Date(m.sent_at).getTime();
-    if (tMs < priorFrom || tMs >= priorTo) continue;
+    if (!inWin(m.sent_at, prior!)) continue;
     const idx = priorTrendBucket(m.sent_at);
     if (idx >= 0 && idx < trendDays) priorTrendSent[idx]++;
   }
@@ -1677,50 +1852,19 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
   }
   const trendPrior = { sent: priorTrendSent, replies: priorTrendReplies, positive: priorTrendPositive };
-  const priorContactedLeads = new Set(
-    allCampaigns
-      .filter(c => c.created_at && new Date(c.created_at).getTime() >= priorFrom && new Date(c.created_at).getTime() < priorTo)
-      .map(c => c.lead_id)
-      .filter(Boolean) as string[],
-  ).size;
-  const priorRepliedSize = new Set(priorReplies.map(r => r.lead_id).filter(Boolean) as string[]).size;
-  const priorPositiveSize = new Set(priorReplies.filter(r => POSITIVE_CLASS.has(r.classification ?? "")).map(r => r.lead_id).filter(Boolean) as string[]).size;
-
+  // AUDIT BLOCK 7 — every delta divides two runs of the SAME function.
+  // When there is no comparable prior window the delta is null, not a number
+  // computed against an arbitrary fallback.
   const deltas = {
-    contacted: pctDelta(contactedLeads, priorContactedLeads),
-    replied:   pctDelta(repliedCount, priorRepliedSize),
-    positive:  pctDelta(positiveCount, priorPositiveSize),
+    contacted: hasPrior ? pctDelta(contactedLeads, priorFunnel.contacted ?? 0) : null,
+    replied:   hasPrior ? pctDelta(repliedCount,   priorFunnel.replied   ?? 0) : null,
+    positive:  hasPrior ? pctDelta(positiveCount,  priorFunnel.positive  ?? 0) : null,
   };
 
   // ── Prior-period funnel — for the comparative overlay on the main Funnel.
   // Computes the same 7 stages but for the period immediately preceding the
   // current one. Allows the funnel to render "ghost bars" behind each
   // current stage so the operator sees where the period got better/worse.
-  const priorCampaigns = allCampaigns.filter(c => c.created_at && new Date(c.created_at).getTime() >= priorFrom && new Date(c.created_at).getTime() < priorTo);
-  const priorContactedLeadIds = new Set(priorCampaigns.map(c => c.lead_id).filter(Boolean) as string[]);
-  const priorRepliedLeadIds = new Set(priorReplies.map(r => r.lead_id).filter(Boolean) as string[]);
-  const priorPositiveLeadIds = new Set(priorReplies.filter(r => POSITIVE_CLASS.has(r.classification ?? "")).map(r => r.lead_id).filter(Boolean) as string[]);
-  const priorConnectedLeadIds = new Set<string>();
-  for (const m of allMessages) {
-    if (m.status !== "sent" || !m.sent_at || !m.campaign_id) continue;
-    const t = new Date(m.sent_at).getTime();
-    if (t < priorFrom || t >= priorTo) continue;
-    if ((m.step_number ?? 0) < 1) continue;
-    const c = priorCampaigns.find(x => x.id === m.campaign_id);
-    if (c?.lead_id) priorConnectedLeadIds.add(c.lead_id);
-  }
-  for (const c of priorCampaigns) if ((c.current_step ?? 0) >= 1 && c.lead_id) priorConnectedLeadIds.add(c.lead_id);
-  // Imported in prior window = leads created in prior window.
-  const priorImported = allLeads.filter(l => l.created_at && new Date(l.created_at).getTime() >= priorFrom && new Date(l.created_at).getTime() < priorTo).length;
-  // "Meeting" + "Won" are status-based and don't have a created_at on the status change,
-  // so we omit them from the prior funnel comparison (the comparison would be misleading).
-  const priorFunnel = {
-    imported: priorImported,
-    contacted: priorContactedLeadIds.size,
-    connected: priorConnectedLeadIds.size,
-    replied: priorRepliedLeadIds.size,
-    positive: priorPositiveLeadIds.size,
-  };
 
   // ── Reply velocity decay curve ─────────────────────────────────────────
   // For every lead that received at least one message, did they reply, and
@@ -1877,9 +2021,26 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     period: { from: filters.from, to: filters.to, days: Math.round(periodMs / 86_400_000) },
     headline: {
       totalLeads, contactedLeads, connectedLeads,
-      repliedCount, positiveCount, negativeCount, meetingCount, wonCount,
-      lostCount,
-      responseRate, positiveRate, conversionRate, acceptanceRate,
+      // AUDIT BLOCK 2 — Enrolled is its own figure now, and Contacted no
+      // longer silently means it.
+      enrolledLeads,
+      // AUDIT BLOCK 1 — intake, the one metric that legitimately uses
+      // leads.created_at, named so it can never be read as activity.
+      leadsLoadedInPeriod,
+      repliedCount, positiveCount, negativeCount,
+      // AUDIT BLOCK 10 — no source of truth. NOT_MEASURED, never 0.
+      meetingCount: NOT_MEASURED as Measurable<number>,
+      wonCount: NOT_MEASURED as Measurable<number>,
+      lostCount: NOT_MEASURED as Measurable<number>,
+      responseRate, positiveRate, conversionRate,
+      // AUDIT BLOCK 4 — one acceptance object; the caveat travels with it.
+      acceptanceRate: acceptance.rate,
+      acceptance,
+      // AUDIT BLOCK 3 — leads vs events are different figures and the UI has
+      // to say which it is rendering.
+      replyEvents: replies.length,
+      // AUDIT BLOCK 9 — replies in the window that no scope can claim.
+      unattributedReplies: Math.max(0, new Set(repliesInWindowAll.map(r => r.lead_id).filter(Boolean)).size - repliedCount),
     },
     deltas,
     // Funnel — boss feedback 2026-05-27 round 3 ("too many bars, pongamos
@@ -1887,12 +2048,19 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     // an operator scans (Imported → Contactados → LinkedIn Accepted →
     // Respondieron → Ganados). Per-channel touch breakdowns live in the
     // Channels tab as separate cards now.
+    // AUDIT BLOCKS 2 + 4 + 10. Three changes:
+    //   · "linkedin_accepted" is out of the chain. Acceptance is not a funnel
+    //     stage on this cohort — its denominator is the leads INVITED, not
+    //     the leads contacted, so nesting it made the chain arithmetic wrong.
+    //     It lives on the Channels tab with its own base.
+    //   · "won" is out. The status has never been set; a permanent zero at
+    //     the end of a funnel reads as a result.
+    //   · Enrolled is now a stage, and Contacted means what it says.
     funnel: [
-      { stage: "imported",          count: totalLeads,     prior: priorFunnel.imported,  color: "neutral" },
-      { stage: "contacted",         count: contactedLeads, prior: priorFunnel.contacted, color: "info" },
-      { stage: "linkedin_accepted", count: connectedLeads, prior: priorFunnel.connected, color: "info" },
-      { stage: "replied",           count: repliedCount,   prior: priorFunnel.replied,   color: "warning" },
-      { stage: "won",               count: wonCount,       prior: null as number | null, color: "brand" },
+      { stage: "enrolled",  count: enrolledLeads,  prior: priorFunnel.enrolled,  color: "neutral" },
+      { stage: "contacted", count: contactedLeads, prior: priorFunnel.contacted, color: "info" },
+      { stage: "replied",   count: repliedCount,   prior: priorFunnel.replied,   color: "warning" },
+      { stage: "positive",  count: positiveCount,  prior: priorFunnel.positive,  color: "brand" },
     ],
     channelBreakdown,
     callsBreakdown,
@@ -1900,7 +2068,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     // Exposed even after the funnel trim, so the LinkedIn Connections
     // card on the Channels tab can keep showing Sent → Accepted → rate
     // (those stages disappeared from the funnel proper).
-    linkedinConnections: { sent: linkedinSentCount, accepted: linkedinAcceptedInPeriod },
+    // AUDIT BLOCK 4 — the Channels card reads the same object as the funnel
+    // and the smart signal. Three renderings, one formula.
+    linkedinConnections: { sent: acceptance.invited, accepted: acceptance.accepted, rate: acceptance.rate, caveat: acceptance.caveat },
     icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0), flows: flowsByIcp.get(p.id) ?? 0 })),
     campaignPerformance: campaignPerformance.map(c => ({ ...c, spark: sparkByCampaign.get(c.name) ?? new Array(14).fill(0) })),
     sellerPerformance: sellerPerformance.map(s => ({ ...s, spark: sparkBySeller.get(s.id) ?? new Array(14).fill(0) })),

@@ -275,8 +275,10 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
         </tbody>
         {rows.length > 1 && (() => {
           const totals = rows.reduce(
+            // AUDIT BLOCK 5 — `answered` was never summed here, so the team
+            // row reported Answer % = 0% no matter what the sellers did.
             (acc, s) => {
-              acc.made += s.made; acc.interested += s.interested;
+              acc.made += s.made; acc.answered += s.answered; acc.interested += s.interested;
               acc.badTiming += s.badTiming; acc.voicemail += s.voicemail;
               acc.notInterested += s.notInterested; acc.wrongNumber += s.wrongNumber;
               return acc;
