@@ -327,13 +327,11 @@ function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpPro
     // to do with leads that have no ICP from this surface.
     .filter(s => !(s.id === null && s.groups.length === 0))
     .sort((a, b) => {
+      // "Uncategorized" always last; every real ICP sorted alphabetically by
+      // name (boss request 2026-09-07 — predictable A→Z for finding an ICP).
       if (a.id === null && b.id !== null) return 1;
       if (b.id === null && a.id !== null) return -1;
-      // ICPs with active flows first; empty ICPs at the bottom.
-      if ((a.groups.length === 0) !== (b.groups.length === 0)) {
-        return a.groups.length === 0 ? 1 : -1;
-      }
-      return b.totalLeads - a.totalLeads;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
 }
 
