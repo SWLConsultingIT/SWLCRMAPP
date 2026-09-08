@@ -142,7 +142,6 @@ async function getData() {
   // campaigns.current_step is NOT reliable: step 0 (connection request) dispatch
   // doesn't increment it, and call step completions never touch it. Using
   // campaign_messages counts is the only source of truth.
-  const campIds: string[] = (campaigns ?? []).map((c: any) => c.id).filter(Boolean);
   const sentCountByCamp: Record<string, number> = {};
   const totalCountByCamp: Record<string, number> = {};
   // Per-campaign channel breakdown so each Outreach Flow card can show how
@@ -159,39 +158,72 @@ async function getData() {
   startOfToday.setHours(0, 0, 0, 0);
   const startOfTodayMs = startOfToday.getTime();
   let messagesSentToday = 0;
-  if (campIds.length > 0) {
-    const { data: msgCounts } = await supabase
-      .from("campaign_messages")
-      .select("campaign_id, status, channel, step_number, sent_at")
-      .in("campaign_id", campIds) as any;
-    for (const m of msgCounts ?? []) {
-      totalCountByCamp[m.campaign_id] = (totalCountByCamp[m.campaign_id] ?? 0) + 1;
-      if (m.status === "sent" || m.status === "skipped") {
-        sentCountByCamp[m.campaign_id] = (sentCountByCamp[m.campaign_id] ?? 0) + 1;
-      }
-      if (m.status === "sent") {
-        if (m.sent_at && new Date(m.sent_at).getTime() >= startOfTodayMs) {
-          messagesSentToday++;
+  // Keyset pagination (id PK) scoped by tenant — the old single
+  // `.in("campaign_id", campIds)` passed thousands of UUIDs in one request,
+  // which overflowed the query and silently returned nothing, so EVERY flow
+  // showed 0 messages/mail/connections while replies (fetched separately) showed
+  // real counts (boss 2026-09-08: "no puede ser que tengamos replies y las
+  // métricas digan 0"). PostgREST also caps any page at 1000 rows, so with 22k+
+  // messages a single fetch is doubly wrong. Ride the PK index instead — same
+  // pattern as the dashboard's fetchAllMessages — so channel counts are complete.
+  {
+    let afterId = "00000000-0000-0000-0000-000000000000";
+    for (;;) {
+      let mq = supabase
+        .from("campaign_messages")
+        .select("id, campaign_id, status, channel, step_number, sent_at, campaigns!inner(leads!inner(company_bio_id))")
+        .gt("id", afterId)
+        .order("id", { ascending: true })
+        .limit(1000);
+      if (bioId) mq = mq.eq("campaigns.leads.company_bio_id", bioId) as any;
+      const { data: msgPage, error: msgErr } = (await mq) as any;
+      if (msgErr || !msgPage || msgPage.length === 0) break;
+      for (const m of msgPage) {
+        totalCountByCamp[m.campaign_id] = (totalCountByCamp[m.campaign_id] ?? 0) + 1;
+        if (m.status === "sent" || m.status === "skipped") {
+          sentCountByCamp[m.campaign_id] = (sentCountByCamp[m.campaign_id] ?? 0) + 1;
         }
-        if (m.channel === "linkedin") {
-          if (m.step_number === 0) liInvitesByCamp[m.campaign_id] = (liInvitesByCamp[m.campaign_id] ?? 0) + 1;
-          else liDmsByCamp[m.campaign_id] = (liDmsByCamp[m.campaign_id] ?? 0) + 1;
-        } else if (m.channel === "email") {
-          emailsByCamp[m.campaign_id] = (emailsByCamp[m.campaign_id] ?? 0) + 1;
+        if (m.status === "sent") {
+          if (m.sent_at && new Date(m.sent_at).getTime() >= startOfTodayMs) {
+            messagesSentToday++;
+          }
+          if (m.channel === "linkedin") {
+            if (m.step_number === 0) liInvitesByCamp[m.campaign_id] = (liInvitesByCamp[m.campaign_id] ?? 0) + 1;
+            else liDmsByCamp[m.campaign_id] = (liDmsByCamp[m.campaign_id] ?? 0) + 1;
+          } else if (m.channel === "email") {
+            emailsByCamp[m.campaign_id] = (emailsByCamp[m.campaign_id] ?? 0) + 1;
+          }
         }
       }
+      if (msgPage.length < 1000) break;
+      afterId = msgPage[msgPage.length - 1].id;
     }
   }
   // Calls live outside campaign_messages — query the calls table separately
   // and group by lead_id, then attribute to whichever campaign owns each
   // lead. Each lead is in exactly one Outreach Flow per the schema.
-  const allCampLeadIds: string[] = (campaigns ?? []).map((c: any) => c.lead_id).filter(Boolean);
+  // Same keyset-by-tenant fetch as messages above — the old
+  // `.in("lead_id", allCampLeadIds)` with thousands of lead UUIDs overflowed the
+  // request and returned nothing, so CALLS always showed 0 on every flow.
   const callsByLead: Record<string, number> = {};
-  if (allCampLeadIds.length > 0) {
-    const { data: callRows } = await supabase.from("calls").select("lead_id").in("lead_id", allCampLeadIds);
-    for (const cr of callRows ?? []) {
-      const lid = (cr as any).lead_id as string | null;
-      if (lid) callsByLead[lid] = (callsByLead[lid] ?? 0) + 1;
+  {
+    let afterId = "00000000-0000-0000-0000-000000000000";
+    for (;;) {
+      let cq = supabase
+        .from("calls")
+        .select("id, lead_id, leads!inner(company_bio_id)")
+        .gt("id", afterId)
+        .order("id", { ascending: true })
+        .limit(1000);
+      if (bioId) cq = cq.eq("leads.company_bio_id", bioId) as any;
+      const { data: callPage, error: callErr } = (await cq) as any;
+      if (callErr || !callPage || callPage.length === 0) break;
+      for (const cr of callPage) {
+        const lid = cr.lead_id as string | null;
+        if (lid) callsByLead[lid] = (callsByLead[lid] ?? 0) + 1;
+      }
+      if (callPage.length < 1000) break;
+      afterId = callPage[callPage.length - 1].id;
     }
   }
   const callsByCamp: Record<string, number> = {};
@@ -294,6 +326,17 @@ export default async function CampaignsPage() {
     availableByIcp[key] = (grp as { leads: unknown[] }).leads.length;
   }
 
+  // Flows tab cohort — a flow stays listed while it has any active/paused
+  // campaign, but each flow's metrics must span its WHOLE cohort. Passing only
+  // the active slice made a flow show replies/positives while "leads / finished
+  // / messages / calls" reflected just the still-running leads — which reads as
+  // inconsistent (boss 2026-09-08). Include every campaign of a listed flow
+  // (completed + terminal too) so all metrics describe the same set of leads.
+  const activeFlowNames = new Set(
+    (campaigns as any[]).filter((c: any) => c.status === "active" || c.status === "paused").map((c: any) => c.name)
+  );
+  const flowsTabCampaigns = (campaigns as any[]).filter((c: any) => activeFlowNames.has(c.name));
+
   return (
     <div className="p-6 w-full">
       {/* Hero — shared Aurora hero (boss-approved 2026-08-27): animated gold
@@ -332,7 +375,7 @@ export default async function CampaignsPage() {
       >
         {/* ═══ TAB 0: FLOWS (grouped by ICP) ═══ */}
         <ActiveCampaignsView
-          campaigns={JSON.parse(JSON.stringify(campaigns.filter((c: any) => c.status === "active" || c.status === "paused")))}
+          campaigns={JSON.parse(JSON.stringify(flowsTabCampaigns))}
           icpMap={JSON.parse(JSON.stringify(icpMap))}
           availableByIcp={availableByIcp}
         />
