@@ -2,7 +2,6 @@
 
 import { Download } from "lucide-react";
 import { useToast } from "@/lib/toast";
-import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
 // Compact CSV export button rendered next to "Import Leads" in the page hero.
@@ -88,18 +87,8 @@ export default function ExportLeadsCSVButton({ leads, totalLeadCount }: Props) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleExport}
-      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shrink-0 border transition-opacity hover:opacity-90"
-      style={{
-        backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 10%, var(--c-card))`,
-        borderColor: `color-mix(in srgb, var(--brand, #c9a83a) 35%, var(--c-border))`,
-        color: C.gold,
-      }}
-      title="Export the loaded lead list to CSV"
-    >
-      <Download size={11} />
+    <button type="button" onClick={handleExport} className="aurora-btn" title="Export the loaded lead list to CSV">
+      <Download size={14} />
       Export CSV
     </button>
   );
