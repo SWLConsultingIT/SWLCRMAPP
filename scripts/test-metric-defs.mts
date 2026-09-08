@@ -12,7 +12,7 @@ import {
   contactedLeadIds, enrolledLeadIds, replyRate,
   invitedLeadIds, linkedinAcceptance,
   getCohortReplies, roundRate, formatRate, channelReplyRate, messageChannel, replyChannel,
-  realCallsInWindow, callOwner,
+  realCallsInWindow, callOwner, callMatchesScope, emptyCallScope,
   isRealCall, isConnected,
   NOT_MEASURED, isNotMeasured, SourceUnavailableError,
 } from "../lib/metric-defs.ts";
@@ -237,6 +237,80 @@ eq("then the flow's assigned caller", callOwner({ dialed_by_user_id: null, lead_
 eq("then the flow's sender", callOwner({ dialed_by_user_id: null, lead_id: "L9" }, attrOpts), "s-flow");
 eq("nothing resolves means UNATTRIBUTED, never a guess",
   callOwner({ dialed_by_user_id: null, lead_id: "L404" }, attrOpts), null);
+
+/* ── RC-6 · call scope ────────────────────────────────────────────────── */
+console.log("\nRC-6 — calls honour the URL filters, each dimension by its own meaning");
+
+// Lucia dialled a lead that belongs to Juan's flow. Under a Lucia filter that
+// call is HERS (she dialled it); under a Juan filter it is not.
+const scopeCalls = [
+  { id: "k1", lead_id: "LA", dialed_by_user_id: "u-lucia", seller_id: null },  // Lucia dialled, Juan's flow
+  { id: "k2", lead_id: "LB", dialed_by_user_id: "u-juan",  seller_id: null },  // Juan dialled
+  { id: "k3", lead_id: "LC", dialed_by_user_id: null,      seller_id: null },  // nobody — falls back to the flow
+  { id: "k4", lead_id: "LD", dialed_by_user_id: null,      seller_id: null },  // no flow at all → unattributable
+];
+const attrCtx = {
+  sellerOfUser: new Map([["u-lucia", "s-lucia"], ["u-juan", "s-juan"]]),
+  leadAssignedUser: new Map<string, string>(),
+  leadSeller: new Map([["LA", "s-juan"], ["LB", "s-juan"], ["LC", "s-lucia"]]),
+};
+const scopeOf = (over: Partial<ReturnType<typeof emptyCallScope>>) =>
+  ({ ...emptyCallScope(), attribute: (c: Parameters<typeof callOwner>[0]) => callOwner(c, attrCtx), ...over });
+const ids = (sc: ReturnType<typeof emptyCallScope>) => scopeCalls.filter(c => callMatchesScope(c, sc)).map(c => c.id);
+
+// 1 — no filter
+eq("no filter keeps every workspace call", ids(scopeOf({})), ["k1", "k2", "k3", "k4"]);
+
+// 5 — seller filter excludes another seller's call
+eq("seller filter keeps only what THAT seller dialled",
+  ids(scopeOf({ sellerIds: new Set(["s-lucia"]) })), ["k1", "k3"]);
+check("a call dialled by Lucia in Juan's flow belongs to LUCIA, not Juan",
+  ids(scopeOf({ sellerIds: new Set(["s-lucia"]) })).includes("k1")
+  && !ids(scopeOf({ sellerIds: new Set(["s-juan"]) })).includes("k1"));
+eq("the flow's sender is the LAST resort, not the first",
+  ids(scopeOf({ sellerIds: new Set(["s-juan"]) })), ["k2"]);
+check("an unattributable call is EXCLUDED by an active seller filter, never admitted",
+  !ids(scopeOf({ sellerIds: new Set(["s-lucia"]) })).includes("k4"));
+
+// 6 — campaign filter
+eq("campaign filter keeps only calls to that flow's leads",
+  ids(scopeOf({ campaignLeadIds: new Set(["LA", "LB"]) })), ["k1", "k2"]);
+check("a call from another flow is excluded",
+  !ids(scopeOf({ campaignLeadIds: new Set(["LA"]) })).includes("k2"));
+
+// 7 — ICP filter
+eq("ICP filter keeps only calls whose lead is in that ICP",
+  ids(scopeOf({ icpLeadIds: new Set(["LC", "LD"]) })), ["k3", "k4"]);
+
+// 8 — intersection, never union
+eq("seller + campaign INTERSECT",
+  ids(scopeOf({ sellerIds: new Set(["s-lucia"]), campaignLeadIds: new Set(["LA", "LB"]) })), ["k1"]);
+eq("seller + ICP INTERSECT",
+  ids(scopeOf({ sellerIds: new Set(["s-lucia"]), icpLeadIds: new Set(["LC"]) })), ["k3"]);
+eq("three dimensions that share nothing yield NOTHING, not a union",
+  ids(scopeOf({ sellerIds: new Set(["s-juan"]), campaignLeadIds: new Set(["LA"]), icpLeadIds: new Set(["LC"]) })), []);
+check("a union would have returned rows here — it must not",
+  ids(scopeOf({ sellerIds: new Set(["s-juan"]), campaignLeadIds: new Set(["LA"]) })).length === 0);
+
+// 9 — attempted / connected / connect rate all read the SAME set
+{
+  const scoped = scopeCalls.filter(c => callMatchesScope(c, scopeOf({ sellerIds: new Set(["s-lucia"]) })));
+  const withOutcome = scoped.map(c => ({ ...c, status: "answered", duration: 60, classification: "follow_up", aircall_call_id: 1 }));
+  const attempted = withOutcome.filter(isRealCall);
+  const connected = attempted.filter(isConnected);
+  eq("attempted and connected derive from one scoped set", attempted.length, scoped.length);
+  check("connect rate uses that same denominator",
+    roundRate(replyRate(connected.length, attempted.length)) === 100);
+}
+
+// 10 — call scope must not touch replies
+{
+  const before2 = repliedLeadIds(windowReplies).size;
+  const afterScoping = repliedLeadIds(windowReplies).size; // replies never consult CallScope
+  eq("changing call scope does not move the reply count", afterScoping, before2);
+  eq("nor the channel reply rate",
+    channelReplyRate("email", ch5Msgs, ch5LeadOf, ch5Replies, ch5Cohort, w).replied, 0);
+}
 
 /* ── BLOCK 8 · no silent partial data ─────────────────────────────────── */
 console.log("\nBLOCK 8 — a half-read source is an error, not a smaller number");

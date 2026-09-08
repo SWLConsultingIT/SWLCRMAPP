@@ -5,7 +5,7 @@ rendered = lib/dashboard-data.ts (the function app/page.tsx awaits)   independen
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C1  30 days · All    2026-08-10 → 2026-09-08    (11593 ms)
+C1  30 days · All    2026-08-10 → 2026-09-08    (11349 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             2108          2108          0       GREEN  
@@ -37,7 +37,7 @@ C1  30 days · All    2026-08-10 → 2026-09-08    (11593 ms)
     GREEN  sum(sellers).contacted 2108 vs workspace 2108 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C2  7 days · All    2026-09-02 → 2026-09-08    (11036 ms)
+C2  7 days · All    2026-09-02 → 2026-09-08    (10944 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             722           722           0       GREEN  
@@ -69,7 +69,7 @@ C2  7 days · All    2026-09-02 → 2026-09-08    (11036 ms)
     GREEN  sum(sellers).contacted 722 vs workspace 722 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C3  30 days · seller Lucia    2026-08-10 → 2026-09-08    (11664 ms)
+C3  30 days · seller Lucia    2026-08-10 → 2026-09-08    (11924 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             115           115           0       GREEN  
@@ -81,9 +81,9 @@ C3  30 days · seller Lucia    2026-08-10 → 2026-09-08    (11664 ms)
   LinkedIn invited                      113           113           0       GREEN  
   LinkedIn accepted                     5             5             0       GREEN  
   Acceptance Rate %                     4.4247787610619474.4           0       GREEN  
-  Calls Attempted                       284           64            220     RED    
-  Calls Connected                       125           30            95      RED    
-  Connect Rate %                        44            46.9          -2.9    RED    
+  Calls Attempted                       166           166           0       GREEN  
+  Calls Connected                       72            72            0       GREEN  
+  Connect Rate %                        43.4          43.4          0       GREEN  
   Unattributed replies                  0             0             0       GREEN  
   Meetings                              not_measured  not_measured  —       GRAY   
   Won                                   not_measured  not_measured  —       GRAY   
@@ -101,7 +101,7 @@ C3  30 days · seller Lucia    2026-08-10 → 2026-09-08    (11664 ms)
     GREEN  sum(sellers).contacted 115 vs workspace 115 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C4  30 days · campaign Odoo    2026-08-10 → 2026-09-08    (11008 ms)
+C4  30 days · campaign Odoo    2026-08-10 → 2026-09-08    (11322 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             97            97            0       GREEN  
@@ -113,9 +113,9 @@ C4  30 days · campaign Odoo    2026-08-10 → 2026-09-08    (11008 ms)
   LinkedIn invited                      49            49            0       GREEN  
   LinkedIn accepted                     3             3             0       GREEN  
   Acceptance Rate %                     6.1224489795918366.1           0       GREEN  
-  Calls Attempted                       284           20            264     RED    
-  Calls Connected                       125           14            111     RED    
-  Connect Rate %                        44            70            -26     RED    
+  Calls Attempted                       20            20            0       GREEN  
+  Calls Connected                       14            14            0       GREEN  
+  Connect Rate %                        70            70            0       GREEN  
   Unattributed replies                  0             0             0       GREEN  
   Meetings                              not_measured  not_measured  —       GRAY   
   Won                                   not_measured  not_measured  —       GRAY   
@@ -133,7 +133,7 @@ C4  30 days · campaign Odoo    2026-08-10 → 2026-09-08    (11008 ms)
     GREEN  sum(sellers).contacted 97 vs workspace 97 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C5  30 days · ICP Odoo    2026-08-10 → 2026-09-08    (11309 ms)
+C5  30 days · ICP Odoo    2026-08-10 → 2026-09-08    (11340 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             95            95            0       GREEN  
@@ -145,9 +145,9 @@ C5  30 days · ICP Odoo    2026-08-10 → 2026-09-08    (11309 ms)
   LinkedIn invited                      49            49            0       GREEN  
   LinkedIn accepted                     3             3             0       GREEN  
   Acceptance Rate %                     6.1224489795918366.1           0       GREEN  
-  Calls Attempted                       284           18            266     RED    
-  Calls Connected                       125           12            113     RED    
-  Connect Rate %                        44            66.7          -22.7   RED    
+  Calls Attempted                       18            18            0       GREEN  
+  Calls Connected                       12            12            0       GREEN  
+  Connect Rate %                        66.7          66.7          0       GREEN  
   Unattributed replies                  0             0             0       GREEN  
   Meetings                              not_measured  not_measured  —       GRAY   
   Won                                   not_measured  not_measured  —       GRAY   
@@ -165,7 +165,7 @@ C5  30 days · ICP Odoo    2026-08-10 → 2026-09-08    (11309 ms)
     GREEN  sum(sellers).contacted 95 vs workspace 95 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C6  All time    2000-01-01 → 2026-09-08    (11058 ms)
+C6  All time    2000-01-01 → 2026-09-08    (12017 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             2977          2977          0       GREEN  
@@ -197,7 +197,7 @@ C6  All time    2000-01-01 → 2026-09-08    (11058 ms)
     GREEN  sum(sellers).contacted 2977 vs workspace 2977 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C7  Custom 1–20 Aug    2026-08-01 → 2026-08-20    (11068 ms)
+C7  Custom 1–20 Aug    2026-08-01 → 2026-08-20    (11404 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             543           543           0       GREEN  
@@ -229,17 +229,7 @@ C7  Custom 1–20 Aug    2026-08-01 → 2026-08-20    (11068 ms)
     GREEN  sum(sellers).contacted 543 vs workspace 543 · diff 0
 
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-  147 comparisons · GREEN 117 · YELLOW 0 · GRAY 21 · RED 9
+  147 comparisons · GREEN 126 · YELLOW 0 · GRAY 21 · RED 0
 
-  9 RED — STOP. Rendered and independent values disagree.
-
-    C3               Calls Attempted                        rendered 284  independent 64  diff 220
-    C3               Calls Connected                        rendered 125  independent 30  diff 95
-    C3               Connect Rate %                         rendered 44  independent 46.9  diff -2.9
-    C4               Calls Attempted                        rendered 284  independent 20  diff 264
-    C4               Calls Connected                        rendered 125  independent 14  diff 111
-    C4               Connect Rate %                         rendered 44  independent 70  diff -26
-    C5               Calls Attempted                        rendered 284  independent 18  diff 266
-    C5               Calls Connected                        rendered 125  independent 12  diff 113
-    C5               Connect Rate %                         rendered 44  independent 66.7  diff -22.7
+  Zero RED. Every rendered metric matches the independent recalculation.
 

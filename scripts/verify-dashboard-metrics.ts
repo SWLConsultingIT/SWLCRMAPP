@@ -234,12 +234,32 @@ async function main() {
   const callOutcomesInWindow = replies.filter(r => !isInbound(r) && inWin(r.received_at as string)).length;
 
   /* ── CALLS ────────────────────────────────────────────────────────── */
+  // (userToSeller / leadAssignedUser / leadFlowSeller are built above.)
   const best = new Map<string, Row>();
-  const scopeLeadIds = (fSeller || fCampaign || fIcp)
-    ? new Set(campsInScope.map(c => c.lead_id).filter(Boolean).map(String)) : null;
+  // RC-6 — each filter dimension has its own meaning for a call, and they
+  // INTERSECT. Seller is the canonical attribution (who dialled), NOT the
+  // leads of that seller's flows: everyone shares one Aircall seat.
+  const campaignLeadIds = fCampaign
+    ? new Set(camps.filter(c => String(c.name) === fCampaign && c.lead_id).map(c => String(c.lead_id))) : null;
+  const icpCallLeadIds = fIcp ? icpLeadSet : null;
+  const attributeCall = (c: Row): string | null => {
+    if (c.dialed_by_user_id) { const s2 = userToSeller.get(String(c.dialed_by_user_id)); if (s2) return s2; }
+    if (c.seller_id) return String(c.seller_id);
+    const lid = c.lead_id ? String(c.lead_id) : null;
+    if (lid) {
+      const u = leadAssignedUser.get(lid);
+      if (u) { const s2 = userToSeller.get(u); if (s2) return s2; }
+      const s3 = leadFlowSeller.get(lid);
+      if (s3) return s3;
+    }
+    return null;
+  };
   for (const c of calls) {
     if (!inWin(c.started_at as string)) continue;
-    if (scopeLeadIds && (!c.lead_id || !scopeLeadIds.has(String(c.lead_id)))) continue;
+    const lid = c.lead_id ? String(c.lead_id) : null;
+    if (campaignLeadIds && (!lid || !campaignLeadIds.has(lid))) continue;
+    if (icpCallLeadIds && (!lid || !icpCallLeadIds.has(lid))) continue;
+    if (fSeller && attributeCall(c) !== fSeller) continue;
     const k = `${c.lead_id ?? "?"}|${String(c.started_at ?? "").slice(0, 16)}`;
     const prev = best.get(k);
     if (!prev || (isRealCallRow(c) && !isRealCallRow(prev))) best.set(k, c);

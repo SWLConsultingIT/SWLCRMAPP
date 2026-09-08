@@ -480,6 +480,66 @@ export function callOwner(
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   CALL SCOPE  (Delivery 3, RC-6)
+
+   `scopedCalls` honoured only the seller-TIER scope and never saw the URL
+   filters, so with any of them active the dashboard kept showing the whole
+   workspace: 284 calls under a seller filter where 64 belong to it.
+
+   Messages could not simply be copied, because each dimension means
+   something different for a call:
+
+     SELLER    — who actually made the call, by the canonical attribution
+                 order (dialler → flow's assigned caller → flow's sender).
+                 NOT "whose flow owns the lead": everyone shares one Aircall
+                 seat, and crediting a dial to the flow owner is the exact
+                 error Delivery 2 fixed in the Sellers tab.
+     CAMPAIGN  — the call's lead belongs to a selected flow.
+     ICP       — the call's lead belongs to the selected ICP.
+
+   Active dimensions INTERSECT. A call must satisfy every one of them.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export type CallScope = {
+  /** sellers.id values from the URL. null = dimension inactive. */
+  sellerIds: Set<string> | null;
+  /** lead ids belonging to the selected campaigns. null = inactive. */
+  campaignLeadIds: Set<string> | null;
+  /** lead ids belonging to the selected ICPs. null = inactive. */
+  icpLeadIds: Set<string> | null;
+  /** seller-tier scope (campaigns.assigned_user_id). null = inactive. */
+  assignedLeadIds: Set<string> | null;
+  /** Canonical attribution, injected so the rule stays testable. */
+  attribute: (c: { dialed_by_user_id?: string | null; seller_id?: string | null; lead_id?: string | null }) => string | null;
+};
+
+export function emptyCallScope(): CallScope {
+  return { sellerIds: null, campaignLeadIds: null, icpLeadIds: null, assignedLeadIds: null, attribute: () => null };
+}
+
+/**
+ * One rule, one place. Every active dimension must pass — never OR.
+ * A call whose seller cannot be attributed is EXCLUDED by an active seller
+ * filter rather than admitted into it.
+ */
+export function callMatchesScope(
+  c: { dialed_by_user_id?: string | null; seller_id?: string | null; lead_id?: string | null },
+  scope: CallScope,
+): boolean {
+  const lead = c.lead_id ?? null;
+
+  if (scope.assignedLeadIds && (!lead || !scope.assignedLeadIds.has(lead))) return false;
+  if (scope.campaignLeadIds && (!lead || !scope.campaignLeadIds.has(lead))) return false;
+  if (scope.icpLeadIds && (!lead || !scope.icpLeadIds.has(lead))) return false;
+
+  if (scope.sellerIds) {
+    const owner = scope.attribute(c);
+    if (!owner || !scope.sellerIds.has(owner)) return false;
+  }
+  return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    METRICS WITH NO SOURCE OF TRUTH  (audit Block 10)
 
    Rendering 0 for something nobody tracks is worse than rendering nothing:

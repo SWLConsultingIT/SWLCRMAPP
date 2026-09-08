@@ -82,6 +82,7 @@ type MsgRow = {
 import {
   SourceUnavailableError, NOT_MEASURED, type Measurable,
   getCohortReplies, roundRate, replyRate as replyRateOf, channelReplyRate, messageChannel,
+  callMatchesScope, type CallScope,
   resolveWindow, inWindow as inWin, priorWindow, businessDayKey, businessHour, businessWeekday,
   isInboundReply, isPositiveReply, isNegativeReply,
   contactedLeadIds as contactedFrom, enrolledLeadIds, invitedLeadIds, linkedinAcceptance,
@@ -805,8 +806,32 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // click-to-dial marker written in the same minute, then keep only real
   // calls. Taking whichever row arrived first discarded real calls — 189
   // survived where 282 exist.
-  const scopedCalls = allCalls.filter(c =>
-    !assignedLeadIds || (c.lead_id && assignedLeadIds.has(c.lead_id)));
+  // RC-6 (Delivery 3) — the URL filters never reached this block, so any
+  // active filter still showed the whole workspace's calls. One rule now,
+  // shared and testable, with the right semantics per dimension: seller by
+  // canonical attribution (who dialled), campaign and ICP by the call's
+  // lead. Active dimensions intersect.
+  const callScope: CallScope = {
+    assignedLeadIds,
+    campaignLeadIds: campSet
+      ? new Set(allCampaigns.filter(c => campSet.has(c.name) && c.lead_id).map(c => c.lead_id as string))
+      : null,
+    icpLeadIds: icpSet
+      ? new Set(allLeads.filter(l => icpSet.has(l.icp_profile_id ?? "")).map(l => l.id))
+      : null,
+    sellerIds: sellerSet,
+    // Same order the Sellers tab reconciled on: who actually dialled first,
+    // the flow's assigned caller next, the flow's sender last. Crediting a
+    // dial to whoever owns the lead is the error Delivery 2 removed.
+    attribute: (c) => callOwner(c, {
+      sellerOfUser: new Map(allSellers.filter(s => s.user_id).map(s => [s.user_id as string, s.id])),
+      leadAssignedUser: new Map(allCampaigns.filter(c2 => c2.lead_id && c2.assigned_user_id)
+        .map(c2 => [c2.lead_id as string, c2.assigned_user_id as string])),
+      leadSeller: new Map(allCampaigns.filter(c2 => c2.lead_id && c2.seller_id)
+        .map(c2 => [c2.lead_id as string, c2.seller_id as string])),
+    }),
+  };
+  const scopedCalls = allCalls.filter(c => callMatchesScope(c, callScope));
   const callsInPeriod = realCallsInWindow(scopedCalls, win);
   // "Made" = one row per physical dial. Each call can surface as up to TWO
   // rows — a dial-marker (status 'initiated', no aircall_call_id) plus an
@@ -1836,7 +1861,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const priorCallsBySeller: Record<string, { made: number; answered: number; interested: number }> = {};
   {
     const seen = new Set<string>();
-    for (const c of allCalls) {
+    // RC-6 — the prior period must be scoped exactly like the current one, or
+    // the trend compares a filtered window against the whole workspace.
+    for (const c of scopedCalls) {
       if (!c.started_at) continue;
       const t = new Date(c.started_at).getTime();
       if (t < priorFrom || t >= priorTo) continue;
