@@ -53,7 +53,14 @@ async function getData() {
   const mkCampsQuery = () => {
     let q = supabase.from("campaigns")
       .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload, linkedin_connected, transferred_to_odoo_at), sellers(name)")
-      .in("status", ["active", "paused", "completed", "failed"])
+      // Include TERMINAL statuses (closed_lost/closed_won/won/cancelled), not
+      // just the in-flight ones. A lead that replied positively and then
+      // converted (closed_won) or was closed_lost still belongs to its flow —
+      // excluding those rows silently dropped their replies/positives from the
+      // flow rollups (e.g. "Italy Growth Engine" showed 4 positives instead of
+      // the real 5 because one positive lead sat on a closed_lost campaign).
+      // `archived` stays out on purpose: those are intentionally hidden flows.
+      .in("status", ["active", "paused", "completed", "failed", "closed_lost", "closed_won", "won", "cancelled"])
       .order("created_at", { ascending: false });
     if (bioId) q = q.eq("leads.company_bio_id", bioId);
     if (myUserId) q = q.eq("assigned_user_id", myUserId);

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { C, N } from "@/lib/design";
 import { isTerminalCampaign } from "@/lib/campaign-status";
 import { useLocale } from "@/lib/i18n";
-import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus, Search, X, Trophy } from "lucide-react";
+import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus, Search, X, Trophy, Play, CheckCircle2, MessageSquare, Link2 } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -48,7 +48,11 @@ type CampaignGroup = {
   channels: string[];
   totalLeads: number;
   active: number;
+  paused: number;
   completed: number;
+  /** Leads that have left the sequence — completed normally OR terminal
+   *  (won/lost/cancelled). Everything that is no longer in-flight. */
+  finished: number;
   avgProgress: number;
   totalReplies: number;
   totalPositive: number;
@@ -248,7 +252,19 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
       return { idx, channel, sent, pending, scheduled };
     });
 
-    const groupStatus = active > 0 ? "active" : paused > 0 ? "paused" : completed > 0 ? "completed" : "failed";
+    // Leads no longer in-flight = finished the funnel. "completed" means the
+    // sequence ran to its end; terminal = won/lost/cancelled (left the flow).
+    const terminalCount = camps.filter(c => isTerminalCampaign(c.status)).length;
+    const finished = completed + terminalCount;
+    // Status badge — an in-flight flow reads Active/Paused; once every lead has
+    // left the sequence (all completed and/or terminal) it reads Completed, so
+    // finished funnels stop showing "Active" forever (boss 2026-09-08). Only a
+    // flow whose only non-in-flight rows are hard failures reads Failed.
+    const groupStatus =
+      active > 0 ? "active"
+      : paused > 0 ? "paused"
+      : finished > 0 ? "completed"
+      : "failed";
 
     const icpCounts: Record<string, number> = {};
     for (const c of camps) {
@@ -263,7 +279,9 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
       channels: [...new Set(channels)],
       totalLeads: camps.length,
       active,
+      paused,
       completed,
+      finished,
       avgProgress,
       totalReplies,
       totalPositive,
@@ -704,6 +722,17 @@ function FlowCard({ group, t }: { group: CampaignGroup; t: Tr }) {
     { key: "replies",  v: group.totalReplies,  l: t("flows.metric.replies"),  c: "var(--fg1)",  dim: group.totalReplies === 0 },
     { key: "positive", v: group.totalPositive, l: t("flows.metric.positive"), c: C.green,       dim: group.totalPositive === 0 },
   ];
+  // Secondary at-a-glance strip (boss 2026-09-08): lifecycle + channel volume
+  // so each flow's state is legible without opening it. In-flight vs finished
+  // leads, then LinkedIn connections / DMs / emails / calls actually sent.
+  const subStats: Array<{ key: string; icon: React.ElementType; v: number; l: string; c: string }> = [
+    { key: "inFlow",      icon: Play,          v: group.active,        l: t("flows.metric.inFlow"),      c: "var(--brand, #c9a83a)" },
+    { key: "finished",    icon: CheckCircle2,  v: group.finished,      l: t("flows.metric.finished"),    c: C.textMuted },
+    { key: "connections", icon: Link2,         v: group.acceptedCount, l: t("flows.metric.connections"), c: "#0A66C2" },
+    { key: "messages",    icon: MessageSquare, v: group.liDmsSent,     l: t("flows.metric.messages"),    c: "#7C3AED" },
+    { key: "mail",        icon: Mail,          v: group.emailsSent,    l: t("flows.metric.mail"),        c: "#7C3AED" },
+    { key: "calls",       icon: Phone,         v: group.callsMade,     l: t("flows.metric.calls"),       c: "#F97316" },
+  ];
   return (
     <Link
       href={`/campaigns/${group.firstId}`}
@@ -762,6 +791,23 @@ function FlowCard({ group, t }: { group: CampaignGroup; t: Tr }) {
         </div>
       </div>
 
+      {/* secondary metrics strip — lifecycle + channel volume so each flow's
+          state reads at a glance without opening it (boss 2026-09-08) */}
+      <div className="flex items-center gap-x-4 gap-y-1.5 flex-wrap pl-5 pr-4 pt-2.5 pb-3"
+        style={{ borderTop: `1px solid ${C.border}` }}>
+        {subStats.map(s => {
+          const Icon = s.icon;
+          const zero = s.v === 0;
+          return (
+            <span key={s.key} className="inline-flex items-center gap-1.5" title={s.l}>
+              <Icon size={12} style={{ color: zero ? C.textDim : s.c }} />
+              <span className="text-[12.5px] font-bold tabular-nums leading-none" style={{ color: zero ? C.textDim : C.textPrimary }}>{s.v}</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textMuted }}>{s.l}</span>
+            </span>
+          );
+        })}
+      </div>
+
       {/* full-width progress hairline seated on the bottom edge */}
       <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px]" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)" }}>
         <span className="block h-full" style={{ width: `${group.avgProgress}%`, background: "linear-gradient(90deg, var(--fg2), var(--fg4))" }} />
@@ -802,8 +848,8 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
       <div
         className="relative flex items-center gap-4 px-6 py-4 rounded-xl"
         style={{
-          background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 11%, var(--c-card)) 100%)`,
-          border: `1px solid color-mix(in srgb, ${gold} 32%, ${C.border2})`,
+          background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 16%, var(--c-card)) 0%, color-mix(in srgb, ${gold} 30%, var(--c-card)) 100%)`,
+          border: `1px solid color-mix(in srgb, ${gold} 42%, ${C.border2})`,
           borderLeft: `3px solid ${gold}`,
           boxShadow: C.shadowMd,
         }}
