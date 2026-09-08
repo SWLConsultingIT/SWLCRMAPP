@@ -147,7 +147,7 @@ async function getData() {
     const idChunk = leadIds.slice(i, i + 300);
     const [{ data: rp }, { data: cp }] = await Promise.all([
       supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", idChunk).order("received_at", { ascending: false }),
-      supabase.from("campaigns").select("id, name, channel, current_step, sequence_steps, status, lead_id").in("lead_id", idChunk),
+      supabase.from("campaigns").select("id, name, channel, current_step, sequence_steps, status, lead_id, seller_id, sellers(name)").in("lead_id", idChunk),
     ]);
     if (rp) replies.push(...rp);
     if (cp) campaigns.push(...cp);
@@ -192,6 +192,7 @@ async function getData() {
       profile_name: lead.icp_profile_id ? (icpMap[lead.icp_profile_id]?.profile_name ?? null) : null,
       campaign_name: camp?.name ?? null,
       campaign_id: camp?.id ?? null,
+      seller_name: (Array.isArray(camp?.sellers) ? camp?.sellers?.[0]?.name : (camp?.sellers as { name?: string } | null)?.name) ?? null,
       win_channel: positiveReply?.channel ?? camp?.channel ?? null,
       win_text: positiveReply?.reply_text ?? null,
       win_classification: positiveReply?.classification ?? "positive",
@@ -303,7 +304,7 @@ export default async function ResultsPage() {
         eyebrow={t("results.hero.preTitle")}
         title={t("results.hero.title")}
         subtitle={isSwl
-          ? "Positive results moving through the stages toward a booked meeting, then Odoo — plus what didn't close and what's being re-nurtured. Grouped by ICP."
+          ? "Positive results moving through the stages toward a booked meeting, then Odoo — plus what didn't close and what's being re-nurtured. Filter the funnel by ICP, flow or seller."
           : t("results.hero.description")}
         kpis={[
           { label: isSwl ? "Positive" : t("results.tab.won"), value: wonLeads.length, tone: "gold" },

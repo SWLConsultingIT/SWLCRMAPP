@@ -30,6 +30,7 @@ export type OpportunityLead = {
   profile_name: string | null;
   campaign_name: string | null;
   campaign_id: string | null;
+  seller_name?: string | null;
   win_channel: string | null;
   win_text: string | null;
   win_classification: string;

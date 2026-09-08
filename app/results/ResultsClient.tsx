@@ -397,6 +397,21 @@ function Section<L>({
   );
 }
 
+// Compact labelled dropdown for the single-funnel filters (ICP / flow / seller).
+function FilterSelect({ label, value, onChange, options, allLabel }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; allLabel: string;
+}) {
+  return (
+    <label className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px]" style={{ borderColor: C.border, backgroundColor: C.card }}>
+      <span className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{label}</span>
+      <select value={value} onChange={e => onChange(e.target.value)} className="bg-transparent outline-none font-medium max-w-[180px]" style={{ color: C.textPrimary }}>
+        <option value="all">{allLabel}</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </label>
+  );
+}
+
 // ── Main client ───────────────────────────────────────────────────────
 
 export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = [], renurturingLeads, isSwl = false }: Props) {
@@ -418,6 +433,10 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
   })();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [search, setSearch] = useState("");
+  // Single-funnel filters (SWL pipeline tab): ICP ("ticket") / flow / seller.
+  const [pIcp, setPIcp] = useState("all");
+  const [pFlow, setPFlow] = useState("all");
+  const [pSeller, setPSeller] = useState("all");
 
   // Lost-tab selection state (persists across ICP/campaign groupings).
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -430,6 +449,19 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
     const q = search.toLowerCase();
     return wonLeads.filter(l => `${l.first_name ?? ""} ${l.last_name ?? ""} ${l.company ?? ""} ${l.campaign_name ?? ""} ${l.profile_name ?? ""}`.toLowerCase().includes(q));
   }, [wonLeads, search]);
+
+  // Filter options + the single-funnel lead set (search + ICP + flow + seller).
+  const uniqSorted = (vals: (string | null | undefined)[]) =>
+    [...new Set(vals.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  const pipelineIcpOpts = useMemo(() => uniqSorted(wonLeads.map(l => l.profile_name)), [wonLeads]);
+  const pipelineFlowOpts = useMemo(() => uniqSorted(wonLeads.map(l => l.campaign_name)), [wonLeads]);
+  const pipelineSellerOpts = useMemo(() => uniqSorted(wonLeads.map(l => l.seller_name)), [wonLeads]);
+  const pipelineLeads = useMemo(() => wonFiltered.filter(l =>
+    (pIcp === "all" || l.profile_name === pIcp) &&
+    (pFlow === "all" || l.campaign_name === pFlow) &&
+    (pSeller === "all" || l.seller_name === pSeller)
+  ), [wonFiltered, pIcp, pFlow, pSeller]);
+  const pipelineFiltered = pIcp !== "all" || pFlow !== "all" || pSeller !== "all";
 
   const lostFiltered = useMemo(() => {
     if (!search) return lostLeads;
@@ -618,42 +650,35 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
             <LayoutGrid size={14} className="mt-0.5 shrink-0" style={{ color: C.blue }} />
             <p className="text-[12.5px] leading-snug" style={{ color: C.textMuted }}>
               <span className="font-semibold" style={{ color: C.textBody }}>{L("Positive results", "Resultados positivos")}</span>{" "}
-              {L("— every lead that replied positively or booked a call, grouped by ICP. Drag each one through the stages, then", "— cada lead que respondió positivo o agendó una llamada, agrupado por ICP. Arrastralo por las etapas y después")}{" "}
-              <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span>{" "}{L("from its detail.", "desde su detalle.")}
+              {L("— every lead that replied positively or booked a call. Drag each one through the stages, then", "— cada lead que respondió positivo o agendó una llamada. Arrastralo por las etapas y después")}{" "}
+              <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span>{" "}{L("from its detail. Filter by ICP, flow or seller.", "desde su detalle. Filtrá por ICP, flow o seller.")}
             </p>
           </div>
-          {/* Pipeline grouped by ICP (boss 2026-08-25) — one collapsible kanban
-              per ICP, same as the Lost/Won/etc. tabs, instead of one flat board. */}
-          {wonGroups.length === 0 ? (
+          {/* Single funnel + filters (boss 2026-09-08): ONE board for all positive
+              results, narrowed by ICP ("ticket") / flow / seller — replaces the
+              one-kanban-per-ICP stack. */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <FilterSelect label={L("ICP", "ICP")} value={pIcp} onChange={setPIcp} options={pipelineIcpOpts} allLabel={L("All ICPs", "Todos los ICP")} />
+            <FilterSelect label={L("Flow", "Flow")} value={pFlow} onChange={setPFlow} options={pipelineFlowOpts} allLabel={L("All flows", "Todos los flows")} />
+            <FilterSelect label={L("Seller", "Seller")} value={pSeller} onChange={setPSeller} options={pipelineSellerOpts} allLabel={L("All sellers", "Todos los sellers")} />
+            {pipelineFiltered && (
+              <button onClick={() => { setPIcp("all"); setPFlow("all"); setPSeller("all"); }}
+                className="inline-flex items-center gap-1 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-black/[0.04]"
+                style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
+                <X size={12} /> {L("Clear filters", "Limpiar filtros")}
+              </button>
+            )}
+            <span className="text-[11px] tabular-nums ml-auto" style={{ color: C.textDim }}>
+              {pipelineLeads.length} {pipelineLeads.length === 1 ? t("results.section.lead") : t("results.section.leads")}
+            </span>
+          </div>
+          {pipelineLeads.length === 0 ? (
             <EmptyState icon={LayoutGrid}
-              title={L("No positive results yet", "Sin resultados positivos todavía")}
-              description={L("Positive replies and booked calls will appear here, grouped by ICP.", "Las respuestas positivas y llamadas agendadas aparecen acá, agrupadas por ICP.")} />
-          ) : wonGroups.map(g => {
-            const groupLeads = g.campaigns.flatMap(c => c.leads);
-            return (
-              <details key={g.icp} open className="rounded-2xl border overflow-hidden mb-3" style={{ borderColor: C.border, backgroundColor: C.card }}>
-                <summary className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-black/[0.02] transition-colors">
-                  <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 25%, transparent)` }}>
-                    <Target size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>{t("results.section.eyebrow")}</p>
-                    <p className="text-[15px] font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                      {g.icp}
-                      <span className="ml-2 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md align-middle" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-                        {g.total} {g.total === 1 ? t("results.section.lead") : t("results.section.leads")}
-                      </span>
-                    </p>
-                  </div>
-                  <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
-                </summary>
-                <div className="p-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                  <ResultsPipeline leads={groupLeads} search={search} />
-                </div>
-              </details>
-            );
-          })}
+              title={pipelineFiltered ? L("No results for these filters", "Sin resultados para estos filtros") : L("No positive results yet", "Sin resultados positivos todavía")}
+              description={pipelineFiltered ? L("Try clearing a filter.", "Probá quitar algún filtro.") : L("Positive replies and booked calls will appear here.", "Las respuestas positivas y llamadas agendadas aparecen acá.")} />
+          ) : (
+            <ResultsPipeline leads={pipelineLeads} search={search} />
+          )}
         </div>
       )}
 
