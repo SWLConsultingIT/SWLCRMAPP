@@ -1,0 +1,6 @@
+[
+ {"id":"C1","label":"Last 30 days · All","from":"2026-08-10","to":"2026-09-08","snapshot":"/tmp/recon/c1.json"},
+ {"id":"C2","label":"Last 7 days · All","from":"2026-09-02","to":"2026-09-08","snapshot":"/tmp/recon/c2.json"},
+ {"id":"C6","label":"All time","from":"2000-01-01","to":"2026-09-08","snapshot":"/tmp/recon/c6.json"},
+ {"id":"C7","label":"Custom 1–20 Aug","from":"2026-08-01","to":"2026-08-20","snapshot":"/tmp/recon/c7.json"}
+]

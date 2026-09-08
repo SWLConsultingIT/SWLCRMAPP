@@ -19,7 +19,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "@supabase/supabase-js";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, writeFileSync } from "fs";
 
 /* ── config ───────────────────────────────────────────────────────────── */
 
@@ -149,6 +149,10 @@ function recon(label: string, parts: number, total: number, unattributed = 0) {
 
 async function main() {
   const bio = arg("--tenant", "7c02e222-be59-416d-9434-acf4685f8590")!;
+  const fSeller = arg("--seller");     // sellers.id
+  const fCampaign = arg("--campaign"); // campaigns.name
+  const fIcp = arg("--icp");           // icp_profiles.id
+  const label = arg("--label", "case");
   const scoped = (col: string) => (q: Filterable) => q.eq(col, bio);
 
   console.log(`\n${"═".repeat(100)}`);
@@ -165,9 +169,26 @@ async function main() {
     all("icp_profiles", "id, profile_name", scoped("company_bio_id")),
   ]);
 
+  // ── scope filters, applied exactly as the dashboard applies them ──────
+  // A campaign / seller filter restricts the campaign set; an ICP filter
+  // restricts the lead set. A reply that cannot be placed inside an active
+  // scope is EXCLUDED, not admitted (audit Block 9).
+  const icpLeadSet = fIcp ? new Set(leads.filter(l => String(l.icp_profile_id ?? "") === fIcp).map(l => String(l.id))) : null;
+  const campsInScope = camps.filter(c => {
+    if (fCampaign && String(c.name) !== fCampaign) return false;
+    if (fSeller && String(c.seller_id ?? "") !== fSeller) return false;
+    if (icpLeadSet && c.lead_id && !icpLeadSet.has(String(c.lead_id))) return false;
+    return true;
+  });
+  const scopeActive = !!(fSeller || fCampaign);
+  const campIdsInScope = new Set(campsInScope.map(c => String(c.id)));
+  if (fSeller || fCampaign || fIcp) {
+    console.log(`  FILTER  seller=${fSeller ?? "—"} campaign=${fCampaign ?? "—"} icp=${fIcp ?? "—"} → ${campsInScope.length} flows in scope\n`);
+  }
+
   const leadOfCamp = new Map<string, string>();
   const sellerOfCamp = new Map<string, string>();
-  for (const c of camps) {
+  for (const c of campsInScope) {
     if (c.lead_id) leadOfCamp.set(String(c.id), String(c.lead_id));
     if (c.seller_id) sellerOfCamp.set(String(c.id), String(c.seller_id));
   }
@@ -187,16 +208,26 @@ async function main() {
   }
 
   /* ── CONTACTED / ENROLLED ─────────────────────────────────────────── */
-  const sent = msgs.filter(m => m.status === "sent" && inWin(m.sent_at as string));
+  const sent = msgs.filter(m =>
+    m.status === "sent" && inWin(m.sent_at as string) && campIdsInScope.has(String(m.campaign_id)));
   const CONTACTED = new Set<string>();
   for (const m of sent) {
     const l = leadOfCamp.get(String(m.campaign_id));
     if (l) CONTACTED.add(l);
   }
-  const ENROLLED = new Set(camps.filter(c => c.lead_id).map(c => String(c.lead_id)));
+  const ENROLLED = new Set(campsInScope.filter(c => c.lead_id).map(c => String(c.lead_id)));
 
   /* ── REPLIES ──────────────────────────────────────────────────────── */
-  const inbound = replies.filter(r => isInbound(r) && inWin(r.received_at as string));
+  const inbound = replies.filter(r => {
+    if (!isInbound(r) || !inWin(r.received_at as string)) return false;
+    if (icpLeadSet && r.lead_id && !icpLeadSet.has(String(r.lead_id))) return false;
+    // Block 9 — a reply with no campaign cannot be placed in an active scope.
+    if (scopeActive) {
+      if (!r.campaign_id) return false;
+      if (!campIdsInScope.has(String(r.campaign_id))) return false;
+    }
+    return true;
+  });
   const REPLIED = new Set(inbound.map(r => String(r.lead_id)).filter(Boolean));
   const POSITIVE = new Set(inbound.filter(isPositive).map(r => String(r.lead_id)).filter(Boolean));
   const REPLIED_COHORT = new Set([...REPLIED].filter(l => CONTACTED.has(l)));
@@ -204,8 +235,11 @@ async function main() {
 
   /* ── CALLS ────────────────────────────────────────────────────────── */
   const best = new Map<string, Row>();
+  const scopeLeadIds = (fSeller || fCampaign || fIcp)
+    ? new Set(campsInScope.map(c => c.lead_id).filter(Boolean).map(String)) : null;
   for (const c of calls) {
     if (!inWin(c.started_at as string)) continue;
+    if (scopeLeadIds && (!c.lead_id || !scopeLeadIds.has(String(c.lead_id)))) continue;
     const k = `${c.lead_id ?? "?"}|${String(c.started_at ?? "").slice(0, 16)}`;
     const prev = best.get(k);
     if (!prev || (isRealCallRow(c) && !isRealCallRow(prev))) best.set(k, c);
@@ -299,7 +333,7 @@ async function main() {
     if (!c.classification) g.unclassified++;
   }
   const queue = new Map<string, number>();
-  const campStatus = new Map(camps.map(c => [String(c.id), String(c.status)]));
+  const campStatus = new Map(campsInScope.map(c => [String(c.id), String(c.status)]));
   for (const m of msgs) {
     if (m.status !== "queued") continue;
     if (campStatus.get(String(m.campaign_id)) !== "active") continue;
@@ -335,12 +369,12 @@ async function main() {
   /* ── CAMPAIGNS ────────────────────────────────────────────────────── */
   console.log(`\n${"─".repeat(100)}\nCAMPAIGN RECONCILIATION   (reply rate = replied leads ÷ CONTACTED leads)\n`);
   const byCamp = new Map<string, { enrolled: Set<string>; contacted: Set<string> }>();
-  for (const c of camps) if (c.lead_id) {
+  for (const c of campsInScope) if (c.lead_id) {
     const e = byCamp.get(String(c.name)) ?? { enrolled: new Set<string>(), contacted: new Set<string>() };
     e.enrolled.add(String(c.lead_id)); byCamp.set(String(c.name), e);
   }
   for (const m of sent) {
-    const c = camps.find(x => String(x.id) === String(m.campaign_id));
+    const c = campsInScope.find(x => String(x.id) === String(m.campaign_id));
     const l = leadOfCamp.get(String(m.campaign_id));
     if (c && l) byCamp.get(String(c.name))?.contacted.add(l);
   }
@@ -393,7 +427,7 @@ async function main() {
   inv("a call outcome never increments the reply count", inbound.every(isInbound), `${callOutcomesInWindow} call outcomes excluded`);
   const enrolledNeverContacted = [...ENROLLED].filter(l => !CONTACTED.has(l)).length;
   inv("campaign with no sent message: enrolled, NOT contacted", enrolledNeverContacted >= 0, `${n(enrolledNeverContacted)} leads in that state`);
-  const advancedNotAccepted = camps.filter(c => c.lead_id && !connectedLeads.has(String(c.lead_id))).length;
+  const advancedNotAccepted = campsInScope.filter(c => c.lead_id && !connectedLeads.has(String(c.lead_id))).length;
   inv("current_step > 0 + linkedin_connected=false => not accepted", ACCEPTED <= connectedLeads.size, `${advancedNotAccepted} leads would have been miscounted by the old rule`);
   inv("every rate has a non-zero denominator or is null", true, "rates return null, never 0%, when nobody was reached");
 
@@ -413,6 +447,27 @@ async function main() {
       if (!ok) failures++;
       console.log(`  ${ok ? "PASS" : "FAIL"}  ${k.padEnd(24)} dashboard ${n(want)} · independent ${got === undefined ? "n/a" : n(got)}`);
     }
+  }
+
+  // Machine-readable snapshot for the render reconciliation.
+  const outPath = arg("--json");
+  if (outPath) {
+    writeFileSync(outPath, JSON.stringify({
+      label, tenant: bio, from: FROM, to: TO,
+      filters: { seller: fSeller ?? null, campaign: fCampaign ?? null, icp: fIcp ?? null },
+      contacted: CONTACTED.size, enrolled: ENROLLED.size,
+      replied: REPLIED_COHORT.size, repliedInWindow: REPLIED.size, replyEvents: inbound.length,
+      replyRate: +(REPLIED_COHORT.size / Math.max(1, CONTACTED.size) * 100).toFixed(1),
+      positive: POSITIVE.size,
+      invited: INVITED.size, accepted: ACCEPTED,
+      acceptanceRate: INVITED.size ? +(ACCEPTED / INVITED.size * 100).toFixed(1) : null,
+      dmReplyRate: dm.pct, dmNum: dm.num, dmDen: dm.den,
+      emailReplyRate: em.pct, emailNum: em.num, emailDen: em.den,
+      callsAttempted: ATTEMPTED.length, callsConnected: CONNECTED.length,
+      connectRate: +(CONNECTED.length / Math.max(1, ATTEMPTED.length) * 100).toFixed(1),
+      sellerTotals: T, unattributedReplies: REPLIED.size - T.replies, callsUnattributed,
+    }, null, 2) + "\n");
+    console.log(`\n  snapshot → ${outPath}`);
   }
 
   console.log(`\n${"═".repeat(100)}`);

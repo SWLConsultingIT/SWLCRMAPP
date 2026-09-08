@@ -1,0 +1,43 @@
+{
+  "label": "c1-30d-all",
+  "tenant": "7c02e222-be59-416d-9434-acf4685f8590",
+  "from": "2026-08-10",
+  "to": "2026-09-08",
+  "filters": {
+    "seller": null,
+    "campaign": null,
+    "icp": null
+  },
+  "contacted": 2108,
+  "enrolled": 3080,
+  "replied": 46,
+  "repliedInWindow": 62,
+  "replyEvents": 76,
+  "replyRate": 2.2,
+  "positive": 1,
+  "invited": 526,
+  "accepted": 13,
+  "acceptanceRate": 2.5,
+  "dmReplyRate": 17.1,
+  "dmNum": 28,
+  "dmDen": 164,
+  "emailReplyRate": 0.7,
+  "emailNum": 15,
+  "emailDen": 2064,
+  "callsAttempted": 283,
+  "callsConnected": 124,
+  "connectRate": 43.8,
+  "sellerTotals": {
+    "contacted": 2108,
+    "li": 761,
+    "email": 3051,
+    "calls": 283,
+    "replies": 46,
+    "pos": 1,
+    "queue": 1553,
+    "conn": 124,
+    "uncl": 78
+  },
+  "unattributedReplies": 16,
+  "callsUnattributed": 0
+}

@@ -1,0 +1,650 @@
+[
+  {
+    "metric": "Contacted",
+    "rendered": "2108",
+    "independent": "2108",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C1"
+  },
+  {
+    "metric": "Enrolled",
+    "rendered": "3080",
+    "independent": "3080",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C1"
+  },
+  {
+    "metric": "Replies (leads)",
+    "rendered": "62",
+    "independent": "46",
+    "diff": "16",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "Reply events",
+    "rendered": "76",
+    "independent": "76",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C1"
+  },
+  {
+    "metric": "Reply Rate %",
+    "rendered": "3",
+    "independent": "2.2",
+    "diff": "0.8",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "Positive",
+    "rendered": "1",
+    "independent": "1",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C1"
+  },
+  {
+    "metric": "LinkedIn invited",
+    "rendered": "526",
+    "independent": "526",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C1"
+  },
+  {
+    "metric": "LinkedIn accepted",
+    "rendered": "13",
+    "independent": "13",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C1"
+  },
+  {
+    "metric": "Acceptance Rate %",
+    "rendered": "2.4714828897338403",
+    "independent": "2.5",
+    "diff": "0",
+    "status": "GREEN",
+    "note": "no acceptance timestamp — 'as of today'",
+    "case": "C1"
+  },
+  {
+    "metric": "Calls Attempted",
+    "rendered": "284",
+    "independent": "283",
+    "diff": "1",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "Calls Connected",
+    "rendered": "125",
+    "independent": "124",
+    "diff": "1",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "Connect Rate %",
+    "rendered": "44",
+    "independent": "43.8",
+    "diff": "0.2",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "Unattributed replies",
+    "rendered": "0",
+    "independent": "16",
+    "diff": "-16",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "Meetings",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C1"
+  },
+  {
+    "metric": "Won",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C1"
+  },
+  {
+    "metric": "Lost",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C1"
+  },
+  {
+    "metric": "Email reply rate % (reached-based)",
+    "rendered": "1.9",
+    "independent": "0.7",
+    "diff": "1.2",
+    "status": "RED",
+    "note": "dashboard counts a lead reached by email that replied on ANY channel",
+    "case": "C1"
+  },
+  {
+    "metric": "ICP sum contacted == workspace",
+    "rendered": "3080",
+    "independent": "2108",
+    "diff": "972",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "campaign sum contacted == workspace",
+    "rendered": "2108",
+    "independent": "2108",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C1"
+  },
+  {
+    "metric": "seller sum contacted == workspace",
+    "rendered": "3081",
+    "independent": "2108",
+    "diff": "973",
+    "status": "RED",
+    "case": "C1"
+  },
+  {
+    "metric": "Contacted",
+    "rendered": "722",
+    "independent": "722",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C2"
+  },
+  {
+    "metric": "Enrolled",
+    "rendered": "3080",
+    "independent": "3080",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C2"
+  },
+  {
+    "metric": "Replies (leads)",
+    "rendered": "6",
+    "independent": "4",
+    "diff": "2",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "Reply events",
+    "rendered": "8",
+    "independent": "8",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C2"
+  },
+  {
+    "metric": "Reply Rate %",
+    "rendered": "1",
+    "independent": "0.6",
+    "diff": "0.4",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "Positive",
+    "rendered": "1",
+    "independent": "1",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C2"
+  },
+  {
+    "metric": "LinkedIn invited",
+    "rendered": "128",
+    "independent": "128",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C2"
+  },
+  {
+    "metric": "LinkedIn accepted",
+    "rendered": "1",
+    "independent": "1",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C2"
+  },
+  {
+    "metric": "Acceptance Rate %",
+    "rendered": "0.78125",
+    "independent": "0.8",
+    "diff": "0",
+    "status": "GREEN",
+    "note": "no acceptance timestamp — 'as of today'",
+    "case": "C2"
+  },
+  {
+    "metric": "Calls Attempted",
+    "rendered": "188",
+    "independent": "187",
+    "diff": "1",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "Calls Connected",
+    "rendered": "77",
+    "independent": "76",
+    "diff": "1",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "Connect Rate %",
+    "rendered": "41",
+    "independent": "40.6",
+    "diff": "0.4",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "Unattributed replies",
+    "rendered": "0",
+    "independent": "2",
+    "diff": "-2",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "Meetings",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C2"
+  },
+  {
+    "metric": "Won",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C2"
+  },
+  {
+    "metric": "Lost",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C2"
+  },
+  {
+    "metric": "Email reply rate % (reached-based)",
+    "rendered": "0.2",
+    "independent": "0.2",
+    "diff": "0",
+    "status": "GREEN",
+    "note": "dashboard counts a lead reached by email that replied on ANY channel",
+    "case": "C2"
+  },
+  {
+    "metric": "ICP sum contacted == workspace",
+    "rendered": "3080",
+    "independent": "722",
+    "diff": "2358",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "campaign sum contacted == workspace",
+    "rendered": "722",
+    "independent": "722",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C2"
+  },
+  {
+    "metric": "seller sum contacted == workspace",
+    "rendered": "3081",
+    "independent": "722",
+    "diff": "2359",
+    "status": "RED",
+    "case": "C2"
+  },
+  {
+    "metric": "Contacted",
+    "rendered": "2977",
+    "independent": "2977",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "Enrolled",
+    "rendered": "3080",
+    "independent": "3080",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "Replies (leads)",
+    "rendered": "104",
+    "independent": "104",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "Reply events",
+    "rendered": "131",
+    "independent": "131",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "Reply Rate %",
+    "rendered": "3",
+    "independent": "3.5",
+    "diff": "-0.5",
+    "status": "RED",
+    "case": "C6"
+  },
+  {
+    "metric": "Positive",
+    "rendered": "4",
+    "independent": "4",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "LinkedIn invited",
+    "rendered": "1467",
+    "independent": "1467",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "LinkedIn accepted",
+    "rendered": "127",
+    "independent": "127",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "Acceptance Rate %",
+    "rendered": "8.657123381049761",
+    "independent": "8.7",
+    "diff": "0",
+    "status": "GREEN",
+    "note": "no acceptance timestamp — 'as of today'",
+    "case": "C6"
+  },
+  {
+    "metric": "Calls Attempted",
+    "rendered": "663",
+    "independent": "662",
+    "diff": "1",
+    "status": "RED",
+    "case": "C6"
+  },
+  {
+    "metric": "Calls Connected",
+    "rendered": "409",
+    "independent": "408",
+    "diff": "1",
+    "status": "RED",
+    "case": "C6"
+  },
+  {
+    "metric": "Connect Rate %",
+    "rendered": "61.7",
+    "independent": "61.6",
+    "diff": "0.1",
+    "status": "RED",
+    "case": "C6"
+  },
+  {
+    "metric": "Unattributed replies",
+    "rendered": "0",
+    "independent": "0",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "Meetings",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C6"
+  },
+  {
+    "metric": "Won",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C6"
+  },
+  {
+    "metric": "Lost",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C6"
+  },
+  {
+    "metric": "Email reply rate % (reached-based)",
+    "rendered": "3.5",
+    "independent": "1.9",
+    "diff": "1.6",
+    "status": "RED",
+    "note": "dashboard counts a lead reached by email that replied on ANY channel",
+    "case": "C6"
+  },
+  {
+    "metric": "ICP sum contacted == workspace",
+    "rendered": "3080",
+    "independent": "2977",
+    "diff": "103",
+    "status": "RED",
+    "case": "C6"
+  },
+  {
+    "metric": "campaign sum contacted == workspace",
+    "rendered": "2977",
+    "independent": "2977",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C6"
+  },
+  {
+    "metric": "seller sum contacted == workspace",
+    "rendered": "3081",
+    "independent": "2977",
+    "diff": "104",
+    "status": "RED",
+    "case": "C6"
+  },
+  {
+    "metric": "Contacted",
+    "rendered": "543",
+    "independent": "543",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Enrolled",
+    "rendered": "3080",
+    "independent": "3080",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Replies (leads)",
+    "rendered": "28",
+    "independent": "28",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Reply events",
+    "rendered": "35",
+    "independent": "35",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Reply Rate %",
+    "rendered": "5",
+    "independent": "5.2",
+    "diff": "-0.2",
+    "status": "RED",
+    "case": "C7"
+  },
+  {
+    "metric": "Positive",
+    "rendered": "0",
+    "independent": "0",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "LinkedIn invited",
+    "rendered": "401",
+    "independent": "401",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "LinkedIn accepted",
+    "rendered": "17",
+    "independent": "17",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Acceptance Rate %",
+    "rendered": "4.239401496259352",
+    "independent": "4.2",
+    "diff": "0",
+    "status": "GREEN",
+    "note": "no acceptance timestamp — 'as of today'",
+    "case": "C7"
+  },
+  {
+    "metric": "Calls Attempted",
+    "rendered": "62",
+    "independent": "62",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Calls Connected",
+    "rendered": "28",
+    "independent": "28",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Connect Rate %",
+    "rendered": "45.2",
+    "independent": "45.2",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Unattributed replies",
+    "rendered": "0",
+    "independent": "0",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "Meetings",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C7"
+  },
+  {
+    "metric": "Won",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C7"
+  },
+  {
+    "metric": "Lost",
+    "rendered": "not_measured",
+    "independent": "not_measured",
+    "diff": "—",
+    "status": "GRAY",
+    "case": "C7"
+  },
+  {
+    "metric": "Email reply rate % (reached-based)",
+    "rendered": "5.2",
+    "independent": "2.8",
+    "diff": "2.4",
+    "status": "RED",
+    "note": "dashboard counts a lead reached by email that replied on ANY channel",
+    "case": "C7"
+  },
+  {
+    "metric": "ICP sum contacted == workspace",
+    "rendered": "3080",
+    "independent": "543",
+    "diff": "2537",
+    "status": "RED",
+    "case": "C7"
+  },
+  {
+    "metric": "campaign sum contacted == workspace",
+    "rendered": "543",
+    "independent": "543",
+    "diff": "0",
+    "status": "GREEN",
+    "case": "C7"
+  },
+  {
+    "metric": "seller sum contacted == workspace",
+    "rendered": "3081",
+    "independent": "543",
+    "diff": "2538",
+    "status": "RED",
+    "case": "C7"
+  }
+]

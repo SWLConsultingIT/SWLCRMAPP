@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@/lib/scope": [
+        "./scripts/_render-harness/scope.ts"
+      ],
+      "@/lib/supabase-server": [
+        "./scripts/_render-harness/supabase-server.ts"
+      ]
+    }
+  },
+  "include": [
+    "scripts/**/*",
+    "lib/**/*",
+    "components/**/*",
+    "app/**/*"
+  ]
+}

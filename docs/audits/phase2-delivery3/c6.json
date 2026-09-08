@@ -1,0 +1,43 @@
+{
+  "label": "c6-alltime",
+  "tenant": "7c02e222-be59-416d-9434-acf4685f8590",
+  "from": "2000-01-01",
+  "to": "2026-09-08",
+  "filters": {
+    "seller": null,
+    "campaign": null,
+    "icp": null
+  },
+  "contacted": 2977,
+  "enrolled": 3080,
+  "replied": 104,
+  "repliedInWindow": 104,
+  "replyEvents": 131,
+  "replyRate": 3.5,
+  "positive": 4,
+  "invited": 1467,
+  "accepted": 127,
+  "acceptanceRate": 8.7,
+  "dmReplyRate": 17.9,
+  "dmNum": 44,
+  "dmDen": 246,
+  "emailReplyRate": 1.9,
+  "emailNum": 55,
+  "emailDen": 2944,
+  "callsAttempted": 662,
+  "callsConnected": 408,
+  "connectRate": 61.6,
+  "sellerTotals": {
+    "contacted": 2977,
+    "li": 1839,
+    "email": 5186,
+    "calls": 662,
+    "replies": 104,
+    "pos": 4,
+    "queue": 1553,
+    "conn": 408,
+    "uncl": 244
+  },
+  "unattributedReplies": 0,
+  "callsUnattributed": 0
+}
