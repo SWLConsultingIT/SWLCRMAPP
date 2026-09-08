@@ -1,5 +1,5 @@
 {
-  "label": "c6-alltime",
+  "label": "C6",
   "tenant": "7c02e222-be59-416d-9434-acf4685f8590",
   "from": "2000-01-01",
   "to": "2026-09-08",
@@ -24,20 +24,22 @@
   "emailReplyRate": 1.9,
   "emailNum": 55,
   "emailDen": 2944,
-  "callsAttempted": 662,
-  "callsConnected": 408,
-  "connectRate": 61.6,
+  "callsAttempted": 663,
+  "callsConnected": 409,
+  "connectRate": 61.7,
   "sellerTotals": {
     "contacted": 2977,
     "li": 1839,
     "email": 5186,
-    "calls": 662,
+    "calls": 663,
     "replies": 104,
     "pos": 4,
-    "queue": 1553,
-    "conn": 408,
+    "queue": 1555,
+    "conn": 409,
     "uncl": 244
   },
   "unattributedReplies": 0,
+  "inboundRepliesReceived": 104,
+  "repliesFromOutsideCohort": 0,
   "callsUnattributed": 0
 }

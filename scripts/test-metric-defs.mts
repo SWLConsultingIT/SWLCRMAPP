@@ -11,6 +11,7 @@ import {
   isInboundReply, isPositiveReply, repliedLeadIds, positiveLeadIds, replyEventCount,
   contactedLeadIds, enrolledLeadIds, replyRate,
   invitedLeadIds, linkedinAcceptance,
+  getCohortReplies, roundRate, formatRate, channelReplyRate, messageChannel, replyChannel,
   realCallsInWindow, callOwner,
   isRealCall, isConnected,
   NOT_MEASURED, isNotMeasured, SourceUnavailableError,
@@ -109,6 +110,74 @@ check("a lead with a flow and no sent message is enrolled but NOT contacted",
 check("a lead whose only send is outside the window is not contacted in it", !contacted.has("L3"));
 eq("reply rate divides by contacted, not enrolled", replyRate(1, contacted.size), 100);
 eq("reply rate is null with no denominator, never 0%", replyRate(0, 0), null);
+
+/* ── RC-3 · the cohort ────────────────────────────────────────────────── */
+console.log("\nRC-3 — performance is measured on the contacted cohort");
+
+// The two leads the decision names explicitly.
+//   A: contacted BEFORE the window, replies INSIDE it.
+//   B: contacted INSIDE the window, replies INSIDE it.
+const cohortMsgs = [
+  { campaign_id: "cA", status: "sent", sent_at: "2026-01-05T12:00:00Z", channel: "email", step_number: 1 }, // A, before
+  { campaign_id: "cB", status: "sent", sent_at: "2026-08-15T12:00:00Z", channel: "email", step_number: 1 }, // B, inside
+];
+const cohortLeadOf = new Map([["cA", "A"], ["cB", "B"]]);
+const theCohort = contactedLeadIds(cohortMsgs, cohortLeadOf, w);
+eq("the cohort is only the leads contacted INSIDE the window", [...theCohort], ["B"]);
+
+const windowReplies = [
+  { lead_id: "A", channel: "email", classification: "needs_info", received_at: "2026-08-20T12:00:00Z" },
+  { lead_id: "B", channel: "email", classification: "positive",  received_at: "2026-08-21T12:00:00Z" },
+  { lead_id: "B", channel: "linkedin", classification: "needs_info", received_at: "2026-08-22T12:00:00Z" },
+  { lead_id: "C", channel: "call", classification: "positive", received_at: "2026-08-22T12:00:00Z" }, // call outcome
+];
+const cr = getCohortReplies(theCohort, windowReplies);
+
+eq("Lead A (contacted before) is NOT a performance reply", cr.leads.has("A"), false);
+eq("Lead B (contacted inside) IS a performance reply", cr.leads.has("B"), true);
+eq("cohort replied leads", [...cr.leads], ["B"]);
+eq("cohort positive leads", [...cr.positive], ["B"]);
+eq("cohort reply EVENTS count B twice, A never", cr.events, 2);
+eq("Lead A is reported as inbox workload, not performance", cr.outsideCohortLeads, 1);
+check("a call outcome never enters the cohort either", !cr.leads.has("C"));
+
+eq("reply rate divides cohort replied by cohort contacted",
+  roundRate(replyRate(cr.leads.size, theCohort.size)), 100);
+
+/* ── RC-4 · one precision ─────────────────────────────────────────────── */
+console.log("\nRC-4 — every visible rate carries one decimal");
+
+eq("2.94% is 2.9%, not 3%", roundRate(62 / 2108 * 100), 2.9);
+eq("3.49% is 3.5%", roundRate(104 / 2977 * 100), 3.5);
+eq("formatRate renders one decimal", formatRate(18.34), "18.3%");
+eq("a whole number still shows its decimal", formatRate(5), "5.0%");
+eq("no denominator is a dash, never 0%", formatRate(null), "—");
+eq("replyRate returns null, not 0, with no denominator", replyRate(0, 0), null);
+check("precision is kept before rounding: 1/3 of 100 is not pre-rounded",
+  Math.abs((replyRate(1, 3) ?? 0) - 33.333333) < 0.001);
+
+/* ── RC-5 · same-channel attribution ──────────────────────────────────── */
+console.log("\nRC-5 — a reply belongs to the channel it arrived on");
+
+const ch5Msgs = [
+  { campaign_id: "c1", status: "sent", sent_at: "2026-08-12T12:00:00Z", channel: "email", step_number: 1 },
+  { campaign_id: "c2", status: "sent", sent_at: "2026-08-12T12:00:00Z", channel: "linkedin", step_number: 2 },
+];
+const ch5LeadOf = new Map([["c1", "E1"], ["c2", "L1"]]);
+const ch5Cohort = new Set(["E1", "L1"]);
+// E1 was reached by EMAIL but replied on LINKEDIN. Under the loose rule it
+// counted as an email reply and nearly doubled the email rate.
+const ch5Replies = [{ lead_id: "E1", channel: "linkedin", classification: "needs_info" }];
+
+const emailRate = channelReplyRate("email", ch5Msgs, ch5LeadOf, ch5Replies, ch5Cohort, w);
+const dmRate = channelReplyRate("li_dm", ch5Msgs, ch5LeadOf, ch5Replies, ch5Cohort, w);
+eq("a lead reached by email that replied on LinkedIn is NOT an email reply", emailRate.replied, 0);
+eq("email denominator is still the lead it reached", emailRate.reached, 1);
+eq("email rate is 0%, and it is a real 0 (someone was reached)", roundRate(emailRate.rate), 0);
+eq("the DM leg does not claim it either — it never reached E1", dmRate.replied, 0);
+eq("an invitation is a separate leg from the DM", messageChannel({ channel: "linkedin", step_number: 0 }), "li_cr");
+eq("a LinkedIn reply always lands on the DM leg", replyChannel({ channel: "linkedin" }), "li_dm");
+eq("no one reached means null, not 0%", channelReplyRate("call", [], ch5LeadOf, [], ch5Cohort, w).rate, null);
 
 /* ── BLOCK 4 · LinkedIn acceptance ────────────────────────────────────── */
 console.log("\nBLOCK 4 — acceptance comes from linkedin_connected, nothing else");

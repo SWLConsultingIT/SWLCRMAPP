@@ -408,7 +408,9 @@ export default async function SellerDetailPage({
   }
 
   // Comparison vs team average
-  const teamResp = tenant.headline.responseRate;
+  // RC-4 — the team rate is null when nobody was contacted; treat that as
+  // 'no baseline' rather than as 0%.
+  const teamResp = tenant.headline.responseRate ?? 0;
   const lift = teamResp > 0 ? Math.round(((d.responseRate / teamResp) - 1) * 100) : null;
   const liftKind = lift === null ? "neutral" : lift >= 20 ? "great" : lift >= 5 ? "good" : lift <= -20 ? "bad" : lift <= -5 ? "soft" : "neutral";
 

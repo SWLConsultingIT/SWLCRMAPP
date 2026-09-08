@@ -24,10 +24,13 @@ export type ChannelRow = {
   channel: string;
   sent: number;
   contacted: number;
+  /** Same-channel denominator (RC-5). */
+  reached?: number;
   replied: number;
   positive: number;
-  responseRate: number;
-  conversionRate: number;
+  /** RC-4 — null when nobody was reached on this channel. */
+  responseRate: number | null;
+  conversionRate: number | null;
 };
 
 export default function ChannelCard({

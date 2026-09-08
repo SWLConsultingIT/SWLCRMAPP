@@ -226,10 +226,144 @@ export function enrolledLeadIds(campaigns: { lead_id?: string | null }[]): Set<s
   return out;
 }
 
-/** The one reply-rate formula for the whole product: replied ÷ contacted. */
+/** The one reply-rate formula for the whole product: replied ÷ contacted.
+ *  Returns full precision — callers round only at render (see formatRate). */
 export function replyRate(repliedLeads: number, contactedLeads: number): number | null {
   if (contactedLeads <= 0) return null;
   return (repliedLeads / contactedLeads) * 100;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE COHORT  (audit RC-3, closed 2026-09-08)
+
+   Every PERFORMANCE surface measures one cohort: the leads contacted inside
+   the window. A reply counts for performance only if it came from a lead in
+   that cohort. A lead contacted in July that replies in September is real
+   inbound work, but it is not this period's cohort performing — folding it
+   in makes the funnel stop nesting and the rate divide two different
+   universes.
+
+   Those replies do not disappear: `inboundRepliesReceived` counts them as
+   inbox workload. They must never be added to a reply rate.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export type CohortReplies = {
+  /** Distinct cohort leads with >=1 real inbound reply in the window. */
+  leads: Set<string>;
+  /** Distinct cohort leads whose reply was classified positive. */
+  positive: Set<string>;
+  /** Reply EVENTS from cohort leads. Render only as "reply events". */
+  events: number;
+  /** Inbound replies in the window from leads OUTSIDE the cohort — inbox
+   *  workload, never performance. */
+  outsideCohortLeads: number;
+};
+
+/**
+ * The single reply definition for Overview, Funnel, ICPs, Campaigns,
+ * Sellers, rankings and comparisons. Pass the cohort and the window's
+ * inbound replies; everything downstream reads this.
+ */
+export function getCohortReplies(cohort: Set<string>, inboundInWindow: ReplyRow[]): CohortReplies {
+  const leads = new Set<string>();
+  const positive = new Set<string>();
+  const outside = new Set<string>();
+  let events = 0;
+  for (const r of inboundInWindow) {
+    if (!isInboundReply(r) || !r.lead_id) continue;
+    if (!cohort.has(r.lead_id)) { outside.add(r.lead_id); continue; }
+    events++;
+    leads.add(r.lead_id);
+    if (POSITIVE_CLASS.has(r.classification ?? "")) positive.add(r.lead_id);
+  }
+  return { leads, positive, events, outsideCohortLeads: outside.size };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RATE PRESENTATION  (audit RC-4)
+
+   One precision everywhere: one decimal. Math.round() to an integer turned
+   2.94% into 3% and disagreed with every other surface. Rounding happens at
+   RENDER — never before aggregating or comparing.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export const RATE_DECIMALS = 1;
+
+/** Round a rate for display. Null in, null out — never 0%. */
+export function roundRate(rate: number | null, decimals = RATE_DECIMALS): number | null {
+  if (rate === null || !Number.isFinite(rate)) return null;
+  const f = 10 ** decimals;
+  return Math.round(rate * f) / f;
+}
+
+/** Render a rate as a string. `dash` is what an absent denominator shows. */
+export function formatRate(rate: number | null, decimals = RATE_DECIMALS, dash = "—"): string {
+  const r = roundRate(rate, decimals);
+  return r === null ? dash : `${r.toFixed(decimals)}%`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PER-CHANNEL REPLY ATTRIBUTION  (audit RC-5)
+
+   Same-channel, both sides. A lead reached by email that replied on
+   LinkedIn is a LinkedIn reply, not an email one. The loose rule nearly
+   doubled the email rate (58 leads instead of 32).
+
+   Invitation acceptance and call connect rate are NOT reply rates and are
+   never computed here.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/** Normalise a reply row's channel onto the DM/email axis. A LinkedIn reply
+ *  always arrives on the DM leg — an invitation cannot be replied to. */
+export function replyChannel(r: ReplyRow): string {
+  const c = r.channel ?? "";
+  if (c === "linkedin" || c === "linkedin_dm") return "li_dm";
+  return c;
+}
+
+/** Which outbound leg a sent message belongs to. */
+export function messageChannel(m: MessageRow): string {
+  if (m.channel === "linkedin") return (m.step_number ?? 0) === 0 ? "li_cr" : "li_dm";
+  return m.channel ?? "";
+}
+
+export type ChannelRate = { reached: number; replied: number; rate: number | null; sent: number };
+
+/**
+ * Reply rate for ONE channel: of the leads reached on that channel, how many
+ * replied ON THAT CHANNEL. Restricted to the cohort, like every other
+ * performance figure.
+ */
+export function channelReplyRate(
+  channel: "li_dm" | "email" | string,
+  messages: MessageRow[],
+  leadOfCampaign: Map<string, string>,
+  inboundInWindow: ReplyRow[],
+  cohort: Set<string>,
+  w: Window,
+): ChannelRate {
+  const reached = new Set<string>();
+  let sent = 0;
+  for (const m of messages) {
+    if (!isSent(m) || !m.campaign_id) continue;
+    if (!inWindow(m.sent_at, w)) continue;
+    if (messageChannel(m) !== channel) continue;
+    sent++;
+    const lead = leadOfCampaign.get(m.campaign_id);
+    if (lead && cohort.has(lead)) reached.add(lead);
+  }
+  const replied = new Set<string>();
+  for (const r of inboundInWindow) {
+    if (!isInboundReply(r) || !r.lead_id) continue;
+    if (replyChannel(r) !== channel) continue;
+    if (reached.has(r.lead_id)) replied.add(r.lead_id);
+  }
+  return {
+    reached: reached.size,
+    replied: replied.size,
+    sent,
+    rate: reached.size > 0 ? (replied.size / reached.size) * 100 : null,
+  };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

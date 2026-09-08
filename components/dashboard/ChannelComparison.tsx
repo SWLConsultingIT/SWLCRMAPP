@@ -21,10 +21,13 @@ type Row = {
   channel: string;
   sent: number;
   contacted: number;
+  /** Same-channel denominator (RC-5). */
+  reached?: number;
   replied: number;
   positive: number;
-  responseRate: number;
-  conversionRate: number;
+  /** RC-4 — null when nobody was reached on this channel. */
+  responseRate: number | null;
+  conversionRate: number | null;
 };
 
 export default function ChannelComparison({
@@ -49,8 +52,8 @@ export default function ChannelComparison({
   }
 
   // Sort by reply rate descending so the eye starts at the winner.
-  const sorted = [...channels].sort((a, b) => b.responseRate - a.responseRate);
-  const maxRate = Math.max(...sorted.map(r => r.responseRate), 1);
+  const sorted = [...channels].sort((a, b) => (b.responseRate ?? 0) - (a.responseRate ?? 0));
+  const maxRate = Math.max(...sorted.map(r => (r.responseRate ?? 0)), 1);
 
   return (
     <div className="space-y-2">
@@ -58,8 +61,8 @@ export default function ChannelComparison({
         const meta = channelMeta[r.channel] ?? { Icon: Share2, color: C.textMuted, labelKey: "" };
         const Icon = meta.Icon;
         const channelLabel = meta.labelKey ? t(meta.labelKey) : r.channel;
-        const widthPct = maxRate > 0 ? Math.max(6, (r.responseRate / maxRate) * 100) : 6;
-        const isTop = i === 0 && sorted.length > 1 && r.responseRate > 0;
+        const widthPct = maxRate > 0 ? Math.max(6, ((r.responseRate ?? 0) / maxRate) * 100) : 6;
+        const isTop = i === 0 && sorted.length > 1 && (r.responseRate ?? 0) > 0;
 
         return (
           <div
@@ -107,7 +110,7 @@ export default function ChannelComparison({
                   className="text-[13px] font-bold tabular-nums"
                   style={{ color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.18)" }}
                 >
-                  {r.responseRate}%
+                  {(r.responseRate ?? 0)}%
                 </span>
               </div>
             </div>

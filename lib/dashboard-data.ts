@@ -81,6 +81,7 @@ type MsgRow = {
 
 import {
   SourceUnavailableError, NOT_MEASURED, type Measurable,
+  getCohortReplies, roundRate, replyRate as replyRateOf, channelReplyRate, messageChannel,
   resolveWindow, inWindow as inWin, priorWindow, businessDayKey, businessHour, businessWeekday,
   isInboundReply, isPositiveReply, isNegativeReply,
   contactedLeadIds as contactedFrom, enrolledLeadIds, invitedLeadIds, linkedinAcceptance,
@@ -132,6 +133,7 @@ const EMPTY_DASHBOARD = {
     acceptanceRate: null as number | null,
     acceptance: { invited: 0, accepted: 0, rate: null as number | null, caveat: "of the leads invited in this period, accepted as of today" },
     replyEvents: 0, unattributedReplies: 0,
+    inboundRepliesReceived: 0, inboundReplyEvents: 0, repliesFromOutsideCohort: 0,
   },
   deltas: { contacted: null as number | null, replied: null as number | null, positive: null as number | null },
   funnel: [
@@ -141,7 +143,9 @@ const EMPTY_DASHBOARD = {
     { stage: "replied",           count: 0, prior: null as number | null, color: "warning" },
     { stage: "won",               count: 0, prior: null as number | null, color: "brand" },
   ],
-  channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
+  // RC-4/RC-5 — `reached` is the same-channel denominator; rates are nullable
+  // because "nobody was reached" is not 0%.
+  channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; reached: number; responseRate: number | null; conversionRate: number | null }>,
   callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
   callOutcomesBySeller: [] as Array<{ sellerId: string; sellerName: string; made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number }> }>,
   linkedinConnections: { sent: 0, accepted: 0, rate: null as number | null, caveat: "of the leads invited in this period, accepted as of today" },
@@ -550,11 +554,27 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const invitedLeadIdSet = invitedLeadIds(messages, leadOfCampaign, win);
   const acceptance = linkedinAcceptance(invitedLeadIdSet, linkedinConnectedLeads);
 
-  // ── AUDIT BLOCK 3 — replies are already call-outcome-free (filtered above)
-  const repliedLeadIds = new Set(replies.map(r => r.lead_id).filter(Boolean) as string[]);
-  const positiveReplies = replies.filter(isPositiveReply);
-  const negativeReplies = replies.filter(isNegativeReply);
-  const positiveLeadIds = new Set(positiveReplies.map(r => r.lead_id).filter(Boolean) as string[]);
+  // ── RC-3 (closed 2026-09-08) — PERFORMANCE IS MEASURED ON ONE COHORT ───
+  // The cohort is the leads contacted inside the window. A reply counts for
+  // performance only if it came from a cohort lead. A lead contacted in July
+  // that replies in September is real inbound work, but it is not this
+  // period's cohort performing — folding it in stops the funnel nesting and
+  // divides two different universes.
+  //
+  // One helper, used here and by the ICP / campaign / seller blocks below.
+  // Those replies are not lost: `inboundRepliesReceived` carries them as
+  // inbox workload and is never added to a rate.
+  const cohort = getCohortReplies(contactedLeadIdSet, replies);
+  const repliedLeadIds = cohort.leads;
+  const positiveLeadIds = cohort.positive;
+  const positiveReplies = replies.filter(r => isPositiveReply(r) && r.lead_id && contactedLeadIdSet.has(r.lead_id));
+  const negativeReplies = replies.filter(r => isNegativeReply(r) && r.lead_id && contactedLeadIdSet.has(r.lead_id));
+  /** Inbox workload: every real inbound reply in the window, cohort or not. */
+  const inboundRepliesReceived = {
+    leads: new Set(replies.map(r => r.lead_id).filter(Boolean) as string[]).size,
+    events: replies.length,
+    fromOutsideCohort: cohort.outsideCohortLeads,
+  };
 
   // ── AUDIT BLOCK 10 — no source of truth ───────────────────────────────
   // `qualified` means a positive reply reached the CRM; it is not a booked
@@ -640,10 +660,15 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const callTouchCount = inScope(callTouchLeadIds);
   const lostCount = inScope(lostLeadIds);
 
-  const responseRate = contactedLeads > 0 ? Math.round((repliedCount / contactedLeads) * 100) : 0;
-  const positiveRate = repliedCount > 0 ? Math.round((positiveCount / repliedCount) * 100) : 0;
-  const conversionRate = contactedLeads > 0 ? Math.round((positiveCount / contactedLeads) * 100) : 0;
-  const acceptanceRate = contactedLeads > 0 ? Math.round((connectedLeads / contactedLeads) * 100) : 0;
+  // RC-4 — one decimal everywhere, and null (not 0%) when nobody was
+  // contacted. Math.round() to an integer turned 2.94% into 3% and
+  // disagreed with every other surface.
+  const responseRate = roundRate(replyRateOf(repliedCount, contactedLeads));
+  const positiveRate = roundRate(replyRateOf(positiveCount, repliedCount));
+  const conversionRate = roundRate(replyRateOf(positiveCount, contactedLeads));
+  // RC-4 + Block 4 — acceptance is accepted ÷ INVITED, which `acceptance`
+  // already computed. It never divided by contacted.
+  const acceptanceRate = roundRate(acceptance.rate);
 
   // ── Engine health signals ───────────────────────────────────────────────
   //
@@ -734,19 +759,40 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   for (const ch of ["linkedin", "email", "call"]) {
     if (!touchByChannel.has(ch)) touchByChannel.set(ch, new Set());
   }
+  // ── RC-5 (closed 2026-09-08) — SAME-CHANNEL attribution ────────────────
+  // `repliedByChannel` counted a lead reached on a channel that replied on
+  // ANY channel, which nearly doubled the email rate (58 leads instead of
+  // 32). A reply belongs to the channel it arrived on. Computed once, by the
+  // shared helper, restricted to the cohort like every other rate.
+  //
+  // Invitation acceptance and call connect rate are NOT reply rates and are
+  // deliberately absent from this map.
+  const sameChannelRate = {
+    li_dm: channelReplyRate("li_dm", allMessages, leadOfCampaign, replies, contactedLeadIdSet, win),
+    email: channelReplyRate("email", allMessages, leadOfCampaign, replies, contactedLeadIdSet, win),
+  };
+
   const channelBreakdown = Array.from(touchByChannel.entries())
     .filter(([ch]) => ["linkedin", "email", "call"].includes(ch))
     .map(([channel, contactedSet]) => {
       const sent      = sentCountByChannel.get(channel) ?? 0;
-      const replied   = repliedByChannel.get(channel)?.size ?? 0;
       const positive  = positiveByChannel.get(channel)?.size ?? 0;
       const contacted = contactedSet.size;
+      // Same-channel where the axis exists. "linkedin" here is the DM leg —
+      // an invitation cannot be replied to, so a LinkedIn reply is a DM reply.
+      const sc = channel === "email" ? sameChannelRate.email
+               : channel === "linkedin" ? sameChannelRate.li_dm
+               : null;
+      const replied = sc ? sc.replied : (repliedByChannel.get(channel)?.size ?? 0);
       return {
         channel, sent, contacted, replied, positive,
-        responseRate:  contacted > 0 ? Math.round((replied  / contacted) * 100) : 0,
-        conversionRate: contacted > 0 ? Math.round((positive / contacted) * 100) : 0,
+        /** Leads reached ON this channel — the same-channel denominator. */
+        reached: sc ? sc.reached : contacted,
+        // RC-4 + RC-5 — one decimal, same-channel numerator and denominator.
+        responseRate:  sc ? roundRate(sc.rate) : roundRate(replyRateOf(replied, contacted)),
+        conversionRate: roundRate(replyRateOf(positive, contacted)),
       };
-    }).sort((a, b) => b.responseRate - a.responseRate);
+    }).sort((a, b) => (b.responseRate ?? -1) - (a.responseRate ?? -1));
 
   // ── Calls breakdown (boss feedback 2026-05-27) ─────────────────────────
   // 5 sub-counts: pending / completed / answered / positive / negative.
@@ -1229,8 +1275,15 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       };
       icpAgg.set(id, g);
     }
+    // RC-1 (closed 2026-09-08) — this block used `leadsWithCampaign`, which
+    // is ENROLLED and lifetime. The per-ICP contacted therefore summed to
+    // 3,080 on every window, whatever the user selected, and four ICPs with
+    // real activity read zero. Contacted is now the window cohort, replies
+    // are the cohort's replies, and the identity
+    //   sum(ICP contacted) == workspace contacted
+    // holds because the cohort partitions by the lead's ICP.
     g.leads++;
-    if (leadsWithCampaign.has(l.id)) g.contacted++;
+    if (contactedLeadIdSet.has(l.id)) g.contacted++;
     if (repliedLeadIds.has(l.id)) g.replied++;
     if (positiveLeadIds.has(l.id)) g.positive++;
     if (linkedinSentLeadIds.has(l.id)) g.linkedinSent++;
@@ -1240,9 +1293,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
   const icpPerformance = Array.from(icpAgg.values()).map(g => ({
     ...g,
-    responseRate: g.contacted > 0 ? Math.round((g.replied / g.contacted) * 100) : 0,
-    conversionRate: g.contacted > 0 ? Math.round((g.positive / g.contacted) * 100) : 0,
-  })).sort((a, b) => b.conversionRate - a.conversionRate || b.leads - a.leads);
+    // RC-4 — one decimal, null when nobody was contacted.
+    responseRate: roundRate(replyRateOf(g.replied, g.contacted)),
+    conversionRate: roundRate(replyRateOf(g.positive, g.contacted)),
+  })).sort((a, b) => (b.responseRate ?? -1) - (a.responseRate ?? -1) || b.contacted - a.contacted);
 
   // ── Campaign performance (grouped by name) ─────────────────────────────
   // Per-campaign channel breakdown (boss feedback 2026-05-27): each
@@ -1358,13 +1412,21 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       negative: g.negative.size,
       avgStep: g.stepCount > 0 ? Math.round((g.stepSum / g.stepCount) * 10) / 10 : 0,
       totalSteps: g.totalSteps,
-      responseRate: g.leads.size > 0 ? Math.round((g.replied.size / g.leads.size) * 100) : 0,
-      conversionRate: g.leads.size > 0 ? Math.round((g.positive.size / g.leads.size) * 100) : 0,
+      // RC-2 (closed 2026-09-08) — this divided by `g.leads`, which is the
+      // flow's ENROLLED set. UK Growth AI Sales rendered 5% (20/398 enrolled)
+      // where the truth is 15.3% (20/131 contacted): a 3x understatement, and
+      // it reordered the ranking. `g.contactedLeads` is the window cohort and
+      // `g.leads` stays enrolled — two concepts, two sets, never reused.
+      responseRate: roundRate(replyRateOf(g.replied.size, g.contactedLeads.size)),
+      conversionRate: roundRate(replyRateOf(g.positive.size, g.contactedLeads.size)),
+      /** Explicit, so no caller has to infer it from leads − uncontacted. */
+      contacted: g.contactedLeads.size,
+      enrolled: g.leads.size,
       status,
       icp_profile_id: dominantIcp,
       icp_profile_name: dominantIcp ? (profileNameById.get(dominantIcp) ?? null) : null,
     };
-  }).sort((a, b) => b.conversionRate - a.conversionRate || b.leads - a.leads);
+  }).sort((a, b) => (b.responseRate ?? -1) - (a.responseRate ?? -1) || b.contacted - a.contacted);
 
   // Count flows per ICP — boss 2026-05-28: the ICP comparison table needs
   // a "Flows" column next to Leads so the operator sees how many distinct
@@ -1424,9 +1486,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       sellerAgg.set(c.seller_id, g);
     }
     if (c.lead_id) {
-      g.contacted.add(c.lead_id);
-      if (repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
-      if (positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
+      // RC-1 (closed 2026-09-08) — this added EVERY lead the seller has a
+      // flow for, which is Enrolled and lifetime: the seller column summed
+      // to 3,081 on every window. Only leads this seller actually messaged
+      // inside the window belong here, so that
+      //   sum(seller contacted) + unattributed == workspace contacted.
+      if (contactedLeadIdSet.has(c.lead_id)) g.contacted.add(c.lead_id);
+      // Replies stay on the cohort (RC-3): a reply only counts for a seller
+      // if that seller contacted the lead inside the window.
+      if (g.contacted.has(c.lead_id) && repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
+      if (g.contacted.has(c.lead_id) && positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
       // Connection invite leg — LinkedIn campaigns send a CR as step 0.
       // This is campaign-channel-specific (only linkedin campaigns send CRs).
       if ((c.channel ?? "linkedin") === "linkedin") {
@@ -1979,7 +2048,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   if (channelBreakdown.length >= 2) {
     const best = channelBreakdown[0];
     const worst = channelBreakdown[channelBreakdown.length - 1];
-    const gap = best.responseRate - worst.responseRate;
+    const gap = (best.responseRate ?? 0) - (worst.responseRate ?? 0);
     if (gap >= 15) insights.push({
       tone: "neutral",
       kind: "channelGap",
@@ -2039,8 +2108,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       // AUDIT BLOCK 3 — leads vs events are different figures and the UI has
       // to say which it is rendering.
       replyEvents: replies.length,
-      // AUDIT BLOCK 9 — replies in the window that no scope can claim.
-      unattributedReplies: Math.max(0, new Set(repliesInWindowAll.map(r => r.lead_id).filter(Boolean)).size - repliedCount),
+      // AUDIT BLOCK 9 — cohort replies that no seller can claim. With RC-3
+      // this is genuinely "unattributed", not "outside the cohort": those are
+      // reported separately as inbox workload below.
+      unattributedReplies: Math.max(0, repliedCount - sellerPerformance.reduce((a, s) => a + s.replied, 0)),
+      // RC-3 — inbox workload. Real inbound replies received in the window,
+      // cohort or not. NEVER added to a rate; it answers "how much came in",
+      // not "how did this period's cohort perform".
+      inboundRepliesReceived: inboundRepliesReceived.leads,
+      inboundReplyEvents: inboundRepliesReceived.events,
+      repliesFromOutsideCohort: inboundRepliesReceived.fromOutsideCohort,
     },
     deltas,
     // Funnel — boss feedback 2026-05-27 round 3 ("too many bars, pongamos

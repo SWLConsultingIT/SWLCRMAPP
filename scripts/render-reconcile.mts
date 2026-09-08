@@ -104,7 +104,7 @@ async function run() {
 
     const h = d.headline as Record<string, unknown>;
     const li = d.linkedinConnections as { sent: number; accepted: number; rate: number | null };
-    const chan = (k: string) => (d.channelBreakdown as { channel: string; sent: number; contacted: number; replied: number }[])
+    const chan = (k: string) => (d.channelBreakdown as { channel: string; sent: number; contacted: number; reached: number; replied: number; responseRate: number | null }[])
       .find(x => x.channel === k);
     const calls = d.callsBreakdown as { made: number; answered: number };
 
@@ -131,8 +131,9 @@ async function run() {
     // under "linkedin", so the DM leg is reported here as the pair it can
     // produce and flagged; the split lives in the approved Channels design.
     const em = chan("email");
-    if (em) cmp(rows, "Email reply rate % (reached-based)", pct(em.replied, em.contacted), ind.emailReplyRate,
-      "dashboard counts a lead reached by email that replied on ANY channel");
+    const dm = chan("linkedin");
+    if (dm) cmp(rows, "LinkedIn DM reply rate %", dm.responseRate, ind.dmReplyRate);
+    if (em) cmp(rows, "Email reply rate %", em.responseRate, ind.emailReplyRate);
 
     for (const r of rows) allRows.push({ ...r, case: c.id });
 

@@ -5,107 +5,206 @@ rendered = lib/dashboard-data.ts (the function app/page.tsx awaits)   independen
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C1  Last 30 days · All    2026-08-10 → 2026-09-08    (11402 ms)
+C1  30 days · All    2026-08-10 → 2026-09-08    (11593 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             2108          2108          0       GREEN  
   Enrolled                              3080          3080          0       GREEN  
-  Replies (leads)                       62            46            16      RED    
+  Replies (leads)                       46            46            0       GREEN  
   Reply events                          76            76            0       GREEN  
-  Reply Rate %                          3             2.2           0.8     RED    
+  Reply Rate %                          2.2           2.2           0       GREEN  
   Positive                              1             1             0       GREEN  
   LinkedIn invited                      526           526           0       GREEN  
   LinkedIn accepted                     13            13            0       GREEN  
   Acceptance Rate %                     2.47148288973384032.5           0       GREEN  
-  Calls Attempted                       284           283           1       RED    
-  Calls Connected                       125           124           1       RED    
-  Connect Rate %                        44            43.8          0.2     RED    
-  Unattributed replies                  0             16            -16     RED    
+  Calls Attempted                       284           284           0       GREEN  
+  Calls Connected                       125           125           0       GREEN  
+  Connect Rate %                        44            44            0       GREEN  
+  Unattributed replies                  0             0             0       GREEN  
   Meetings                              not_measured  not_measured  —       GRAY   
   Won                                   not_measured  not_measured  —       GRAY   
   Lost                                  not_measured  not_measured  —       GRAY   
-  Email reply rate % (reached-based)    1.9           0.7           1.2     RED      ← dashboard counts a lead reached by email that replied on ANY channel
+  LinkedIn DM reply rate %              17.1          17.1          0       GREEN  
+  Email reply rate %                    0.7           0.7           0       GREEN  
 
-  ICPs      8 rows · contacted 3080
-    RED  sum(ICPs).contacted 3080 vs workspace 2108 · diff 972
+  ICPs      9 rows · contacted 2108
+    GREEN  sum(ICPs).contacted 2108 vs workspace 2108 · diff 0
   CAMPAIGNS 13 rows · contacted 2108 · enrolled 3081
-    denominator check · "UK Growth AI Sales -  Multichannel" rendered 5% (20/398 enrolled) vs 15.3% (20/131 contacted)
+    denominator check · "UK Growth AI Sales -  Multichannel" rendered 3.1% (4/398 enrolled) vs 3.1% (4/131 contacted)
     GREEN  sum(flows).contacted 2108 vs workspace 2108 · diff 0
 
-  SELLERS   7 rows · contacted 3081 · replies 62
-    RED  sum(sellers).contacted 3081 vs workspace 2108 · diff 973
+  SELLERS   7 rows · contacted 2108 · replies 46
+    GREEN  sum(sellers).contacted 2108 vs workspace 2108 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C2  Last 7 days · All    2026-09-02 → 2026-09-08    (11562 ms)
+C2  7 days · All    2026-09-02 → 2026-09-08    (11036 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             722           722           0       GREEN  
   Enrolled                              3080          3080          0       GREEN  
-  Replies (leads)                       6             4             2       RED    
+  Replies (leads)                       4             4             0       GREEN  
   Reply events                          8             8             0       GREEN  
-  Reply Rate %                          1             0.6           0.4     RED    
+  Reply Rate %                          0.6           0.6           0       GREEN  
   Positive                              1             1             0       GREEN  
   LinkedIn invited                      128           128           0       GREEN  
   LinkedIn accepted                     1             1             0       GREEN  
   Acceptance Rate %                     0.78125       0.8           0       GREEN  
-  Calls Attempted                       188           187           1       RED    
-  Calls Connected                       77            76            1       RED    
-  Connect Rate %                        41            40.6          0.4     RED    
-  Unattributed replies                  0             2             -2      RED    
+  Calls Attempted                       188           188           0       GREEN  
+  Calls Connected                       77            77            0       GREEN  
+  Connect Rate %                        41            41            0       GREEN  
+  Unattributed replies                  0             0             0       GREEN  
   Meetings                              not_measured  not_measured  —       GRAY   
   Won                                   not_measured  not_measured  —       GRAY   
   Lost                                  not_measured  not_measured  —       GRAY   
-  Email reply rate % (reached-based)    0.2           0.2           0       GREEN  
+  LinkedIn DM reply rate %              8.3           8.3           0       GREEN  
+  Email reply rate %                    0.2           0.2           0       GREEN  
 
-  ICPs      8 rows · contacted 3080
-    RED  sum(ICPs).contacted 3080 vs workspace 722 · diff 2358
+  ICPs      9 rows · contacted 722
+    GREEN  sum(ICPs).contacted 722 vs workspace 722 · diff 0
   CAMPAIGNS 13 rows · contacted 722 · enrolled 3081
-    denominator check · "Private Equity & VC Firms — USA - " rendered 0% (1/1166 enrolled) vs 0.2% (1/494 contacted)
+    denominator check · "Private Equity & VC Firms — USA - " rendered 0.2% (1/1166 enrolled) vs 0.2% (1/494 contacted)
     GREEN  sum(flows).contacted 722 vs workspace 722 · diff 0
 
-  SELLERS   7 rows · contacted 3081 · replies 6
-    RED  sum(sellers).contacted 3081 vs workspace 722 · diff 2359
+  SELLERS   7 rows · contacted 722 · replies 4
+    GREEN  sum(sellers).contacted 722 vs workspace 722 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C6  All time    2000-01-01 → 2026-09-08    (11241 ms)
+C3  30 days · seller Lucia    2026-08-10 → 2026-09-08    (11664 ms)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Metric                                Rendered      Independent   Diff    Status 
+  Contacted                             115           115           0       GREEN  
+  Enrolled                              175           175           0       GREEN  
+  Replies (leads)                       11            11            0       GREEN  
+  Reply events                          15            15            0       GREEN  
+  Reply Rate %                          9.6           9.6           0       GREEN  
+  Positive                              0             0             0       GREEN  
+  LinkedIn invited                      113           113           0       GREEN  
+  LinkedIn accepted                     5             5             0       GREEN  
+  Acceptance Rate %                     4.4247787610619474.4           0       GREEN  
+  Calls Attempted                       284           64            220     RED    
+  Calls Connected                       125           30            95      RED    
+  Connect Rate %                        44            46.9          -2.9    RED    
+  Unattributed replies                  0             0             0       GREEN  
+  Meetings                              not_measured  not_measured  —       GRAY   
+  Won                                   not_measured  not_measured  —       GRAY   
+  Lost                                  not_measured  not_measured  —       GRAY   
+  LinkedIn DM reply rate %              25            25            0       GREEN  
+  Email reply rate %                    0             0             0       GREEN  
+
+  ICPs      9 rows · contacted 115
+    GREEN  sum(ICPs).contacted 115 vs workspace 115 · diff 0
+  CAMPAIGNS 3 rows · contacted 115 · enrolled 175
+    denominator check · "LATAM Cold Calling Sales Engine" rendered null% (0/59 enrolled) vs 0% (0/0 contacted)
+    GREEN  sum(flows).contacted 115 vs workspace 115 · diff 0
+
+  SELLERS   1 rows · contacted 115 · replies 11
+    GREEN  sum(sellers).contacted 115 vs workspace 115 · diff 0
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+C4  30 days · campaign Odoo    2026-08-10 → 2026-09-08    (11008 ms)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Metric                                Rendered      Independent   Diff    Status 
+  Contacted                             97            97            0       GREEN  
+  Enrolled                              99            99            0       GREEN  
+  Replies (leads)                       8             8             0       GREEN  
+  Reply events                          14            14            0       GREEN  
+  Reply Rate %                          8.2           8.2           0       GREEN  
+  Positive                              0             0             0       GREEN  
+  LinkedIn invited                      49            49            0       GREEN  
+  LinkedIn accepted                     3             3             0       GREEN  
+  Acceptance Rate %                     6.1224489795918366.1           0       GREEN  
+  Calls Attempted                       284           20            264     RED    
+  Calls Connected                       125           14            111     RED    
+  Connect Rate %                        44            70            -26     RED    
+  Unattributed replies                  0             0             0       GREEN  
+  Meetings                              not_measured  not_measured  —       GRAY   
+  Won                                   not_measured  not_measured  —       GRAY   
+  Lost                                  not_measured  not_measured  —       GRAY   
+  LinkedIn DM reply rate %              26.9          26.9          0       GREEN  
+  Email reply rate %                    0             0             0       GREEN  
+
+  ICPs      9 rows · contacted 97
+    GREEN  sum(ICPs).contacted 97 vs workspace 97 · diff 0
+  CAMPAIGNS 1 rows · contacted 97 · enrolled 99
+    denominator check · "Odoo Implementation — Argentina - " rendered 8.2% (8/99 enrolled) vs 8.2% (8/97 contacted)
+    GREEN  sum(flows).contacted 97 vs workspace 97 · diff 0
+
+  SELLERS   2 rows · contacted 97 · replies 8
+    GREEN  sum(sellers).contacted 97 vs workspace 97 · diff 0
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+C5  30 days · ICP Odoo    2026-08-10 → 2026-09-08    (11309 ms)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Metric                                Rendered      Independent   Diff    Status 
+  Contacted                             95            95            0       GREEN  
+  Enrolled                              97            97            0       GREEN  
+  Replies (leads)                       8             8             0       GREEN  
+  Reply events                          14            14            0       GREEN  
+  Reply Rate %                          8.4           8.4           0       GREEN  
+  Positive                              0             0             0       GREEN  
+  LinkedIn invited                      49            49            0       GREEN  
+  LinkedIn accepted                     3             3             0       GREEN  
+  Acceptance Rate %                     6.1224489795918366.1           0       GREEN  
+  Calls Attempted                       284           18            266     RED    
+  Calls Connected                       125           12            113     RED    
+  Connect Rate %                        44            66.7          -22.7   RED    
+  Unattributed replies                  0             0             0       GREEN  
+  Meetings                              not_measured  not_measured  —       GRAY   
+  Won                                   not_measured  not_measured  —       GRAY   
+  Lost                                  not_measured  not_measured  —       GRAY   
+  LinkedIn DM reply rate %              26.9          26.9          0       GREEN  
+  Email reply rate %                    0             0             0       GREEN  
+
+  ICPs      1 rows · contacted 95
+    GREEN  sum(ICPs).contacted 95 vs workspace 95 · diff 0
+  CAMPAIGNS 1 rows · contacted 95 · enrolled 97
+    denominator check · "Odoo Implementation — Argentina - " rendered 8.4% (8/97 enrolled) vs 8.4% (8/95 contacted)
+    GREEN  sum(flows).contacted 95 vs workspace 95 · diff 0
+
+  SELLERS   2 rows · contacted 95 · replies 8
+    GREEN  sum(sellers).contacted 95 vs workspace 95 · diff 0
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+C6  All time    2000-01-01 → 2026-09-08    (11058 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             2977          2977          0       GREEN  
   Enrolled                              3080          3080          0       GREEN  
   Replies (leads)                       104           104           0       GREEN  
   Reply events                          131           131           0       GREEN  
-  Reply Rate %                          3             3.5           -0.5    RED    
+  Reply Rate %                          3.5           3.5           0       GREEN  
   Positive                              4             4             0       GREEN  
   LinkedIn invited                      1467          1467          0       GREEN  
   LinkedIn accepted                     127           127           0       GREEN  
   Acceptance Rate %                     8.6571233810497618.7           0       GREEN  
-  Calls Attempted                       663           662           1       RED    
-  Calls Connected                       409           408           1       RED    
-  Connect Rate %                        61.7          61.6          0.1     RED    
+  Calls Attempted                       663           663           0       GREEN  
+  Calls Connected                       409           409           0       GREEN  
+  Connect Rate %                        61.7          61.7          0       GREEN  
   Unattributed replies                  0             0             0       GREEN  
   Meetings                              not_measured  not_measured  —       GRAY   
   Won                                   not_measured  not_measured  —       GRAY   
   Lost                                  not_measured  not_measured  —       GRAY   
-  Email reply rate % (reached-based)    3.5           1.9           1.6     RED      ← dashboard counts a lead reached by email that replied on ANY channel
+  LinkedIn DM reply rate %              17.9          17.9          0       GREEN  
+  Email reply rate %                    1.9           1.9           0       GREEN  
 
-  ICPs      8 rows · contacted 3080
-    RED  sum(ICPs).contacted 3080 vs workspace 2977 · diff 103
+  ICPs      9 rows · contacted 2977
+    GREEN  sum(ICPs).contacted 2977 vs workspace 2977 · diff 0
   CAMPAIGNS 13 rows · contacted 2977 · enrolled 3081
-    denominator check · "Private Equity & VC Firms — USA - " rendered 0% (5/1166 enrolled) vs 0.4% (5/1123 contacted)
+    denominator check · "Private Equity & VC Firms — USA - " rendered 0.4% (5/1166 enrolled) vs 0.4% (5/1123 contacted)
     GREEN  sum(flows).contacted 2977 vs workspace 2977 · diff 0
 
-  SELLERS   7 rows · contacted 3081 · replies 104
-    RED  sum(sellers).contacted 3081 vs workspace 2977 · diff 104
+  SELLERS   7 rows · contacted 2977 · replies 104
+    GREEN  sum(sellers).contacted 2977 vs workspace 2977 · diff 0
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-C7  Custom 1–20 Aug    2026-08-01 → 2026-08-20    (11067 ms)
+C7  Custom 1–20 Aug    2026-08-01 → 2026-08-20    (11068 ms)
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Metric                                Rendered      Independent   Diff    Status 
   Contacted                             543           543           0       GREEN  
   Enrolled                              3080          3080          0       GREEN  
   Replies (leads)                       28            28            0       GREEN  
   Reply events                          35            35            0       GREEN  
-  Reply Rate %                          5             5.2           -0.2    RED    
+  Reply Rate %                          5.2           5.2           0       GREEN  
   Positive                              0             0             0       GREEN  
   LinkedIn invited                      401           401           0       GREEN  
   LinkedIn accepted                     17            17            0       GREEN  
@@ -117,48 +216,30 @@ C7  Custom 1–20 Aug    2026-08-01 → 2026-08-20    (11067 ms)
   Meetings                              not_measured  not_measured  —       GRAY   
   Won                                   not_measured  not_measured  —       GRAY   
   Lost                                  not_measured  not_measured  —       GRAY   
-  Email reply rate % (reached-based)    5.2           2.8           2.4     RED      ← dashboard counts a lead reached by email that replied on ANY channel
+  LinkedIn DM reply rate %              18.8          18.8          0       GREEN  
+  Email reply rate %                    2.8           2.8           0       GREEN  
 
-  ICPs      8 rows · contacted 3080
-    RED  sum(ICPs).contacted 3080 vs workspace 543 · diff 2537
+  ICPs      9 rows · contacted 543
+    GREEN  sum(ICPs).contacted 543 vs workspace 543 · diff 0
   CAMPAIGNS 13 rows · contacted 543 · enrolled 3081
-    denominator check · "Private Equity & VC Firms — USA - " rendered 0% (0/1166 enrolled) vs 0% (0/0 contacted)
+    denominator check · "Private Equity & VC Firms — USA - " rendered null% (0/1166 enrolled) vs 0% (0/0 contacted)
     GREEN  sum(flows).contacted 543 vs workspace 543 · diff 0
 
-  SELLERS   7 rows · contacted 3081 · replies 28
-    RED  sum(sellers).contacted 3081 vs workspace 543 · diff 2538
+  SELLERS   7 rows · contacted 543 · replies 28
+    GREEN  sum(sellers).contacted 543 vs workspace 543 · diff 0
 
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-  80 comparisons · GREEN 40 · YELLOW 0 · GRAY 12 · RED 28
+  147 comparisons · GREEN 117 · YELLOW 0 · GRAY 21 · RED 9
 
-  28 RED — STOP. Rendered and independent values disagree.
+  9 RED — STOP. Rendered and independent values disagree.
 
-    C1               Replies (leads)                        rendered 62  independent 46  diff 16
-    C1               Reply Rate %                           rendered 3  independent 2.2  diff 0.8
-    C1               Calls Attempted                        rendered 284  independent 283  diff 1
-    C1               Calls Connected                        rendered 125  independent 124  diff 1
-    C1               Connect Rate %                         rendered 44  independent 43.8  diff 0.2
-    C1               Unattributed replies                   rendered 0  independent 16  diff -16
-    C1               Email reply rate % (reached-based)     rendered 1.9  independent 0.7  diff 1.2
-    C1               ICP sum contacted == workspace         rendered 3080  independent 2108  diff 972
-    C1               seller sum contacted == workspace      rendered 3081  independent 2108  diff 973
-    C2               Replies (leads)                        rendered 6  independent 4  diff 2
-    C2               Reply Rate %                           rendered 1  independent 0.6  diff 0.4
-    C2               Calls Attempted                        rendered 188  independent 187  diff 1
-    C2               Calls Connected                        rendered 77  independent 76  diff 1
-    C2               Connect Rate %                         rendered 41  independent 40.6  diff 0.4
-    C2               Unattributed replies                   rendered 0  independent 2  diff -2
-    C2               ICP sum contacted == workspace         rendered 3080  independent 722  diff 2358
-    C2               seller sum contacted == workspace      rendered 3081  independent 722  diff 2359
-    C6               Reply Rate %                           rendered 3  independent 3.5  diff -0.5
-    C6               Calls Attempted                        rendered 663  independent 662  diff 1
-    C6               Calls Connected                        rendered 409  independent 408  diff 1
-    C6               Connect Rate %                         rendered 61.7  independent 61.6  diff 0.1
-    C6               Email reply rate % (reached-based)     rendered 3.5  independent 1.9  diff 1.6
-    C6               ICP sum contacted == workspace         rendered 3080  independent 2977  diff 103
-    C6               seller sum contacted == workspace      rendered 3081  independent 2977  diff 104
-    C7               Reply Rate %                           rendered 5  independent 5.2  diff -0.2
-    C7               Email reply rate % (reached-based)     rendered 5.2  independent 2.8  diff 2.4
-    C7               ICP sum contacted == workspace         rendered 3080  independent 543  diff 2537
-    C7               seller sum contacted == workspace      rendered 3081  independent 543  diff 2538
+    C3               Calls Attempted                        rendered 284  independent 64  diff 220
+    C3               Calls Connected                        rendered 125  independent 30  diff 95
+    C3               Connect Rate %                         rendered 44  independent 46.9  diff -2.9
+    C4               Calls Attempted                        rendered 284  independent 20  diff 264
+    C4               Calls Connected                        rendered 125  independent 14  diff 111
+    C4               Connect Rate %                         rendered 44  independent 70  diff -26
+    C5               Calls Attempted                        rendered 284  independent 18  diff 266
+    C5               Calls Connected                        rendered 125  independent 12  diff 113
+    C5               Connect Rate %                         rendered 44  independent 66.7  diff -22.7
 

@@ -43,3 +43,8 @@ next-env.d.ts
 # Local polish session backups (never commit)
 _backups/
 workflows/archive/
+
+# Local auth state for the Delivery-3 visual validation. Live session
+# cookies/tokens — never commit.
+.auth/
+.env.prod-readonly.local

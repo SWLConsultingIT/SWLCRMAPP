@@ -1,5 +1,5 @@
 {
-  "label": "c2-7d-all",
+  "label": "C2",
   "tenant": "7c02e222-be59-416d-9434-acf4685f8590",
   "from": "2026-09-02",
   "to": "2026-09-08",
@@ -24,20 +24,22 @@
   "emailReplyRate": 0.2,
   "emailNum": 1,
   "emailDen": 570,
-  "callsAttempted": 187,
-  "callsConnected": 76,
-  "connectRate": 40.6,
+  "callsAttempted": 188,
+  "callsConnected": 77,
+  "connectRate": 41,
   "sellerTotals": {
     "contacted": 722,
     "li": 152,
     "email": 570,
-    "calls": 187,
+    "calls": 188,
     "replies": 4,
     "pos": 1,
-    "queue": 1553,
-    "conn": 76,
+    "queue": 1555,
+    "conn": 77,
     "uncl": 43
   },
-  "unattributedReplies": 2,
+  "unattributedReplies": 0,
+  "inboundRepliesReceived": 6,
+  "repliesFromOutsideCohort": 2,
   "callsUnattributed": 0
 }

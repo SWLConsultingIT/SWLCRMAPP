@@ -638,7 +638,7 @@ export default async function DashboardPage({
                   value={`${data.velocity.acceptanceRate}%`}
                   unit={t("dashx.pulse.acceptanceRateUnit")}
                   hint={t("dashx.pulse.acceptanceRateHint", { sent: data.linkedinConnections.sent, accepted: data.linkedinConnections.accepted })}
-                  tone={data.velocity.acceptanceRate >= 30 ? "success" : "neutral"}
+                  tone={(data.velocity.acceptanceRate ?? 0) >= 30 ? "success" : "neutral"}
                 />
               </div>
               {/* LinkedIn messaging layer (post-acceptance) */}
@@ -721,7 +721,8 @@ export default async function DashboardPage({
               // used replied/accepted → different denominator → didn't match
               // the headline metric (boss 2026-06-08: "no coincide con la
               // métrica global").
-              const replyPct = headline.responseRate;
+              // RC-4 — a rate with no denominator is "—", not 0%.
+              const replyPct = headline.responseRate ?? 0;
               return t("dashx.funnel.insight", { acceptPct, replyPct, won });
             })()}>
             <Funnel
@@ -1439,9 +1440,9 @@ export default async function DashboardPage({
         insight={(() => {
           const eligible = data.channelBreakdown.filter(c => c.contacted >= 5);
           if (eligible.length < 2) return null;
-          const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+          const sorted = [...eligible].sort((a, b) => (b.responseRate ?? -1) - (a.responseRate ?? -1));
           const best = sorted[0]; const worst = sorted[sorted.length - 1];
-          const gap = best.responseRate - worst.responseRate;
+          const gap = (best.responseRate ?? 0) - (worst.responseRate ?? 0);
           if (gap < 5) return null;
           const bestLabel = t(`dashx.ch.${best.channel}`) === `dashx.ch.${best.channel}` ? best.channel : t(`dashx.ch.${best.channel}`);
           const worstLabel = t(`dashx.ch.${worst.channel}`) === `dashx.ch.${worst.channel}` ? worst.channel : t(`dashx.ch.${worst.channel}`);
@@ -1478,7 +1479,7 @@ export default async function DashboardPage({
             <EmptyHint>{t("dashx.channels.empty")}</EmptyHint>
           ) : (() => {
             const topChannel = [...data.channelBreakdown]
-              .sort((a, b) => b.responseRate - a.responseRate || b.positive - a.positive)[0]?.channel;
+              .sort((a, b) => (b.responseRate ?? -1) - (a.responseRate ?? -1) || b.positive - a.positive)[0]?.channel;
             return data.channelBreakdown.map(ch => {
               // Calls get the dedicated 5-sub-count card; other channels
               // keep the standard ChannelCard.
@@ -1536,11 +1537,15 @@ export default async function DashboardPage({
               const conn = data.linkedinConnections ?? { sent: 0, accepted: 0 };
               const rest = rows.filter(r => r.channel !== "linkedin");
               const split: typeof rows = [];
+              // RC-4/RC-5 — the invitation leg carries ACCEPTANCE, not a reply
+              // rate, and shares the shape so the bar can render it. It is
+              // labelled separately in the UI and never ranked against a reply
+              // rate.
               if (conn.sent > 0) split.push({
-                channel: "linkedin_cr", sent: conn.sent, contacted: conn.sent,
+                channel: "linkedin_cr", sent: conn.sent, contacted: conn.sent, reached: conn.sent,
                 replied: conn.accepted, positive: 0,
-                responseRate: conn.sent > 0 ? Math.round((conn.accepted / conn.sent) * 100) : 0,
-                conversionRate: 0,
+                responseRate: conn.rate,
+                conversionRate: null,
               });
               split.push({ ...li, channel: "linkedin_msg", sent: Math.max(0, li.sent - conn.sent) });
               return [...split, ...rest];
@@ -1609,7 +1614,7 @@ export default async function DashboardPage({
         {(() => {
           const eligible = data.sellerPerformance.filter(s => s.contacted >= 20);
           if (eligible.length < 2) return null;
-          const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+          const sorted = [...eligible].sort((a, b) => (b.responseRate ?? -1) - (a.responseRate ?? -1));
           const top = sorted[0]; const bottom = sorted[sorted.length - 1];
           const gap = top.responseRate - bottom.responseRate;
           const topText = top.responseRate > 0
@@ -1630,7 +1635,7 @@ export default async function DashboardPage({
           insight={(() => {
             const eligible = data.sellerPerformance.filter(s => s.contacted >= 20);
             if (eligible.length < 2) return null;
-            const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+            const sorted = [...eligible].sort((a, b) => (b.responseRate ?? -1) - (a.responseRate ?? -1));
             const top = sorted[0]; const bottom = sorted[sorted.length - 1];
             const gap = top.responseRate - bottom.responseRate;
             return t("dashx.seller.insight", { name: top.name, rate: top.responseRate, gap });

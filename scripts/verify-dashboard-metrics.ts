@@ -345,8 +345,8 @@ async function main() {
   console.log("  " + H[0].padEnd(20) + H.slice(1).map(h => h.padStart(10)).join(""));
   const T = { contacted: 0, li: 0, email: 0, calls: 0, replies: 0, pos: 0, queue: 0, conn: 0, uncl: 0 };
   for (const [sid, g] of [...bySeller].sort((a, b) => b[1].contacted.size - a[1].contacted.size)) {
-    const rep = [...g.contacted].filter(l => REPLIED.has(l)).length;
-    const pos = [...g.contacted].filter(l => POSITIVE.has(l)).length;
+    const rep = [...g.contacted].filter(l => REPLIED_COHORT.has(l)).length;
+    const pos = [...g.contacted].filter(l => POSITIVE.has(l) && CONTACTED.has(l)).length;
     const q = queue.get(sid) ?? 0;
     T.contacted += g.contacted.size; T.li += g.li; T.email += g.email; T.calls += g.calls;
     T.replies += rep; T.pos += pos; T.queue += q; T.conn += g.connected; T.uncl += g.unclassified;
@@ -364,7 +364,8 @@ async function main() {
   recon("contacted: sum(sellers) == workspace", T.contacted, CONTACTED.size);
   recon("calls: sum(sellers) + unattributed == real calls", T.calls, ATTEMPTED.length, callsUnattributed);
   recon("connected: sum(sellers) == workspace", T.conn, CONNECTED.length);
-  recon("replies: sum(sellers) + unattributed == replies in window", T.replies, REPLIED.size, REPLIED.size - T.replies);
+  recon("replies: sum(sellers) + unattributed == COHORT replies", T.replies, REPLIED_COHORT.size, REPLIED_COHORT.size - T.replies);
+  console.log(`  NOTE  ${REPLIED.size - REPLIED_COHORT.size} inbound replies came from leads contacted before the window — inbox workload, not cohort performance.`);
 
   /* ── CAMPAIGNS ────────────────────────────────────────────────────── */
   console.log(`\n${"─".repeat(100)}\nCAMPAIGN RECONCILIATION   (reply rate = replied leads ÷ CONTACTED leads)\n`);
@@ -381,8 +382,8 @@ async function main() {
   console.log("  " + "Flow".padEnd(46) + ["Enrolled", "Contacted", "Replies", "Rate", "Pos"].map(h => h.padStart(11)).join(""));
   let campContacted = 0;
   for (const [name, e] of [...byCamp].filter(([, e]) => e.contacted.size > 0).sort((a, b) => b[1].contacted.size - a[1].contacted.size)) {
-    const rep = [...e.contacted].filter(l => REPLIED.has(l)).length;
-    const pos = [...e.contacted].filter(l => POSITIVE.has(l)).length;
+    const rep = [...e.contacted].filter(l => REPLIED_COHORT.has(l)).length;
+    const pos = [...e.contacted].filter(l => POSITIVE.has(l) && CONTACTED.has(l)).length;
     campContacted += e.contacted.size;
     console.log("  " + name.slice(0, 45).padEnd(46) +
       [e.enrolled.size, e.contacted.size, rep,
@@ -406,8 +407,8 @@ async function main() {
   console.log("  " + "ICP".padEnd(40) + ["Contacted", "Replies", "Rate", "Pos"].map(h => h.padStart(11)).join(""));
   let icpContacted = 0;
   for (const [k, set] of [...byIcp].sort((a, b) => b[1].size - a[1].size)) {
-    const rep = [...set].filter(l => REPLIED.has(l)).length;
-    const pos = [...set].filter(l => POSITIVE.has(l)).length;
+    const rep = [...set].filter(l => REPLIED_COHORT.has(l)).length;
+    const pos = [...set].filter(l => POSITIVE.has(l) && CONTACTED.has(l)).length;
     icpContacted += set.size;
     console.log("  " + (icpName.get(k) ?? "No ICP").slice(0, 39).padEnd(40) +
       [set.size, rep, (rep / Math.max(1, set.size) * 100).toFixed(1) + "%", pos]
@@ -438,7 +439,7 @@ async function main() {
     const exp = JSON.parse(readFileSync(expectPath, "utf8")) as Record<string, number>;
     const actual: Record<string, number> = {
       contacted: CONTACTED.size, enrolled: ENROLLED.size, replied: REPLIED_COHORT.size,
-      positive: POSITIVE.size, invited: INVITED.size, accepted: ACCEPTED,
+      positive: new Set([...POSITIVE].filter(l => CONTACTED.has(l))).size, invited: INVITED.size, accepted: ACCEPTED,
       callsAttempted: ATTEMPTED.length, callsConnected: CONNECTED.length,
     };
     for (const [k, want] of Object.entries(exp)) {
@@ -458,14 +459,21 @@ async function main() {
       contacted: CONTACTED.size, enrolled: ENROLLED.size,
       replied: REPLIED_COHORT.size, repliedInWindow: REPLIED.size, replyEvents: inbound.length,
       replyRate: +(REPLIED_COHORT.size / Math.max(1, CONTACTED.size) * 100).toFixed(1),
-      positive: POSITIVE.size,
+      positive: new Set([...POSITIVE].filter(l => CONTACTED.has(l))).size,
       invited: INVITED.size, accepted: ACCEPTED,
       acceptanceRate: INVITED.size ? +(ACCEPTED / INVITED.size * 100).toFixed(1) : null,
       dmReplyRate: dm.pct, dmNum: dm.num, dmDen: dm.den,
       emailReplyRate: em.pct, emailNum: em.num, emailDen: em.den,
       callsAttempted: ATTEMPTED.length, callsConnected: CONNECTED.length,
       connectRate: +(CONNECTED.length / Math.max(1, ATTEMPTED.length) * 100).toFixed(1),
-      sellerTotals: T, unattributedReplies: REPLIED.size - T.replies, callsUnattributed,
+      sellerTotals: T,
+      // RC-3 — unattributed is a COHORT reply no seller can claim. Replies
+      // from leads contacted before the window are inbox workload, reported
+      // on their own line and never folded into a rate.
+      unattributedReplies: Math.max(0, REPLIED_COHORT.size - T.replies),
+      inboundRepliesReceived: REPLIED.size,
+      repliesFromOutsideCohort: REPLIED.size - REPLIED_COHORT.size,
+      callsUnattributed,
     }, null, 2) + "\n");
     console.log(`\n  snapshot → ${outPath}`);
   }

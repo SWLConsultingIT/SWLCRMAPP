@@ -308,8 +308,8 @@ export async function GET(req: NextRequest) {
         ["Replied",              headline.repliedCount],
         ["Positive",             headline.positiveCount],
         ["Won",                  headline.wonCount],
-        ["Response rate",        pct(headline.responseRate)],
-        ["Conversion rate",      pct(headline.conversionRate)],
+        ["Response rate",        pct((headline.responseRate ?? 0))],
+        ["Conversion rate",      pct((headline.conversionRate ?? 0))],
       ]);
     }
 
@@ -374,7 +374,7 @@ export async function GET(req: NextRequest) {
         ["Channel", "Sent", "Contacted", "Replied", "Positive", "Response rate", "Conv. rate"],
         channelBreakdown.map(r => [
           r.channel, r.sent, r.contacted, r.replied, r.positive,
-          pct(r.responseRate), pct(r.conversionRate),
+          pct((r.responseRate ?? 0)), pct((r.conversionRate ?? 0)),
         ]),
       );
     }
@@ -396,14 +396,14 @@ export async function GET(req: NextRequest) {
     if (has("channels.email") && chMap["email"]) {
       const e = chMap["email"];
       addSection(ws, "EMAIL", ["Sent", "Contacted", "Replied", "Positive", "Response rate", "Conv. rate"], [
-        [e.sent, e.contacted, e.replied, e.positive, pct(e.responseRate), pct(e.conversionRate)],
+        [e.sent, e.contacted, e.replied, e.positive, pct((e.responseRate ?? 0)), pct((e.conversionRate ?? 0))],
       ]);
     }
 
     if (has("channels.linkedin") && chMap["linkedin"]) {
       const l = chMap["linkedin"];
       addSection(ws, "LINKEDIN", ["Sent", "Contacted", "Replied", "Positive", "Response rate", "Conv. rate"], [
-        [l.sent, l.contacted, l.replied, l.positive, pct(l.responseRate), pct(l.conversionRate)],
+        [l.sent, l.contacted, l.replied, l.positive, pct((l.responseRate ?? 0)), pct((l.conversionRate ?? 0))],
       ]);
     }
 
