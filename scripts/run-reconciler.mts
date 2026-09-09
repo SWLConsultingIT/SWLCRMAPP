@@ -24,23 +24,33 @@ const URL_ = process.env.SUPABASE_URL, KEY_ = process.env.SUPABASE_SERVICE_KEY;
 if (!URL_ || !KEY_) { console.error("\n[reconciler] need SUPABASE_URL and SUPABASE_SERVICE_KEY\n"); process.exit(2); }
 const svc = createClient(URL_, KEY_, { auth: { persistSession: false } });
 
-/** Share of Aircall-confirmed rows that are NOT grouped with a marker. */
+/**
+ * An orphan is an Aircall-confirmed call we cannot attribute: alone in its
+ * canonical group AND with no dialler on the row.
+ *
+ * "Alone in its group" is NOT enough. The legacy webhook path links by
+ * stamping aircall_call_id onto the marker itself, so a merged call is a
+ * single row carrying both the Aircall id and the dialler — complete, not
+ * orphaned. Counting those as orphans overstated the problem 5x on the first
+ * measurement of this rollout.
+ */
 async function orphanRate(sinceIso: string) {
   const { data, error } = await svc
     .from("calls")
-    .select("id, canonical_call_id, aircall_call_id, started_at")
+    .select("id, canonical_call_id, aircall_call_id, dialed_by_user_id, started_at")
     .gte("started_at", sinceIso)
     .order("id", { ascending: true })
     .limit(5000);
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Array<{ id: string; canonical_call_id: string | null; aircall_call_id: unknown }>;
+  const rows = (data ?? []) as Array<{ id: string; canonical_call_id: string | null; aircall_call_id: unknown; dialed_by_user_id: string | null }>;
   const size = new Map<string, number>();
   for (const r of rows) {
     const k = r.canonical_call_id ?? r.id;
     size.set(k, (size.get(k) ?? 0) + 1);
   }
   const webhooks = rows.filter(r => r.aircall_call_id != null);
-  const alone = webhooks.filter(r => (size.get(r.canonical_call_id ?? r.id) ?? 1) === 1);
+  const alone = webhooks.filter(r =>
+    (size.get(r.canonical_call_id ?? r.id) ?? 1) === 1 && !r.dialed_by_user_id);
   return {
     webhooks: webhooks.length,
     orphans: alone.length,
@@ -53,7 +63,7 @@ const main = async () => {
   console.log(`\n  RECONCILER · last ${HOURS}h${DRY ? "  (DRY — no writes)" : ""}\n  since ${since}\n`);
 
   const before = await orphanRate(since);
-  console.log(`  orphan rate BEFORE ... ${before.orphans}/${before.webhooks} webhook rows unlinked  (${before.rate.toFixed(1)}%)`);
+  console.log(`  orphan rate BEFORE ... ${before.orphans}/${before.webhooks} webhook rows unattributable  (${before.rate.toFixed(1)}%)`);
 
   if (DRY) {
     const { data } = await svc.from("calls")
@@ -79,7 +89,7 @@ const main = async () => {
   console.log(`\n  second run ........... linked ${r2.linked} · already ${r2.alreadyLinked} · failed ${r2.failed}  → ${idempotent ? "IDEMPOTENT" : "NOT IDEMPOTENT"}`);
 
   const after = await orphanRate(since);
-  console.log(`\n  orphan rate AFTER .... ${after.orphans}/${after.webhooks} webhook rows unlinked  (${after.rate.toFixed(1)}%)`);
+  console.log(`\n  orphan rate AFTER .... ${after.orphans}/${after.webhooks} webhook rows unattributable  (${after.rate.toFixed(1)}%)`);
   console.log(`  change ............... ${(after.rate - before.rate).toFixed(1)} pp\n`);
   if (!idempotent) process.exit(1);
 };

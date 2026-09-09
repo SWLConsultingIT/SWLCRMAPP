@@ -1,0 +1,301 @@
+{
+  "tenant": "7c02e222-be59-416d-9434-acf4685f8590",
+  "from": "2026-08-11",
+  "to": "2026-09-09",
+  "taken_at": "2026-09-09T13:58:52.346Z",
+  "snaps": [
+    {
+      "label": "workspace",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 325,
+        "completed": 325,
+        "answered": 147,
+        "positive": 2,
+        "negative": 22,
+        "unclassified": 80,
+        "total": 325
+      },
+      "callOutcomesBySeller": [
+        {
+          "sellerId": "e96d3622-9a5e-437a-8921-bf4e3beaaa71",
+          "sellerName": "Lucia",
+          "made": 175,
+          "answered": 121,
+          "interested": 1,
+          "badTiming": 3,
+          "voicemail": 100,
+          "notInterested": 14,
+          "wrongNumber": 7
+        },
+        {
+          "sellerId": "f3128e32-f9fc-4b07-a786-b5ee59478068",
+          "sellerName": "Juan",
+          "made": 59,
+          "answered": 56,
+          "interested": 0,
+          "badTiming": 23,
+          "voicemail": 21,
+          "notInterested": 3,
+          "wrongNumber": 6
+        },
+        {
+          "sellerId": "96df742c-11dd-4465-ba2f-3d1ec6e0b2b8",
+          "sellerName": "Lucho",
+          "made": 50,
+          "answered": 50,
+          "interested": 0,
+          "badTiming": 2,
+          "voicemail": 34,
+          "notInterested": 1,
+          "wrongNumber": 1
+        },
+        {
+          "sellerId": "ce1e0846-0a78-455a-b658-cd200aa35a0e",
+          "sellerName": "Andrea Tizi",
+          "made": 20,
+          "answered": 18,
+          "interested": 0,
+          "badTiming": 5,
+          "voicemail": 3,
+          "notInterested": 3,
+          "wrongNumber": 4
+        },
+        {
+          "sellerId": "4a75c0ca-903d-49a7-82f7-e9f381aa11ab",
+          "sellerName": "Alessandro Perugino",
+          "made": 1,
+          "answered": 0,
+          "interested": 0,
+          "badTiming": 0,
+          "voicemail": 0,
+          "notInterested": 0,
+          "wrongNumber": 0
+        },
+        {
+          "sellerId": "95f99f3c-26de-4eee-ba88-b3ae672a6ca6",
+          "sellerName": "Francisco Fontana",
+          "made": 1,
+          "answered": 1,
+          "interested": 0,
+          "badTiming": 0,
+          "voicemail": 0,
+          "notInterested": 1,
+          "wrongNumber": 0
+        }
+      ],
+      "priorCallsBySeller": {
+        "e96d3622-9a5e-437a-8921-bf4e3beaaa71": {
+          "made": 46,
+          "answered": 19,
+          "interested": 1
+        },
+        "ce1e0846-0a78-455a-b658-cd200aa35a0e": {
+          "made": 110,
+          "answered": 44,
+          "interested": 4
+        },
+        "ad458995-63b0-4339-96dc-54b5ac093eab": {
+          "made": 3,
+          "answered": 0,
+          "interested": 0
+        }
+      }
+    },
+    {
+      "label": "seller:e96d3622-9a5e-437a-8921-bf4e3beaaa71",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 0,
+        "completed": 0,
+        "answered": 0,
+        "positive": 0,
+        "negative": 0,
+        "unclassified": 0,
+        "total": 0
+      },
+      "callOutcomesBySeller": [],
+      "priorCallsBySeller": {}
+    },
+    {
+      "label": "seller:f3128e32-f9fc-4b07-a786-b5ee59478068",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 0,
+        "completed": 0,
+        "answered": 0,
+        "positive": 0,
+        "negative": 0,
+        "unclassified": 0,
+        "total": 0
+      },
+      "callOutcomesBySeller": [],
+      "priorCallsBySeller": {}
+    },
+    {
+      "label": "seller:96df742c-11dd-4465-ba2f-3d1ec6e0b2b8",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 0,
+        "completed": 0,
+        "answered": 0,
+        "positive": 0,
+        "negative": 0,
+        "unclassified": 0,
+        "total": 0
+      },
+      "callOutcomesBySeller": [],
+      "priorCallsBySeller": {}
+    },
+    {
+      "label": "campaign:Growth AI Sales - LATAM",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 143,
+        "completed": 143,
+        "answered": 56,
+        "positive": 1,
+        "negative": 11,
+        "unclassified": 38,
+        "total": 143
+      },
+      "callOutcomesBySeller": [
+        {
+          "sellerId": "e96d3622-9a5e-437a-8921-bf4e3beaaa71",
+          "sellerName": "Lucia",
+          "made": 142,
+          "answered": 90,
+          "interested": 1,
+          "badTiming": 3,
+          "voicemail": 85,
+          "notInterested": 11,
+          "wrongNumber": 2
+        },
+        {
+          "sellerId": "96df742c-11dd-4465-ba2f-3d1ec6e0b2b8",
+          "sellerName": "Lucho",
+          "made": 1,
+          "answered": 1,
+          "interested": 0,
+          "badTiming": 1,
+          "voicemail": 0,
+          "notInterested": 0,
+          "wrongNumber": 0
+        }
+      ],
+      "priorCallsBySeller": {
+        "e96d3622-9a5e-437a-8921-bf4e3beaaa71": {
+          "made": 29,
+          "answered": 10,
+          "interested": 0
+        }
+      }
+    },
+    {
+      "label": "campaign:Odoo Implementation — Argentina - Multicanal",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 20,
+        "completed": 20,
+        "answered": 14,
+        "positive": 0,
+        "negative": 1,
+        "unclassified": 13,
+        "total": 20
+      },
+      "callOutcomesBySeller": [
+        {
+          "sellerId": "e96d3622-9a5e-437a-8921-bf4e3beaaa71",
+          "sellerName": "Lucia",
+          "made": 13,
+          "answered": 13,
+          "interested": 0,
+          "badTiming": 0,
+          "voicemail": 1,
+          "notInterested": 1,
+          "wrongNumber": 5
+        }
+      ],
+      "priorCallsBySeller": {}
+    },
+    {
+      "label": "icp:9afe82a7-8310-4b8e-ad91-933156134ee2",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 18,
+        "completed": 18,
+        "answered": 12,
+        "positive": 0,
+        "negative": 1,
+        "unclassified": 11,
+        "total": 18
+      },
+      "callOutcomesBySeller": [
+        {
+          "sellerId": "e96d3622-9a5e-437a-8921-bf4e3beaaa71",
+          "sellerName": "Lucia",
+          "made": 12,
+          "answered": 11,
+          "interested": 0,
+          "badTiming": 0,
+          "voicemail": 1,
+          "notInterested": 1,
+          "wrongNumber": 5
+        }
+      ],
+      "priorCallsBySeller": {}
+    },
+    {
+      "label": "icp:dfcc054e-4044-40f8-994a-659f66017560",
+      "unavailable": null,
+      "callsBreakdown": {
+        "pending": 387,
+        "made": 153,
+        "completed": 153,
+        "answered": 66,
+        "positive": 2,
+        "negative": 12,
+        "unclassified": 43,
+        "total": 153
+      },
+      "callOutcomesBySeller": [
+        {
+          "sellerId": "e96d3622-9a5e-437a-8921-bf4e3beaaa71",
+          "sellerName": "Lucia",
+          "made": 149,
+          "answered": 100,
+          "interested": 1,
+          "badTiming": 3,
+          "voicemail": 85,
+          "notInterested": 12,
+          "wrongNumber": 2
+        },
+        {
+          "sellerId": "96df742c-11dd-4465-ba2f-3d1ec6e0b2b8",
+          "sellerName": "Lucho",
+          "made": 1,
+          "answered": 1,
+          "interested": 0,
+          "badTiming": 1,
+          "voicemail": 0,
+          "notInterested": 0,
+          "wrongNumber": 0
+        }
+      ],
+      "priorCallsBySeller": {
+        "e96d3622-9a5e-437a-8921-bf4e3beaaa71": {
+          "made": 45,
+          "answered": 19,
+          "interested": 1
+        }
+      }
+    }
+  ]
+}
