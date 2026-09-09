@@ -55,7 +55,6 @@ export default function LeadResultBar({
   const [busy, setBusy] = useState(false);
 
   const current = resultOf(status, transferred);
-  const isWon = current === "won" || current === "qualified";
 
   const meta: Record<ResultKey, { label: string; icon: React.ElementType; color: string }> = {
     won: { label: t("result.won"), icon: Trophy, color: gold },
@@ -128,8 +127,11 @@ export default function LeadResultBar({
         )}
       </div>
 
-      {/* Won → surface Send to Odoo immediately (also stays available later). */}
-      {showOdoo && isWon && (
+      {/* Send to Odoo is OPTIONAL and ALWAYS available (SWL) — marking Won never
+          auto-pushes; the seller sends only if/when they choose, and the panel
+          itself has a confirm step. Not gated to Won so a lead can be sent
+          directly whenever the seller decides (boss 2026-09-09). */}
+      {showOdoo && (
         <div className="mt-3">
           <SendToOdooPanel leadId={leadId} transferred={transferred} />
         </div>
