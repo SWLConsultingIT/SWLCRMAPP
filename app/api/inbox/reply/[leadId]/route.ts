@@ -11,8 +11,9 @@
 //
 //   LinkedIn → Unipile POST /chats/{chatId}/messages  (chat_id from the lead's
 //              last sent message metadata; account_id from the seller).
-//   Email    → Instantly POST /emails/send  (threaded via reply_to_message_id
-//              when we have it; from-address reused from the last sent email).
+//   Email    → Instantly POST /emails/reply  (threaded via reply_to_uuid; the
+//              uuid + sending inbox come from the lead's last received email,
+//              fetched live from GET /emails?q=<lead>&email_type=received).
 //
 // We never start a NEW outreach step here and we don't touch campaign status —
 // the campaign is already stopped once a lead replies (LAW). This is purely a
@@ -240,39 +241,56 @@ export async function POST(
       if (!config?.apiKey) return NextResponse.json({ error: "tenant has no Instantly API key" }, { status: 422 });
       const to = (lead as any).primary_work_email;
       if (!to) return NextResponse.json({ error: "lead has no email" }, { status: 422 });
-      // Reuse the from-address + subject from the last email we sent this lead.
-      const { data: lastEmail } = await svc
-        .from("campaign_messages")
-        .select("metadata")
-        .eq("lead_id", leadId)
-        .eq("channel", "email")
-        .eq("status", "sent")
-        .order("sent_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const lastMeta = ((lastEmail as any)?.metadata ?? {}) as Record<string, unknown>;
-      const from = (lastMeta.from_address as string | undefined) ?? "";
-      const lastSubject = (lastMeta.subject as string | undefined) ?? "";
-      // Thread on the lead's last inbound message id if we stored one.
-      const { data: lastReply } = await svc
-        .from("lead_replies")
-        .select("provider_thread_id")
-        .eq("lead_id", leadId)
-        .eq("channel", "email")
-        .order("received_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const replyToId = (lastReply as any)?.provider_thread_id ?? null;
+      // Instantly v2 has NO transactional send endpoint — the old code POSTed
+      // to /emails/send, which Instantly answers 404 ("Route POST:/api/v2/
+      // emails/send not found"), so every manual email reply failed (boss
+      // 2026-09-09). A threaded reply goes through POST /emails/reply, which
+      // needs the Instantly `id` of the email we're answering (reply_to_uuid)
+      // and the inbox that owns the thread (eaccount). We persist neither, so
+      // fetch the lead's most recent RECEIVED email live (q = lead email) and
+      // thread on it — the same email object carries both fields.
+      // NOTE: `q` is a FUZZY search, not an exact filter — it can return other
+      // leads' emails mixed in. Never trust items[0] blindly (that could thread
+      // the reply into the WRONG person's inbox). Pull a small page and pick the
+      // newest email whose sender/lead exactly equals this lead's address.
+      const toKey = String(to).trim().toLowerCase();
+      const listUrl = `${INSTANTLY_BASE}/emails?limit=20&email_type=received&q=${encodeURIComponent(to)}`;
+      let inbound: any = null;
+      try {
+        const lr = await fetch(listUrl, { headers: { Authorization: `Bearer ${config.apiKey}`, accept: "application/json" } });
+        if (lr.ok) {
+          const lj = await lr.json();
+          const items: any[] = Array.isArray(lj?.items) ? lj.items : [];
+          // items are newest-first; take the first exact match on the lead.
+          inbound = items.find((it) =>
+            String(it?.from_address_email ?? "").trim().toLowerCase() === toKey ||
+            String(it?.lead ?? "").trim().toLowerCase() === toKey
+          ) ?? null;
+        }
+      } catch { /* handled by the guard below */ }
+      if (!inbound?.id) {
+        return NextResponse.json({ error: "No encontré el email original en Instantly para responder en el hilo — puede que la respuesta del lead todavía no haya sincronizado. Probá de nuevo en un minuto." }, { status: 422 });
+      }
+      const replyToUuid = inbound.id as string;
+      // eaccount = the inbox that received the lead's email → reply from it.
+      const eaccount = (inbound.eaccount as string | undefined) ?? "";
+      const inboundSubject = (inbound.subject as string | undefined) ?? "";
       // Prefer a caller-supplied subject (seller edited it in the composer);
-      // otherwise auto-build "Re: <last subject>".
+      // otherwise auto-build "Re: <inbound subject>".
       const subjectIn = typeof body?.subject === "string" ? body.subject.trim() : "";
-      const subject = subjectIn || (lastSubject ? `Re: ${lastSubject.replace(/^re:\s*/i, "")}` : "Re:");
+      const subject = subjectIn || (inboundSubject ? `Re: ${inboundSubject.replace(/^re:\s*/i, "")}` : "Re:");
 
-      const payload: Record<string, unknown> = { to, subject, body: outgoing };
-      if (from) payload.from = from;
-      if (replyToId) payload.reply_to_message_id = replyToId;
+      // Instantly wants body as { html?, text? }. Escape + linebreak the plain
+      // text so the HTML part renders the seller's message faithfully.
+      const htmlBody = `<p>${outgoing.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`;
+      const payload: Record<string, unknown> = {
+        eaccount,
+        reply_to_uuid: replyToUuid,
+        subject,
+        body: { text: outgoing, html: htmlBody },
+      };
 
-      const res = await fetch(`${INSTANTLY_BASE}/emails/send`, {
+      const res = await fetch(`${INSTANTLY_BASE}/emails/reply`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${config.apiKey}`,
@@ -289,9 +307,10 @@ export async function POST(
         return NextResponse.json({ error: `Instantly send failed: ${err}` }, { status: 502 });
       }
       providerMessageId = parsed?.id ?? parsed?.message_id ?? null;
-      sentMeta.from_address = from;
+      sentMeta.from_address = eaccount;
       sentMeta.subject = subject;
       sentMeta.to_address = to;
+      sentMeta.reply_to_uuid = replyToUuid;
       // Soft delivery confirmation: Instantly's send is reliable, but after the
       // LinkedIn "200 != delivered" lesson we double-check by reading the email
       // back by id. If it doesn't show, we DON'T fail (Instantly send is
