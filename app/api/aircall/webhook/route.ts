@@ -155,6 +155,92 @@ function mapStatus(ev: string | undefined, call: AircallCall): string {
   return call.status ?? "initiated";
 }
 
+
+/**
+ * PHASE 3A · Adopt an orphan dial-marker's canonical identity.
+ *
+ * Conservative on purpose. The live path links only when there is exactly
+ * ONE orphan marker within 15 seconds carrying a matching phone — the
+ * high-confidence tier measured on production (82% of real pairs are inside
+ * 15s; beyond a minute, distinct calls to the same lead start colliding).
+ * Two or more candidates, or a wider gap, is left for the reconciler, which
+ * evaluates mutual-best matching across the whole set. A false merge is
+ * worse than two rows waiting to be reconciled.
+ *
+ * Idempotent: a row already sharing a marker's identity is skipped.
+ */
+async function linkOrphanMarker(
+  row: { id: string; lead_id?: string | null; canonical_call_id?: string | null },
+  call: { started_at?: number | string | null; raw_digits?: string | null; direction?: string | null },
+): Promise<void> {
+  try {
+    const startedIso = tsToIso(call.started_at) ?? new Date().toISOString();
+    const startedMs = new Date(startedIso).getTime();
+    const windowMs = 15_000;
+    const fromIso = new Date(startedMs - windowMs).toISOString();
+    const toIso = new Date(startedMs + windowMs).toISOString();
+
+    // Orphan markers only: no Aircall id, and not already this row.
+    const q = new URLSearchParams({
+      aircall_call_id: "is.null",
+      started_at: `gte.${fromIso}`,
+      select: "id,canonical_call_id,phone_number,started_at,lead_id",
+      order: "started_at.asc",
+      limit: "50",
+    });
+    const res = await fetch(`${SB_URL}/calls?${q}&started_at=lte.${toIso}`, {
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+    });
+    const rows: Array<{ id: string; canonical_call_id: string | null; phone_number: string | null; started_at: string | null; lead_id: string | null }> =
+      await res.json().catch(() => []);
+    if (!Array.isArray(rows)) return;
+
+    const candidates = rows.filter(m =>
+      m.id !== row.id
+      && phoneSuffixMatch(m.phone_number, call.raw_digits)
+      && (!row.lead_id || !m.lead_id || m.lead_id === row.lead_id),
+    );
+    // Exactly one, or we do not touch it.
+    if (candidates.length !== 1) {
+      if (candidates.length > 1) {
+        console.warn(`[aircall-webhook] ${candidates.length} orphan markers within 15s of ${row.id} — deferring to reconciler`);
+      }
+      return;
+    }
+    const marker = candidates[0];
+    const canonical = marker.canonical_call_id ?? marker.id;
+    if (row.canonical_call_id && row.canonical_call_id === canonical) return; // already linked
+
+    const deltaSeconds = marker.started_at
+      ? Math.abs(new Date(marker.started_at).getTime() - startedMs) / 1000
+      : null;
+
+    await fetch(`${SB_URL}/calls?id=eq.${row.id}`, {
+      method: "PATCH",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ canonical_call_id: canonical, ...(row.lead_id ? {} : { lead_id: marker.lead_id }) }),
+    });
+    await fetch(`${SB_URL}/calls_recon_log`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({
+        canonical_call_id: canonical,
+        row_ids: [marker.id, row.id],
+        match_method: "high_auto_webhook",
+        confidence: "high",
+        time_delta_seconds: deltaSeconds,
+        phone_match: "suffix",
+        candidates_considered: candidates.length,
+        reconciled_by: "aircall-webhook",
+      }),
+    });
+  } catch (e) {
+    // Linking must never fail the webhook — Aircall retries on non-2xx and a
+    // retry storm is worse than a row the reconciler will pick up anyway.
+    console.warn("[aircall-webhook] marker link failed, leaving to reconciler:", e);
+  }
+}
+
 export async function POST(req: NextRequest) {
   // Read raw body once so we can verify the HMAC and then parse it. Doing
   // `req.json()` first would consume the stream and leave us unable to
@@ -216,6 +302,23 @@ export async function POST(req: NextRequest) {
   });
 
   const updated = await patchRes.json().catch(() => []);
+
+  // ── PHASE 3A · LINKING IS NOT UPDATING ─────────────────────────────────
+  // Until now the marker link was attempted ONLY when the PATCH above found
+  // nothing AND direction was outbound AND raw_digits existed. Any event that
+  // missed that gate created a competing row, after which every later event
+  // PATCHed it successfully — so the link had exactly one chance and lost it.
+  // 1,073 marker+webhook pairs in production are unlinked for this reason,
+  // 1,060 of them with a matching phone.
+  //
+  // Linking now runs on its OWN, whether or not the update succeeded, and is
+  // idempotent: once the row carries the marker's canonical_call_id there is
+  // nothing left to do. Anything ambiguous is left to the reconciler, which
+  // sees every candidate at once and can apply true mutual-best matching.
+  const updatedRowForLink = Array.isArray(updated) && updated[0] ? updated[0] : null;
+  if (updatedRowForLink?.id && call.raw_digits) {
+    await after(linkOrphanMarker(updatedRowForLink, call));
+  }
 
   // Kick off Whisper transcription if a recording just arrived. Deferred with
   // `after` so the webhook still returns 200 immediately (Aircall retries on a

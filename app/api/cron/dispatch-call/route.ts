@@ -410,6 +410,10 @@ async function dispatchOneCall(
       },
     }).eq("id", candidate.id),
     svc.from("calls").insert({
+      // PHASE 3A — the physical call gets its identity the moment it is
+      // dialled. The webhook adopts THIS value when it links, so the order
+      // events arrive in stops mattering.
+      canonical_call_id: crypto.randomUUID(),
       lead_id: lead.id,
       seller_id: seller.id,
       direction: "outbound",

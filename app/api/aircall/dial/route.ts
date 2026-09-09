@@ -239,6 +239,10 @@ export async function POST(req: NextRequest) {
   let insertedDialId: string | null = null;
   if (leadId) {
     const { data: inserted } = await svc.from("calls").insert({
+      // PHASE 3A — the physical call gets its identity the moment it is
+      // dialled. The webhook adopts THIS value when it links, so the order
+      // events arrive in stops mattering.
+      canonical_call_id: crypto.randomUUID(),
       aircall_call_id: null,
       lead_id: leadId,
       seller_id: callerSellerId,

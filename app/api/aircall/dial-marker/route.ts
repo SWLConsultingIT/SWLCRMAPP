@@ -59,6 +59,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: inserted, error } = await svc.from("calls").insert({
+      // PHASE 3A — the physical call gets its identity the moment it is
+      // dialled. The webhook adopts THIS value when it links, so the order
+      // events arrive in stops mattering.
+      canonical_call_id: crypto.randomUUID(),
     lead_id: leadId ?? null,
     seller_id: seller?.id ?? null,
     // The actual user who clicked Call — independent of any seller binding, so
