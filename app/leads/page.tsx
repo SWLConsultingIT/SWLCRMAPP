@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope, getMyAssignedLeadIds, canEditTenantSettings } from "@/lib/scope";
+import { classifyLeadOutcome } from "@/lib/lead-outcome";
 import {
   resolveTenantKey,
   decryptWithResolvedKey,
@@ -388,7 +389,9 @@ async function getData() {
 
     const hasCompletedCampaign = leadCamps.some((c: any) => c.status === "completed" || c.status === "failed");
     const hasNegativeReply = leadReplies.some((r: any) => r.classification === "negative");
-    if (!hasCompletedCampaign && !hasNegativeReply) continue;
+    const explicitNurturing = lead.status === "nurturing";
+    const explicitLost = lead.status === "closed_lost";
+    if (!hasCompletedCampaign && !hasNegativeReply && !explicitNurturing && !explicitLost) continue;
 
     const negReply = leadReplies.find((r: any) => r.classification === "negative");
     // Use only completed/failed camps for history metrics
@@ -422,17 +425,28 @@ async function getData() {
     const activeCamp = leadCamps.find((c: any) => c.status === "active" || c.status === "paused");
     const pendingReq = pendingRequestsByLead[lead.id];
 
-    // Bucket assignment — boss feedback 2026-05-28 (memory:
-    // feedback_no_reply_goes_to_renurture):
-    //   - reason === "no_reply"   → always Renurture (silent = candidate
-    //     to re-engage with new copy, not truly lost).
-    //   - reason === "negative"   → Lost if no active/pending follow-up,
-    //     Renurture if seller already started a new flow.
-    // The "new_campaign_*" fields are null for no_reply leads without an
-    // active follow-up yet; RenurturingLeadCard handles that case by
-    // showing a "Ready to re-engage" CTA instead of the progress block.
-    const goesToRenurture = baseData.reason === "no_reply" || !!activeCamp || !!pendingReq;
-    if (goesToRenurture) {
+    // Bucket assignment — REVISED (boss 2026-09-09, reverses
+    // feedback_no_reply_goes_to_renurture): "Completed = finished the sequence,
+    // NOT Won/Lost/Re-nurture." A completed-no-reply lead with no human decision
+    // is OUTCOME PENDING → it must NOT be auto-bucketed here; it stays in
+    // Funnel/Completed. Re-nurture and Lost now require an explicit signal:
+    //   - Re-nurture: lead.status = 'nurturing' (human decision) OR the seller
+    //     already started a follow-up flow (active/pending campaign).
+    //   - Lost: a negative reply OR lead.status = 'closed_lost'.
+    //   - Neither signal → skip (outcome pending).
+    // Won is already filtered out above (hasPositive / status). Use the shared
+    // classifier so /leads and /results bucket identically.
+    const outcome = classifyLeadOutcome({
+      hasPositive: false,
+      statusWon: false,
+      transferredToOdoo: false,
+      hasNegativeReply,
+      statusLost: explicitLost,
+      statusNurturing: explicitNurturing,
+      hasActiveFollowup: !!activeCamp || !!pendingReq,
+    });
+    if (outcome === "pending") continue; // outcome pending → stays in Funnel/Completed
+    if (outcome === "renurture") {
       renurturingLeads.push({
         ...baseData,
         new_campaign_name: activeCamp?.name ?? pendingReq?.name ?? null,

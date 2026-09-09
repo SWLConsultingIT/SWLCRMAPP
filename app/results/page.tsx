@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope, getMyAssignedLeadIds } from "@/lib/scope";
+import { classifyLeadOutcome } from "@/lib/lead-outcome";
 import {
   resolveTenantKey,
   decryptWithResolvedKey,
@@ -245,7 +246,9 @@ async function getData() {
     }
     const hasCompletedCampaign = leadCamps.some((c: any) => c.status === "completed" || c.status === "failed");
     const hasNegativeReply = leadReplies.some((r: any) => r.classification === "negative");
-    if (!hasCompletedCampaign && !hasNegativeReply) continue;
+    const explicitNurturing = lead.status === "nurturing";
+    const explicitLost = lead.status === "closed_lost";
+    if (!hasCompletedCampaign && !hasNegativeReply && !explicitNurturing && !explicitLost) continue;
     const negReply = leadReplies.find((r: any) => r.classification === "negative");
     const pastCamps = leadCamps.filter((c: any) => c.status === "completed" || c.status === "failed");
     const channels = [...new Set(pastCamps.map((c: any) => c.channel))];
@@ -272,13 +275,31 @@ async function getData() {
       messages_sent: 0,
     };
     const activeCamp = leadCamps.find((c: any) => c.status === "active" || c.status === "paused");
-    if (activeCamp) {
+    // REVISED lifecycle (boss 2026-09-09): a completed-no-reply lead with no
+    // human decision is OUTCOME PENDING → it stays in Funnel/Completed and must
+    // NOT be auto-bucketed as Lost or Re-nurture (this is the "Completed →
+    // Re-nurture / Lost" bug). Only explicit signals bucket it:
+    //   - Re-nurture: seller started a follow-up flow OR lead.status='nurturing'.
+    //   - Lost: a negative reply OR lead.status='closed_lost'.
+    // Won already filtered out above. Shared classifier keeps /results and
+    // /leads identical (they used to diverge on completed-no-reply leads).
+    const outcome = classifyLeadOutcome({
+      hasPositive: false,
+      statusWon: false,
+      transferredToOdoo: false,
+      hasNegativeReply,
+      statusLost: explicitLost,
+      statusNurturing: explicitNurturing,
+      hasActiveFollowup: !!activeCamp,
+    });
+    if (outcome === "pending") continue; // outcome pending → stays in Funnel/Completed
+    if (outcome === "renurture") {
       renurturingLeads.push({
         ...baseData,
-        new_campaign_name: activeCamp.name ?? null,
-        new_campaign_status: activeCamp.status,
-        new_campaign_step: activeCamp.current_step ?? null,
-        new_campaign_total_steps: Array.isArray(activeCamp.sequence_steps) ? activeCamp.sequence_steps.length : null,
+        new_campaign_name: activeCamp?.name ?? null,
+        new_campaign_status: activeCamp?.status ?? "nurturing",
+        new_campaign_step: activeCamp?.current_step ?? null,
+        new_campaign_total_steps: activeCamp && Array.isArray(activeCamp.sequence_steps) ? activeCamp.sequence_steps.length : null,
       });
     } else {
       lostLeads.push(baseData);
