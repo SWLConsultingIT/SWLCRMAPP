@@ -3,7 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Bell, AtSign, Tag, MessageSquare, CheckCheck, FileText } from "lucide-react";
+import { Bell, AtSign, Tag, MessageSquare, CheckCheck, FileText, CalendarClock, Inbox as InboxIcon } from "lucide-react";
+import Link from "next/link";
 import { C } from "@/lib/design";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useAuthUser } from "@/lib/auth-context";
@@ -16,7 +17,7 @@ import { useAuthUser } from "@/lib/auth-context";
 
 type Notif = {
   id: string;
-  type: "mention" | "tag" | "note" | "message";
+  type: string;
   actor_name: string | null;
   lead_id: string | null;
   body: string | null;
@@ -25,17 +26,21 @@ type Notif = {
   created_at: string;
 };
 
-const ICON: Record<Notif["type"], typeof AtSign> = {
+const ICON: Record<string, typeof AtSign> = {
   mention: AtSign,
   tag: Tag,
   message: MessageSquare,
   note: FileText,
+  request: InboxIcon,
+  activity_reminder: CalendarClock,
 };
-const COLOR: Record<Notif["type"], string> = {
+const COLOR: Record<string, string> = {
   mention: "var(--brand, #c9a83a)",
   tag: "#7C3AED",
   message: "#2563EB",
   note: "#0D9488",
+  request: "#D97706",
+  activity_reminder: "var(--brand, #c9a83a)",
 };
 
 function ago(iso: string): string {
@@ -163,6 +168,11 @@ export default function NotificationBell() {
             })}
           </div>
         )}
+        <Link href="/notifications" onClick={() => setOpen(false)}
+          className="block px-3.5 py-2.5 text-center text-[11px] font-semibold border-t transition-opacity hover:opacity-70"
+          style={{ borderColor: C.border, color: "var(--brand, #c9a83a)" }}>
+          See all notifications
+        </Link>
       </div>
     </>
   );

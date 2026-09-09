@@ -6,11 +6,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const scope = await getUserScope();
-  if (!scope.userId) return NextResponse.json({ notifications: [], unread: 0 });
+  if (!scope.userId) return NextResponse.json({ notifications: [], unread: 0, nextBefore: null });
 
   const svc = getSupabaseService();
+  const sp = req.nextUrl.searchParams;
+  const limit = Math.min(Math.max(Number(sp.get("limit")) || 50, 1), 100);
+  const before = sp.get("before");           // ISO created_at cursor (pagination)
+  const type = sp.get("type");               // optional type filter
+  const onlyUnread = sp.get("unread") === "1";
+
   let q = svc
     .from("notifications")
     .select("id, type, actor_name, lead_id, body, link, read_at, created_at")
@@ -19,11 +25,26 @@ export async function GET() {
   // Company B must not surface (or count as unread) while they're switched to
   // Company A. super_admin (no active scope) sees everything.
   if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
-  const { data } = await q.order("created_at", { ascending: false }).limit(50);
+  if (type) q = q.eq("type", type);
+  if (onlyUnread) q = q.is("read_at", null);
+  if (before) q = q.lt("created_at", before);
+  const { data } = await q.order("created_at", { ascending: false }).limit(limit + 1);
 
-  const notifications = data ?? [];
-  const unread = notifications.filter(n => !n.read_at).length;
-  return NextResponse.json({ notifications, unread });
+  const rows = data ?? [];
+  const hasMore = rows.length > limit;
+  const notifications = hasMore ? rows.slice(0, limit) : rows;
+  const nextBefore = hasMore ? notifications[notifications.length - 1].created_at : null;
+
+  // Accurate TOTAL unread (not just this page) for the bell badge + center.
+  let uq = svc
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_user_id", scope.userId)
+    .is("read_at", null);
+  if (scope.isScoped && scope.companyBioId) uq = uq.eq("company_bio_id", scope.companyBioId);
+  const { count } = await uq;
+
+  return NextResponse.json({ notifications, unread: count ?? 0, nextBefore });
 }
 
 export async function PATCH(req: NextRequest) {
