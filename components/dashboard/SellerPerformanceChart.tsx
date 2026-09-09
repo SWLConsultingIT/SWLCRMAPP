@@ -10,7 +10,7 @@ type DayCounts = {
   badTiming: number; voicemail: number; notInterested: number; wrongNumber: number;
 };
 type SellerStats = {
-  sellerId: string; sellerName: string; active?: boolean;
+  rowKey?: string; sellerId: string | null; userId?: string | null; sellerName: string; active?: boolean;
   made: number; answered: number; interested: number;
   byDay: Record<string, DayCounts>;
 };
@@ -124,7 +124,7 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
   const uid = useId().replace(/:/g, "");
 
   const [selected, setSelected] = useState<string[]>(() =>
-    rows.filter(r => r.active !== false).slice(0, 2).map(r => r.sellerId),
+    rows.filter(r => r.active !== false).slice(0, 2).map(r => r.rowKey ?? r.sellerId ?? r.sellerName),
   );
   const [metric, setMetric] = useState<MetricKey>("made");
 
@@ -136,7 +136,8 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
     });
   };
 
-  const selectedRows = rows.filter(r => selected.includes(r.sellerId));
+  const keyOf = (r: SellerStats) => r.rowKey ?? r.sellerId ?? r.sellerName;
+  const selectedRows = rows.filter(r => selected.includes(keyOf(r)));
 
   const allDays: string[] = useMemo(() => {
     const s = new Set<string>();
@@ -206,11 +207,11 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
         {/* Seller toggles — these ARE the legend */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {rows.map(r => {
-            const isOn   = selected.includes(r.sellerId);
-            const selIdx = selected.indexOf(r.sellerId);
+            const isOn   = selected.includes(keyOf(r));
+            const selIdx = selected.indexOf(keyOf(r));
             const color  = isOn ? PALETTE[selIdx % PALETTE.length] : C.textMuted;
             return (
-              <button key={r.sellerId} onClick={() => toggle(r.sellerId)} style={{
+              <button key={keyOf(r)} onClick={() => toggle(keyOf(r))} style={{
                 fontSize: 12, fontWeight: 600,
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "5px 13px 5px 10px", borderRadius: 20, cursor: "pointer",

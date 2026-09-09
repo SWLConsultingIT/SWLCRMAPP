@@ -11,15 +11,22 @@ import { C, T } from "@/lib/design";
 const PHONE_COLOR = "#EA580C";
 
 export default function CallsCard({
-  pending, completed, answered, positive, negative, total,
+  pending, positive, negative, total,
+  attempted, confirmedConnected, confirmedNotConnected, unknown, confirmedConnectRate,
   labels,
 }: {
   pending: number;
-  completed: number;
-  answered: number;
   positive: number;
   negative: number;
   total: number;
+  /** Distinct physical calls in the window. */
+  attempted: number;
+  confirmedConnected: number;
+  confirmedNotConnected: number;
+  /** Nobody logged an outcome. Shown ALWAYS, never folded into the rate. */
+  unknown: number;
+  /** connected / (connected + not connected). null when nothing is classified. */
+  confirmedConnectRate: number | null;
   labels: {
     channel: string;
     eyebrow: string;
@@ -32,12 +39,22 @@ export default function CallsCard({
     totalUnit: string;
   };
 }) {
+  // The closed definitions, all five visible. Unknown sits beside the rate
+  // instead of inside it: a percentage computed over 7 classified calls out
+  // of 22 attempts means something different from one computed over 22, and
+  // hiding that is how a dashboard lies without a single wrong number.
+  const rate = confirmedConnectRate == null ? "—" : `${confirmedConnectRate.toFixed(1)}%`;
   const items = [
-    { label: labels.pending,   value: pending,   accent: "#94A3B8" },
-    { label: labels.completed, value: completed, accent: C.textPrimary },
-    { label: labels.answered,  value: answered,  accent: "#0A66C2" },
-    { label: labels.positive,  value: positive,  accent: "#10B981" },
-    { label: labels.negative,  value: negative,  accent: "#DC2626" },
+    { label: "Attempted", value: attempted, accent: C.textPrimary,
+      hint: "Distinct physical calls in this period. Several technical rows for one call count once." },
+    { label: "Confirmed conn.", value: confirmedConnected, accent: "#10B981",
+      hint: "A human logged a conversational outcome. Aircall's 'answered' is not accepted as evidence." },
+    { label: "Not connected", value: confirmedNotConnected, accent: "#DC2626",
+      hint: "A human logged voicemail, wrong number or no answer." },
+    { label: "Unknown", value: unknown, accent: "#94A3B8",
+      hint: "Nobody logged an outcome. Not a failure — and never counted in the rate." },
+    { label: "Pending", value: pending, accent: "#94A3B8",
+      hint: "Call steps queued in a flow, waiting to be dialled." },
   ];
 
   return (
@@ -69,7 +86,7 @@ export default function CallsCard({
         <ArrowUpRight size={14} className="shrink-0 opacity-30 transition-opacity" style={{ color: PHONE_COLOR }} />
       </div>
 
-      <p className="mt-3 flex items-baseline gap-1.5">
+      <p className="mt-3 flex items-baseline gap-1.5 flex-wrap">
         <span
           className="text-[28px] font-bold tabular-nums leading-none tracking-[-0.02em]"
           style={{ color: PHONE_COLOR, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
@@ -79,12 +96,19 @@ export default function CallsCard({
         <span className="text-[10.5px] uppercase tracking-[0.14em] font-semibold" style={{ color: C.textDim }}>
           {labels.totalUnit}
         </span>
+        <span
+          className="ml-auto text-[11px] font-semibold tabular-nums"
+          style={{ color: C.textMuted }}
+          title={`Confirmed connect rate = confirmed connected / (confirmed connected + confirmed not connected). Unknown (${unknown}) is excluded from the denominator.`}
+        >
+          {rate} confirmed connect rate
+        </span>
       </p>
 
       <div className="mt-3 pt-3 grid grid-cols-5 gap-2" style={{ borderTop: `1px dashed ${C.border}` }}>
         {items.map((it, i) => (
           <div key={i} className="min-w-0">
-            <p className="text-[8.5px] uppercase tracking-[0.12em] font-semibold truncate" style={{ color: C.textDim }} title={it.label}>
+            <p className="text-[8.5px] uppercase tracking-[0.12em] font-semibold truncate" style={{ color: C.textDim }} title={it.hint}>
               {it.label}
             </p>
             <p

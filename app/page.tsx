@@ -1488,11 +1488,14 @@ export default async function DashboardPage({
                   <CallsCard
                     key={ch.channel}
                     pending={data.callsBreakdown.pending}
-                    completed={data.callsBreakdown.completed}
-                    answered={data.callsBreakdown.answered}
                     positive={data.callsBreakdown.positive}
                     negative={data.callsBreakdown.negative}
                     total={data.callsBreakdown.total}
+                    attempted={data.callsBreakdown.attempted}
+                    confirmedConnected={data.callsBreakdown.confirmedConnected}
+                    confirmedNotConnected={data.callsBreakdown.confirmedNotConnected}
+                    unknown={data.callsBreakdown.unknown}
+                    confirmedConnectRate={data.callsBreakdown.confirmedConnectRate}
                     labels={{
                       channel: t("dashx.ch.call"),
                       eyebrow: t("dashx.channels.channelLabel"),

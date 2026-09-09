@@ -30,13 +30,21 @@ const arg = (k: string, d?: string) => { const i = argv.indexOf(k); return i >= 
 const day = (d: Date) => new Date(d.getTime() - 180 * 60_000).toISOString().slice(0, 10);
 const TODAY = day(new Date());
 const D30 = day(new Date(Date.now() - 29 * 86_400_000));
+const D7 = day(new Date(Date.now() - 6 * 86_400_000));
 
 type IndepFile = {
   workspace: any; bySeller: Record<string, any>; byCampaign: Record<string, any>; byIcp: Record<string, any>;
   sellerNames: Record<string, string>;
 };
-const indepAll: IndepFile = JSON.parse(readFileSync(arg("--indep-all", "/tmp/indep-all.json")!, "utf8"));
-const indep30: IndepFile = JSON.parse(readFileSync(arg("--indep-30", "/tmp/indep-30.json")!, "utf8"));
+const load = (p: string): IndepFile => JSON.parse(readFileSync(p, "utf8"));
+const IND = {
+  all: load(arg("--indep-all", "/tmp/indep-all.json")!),
+  d30: load(arg("--indep-30", "/tmp/indep-30.json")!),
+  d7: load(arg("--indep-7", "/tmp/indep-7.json")!),
+  custom: load(arg("--indep-custom", "/tmp/indep-custom.json")!),
+};
+const CUSTOM_FROM = arg("--custom-from", "2026-08-01")!;
+const CUSTOM_TO = arg("--custom-to", "2026-08-20")!;
 
 let red = 0, green = 0;
 const reds: string[] = [];
@@ -53,26 +61,28 @@ type Case = { id: string; label: string; from: string | null; to: string | null;
 
 const main = async () => {
   // Seller ids come from the independent side, i.e. real `sellers.id`.
-  // NOT from callOutcomesBySeller.sellerId, which carries an auth user id —
-  // see RED cause #1. Feeding that to the filter silently returns 0 and the
-  // comparison would pass against nothing.
-  const luciaId = Object.keys(indep30.bySeller)
-    .find(id => /lucia/i.test(indep30.sellerNames[id] ?? ""));
-  const odooCamp = Object.keys(indep30.byCampaign).find(n => /odoo/i.test(n));
-  const odooIcp = Object.entries(indep30.byIcp)
-    .find(([id]) => id !== "NO ICP" && indep30.byCampaign[odooCamp ?? ""] &&
-      (indep30.byIcp[id]?.attempted === indep30.byCampaign[odooCamp ?? ""]?.attempted))?.[0]
-    ?? Object.keys(indep30.byIcp).find(id => id !== "NO ICP");
+  // NOT from callOutcomesBySeller.sellerId — which, since RED #1 was fixed,
+  // is now also a sellers.id, but the independent side stays the authority.
+  const luciaId = Object.keys(IND.d30.bySeller)
+    .find(id => /lucia/i.test(IND.d30.sellerNames[id] ?? ""));
+  const odooCamp = Object.keys(IND.d30.byCampaign).find(n => /odoo/i.test(n));
+  // The ICP of the Odoo campaign: the ICP bucket whose calls are exactly the
+  // Odoo campaign's leads. Resolved from the independent data, not guessed.
+  const odooIcp = arg("--odoo-icp") ?? Object.keys(IND.d30.byIcp)
+    .filter(id => id !== "NO ICP")
+    .find(id => IND.d30.byIcp[id]?.attempted === IND.d30.byCampaign[odooCamp ?? ""]?.attempted);
 
   const cases: Case[] = [
-    { id: "C1", label: "All time · workspace", from: null, to: null, indep: indepAll, pick: f => f.workspace },
-    { id: "C2", label: "Last 30 days · workspace", from: D30, to: TODAY, indep: indep30, pick: f => f.workspace },
-    { id: "C3", label: `Seller Lucia · 30d`, from: D30, to: TODAY, indep: indep30,
+    { id: "C1", label: "workspace · Last 30 days", from: D30, to: TODAY, indep: IND.d30, pick: f => f.workspace },
+    { id: "C2", label: "workspace · Last 7 days", from: D7, to: TODAY, indep: IND.d7, pick: f => f.workspace },
+    { id: "C3", label: "Seller Lucia · 30d", from: D30, to: TODAY, indep: IND.d30,
       sellerIds: luciaId ? [luciaId] : [], pick: f => f.bySeller[luciaId ?? ""] },
-    { id: "C4", label: `Campaign ${odooCamp ?? "Odoo"} · 30d`, from: D30, to: TODAY, indep: indep30,
+    { id: "C4", label: `Campaign ${(odooCamp ?? "Odoo").slice(0, 24)} · 30d`, from: D30, to: TODAY, indep: IND.d30,
       campaignNames: odooCamp ? [odooCamp] : [], pick: f => f.byCampaign[odooCamp ?? ""] },
-    { id: "C5", label: `ICP ${(odooIcp ?? "").slice(0, 8)} · 30d`, from: D30, to: TODAY, indep: indep30,
+    { id: "C5", label: `ICP ${(odooIcp ?? "").slice(0, 8)} · 30d`, from: D30, to: TODAY, indep: IND.d30,
       icpIds: odooIcp ? [odooIcp] : [], pick: f => f.byIcp[odooIcp ?? ""] },
+    { id: "C6", label: "workspace · All time", from: null, to: null, indep: IND.all, pick: f => f.workspace },
+    { id: "C7", label: `custom ${CUSTOM_FROM} → ${CUSTOM_TO}`, from: CUSTOM_FROM, to: CUSTOM_TO, indep: IND.custom, pick: f => f.workspace },
   ];
 
   console.log(`\n  SHADOW — canonical Calls vs independent verifier   tenant ${TENANT.slice(0, 8)}`);
@@ -104,7 +114,7 @@ const main = async () => {
     );
     // Shadow payload: what would change if the flag were flipped.
     const sh = d.callsShadow;
-    if (sh && c.id === "C2") {
+    if (sh && c.id === "C1") {
       console.log(`        legacy made ${sh.workspace.legacy.attempted} → canonical ${sh.workspace.canonical.attempted}` +
         `  (Δ ${sh.workspace.attemptedDelta >= 0 ? "+" : ""}${sh.workspace.attemptedDelta}) · ` +
         `legacy answered ${sh.workspace.legacy.connected} → confirmed connected ${sh.workspace.canonical.confirmedConnected}` +
