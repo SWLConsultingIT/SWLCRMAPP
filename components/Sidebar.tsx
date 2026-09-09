@@ -10,7 +10,7 @@ import HelpMenu from "@/components/HelpMenu";
 import {
   LayoutDashboard, Users, Megaphone, Home,
   Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
-  PanelLeftClose, PanelLeftOpen, Trophy, X,
+  PanelLeftClose, PanelLeftOpen, Trophy, X, CalendarCheck,
 } from "lucide-react";
 import { useMobileMenu } from "@/lib/mobile-menu";
 import { useRouter } from "next/navigation";
@@ -62,6 +62,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
       { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI", shortcut: "M" },
       { href: "/campaigns", labelKey: "", brandLabel: "Outreach Flow™", icon: Megaphone, tag: "AI", shortcut: "O" },
       { href: "/leads", labelKey: "nav.leads", icon: Users, shortcut: "L" },
+      { href: "/activities", labelKey: "nav.activities", icon: CalendarCheck, shortcut: "Y" },
       { href: "/results", labelKey: "nav.results", icon: Trophy, shortcut: "R" },
     ],
   },
