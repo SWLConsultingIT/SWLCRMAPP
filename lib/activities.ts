@@ -47,6 +47,7 @@ export type Activity = {
   priority: ActivityPriority | null;
   source: ActivitySource;
   source_reference_id: string | null;
+  reminder_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -103,7 +104,7 @@ export const OPEN_STATUSES: ReadonlySet<ActivityStatus> = new Set(["pending"]);
 
 /** Columns selected for every activity read — keep in sync with the table. */
 export const ACTIVITY_SELECT =
-  "id, company_bio_id, lead_id, type, title, description, assigned_to, created_by, due_at, completed_at, status, priority, source, source_reference_id, created_at, updated_at";
+  "id, company_bio_id, lead_id, type, title, description, assigned_to, created_by, due_at, completed_at, status, priority, source, source_reference_id, reminder_sent_at, created_at, updated_at";
 
 /**
  * Validate + normalize a create/update payload into the DB-writable shape.

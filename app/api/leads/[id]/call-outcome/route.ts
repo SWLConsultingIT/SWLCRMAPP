@@ -177,6 +177,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     upd.callback_at = outcome === "callback" ? callbackAt : null;
     upd.callback_note = outcome === "callback" ? (body.note?.trim() || null) : null;
     await svc.from("leads").update(upd).eq("id", leadId);
+
+    // Callback → also create a first-class Activity (P0-2). leads.callback_at is
+    // kept above for backward compat (RecallList reads it), but the Activity is
+    // the durable source of truth that the reminder cron + consolidated view use.
+    // The reminder can't be lost if the browser closes — it lives in the DB and
+    // fires an in-app notification when due_at arrives.
+    if (outcome === "callback" && callbackAt) {
+      const nowIso = new Date().toISOString();
+      await svc.from("activities").insert({
+        company_bio_id: lead.company_bio_id,
+        lead_id: leadId,
+        type: "call",
+        title: body.note?.trim() || "Call back",
+        description: body.note?.trim() || null,
+        assigned_to: scope.userId,
+        created_by: scope.userId,
+        due_at: callbackAt,
+        status: "pending",
+        source: "call_callback",
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+    }
   } else {
     // wrong_number: flag the lead so future calls are blocked, then
     // walk every active/draft campaign step that's a call and skip

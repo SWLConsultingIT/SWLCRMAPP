@@ -34,6 +34,11 @@ create table if not exists activities (
   -- provenance: 'manual' | 'call_callback' | 'inbox' | ...
   source text not null default 'manual',
   source_reference_id uuid,       -- e.g. the originating call id / reply id
+  -- Set once the time-based reminder cron has fired an in-app notification for
+  -- this activity. NULL = not yet reminded. This is the dedupe key: the cron
+  -- only ever notifies a row whose reminder_sent_at is NULL, so a reminder can
+  -- never fire twice (browser closed, new device, next day — all safe).
+  reminder_sent_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint activities_status_chk check (status in ('pending','completed','cancelled'))
@@ -46,6 +51,11 @@ create index if not exists idx_activities_assignee_status_due
 create index if not exists idx_activities_lead on activities (lead_id);
 create index if not exists idx_activities_company_status_due
   on activities (company_bio_id, status, due_at);
+-- Reminder cron: find pending, not-yet-reminded activities whose due_at has
+-- arrived. Partial index keeps it tiny (only the rows the cron can act on).
+create index if not exists idx_activities_reminder_due
+  on activities (due_at)
+  where status = 'pending' and reminder_sent_at is null;
 
 alter table activities enable row level security;
 
