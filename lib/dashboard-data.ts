@@ -90,7 +90,8 @@ import {
   type Window as MetricWindow,
 } from "@/lib/metric-defs";
 import {
-  canonicalCallGroups, callMetrics, callMetricsBy, groupSeller, shadowCompare,
+  canonicalCallGroups, callMetrics, callMetricsBy, shadowCompare,
+  callMatchesScope as callMatchesPhysicalScope, type PhysicalCallScope,
 } from "@/lib/metrics/calls-read";
 import { CALLS_CANONICAL_IDENTITY, type RawCallRow } from "@/lib/metrics/calls-identity";
 
@@ -153,7 +154,7 @@ const EMPTY_DASHBOARD = {
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; reached: number; responseRate: number | null; conversionRate: number | null }>,
   callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0, attempted: 0, confirmedConnected: 0, confirmedNotConnected: 0, unknown: 0, confirmedConnectRate: null as number | null },
   callsShadow: null as null | Record<string, unknown>,
-  callOutcomesBySeller: [] as Array<{ sellerId: string; sellerName: string; made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number }> }>,
+  callOutcomesBySeller: [] as Array<{ rowKey: string; sellerId: string | null; userId: string | null; sellerName: string; made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number }> }>,
   linkedinConnections: { sent: 0, accepted: 0, rate: null as number | null, caveat: "of the leads invited in this period, accepted as of today" },
   icpPerformance: [] as Array<any>,
   campaignPerformance: [] as Array<any>,
@@ -934,18 +935,37 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   for (const [uid, sel] of userToSeller) sellerUserToId.set(uid, sel.id);
   const leadToIcp = new Map<string, string>();
   for (const l of allLeads) if (l.icp_profile_id) leadToIcp.set(l.id, l.icp_profile_id);
+  const leadToCampaignId = new Map<string, string>();
+  for (const c of allCampaigns) if (c.lead_id && !leadToCampaignId.has(c.lead_id)) leadToCampaignId.set(c.lead_id, c.id);
 
-  const canonicalGroups = canonicalCallGroups(scopedCalls as unknown as RawCallRow[], {
+  // RED #2 — ORDER IS THE FIX.
+  //   raw rows → canonical grouping → merge → attribution → scope → metrics
+  // Grouping happens over the UNSCOPED tenant rows: a physical call must
+  // exist before anyone asks whose it is. Filtering rows first split calls
+  // whose marker and webhook resolved to different owners — one seller lost
+  // the call, another gained it.
+  const allCanonicalGroups = canonicalCallGroups(allCalls as unknown as RawCallRow[], {
     win,
     leadToCampaignName: leadToCampaignName as Map<string, string | null>,
+    leadToCampaignId,
+    leadToIcpId: leadToIcp,
+    sellerOfUser: sellerUserToId,
+    leadAssignedUser: leadToAssignedUser,
     toDayKey: toArgDay,
   });
+  const physicalScope: PhysicalCallScope = {
+    sellerIds: sellerSet,
+    campaignIds: null,
+    campaignNames: campSet,
+    icpIds: icpSet,
+    assignedLeadIds,
+  };
+  const canonicalGroups = allCanonicalGroups.filter(g => callMatchesPhysicalScope(g, physicalScope));
+
   const canonicalMetrics = callMetrics(canonicalGroups);
-  const canonicalBySeller = callMetricsBy(canonicalGroups, g =>
-    groupSeller(g, { sellerOfUser: sellerUserToId, leadAssignedUser: leadToAssignedUser }) ?? "UNATTRIBUTED");
+  const canonicalBySeller = callMetricsBy(canonicalGroups, g => g.sellerId ?? "UNATTRIBUTED");
   const canonicalByCampaign = callMetricsBy(canonicalGroups, g => g.campaignName ?? "NO CAMPAIGN");
-  const canonicalByIcp = callMetricsBy(canonicalGroups, g =>
-    (g.leadId ? leadToIcp.get(g.leadId) : null) ?? "NO ICP");
+  const canonicalByIcp = callMetricsBy(canonicalGroups, g => g.icpId ?? "NO ICP");
 
   const callsShadow = {
     enabled: CALLS_CANONICAL_IDENTITY,
@@ -1144,19 +1164,41 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
 
   type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number };
   type DayCounts = CallOutcomeCounts & { campaigns: string[] };
-  type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; active: boolean; byDay: Record<string, DayCounts>; totalDuration: number; coachScoreSum: number; coachScoreCount: number; avgDurationSecs: number; avgCoachScore: number | null };
+  // RED #1 — THE SELLER ID CONTRACT.
+  //   sellerId  is ALWAYS a `sellers.id`, the id the filters accept.
+  //   userId    is the auth user id, and is never called sellerId.
+  // Until now this row carried an auth user id under the name `sellerId`, so
+  // filtering by the id the table itself exposed returned an empty dashboard.
+  // The user_id → sellers.id mapping happens HERE, once, and no component
+  // converts anything.
+  type SellerCallStats = CallOutcomeCounts & { rowKey: string; sellerId: string | null; userId: string | null; sellerName: string; active: boolean; byDay: Record<string, DayCounts>; totalDuration: number; coachScoreSum: number; coachScoreCount: number; avgDurationSecs: number; avgCoachScore: number | null };
   const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 });
   const blankDayCounts = (): DayCounts => ({ ...blankCounts(), campaigns: [] });
   const callSellerAgg = new Map<string, SellerCallStats>();
   for (const g of callGroups.values()) {
     // Credit the CALLER (dialed_by_user_id); the lead owner only when there is no
     // dialer. `sid` is a USER id (not a sellers.id).
-    const sid = attributeCaller(g) ?? "unassigned";
-    const sname = sid === "unassigned" ? "Unassigned" : (userNameById.get(sid) ?? sid.slice(0, 8));
-    if (callUserScope && !callUserScope.has(sid)) continue; // seller-chip filter, translated to owner user ids
-    let agg = callSellerAgg.get(sid);
-    const sellerActive = allSellers.find(s => s.user_id === sid)?.active ?? true;
-    if (!agg) { agg = { sellerId: sid, sellerName: sname, active: sellerActive, ...blankCounts(), byDay: {}, totalDuration: 0, coachScoreSum: 0, coachScoreCount: 0, avgDurationSecs: 0, avgCoachScore: null }; callSellerAgg.set(sid, agg); }
+    // Under the canonical path the owner is already resolved on the physical
+    // call; under legacy it is derived per group. Either way it is turned
+    // into a sellers.id exactly once, right here.
+    const uid = (g as { userId?: string | null }).userId ?? attributeCaller(g);
+    const resolvedSellerId = (g as { sellerId?: string | null }).sellerId
+      ?? (uid ? sellerUserToId.get(uid) ?? null : null);
+    // Key on the seller when there is one, else on the user, else unassigned:
+    // a dialler with no sellers row (a super_admin calling cross-tenant) must
+    // still appear with their name instead of vanishing.
+    const key = resolvedSellerId ?? uid ?? "unassigned";
+    const sname = key === "unassigned" ? "Unassigned" : (uid ? userNameById.get(uid) : null)
+      ?? allSellers.find(s => s.id === resolvedSellerId)?.name
+      ?? key.slice(0, 8);
+    // Legacy seller-chip filter, translated to dialler user ids. Under the
+    // canonical path the scope was already applied to the PHYSICAL call, and
+    // re-applying it by dialler would drop calls attributed through the
+    // flow's assigned caller rather than the dial marker.
+    if (!CALLS_CANONICAL_IDENTITY && callUserScope && uid && !callUserScope.has(uid)) continue;
+    let agg = callSellerAgg.get(key);
+    const sellerActive = allSellers.find(s => s.id === resolvedSellerId || (uid != null && s.user_id === uid))?.active ?? true;
+    if (!agg) { agg = { rowKey: key, sellerId: resolvedSellerId, userId: uid ?? null, sellerName: sname, active: sellerActive, ...blankCounts(), byDay: {}, totalDuration: 0, coachScoreSum: 0, coachScoreCount: 0, avgDurationSecs: 0, avgCoachScore: null }; callSellerAgg.set(key, agg); }
     const day = agg.byDay[g.day] ?? (agg.byDay[g.day] = blankDayCounts());
     const cl = g.classification ?? "";
     const bump = (k: keyof CallOutcomeCounts) => { agg![k]++; day[k]++; };

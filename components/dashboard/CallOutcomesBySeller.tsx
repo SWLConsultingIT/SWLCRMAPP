@@ -18,7 +18,9 @@ type Counts = {
 };
 type DayCounts = Counts & { campaigns?: string[] };
 type SellerCallStats = Counts & {
-  sellerId: string; sellerName: string; active?: boolean; byDay: Record<string, DayCounts>;
+  // sellerId is a `sellers.id` (null when the dialler has no seller row);
+  // userId is the auth user id. See the RED #1 contract in dashboard-data.
+  rowKey?: string; sellerId: string | null; userId?: string | null; sellerName: string; active?: boolean; byDay: Record<string, DayCounts>;
   avgDurationSecs?: number; avgCoachScore?: number | null;
 };
 
