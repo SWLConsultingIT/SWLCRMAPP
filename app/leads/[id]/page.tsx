@@ -16,6 +16,7 @@ import ActivityTimeline from "@/components/ActivityTimeline";
 import LeadChatThread from "@/components/LeadChatThread";
 import LeadNotes from "@/components/LeadNotes";
 import LeadActivities from "@/components/LeadActivities";
+import LeadResultBar from "@/components/LeadResultBar";
 import LeadPinnedNotes from "@/components/LeadPinnedNotes";
 import CampaignJourney from "@/components/CampaignJourney";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
@@ -377,6 +378,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   // sellers; a seller can only self-assign (enforced again server-side).
   const viewerScope = await getUserScope();
   const canAssignActivities = canViewAllTenantData(viewerScope.tier);
+  // Result bar: any non-viewer can set the business result. Send-to-Odoo is the
+  // SWL-only integration (matches the hardcoded gate in the send-to-odoo route).
+  const canSetResult = viewerScope.tier != null && viewerScope.tier !== "viewer";
+  const SWL_BIO = "7c02e222-be59-416d-9434-acf4685f8590";
+  const showOdoo = (lead as any).company_bio_id === SWL_BIO;
 
   // Account & industry angle context (our play for this lead's segment).
   const angle = await getAngleContext((lead as any).icp_profile_id ?? null, (lead as any).company_bio_id ?? null);
@@ -886,6 +892,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           campaignStep={campaign ? `${campDone ? steps.length : Math.min(currentStep + 1, steps.length)}/${steps.length}` : "—"}
         />
       </div>
+
+      {/* ── Business RESULT bar (P0-4/P0-5) — prominent Set-result action; when
+          Won it surfaces Send to Odoo right here. Distinct from reply sentiment. */}
+      <LeadResultBar
+        leadId={id}
+        status={(lead as any).status ?? null}
+        transferred={!!(lead as any).transferred_to_odoo_at}
+        odooLeadId={(lead as any).odoo_lead_id ?? null}
+        showOdoo={showOdoo}
+        canSetResult={canSetResult}
+      />
 
       {/* Gruppo Everest demo: flex wrapper so we can CSS-`order` the Details
           zone (tabs + About This Person) above the Rooftop/Account trio without
