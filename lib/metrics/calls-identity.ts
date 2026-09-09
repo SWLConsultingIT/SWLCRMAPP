@@ -454,6 +454,17 @@ export function callTotals(calls: PhysicalCall[]): CallTotals {
   };
 }
 
-/** Rollback switch. Off → callers keep the legacy lead+minute dedup. */
+/**
+ * READ switch — deliberately OPT-IN, and deliberately separate from writing.
+ *
+ * Phase 3A.1 rolls out the WRITE side only: ingestion stores canonical
+ * identity on every new row. Nothing reads it yet, so no visible number
+ * moves. Reading is Phase 3D and flips this flag on purpose.
+ *
+ * Defaulting to ON would mean a forgotten env var silently changes every
+ * call metric on the dashboard, which is precisely the failure this split
+ * exists to prevent. Absent or "0" → surfaces keep the legacy lead+minute
+ * dedup, exactly as today.
+ */
 export const CALLS_CANONICAL_IDENTITY =
-  process.env.CALLS_CANONICAL_IDENTITY !== "0";
+  process.env.CALLS_CANONICAL_IDENTITY === "1";

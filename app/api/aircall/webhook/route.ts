@@ -211,6 +211,22 @@ async function linkOrphanMarker(
     const canonical = marker.canonical_call_id ?? marker.id;
     if (row.canonical_call_id && row.canonical_call_id === canonical) return; // already linked
 
+    // BACKWARD UNIQUENESS. This path sees one webhook at a time, so on its own
+    // it cannot tell that a sibling webhook already adopted this marker — two
+    // real calls would silently become one. Ask the table: if any other
+    // Aircall-confirmed row already carries this identity, the marker is
+    // taken and the case is ambiguous. Leave it to the reconciler, which
+    // evaluates every candidate at once.
+    const takenRes = await fetch(
+      `${SB_URL}/calls?canonical_call_id=eq.${canonical}&aircall_call_id=not.is.null&id=neq.${row.id}&select=id&limit=1`,
+      { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } },
+    );
+    const taken = await takenRes.json().catch(() => []);
+    if (Array.isArray(taken) && taken.length > 0) {
+      console.warn(`[aircall-webhook] marker ${marker.id} already claimed by ${taken[0]?.id} — deferring to reconciler`);
+      return;
+    }
+
     const deltaSeconds = marker.started_at
       ? Math.abs(new Date(marker.started_at).getTime() - startedMs) / 1000
       : null;
@@ -218,7 +234,10 @@ async function linkOrphanMarker(
     await fetch(`${SB_URL}/calls?id=eq.${row.id}`, {
       method: "PATCH",
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ canonical_call_id: canonical, ...(row.lead_id ? {} : { lead_id: marker.lead_id }) }),
+      // IDENTITY ONLY — see the reconciler. Copying the marker's lead onto a
+      // webhook row that has none would move campaign- and ICP-filtered
+      // numbers, and the forward rollout must change nothing on screen.
+      body: JSON.stringify({ canonical_call_id: canonical }),
     });
     await fetch(`${SB_URL}/calls_recon_log`, {
       method: "POST",
