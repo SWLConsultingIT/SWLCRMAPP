@@ -9,7 +9,7 @@ import SellerPulseTable from "@/components/dashboard/SellerPulseTable";
 // app/page.tsx, keeps them off the initial-load critical path — the shell +
 // other tabs paint immediately and this section streams in when ready.
 
-type CallsRow = { sellerId: string; made?: number; byDay?: Record<string, { made?: number } | undefined> };
+type CallsRow = { rowKey?: string; sellerId: string | null; userId?: string | null; made?: number; byDay?: Record<string, { made?: number } | undefined> };
 type Perf = { id: string; pendingCalls: number; replied: number; positive: number };
 
 export default async function SellerPulseSection({
@@ -28,7 +28,7 @@ export default async function SellerPulseSection({
   // Argentina is UTC-3 — match dashboard-data.ts so "today" is local midnight.
   const todayStr = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const callsRowBySellerId = new Map<string, CallsRow>();
-  for (const row of callOutcomesBySeller) callsRowBySellerId.set(row.sellerId, row);
+  for (const row of callOutcomesBySeller) callsRowBySellerId.set(row.rowKey ?? row.sellerId ?? "", row);
   const pendingBySellerId = new Map<string, number>();
   const repliedBySellerId = new Map<string, number>();
   const positiveBySellerId = new Map<string, number>();
