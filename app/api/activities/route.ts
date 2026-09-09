@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, canViewAllTenantData, getMyAssignedLeadIds } from "@/lib/scope";
 import { ACTIVITY_SELECT, normalizeActivityCreate, isActivityType, isActivityStatus } from "@/lib/activities";
 
 export async function GET(req: NextRequest) {
@@ -27,18 +27,29 @@ export async function GET(req: NextRequest) {
   // Tenant scope — never rely on RLS through the service client.
   if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
 
-  // Ownership: a seller only sees their own. Managers/owners/super_admin may
-  // request scope=all (tenant-wide) or scope=mine; default mine everywhere.
-  const wantScope = sp.get("scope") === "all" && seesAll ? "all" : "mine";
-  if (wantScope === "mine") {
-    q = q.eq("assigned_to", scope.userId);
-  } else {
-    const seller = sp.get("seller");
-    if (seller) q = q.eq("assigned_to", seller);
-  }
-
   const leadId = sp.get("leadId");
-  if (leadId) q = q.eq("lead_id", leadId);
+  if (leadId) {
+    // Lead-scoped view (Lead Detail section): every activity on this lead within
+    // the tenant, regardless of assignee. A seller may only read a lead in their
+    // assigned set (mirrors how /leads scopes seller access).
+    if (!seesAll) {
+      const assigned = await getMyAssignedLeadIds();
+      if (assigned && !assigned.has(leadId)) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
+    }
+    q = q.eq("lead_id", leadId);
+  } else {
+    // Consolidated view: a seller only sees their own; managers+ may request
+    // scope=all (tenant-wide) or scope=mine; default mine everywhere.
+    const wantScope = sp.get("scope") === "all" && seesAll ? "all" : "mine";
+    if (wantScope === "mine") {
+      q = q.eq("assigned_to", scope.userId);
+    } else {
+      const seller = sp.get("seller");
+      if (seller) q = q.eq("assigned_to", seller);
+    }
+  }
 
   const type = sp.get("type");
   if (type && isActivityType(type)) q = q.eq("type", type);

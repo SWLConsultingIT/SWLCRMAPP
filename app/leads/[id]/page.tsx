@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewAllTenantData } from "@/lib/scope";
 import { decryptLeadPayload, redactClientLead, hydrateDecryptedLead, logDataAccess, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
@@ -15,6 +15,7 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import LeadChatThread from "@/components/LeadChatThread";
 import LeadNotes from "@/components/LeadNotes";
+import LeadActivities from "@/components/LeadActivities";
 import LeadPinnedNotes from "@/components/LeadPinnedNotes";
 import CampaignJourney from "@/components/CampaignJourney";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
@@ -372,6 +373,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const lead = await getLead(id);
   if (!lead) notFound();
+  // Viewer scope — managers/owners/super_admin may assign activities to other
+  // sellers; a seller can only self-assign (enforced again server-side).
+  const viewerScope = await getUserScope();
+  const canAssignActivities = canViewAllTenantData(viewerScope.tier);
 
   // Account & industry angle context (our play for this lead's segment).
   const angle = await getAngleContext((lead as any).icp_profile_id ?? null, (lead as any).company_bio_id ?? null);
@@ -1790,6 +1795,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             event-only Recent Activity timeline. Same chat component used in
             Results/Opportunities so the conversation reads the same everywhere. */}
         <LeadChatThread leadId={id} leadName={contactName} />
+
+        {/* ── Activities ── per-lead task/follow-up system (P0, additive — sits
+            alongside the campaign/pipeline info, does not replace it). */}
+        <LeadActivities leadId={id} canAssignOthers={canAssignActivities} />
 
         {/* ── TAB 6: Notes ── the lead collaboration hub (notes + @mentions + pin) */}
         <LeadNotes leadId={id} />
