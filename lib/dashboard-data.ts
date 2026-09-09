@@ -89,6 +89,10 @@ import {
   realCallsInWindow, callOwner, isConnected as callConnected, callOutcomeGroup as callGroup,
   type Window as MetricWindow,
 } from "@/lib/metric-defs";
+import {
+  canonicalCallGroups, callMetrics, callMetricsBy, groupSeller, shadowCompare,
+} from "@/lib/metrics/calls-read";
+import { CALLS_CANONICAL_IDENTITY, type RawCallRow } from "@/lib/metrics/calls-identity";
 
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
 // "not_now" (bad timing) is a follow-up, NOT a negative/lost outcome — excluded.
@@ -147,7 +151,8 @@ const EMPTY_DASHBOARD = {
   // RC-4/RC-5 — `reached` is the same-channel denominator; rates are nullable
   // because "nobody was reached" is not 0%.
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; reached: number; responseRate: number | null; conversionRate: number | null }>,
-  callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
+  callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0, attempted: 0, confirmedConnected: 0, confirmedNotConnected: 0, unknown: 0, confirmedConnectRate: null as number | null },
+  callsShadow: null as null | Record<string, unknown>,
   callOutcomesBySeller: [] as Array<{ sellerId: string; sellerName: string; made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number }> }>,
   linkedinConnections: { sent: 0, accepted: 0, rate: null as number | null, caveat: "of the leads invited in this period, accepted as of today" },
   icpPerformance: [] as Array<any>,
@@ -334,11 +339,13 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     duration: number | null; classification: string | null; started_at: string | null;
     dialed_by_user_id: string | null; phone_number: string | null; coach_score: number | null;
     aircall_call_id: number | string | null; seller_id: string | null;
+    // PHASE 3A.3 — identity of the PHYSICAL call. Several rows share it.
+    canonical_call_id: string | null; created_at: string | null;
   };
   const makeCallsQ = () => {
     const q = supabase
       .from("calls")
-      .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, coach_score, aircall_call_id, seller_id, leads!inner(company_bio_id)");
+      .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, coach_score, aircall_call_id, seller_id, canonical_call_id, created_at, leads!inner(company_bio_id)");
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
 
@@ -863,6 +870,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     negative:  callsInPeriod.filter(c => callGroup(c) === "negative").length,
     unclassified: callsInPeriod.filter(c => !c.classification).length,
     total:     callsMadeCount,
+    // PHASE 3A.3 — the closed definitions. Filled from the canonical path
+    // below; under the legacy path they mirror it in shadow, so a reader can
+    // always see Unknown beside the rate instead of a bare percentage.
+    attempted: callsMadeCount,
+    confirmedConnected: 0,
+    confirmedNotConnected: 0,
+    unknown: 0,
+    confirmedConnectRate: null as number | null,
   };
 
   // ── Call outcomes by seller (boss 2026-06-08) ─────────────────────────
@@ -903,6 +918,50 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const toArgDay = (iso: string | null) => businessDayKey(iso);
   const userToSeller = new Map<string, { id: string; name: string }>();
   for (const s of allSellers) if (s.user_id) userToSeller.set(s.user_id, { id: s.id, name: s.name });
+
+  // ── PHASE 3A.3 · CANONICAL CALL READ ──────────────────────────────────
+  // One implementation for Overview, Sellers, Campaigns, ICPs and Channels.
+  // Groups by canonical_call_id instead of the three heuristic dedup passes
+  // below (lead+minute, then phone-suffix+minute, then drop-orphan-answered),
+  // which could only ever approximate a physical call.
+  //
+  // SHADOW BY DEFAULT. Both paths are computed on every request; legacy is
+  // what renders until CALLS_CANONICAL_IDENTITY=1. The comparison ships in
+  // the payload as `callsShadow` so a difference is visible before it is
+  // taken, not after somebody notices on screen.
+  // user_id → seller id, and lead → ICP, for the canonical dimensions.
+  const sellerUserToId = new Map<string, string>();
+  for (const [uid, sel] of userToSeller) sellerUserToId.set(uid, sel.id);
+  const leadToIcp = new Map<string, string>();
+  for (const l of allLeads) if (l.icp_profile_id) leadToIcp.set(l.id, l.icp_profile_id);
+
+  const canonicalGroups = canonicalCallGroups(scopedCalls as unknown as RawCallRow[], {
+    win,
+    leadToCampaignName: leadToCampaignName as Map<string, string | null>,
+    toDayKey: toArgDay,
+  });
+  const canonicalMetrics = callMetrics(canonicalGroups);
+  const canonicalBySeller = callMetricsBy(canonicalGroups, g =>
+    groupSeller(g, { sellerOfUser: sellerUserToId, leadAssignedUser: leadToAssignedUser }) ?? "UNATTRIBUTED");
+  const canonicalByCampaign = callMetricsBy(canonicalGroups, g => g.campaignName ?? "NO CAMPAIGN");
+  const canonicalByIcp = callMetricsBy(canonicalGroups, g =>
+    (g.leadId ? leadToIcp.get(g.leadId) : null) ?? "NO ICP");
+
+  const callsShadow = {
+    enabled: CALLS_CANONICAL_IDENTITY,
+    workspace: shadowCompare("workspace", callsMadeCount, callsConnectedCount, canonicalMetrics),
+    bySeller: Object.fromEntries(canonicalBySeller),
+    byCampaign: Object.fromEntries(canonicalByCampaign),
+    byIcp: Object.fromEntries(canonicalByIcp),
+  };
+
+  // The closed definitions are reported ALWAYS — Unknown is never hidden,
+  // even while legacy still drives `made` / `answered`.
+  callsBreakdown.attempted = canonicalMetrics.attempted;
+  callsBreakdown.confirmedConnected = canonicalMetrics.confirmedConnected;
+  callsBreakdown.confirmedNotConnected = canonicalMetrics.confirmedNotConnected;
+  callsBreakdown.unknown = canonicalMetrics.unknown;
+  callsBreakdown.confirmedConnectRate = canonicalMetrics.confirmedConnectRate;
 
   // For dialers that have no seller record in this tenant (e.g. super_admin
   // dialing cross-tenant), fetch their auth identity so calls still show the
@@ -988,6 +1047,36 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         callGroups.delete(key);
       }
     }
+  }
+
+  // ── PHASE 3A.3 · the swap ─────────────────────────────────────────────
+  // Everything below reads `callGroups` and nothing else. Replacing its
+  // contents is therefore the entire read migration: the seller table, the
+  // hour-of-day heatmap, the channel counts and the campaign rollups all
+  // follow, and there is exactly one definition of a call for all of them.
+  //
+  // Off by default. The three heuristic passes above still ran, so the two
+  // results are both in hand and `callsShadow` reports the difference.
+  if (CALLS_CANONICAL_IDENTITY) {
+    callGroups.clear();
+    for (const g of canonicalGroups) {
+      callGroups.set(g.canonicalCallId, {
+        leadId: g.leadId,
+        dialer: g.dialer,
+        classification: g.classification,
+        answered: g.answered,          // = Confirmed Connected, never Aircall's guess
+        day: g.day,
+        hour: g.hour,
+        phone: g.phone,
+        campaignName: g.campaignName,
+        duration: g.duration,
+        coachScore: g.coachScore,
+      });
+    }
+    callsBreakdown.made = canonicalMetrics.attempted;
+    callsBreakdown.completed = canonicalMetrics.attempted;
+    callsBreakdown.total = canonicalMetrics.attempted;
+    callsBreakdown.answered = canonicalMetrics.confirmedConnected;
   }
 
   // user_id → display name for the per-caller call tables. Seed from sellers
@@ -2168,6 +2257,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     ],
     channelBreakdown,
     callsBreakdown,
+    callsShadow,
     callOutcomesBySeller,
     // Exposed even after the funnel trim, so the LinkedIn Connections
     // card on the Channels tab can keep showing Sent → Accepted → rate
