@@ -11,6 +11,7 @@ import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useAuthUser } from "@/lib/auth-context";
+import PushToggle from "@/components/PushToggle";
 import { Bell, AtSign, Tag, MessageSquare, FileText, CalendarClock, Inbox as InboxIcon, CheckCheck, CircleDot } from "lucide-react";
 
 type Notif = {
@@ -160,6 +161,9 @@ export default function NotificationsCenter() {
 
   return (
     <div className="w-full max-w-2xl">
+      {/* Browser push opt-in (P2b) — self-hides when unsupported/unconfigured. */}
+      <PushToggle />
+
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <button onClick={() => setOnlyUnread(false)} className="rounded-lg px-3 py-1.5 text-[12px] font-bold" style={chip(!onlyUnread)}>{t("notif.all")}</button>

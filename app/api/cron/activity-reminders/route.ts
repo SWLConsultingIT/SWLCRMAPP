@@ -13,6 +13,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { sendPushToUsers } from "@/lib/web-push";
+import nodemailer from "nodemailer";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -84,5 +86,52 @@ async function handle(req: NextRequest) {
   const { error: notifErr } = await svc.from("notifications").insert(notifications);
   if (notifErr) return NextResponse.json({ error: notifErr.message, fired: 0, claimed: ids.length }, { status: 500 });
 
-  return NextResponse.json({ ok: true, fired: notifications.length });
+  // Channel 2 — browser push (best-effort, no-op unless VAPID configured).
+  await Promise.all(
+    notifications.map(n =>
+      sendPushToUsers([n.recipient_user_id], {
+        title: "⏰ Reminder",
+        body: n.body,
+        url: n.link,
+        tag: n.lead_id ? `lead-${n.lead_id}` : `activity-${nowIso}`,
+      }),
+    ),
+  );
+
+  // Channel 3 — email fallback (best-effort, no-op unless SMTP configured). One
+  // digest email per recipient listing their now-due reminders, so a callback
+  // can't be missed even with the browser closed and push off.
+  let emailed = 0;
+  const SMTP_USER = process.env.SMTP_USER;
+  const SMTP_PASS = process.env.SMTP_PASS;
+  if (SMTP_USER && SMTP_PASS) {
+    const byUser = new Map<string, typeof notifications>();
+    for (const n of notifications) {
+      const arr = byUser.get(n.recipient_user_id) ?? [];
+      arr.push(n);
+      byUser.set(n.recipient_user_id, arr);
+    }
+    const base = process.env.APP_BASE_URL ?? "https://app.swlconsulting.com";
+    const transport = nodemailer.createTransport({
+      host: "smtp.gmail.com", port: 465, secure: true,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+    });
+    for (const [userId, ns] of byUser) {
+      try {
+        const { data } = await svc.auth.admin.getUserById(userId);
+        const to = data?.user?.email;
+        if (!to) continue;
+        const lines = ns.map(n => `• ${n.body}  →  ${base}${n.link}`).join("\n");
+        await transport.sendMail({
+          from: `SWL Growth Engine <${SMTP_USER}>`,
+          to,
+          subject: ns.length === 1 ? "Reminder due" : `${ns.length} reminders due`,
+          text: `You have ${ns.length} reminder${ns.length === 1 ? "" : "s"} due now:\n\n${lines}\n\nOpen your activities: ${base}/activities`,
+        });
+        emailed++;
+      } catch { /* best-effort */ }
+    }
+  }
+
+  return NextResponse.json({ ok: true, fired: notifications.length, emailed });
 }

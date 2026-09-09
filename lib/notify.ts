@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { sendPushToUsers } from "@/lib/web-push";
 
 // Shared helper to fan out in-app notifications. Used by the tag + note-mention
 // flows (and later chat). Dedupes recipients and never notifies the actor about
@@ -31,4 +32,13 @@ export async function createNotifications(input: {
     link: input.link ?? null,
   }));
   await getSupabaseService().from("notifications").insert(rows);
+
+  // Also fan out a browser push (P2b) — best-effort, no-op unless VAPID is
+  // configured. Same content as the in-app row so the two channels agree.
+  await sendPushToUsers(recipients, {
+    title: input.actorName ? input.actorName : "Growth Engine",
+    body: input.body ?? "",
+    url: input.link ?? "/notifications",
+    tag: input.leadId ? `lead-${input.leadId}` : undefined,
+  });
 }
