@@ -36,6 +36,7 @@ export type RawCallRow = {
   started_at: string | null;
   ended_at?: string | null;
   phone_number: string | null;
+  coach_score?: number | null;
   recording_url?: string | null;
   recording_storage_path?: string | null;
   transcript?: string | null;
@@ -295,6 +296,8 @@ export type PhysicalCall = {
   recordingStoragePath: string | null;
   transcript: string | null;
   notes: string | null;
+  /** AI call-coach score, from whichever row carries it. */
+  coachScore: number | null;
   /** Raw attribution inputs; resolve with resolveCallSeller(). */
   dialedByUserId: string | null;
   sellerId: string | null;
@@ -369,6 +372,7 @@ export function mergePhysicalCall(rows: RawCallRow[]): PhysicalCall {
     recordingStoragePath: (firstOf("recording_storage_path", webhookFirst) as string | null) ?? null,
     transcript: (firstOf("transcript", webhookFirst) as string | null) ?? null,
     notes: (firstOf("notes", webhookFirst) as string | null) ?? null,
+    coachScore: (firstOf("coach_score", webhookFirst) as number | null) ?? null,
     dialedByUserId: (firstOf("dialed_by_user_id", markerFirst) as string | null) ?? null,
     sellerId: (firstOf("seller_id", markerFirst) as string | null) ?? null,
     isReal: sorted.some(isRealCallRow),
