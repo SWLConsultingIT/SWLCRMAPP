@@ -44,14 +44,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
   const [t, ix] = await Promise.all([getT(), (async () => buildIndex(await loadConsoleSource(bioId), filters))()]);
   const D = buildOverview(ix, filters);
+  const T0 = buildTabs(ix);
 
   // The app's own hero and Download, unchanged — the console replaces the
   // charts below it, not the chrome above it.
+  const nf = new Intl.NumberFormat("en-US");
   const hero = (
     <AuroraHero
-      eyebrow={t("dashx.hero.section")}
-      title={t("dashx.hero.title")}
-      subtitle={t("dashx.hero.desc")}
+      eyebrow={`${t("console.hero.section")} · ${D.period.range}`}
+      title={t("console.hero.title")}
+      subtitle={t("console.hero.desc")}
+      // The four headline numbers, in the hero instead of a decorative
+      // gradient. The connect rate is gold because it is the one that moved
+      // when calls started being counted by physical identity.
+      kpis={[
+        { value: nf.format(D.funnel.stages[0].n), label: t("console.kpi.contacted") },
+        { value: nf.format(D.funnel.stages[1].n), label: t("console.kpi.replied") },
+        { value: nf.format(T0.teamHealth.calls), label: t("console.kpi.calls") },
+        { value: `${T0.teamHealth.connectRate}%`, label: t("console.kpi.connect"), tone: "gold" as const },
+      ]}
       actions={
         <>
           <FreshnessChip renderedAt={new Date().toISOString()} />
@@ -70,5 +81,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     />
   );
 
-  return <Shell D={D} T={buildTabs(ix)} hero={hero} />;
+  return <Shell D={D} T={T0} hero={hero} />;
 }
