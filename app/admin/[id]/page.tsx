@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getT } from "@/lib/i18n-server";
 import { requireAdminPage } from "@/lib/auth-admin";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
@@ -204,11 +205,11 @@ async function getMonitoringData(bioId: string) {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const statusStyles: Record<string, { label: string; color: string; bg: string }> = {
-  pending:  { label: "Pending",  color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  reviewed: { label: "Reviewed", color: C.blue,    bg: C.blueLight },
-  approved: { label: "Approved", color: C.green,   bg: C.greenLight },
-  rejected: { label: "Rejected", color: C.red,     bg: C.redLight },
+const statusStyles: Record<string, { labelKey: string; color: string; bg: string }> = {
+  pending:  { labelKey: "admt.st.pending",  color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  reviewed: { labelKey: "admt.st.reviewed", color: C.blue,    bg: C.blueLight },
+  approved: { labelKey: "admt.st.approved", color: C.green,   bg: C.greenLight },
+  rejected: { labelKey: "admt.st.rejected", color: C.red,     bg: C.redLight },
 };
 
 const leadStatusStyles: Record<string, { color: string; bg: string }> = {
@@ -224,15 +225,16 @@ const leadStatusStyles: Record<string, { color: string; bg: string }> = {
   closed_lost:      { color: C.red,     bg: C.redLight },
 };
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },
-  email:    { icon: Mail,     color: C.email,    label: "Email" },
-  call:     { icon: Phone,    color: C.phone,    label: "Call" },
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: C.linkedin, labelKey: "chan.linkedin" },
+  email:    { icon: Mail,     color: C.email,    labelKey: "chan.email" },
+  call:     { icon: Phone,    color: C.phone,    labelKey: "chan.call" },
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function AdminClientPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   await requireAdminPage();
   const { id } = await params;
   const client = await getClient(id);
@@ -257,7 +259,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs" style={{ color: C.textMuted }}>
-        <Link href="/admin" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> Admin</Link>
+        <Link href="/admin" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> {t("admt.admin")}</Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{client.company_name}</span>
       </div>
@@ -280,7 +282,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
               {client.location && <span className="flex items-center gap-1 text-sm" style={{ color: C.textMuted }}><MapPin size={12} /> {client.location}</span>}
               {client.website && (
                 <a href={client.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm hover:underline" style={{ color: C.accent }}>
-                  <Globe size={12} /> Website
+                  <Globe size={12} /> {t("admt.website")}
                 </a>
               )}
             </div>
@@ -296,11 +298,11 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
 
         <div className="px-6 py-4 grid grid-cols-5 gap-4">
           {[
-            { label: "Lead Gen Profiles", value: profiles.length,        color: gold },
-            { label: "Pending Tickets",   value: pendingProfiles.length, color: "#D97706" },
-            { label: "Approved",          value: approvedProfiles.length, color: C.green },
-            { label: "Total Leads",       value: totalLeads,              color: C.blue },
-            { label: "Campaigns",         value: totalCampaigns,          color: C.accent },
+            { label: t("admt.leadGenProfiles"), value: profiles.length,        color: gold },
+            { label: t("admt.pendingTickets"),   value: pendingProfiles.length, color: "#D97706" },
+            { label: t("admt.approved2"), value: approvedProfiles.length, color: C.green },
+            { label: t("admt.totalLeads"),       value: totalLeads,              color: C.blue },
+            { label: t("admt.campaigns"), value: totalCampaigns,          color: C.accent },
           ].map(m => (
             <div key={m.label}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{m.label}</p>
@@ -340,15 +342,15 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <div className="px-5 py-4 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
             <TrendingUp size={14} style={{ color: gold }} />
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Conversion Funnel</h2>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.funnel")}</h2>
           </div>
           <div className="p-5 space-y-3">
             {[
-              { label: "Total Leads",  value: monitoring.totalLeads,  color: C.blue,   pct: 100 },
-              { label: "Contacted",    value: monitoring.contacted,   color: C.orange, pct: monitoring.totalLeads > 0 ? Math.round((monitoring.contacted / monitoring.totalLeads) * 100) : 0 },
-              { label: "Replied",      value: monitoring.replies,     color: C.accent, pct: monitoring.totalLeads > 0 ? Math.round((monitoring.replies / monitoring.totalLeads) * 100) : 0 },
-              { label: "Positive",     value: monitoring.positive,    color: C.green,  pct: monitoring.totalLeads > 0 ? Math.round((monitoring.positive / monitoring.totalLeads) * 100) : 0 },
-              { label: "Won",          value: monitoring.won,         color: gold,     pct: monitoring.totalLeads > 0 ? Math.round((monitoring.won / monitoring.totalLeads) * 100) : 0 },
+              { label: t("admt.totalLeads"),  value: monitoring.totalLeads,  color: C.blue,   pct: 100 },
+              { label: t("admt.contacted"), value: monitoring.contacted,   color: C.orange, pct: monitoring.totalLeads > 0 ? Math.round((monitoring.contacted / monitoring.totalLeads) * 100) : 0 },
+              { label: t("admt.replied"), value: monitoring.replies,     color: C.accent, pct: monitoring.totalLeads > 0 ? Math.round((monitoring.replies / monitoring.totalLeads) * 100) : 0 },
+              { label: t("admt.positive"), value: monitoring.positive,    color: C.green,  pct: monitoring.totalLeads > 0 ? Math.round((monitoring.positive / monitoring.totalLeads) * 100) : 0 },
+              { label: t("admt.won"), value: monitoring.won,         color: gold,     pct: monitoring.totalLeads > 0 ? Math.round((monitoring.won / monitoring.totalLeads) * 100) : 0 },
             ].map(row => (
               <div key={row.label}>
                 <div className="flex items-center justify-between mb-1">
@@ -366,21 +368,21 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
 
             <div className="pt-3 border-t flex gap-4" style={{ borderColor: C.border }}>
               <div className="flex-1 text-center">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>Response Rate</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("admt.responseRate")}</p>
                 <p className="text-xl font-bold" style={{ color: monitoring.responseRate > 20 ? C.green : monitoring.responseRate > 10 ? "#D97706" : C.red }}>
                   {monitoring.responseRate}%
                 </p>
               </div>
               <div className="w-px" style={{ backgroundColor: C.border }} />
               <div className="flex-1 text-center">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>Positive Rate</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("admt.positiveRate")}</p>
                 <p className="text-xl font-bold" style={{ color: monitoring.positiveRate > 10 ? C.green : monitoring.positiveRate > 5 ? "#D97706" : C.red }}>
                   {monitoring.positiveRate}%
                 </p>
               </div>
               <div className="w-px" style={{ backgroundColor: C.border }} />
               <div className="flex-1 text-center">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>Lost</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("admt.lost")}</p>
                 <p className="text-xl font-bold" style={{ color: C.textMuted }}>{monitoring.lost}</p>
               </div>
             </div>
@@ -394,7 +396,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <div className="px-5 py-4 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
               <Activity size={14} style={{ color: C.blue }} />
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Channel Status</h2>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.channelStatus")}</h2>
             </div>
             <div className="divide-y" style={{ borderColor: C.border }}>
               {allChannels.map(ch => {
@@ -405,7 +407,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                 const lastAct  = stats?.lastActivity ?? null;
                 const stale    = lastAct && lastAct < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
                 const statusColor = !stats ? C.textDim : isActive && !stale ? C.green : stale ? C.red : "#D97706";
-                const statusLabel = !stats ? "No campaigns" : isActive && !stale ? "Active" : stale ? "Stale" : "Paused";
+                const statusLabel = !stats ? t("admt.noCampaignsShort") : isActive && !stale ? t("admt.active") : stale ? t("admt.stale") : t("admt.paused");
                 return (
                   <div key={ch} className="flex items-center gap-3 px-5 py-3">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -413,9 +415,9 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                       <Icon size={15} style={{ color: meta.color }} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{meta.label}</p>
+                      <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{t(meta.labelKey)}</p>
                       <p className="text-[11px]" style={{ color: C.textDim }}>
-                        {stats ? `${stats.active} active · last: ${timeAgo(lastAct)}` : "No activity"}
+                        {stats ? t("admt.activeLast", { n: stats.active, ago: timeAgo(lastAct) }) : t("admt.noActivity")}
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -433,13 +435,13 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
             <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <div className="px-5 py-4 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
                 <Share2 size={14} style={{ color: C.linkedin }} />
-                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Seller Accounts</h2>
+                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.sellerAccounts")}</h2>
               </div>
               <div className="divide-y" style={{ borderColor: C.border }}>
                 {monitoring.sellers.map((seller, i) => {
                   const ls = seller.linkedinStatus;
                   const statusColor = ls === "banned" ? C.red : ls === "restricted" || ls === "warning" ? "#D97706" : C.green;
-                  const statusLabel = ls === "banned" ? "Banned" : ls === "restricted" ? "Restricted" : ls === "warning" ? "Warning" : "Active";
+                  const statusLabel = ls === "banned" ? t("adm.st.banned") : ls === "restricted" ? t("adm.st.restricted") : ls === "warning" ? t("adm.st.warning") : t("adm.st.active");
                   return (
                     <div key={i} className="px-5 py-3">
                       <div className="flex items-center gap-3">
@@ -479,7 +481,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid #D97706` }}>
           <div className="px-6 py-4 flex items-center gap-2.5 border-b" style={{ borderColor: C.border, background: "rgba(217,119,6,0.04)" }}>
             <Clock size={15} style={{ color: "#D97706" }} />
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Pending Tickets</h2>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.pendingTickets")}</h2>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
               {pendingProfiles.length}
             </span>
@@ -495,13 +497,13 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                   <AdminActions id={p.id} table="icp_profiles" />
                 </div>
                 <div className="flex flex-wrap gap-4 text-xs" style={{ color: C.textBody }}>
-                  {p.target_industries?.length > 0 && <span><span className="font-medium" style={{ color: C.textMuted }}>Industries:</span> {p.target_industries.join(", ")}</span>}
-                  {p.target_roles?.length > 0 && <span><span className="font-medium" style={{ color: C.textMuted }}>Roles:</span> {p.target_roles.join(", ")}</span>}
-                  {p.geography?.length > 0 && <span><span className="font-medium" style={{ color: C.textMuted }}>Geo:</span> {p.geography.join(", ")}</span>}
-                  {p.company_size && <span><span className="font-medium" style={{ color: C.textMuted }}>Size:</span> {p.company_size}</span>}
+                  {p.target_industries?.length > 0 && <span><span className="font-medium" style={{ color: C.textMuted }}>{t("admt.industries")}</span> {p.target_industries.join(", ")}</span>}
+                  {p.target_roles?.length > 0 && <span><span className="font-medium" style={{ color: C.textMuted }}>{t("admt.roles")}</span> {p.target_roles.join(", ")}</span>}
+                  {p.geography?.length > 0 && <span><span className="font-medium" style={{ color: C.textMuted }}>{t("admt.geo")}</span> {p.geography.join(", ")}</span>}
+                  {p.company_size && <span><span className="font-medium" style={{ color: C.textMuted }}>{t("admt.size")}</span> {p.company_size}</span>}
                 </div>
-                {p.pain_points && <p className="text-xs mt-2" style={{ color: C.textBody }}><span className="font-medium" style={{ color: C.textMuted }}>Pain: </span>{p.pain_points}</p>}
-                {p.solutions_offered && <p className="text-xs mt-1" style={{ color: C.textBody }}><span className="font-medium" style={{ color: C.textMuted }}>Solution: </span>{p.solutions_offered}</p>}
+                {p.pain_points && <p className="text-xs mt-2" style={{ color: C.textBody }}><span className="font-medium" style={{ color: C.textMuted }}>{t("admt.pain")} </span>{p.pain_points}</p>}
+                {p.solutions_offered && <p className="text-xs mt-1" style={{ color: C.textBody }}><span className="font-medium" style={{ color: C.textMuted }}>{t("admt.solution")} </span>{p.solutions_offered}</p>}
               </div>
             ))}
           </div>
@@ -513,7 +515,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.blue}` }}>
           <div className="px-6 py-4 flex items-center gap-2.5 border-b" style={{ borderColor: C.border, background: `${C.blue}06` }}>
             <Megaphone size={15} style={{ color: C.blue }} />
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Pending Campaign Reviews</h2>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.pendingReviews")}</h2>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: C.blueLight, color: C.blue }}>
               {pendingRequests.length}
             </span>
@@ -534,11 +536,11 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                         {isIndividual && (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
                             style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                            <User size={10} /> Individual
+                            <User size={10} /> {t("admt.individual")}
                           </span>
                         )}
                         <h3 className="text-sm font-semibold" style={{ color: C.textPrimary }}>{req.name}</h3>
-                        <span className="text-xs" style={{ color: gold }}>View details →</span>
+                        <span className="text-xs" style={{ color: gold }}>{t("admt.viewDetails")}</span>
                       </div>
                       <div className="flex items-center gap-3 text-xs" style={{ color: C.textMuted }}>
                         <span>{timeAgo(req.created_at)}</span>
@@ -559,7 +561,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                       return (
                         <span key={ch} className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md"
                           style={{ backgroundColor: `${meta.color}12`, color: meta.color }}>
-                          <Icon size={11} /> {meta.label}
+                          <Icon size={11} /> {t(meta.labelKey)}
                         </span>
                       );
                     })}
@@ -579,12 +581,12 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
             style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 50%)` }}>
             <div className="flex items-center gap-2">
               <Target size={14} style={{ color: gold }} />
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Lead Gen Profiles</h2>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.leadGenProfiles")}</h2>
             </div>
             <span className="text-xs" style={{ color: C.textMuted }}>{profiles.length} total</span>
           </div>
           {profiles.length === 0 ? (
-            <div className="px-6 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No profiles created yet</p></div>
+            <div className="px-6 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>{t("admt.noProfiles")}</p></div>
           ) : (
             <div className="divide-y" style={{ borderColor: C.border }}>
               {profiles.map((p: any) => {
@@ -599,14 +601,14 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                       </p>
                     </div>
                     <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold shrink-0"
-                      style={{ backgroundColor: st.bg, color: st.color }}>{st.label}</span>
+                      style={{ backgroundColor: st.bg, color: st.color }}>{t(st.labelKey)}</span>
                     {p.status === "approved" && p.execution_status && p.execution_status !== "not_started" && (
                       <span className="text-xs font-medium px-2 py-0.5 rounded-md shrink-0"
                         style={{
                           backgroundColor: p.execution_status === "completed" ? C.greenLight : p.execution_status === "uploaded" ? C.blueLight : "color-mix(in srgb, #D97706 13%, transparent)",
                           color: p.execution_status === "completed" ? C.green : p.execution_status === "uploaded" ? C.blue : "#D97706",
                         }}>
-                        {p.execution_status === "completed" ? "Done" : p.execution_status === "uploaded" ? "Leads Uploaded" : "In Progress"}
+                        {p.execution_status === "completed" ? t("admt.done") : p.execution_status === "uploaded" ? t("admt.leadsUploaded") : t("admt.inProgress")}
                       </span>
                     )}
                     <ChevronRight size={14} style={{ color: C.textDim }} />
@@ -622,12 +624,12 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: C.border, background: `${C.blue}08` }}>
             <div className="flex items-center gap-2">
               <Users size={14} style={{ color: C.blue }} />
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Leads</h2>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.leads")}</h2>
             </div>
-            <span className="text-xs" style={{ color: C.textMuted }}>{totalLeads} total</span>
+            <span className="text-xs" style={{ color: C.textMuted }}>{t("admt.total", { n: totalLeads })}</span>
           </div>
           {leads.length === 0 ? (
-            <div className="px-6 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No leads assigned yet</p></div>
+            <div className="px-6 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>{t("admt.noLeads")}</p></div>
           ) : (
             <div className="divide-y" style={{ borderColor: C.border }}>
               {leads.map((lead: any) => {
@@ -665,12 +667,12 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         <div className="px-6 py-4 flex items-center justify-between border-b" style={{ borderColor: C.border, background: `${C.green}08` }}>
           <div className="flex items-center gap-2">
             <Megaphone size={14} style={{ color: C.green }} />
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Campaigns</h2>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.campaigns")}</h2>
           </div>
-          <span className="text-xs" style={{ color: C.textMuted }}>{totalCampaigns} total</span>
+          <span className="text-xs" style={{ color: C.textMuted }}>{t("admt.total", { n: totalCampaigns })}</span>
         </div>
         {campaigns.length === 0 ? (
-          <div className="px-6 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No campaigns running yet</p></div>
+          <div className="px-6 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>{t("admt.noCampaigns")}</p></div>
         ) : (
           <div className="divide-y" style={{ borderColor: C.border }}>
             {campaigns.map((c: any) => {

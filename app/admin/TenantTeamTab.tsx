@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Loader2, Plus, X, Trash2, Check } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -30,20 +31,22 @@ type Tier = "super_admin" | "owner" | "manager" | "seller" | "viewer";
 const ASSIGNABLE_TIERS: Tier[] = ["owner", "manager", "seller", "viewer"];
 const SUPER_ADMIN_ASSIGNABLE_TIERS: Tier[] = ["super_admin", "owner", "manager", "seller", "viewer"];
 
-const TIER_LABELS: Record<Tier, { label: string; color: string }> = {
-  super_admin: { label: "Super Admin", color: "#9333EA" },
-  owner: { label: "Owner", color: "#C9A83A" },
-  manager: { label: "Manager", color: "#3B82F6" },
-  seller: { label: "Seller", color: "#10B981" },
-  viewer: { label: "Viewer", color: "#6B7280" },
+const TIER_LABELS: Record<Tier, { labelKey: string; color: string }> = {
+  super_admin: { labelKey: "ttt.role.superAdmin", color: "#9333EA" },
+  owner: { labelKey: "ttt.role.owner", color: "#C9A83A" },
+  manager: { labelKey: "ttt.role.manager", color: "#3B82F6" },
+  seller: { labelKey: "ttt.role.seller", color: "#10B981" },
+  viewer: { labelKey: "ttt.role.viewer", color: "#6B7280" },
 };
 
-function formatLastSeen(iso: string | null): string {
-  if (!iso) return "Never";
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+function formatLastSeen(iso: string | null, t: Tr): string {
+  if (!iso) return t("ttt.never");
   const ms = Date.now() - new Date(iso).getTime();
   const min = Math.floor(ms / 60000);
-  if (min < 1) return "Just now";
-  if (min < 60) return `${min} min ago`;
+  if (min < 1) return t("ttt.justNow");
+  if (min < 60) return t("ttt.minAgo", { n: min });
   const hr = Math.floor(min / 60);
   if (hr < 24) return `${hr}h ago`;
   const d = Math.floor(hr / 24);
@@ -60,6 +63,7 @@ function initials(name: string | null, email: string | null): string {
 }
 
 export default function TenantTeamTab({ companyBioId, canManage }: Props) {
+  const { t } = useLocale();
   const toast = useToast();
   const [team, setTeam] = useState<TeamRow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +78,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       const res = await fetch(`/api/team?bioId=${encodeURIComponent(companyBioId)}`, { cache: "no-store" });
       const d = await res.json();
       if (!res.ok) {
-        setError(d.error ?? "Failed to load team");
+        setError(d.error ?? t("ttt.err.loadTeam"));
         return;
       }
       setTeam(d.team ?? []);
@@ -105,11 +109,11 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       const d = await res.json();
       if (!res.ok) {
         setTeam(prevTeam);
-        toast.show({ kind: "error", title: "Couldn't change role", description: d.error ?? "Failed to change tier" });
+        toast.show({ kind: "error", title: t("ttt.err.roleTitle"), description: d.error ?? t("ttt.err.tierFail") });
       }
     } catch {
       setTeam(prevTeam);
-      toast.show({ kind: "error", title: "Network error", description: "Try again in a moment." });
+      toast.show({ kind: "error", title: "Network error", description: t("ttt.retrySoon") });
     }
   }
 
@@ -122,11 +126,11 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTeam(prevTeam);
-        toast.show({ kind: "error", title: "Couldn't remove member", description: d.error ?? "Failed to remove" });
+        toast.show({ kind: "error", title: t("ttt.err.removeTitle"), description: d.error ?? t("ttt.err.removeFail") });
       }
     } catch {
       setTeam(prevTeam);
-      toast.show({ kind: "error", title: "Network error", description: "Try again in a moment." });
+      toast.show({ kind: "error", title: "Network error", description: t("ttt.retrySoon") });
     }
   }
 
@@ -157,7 +161,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       {loading ? (
         <div className="px-5 py-10 flex items-center justify-center gap-2" style={{ color: C.textMuted }}>
           <Loader2 size={14} className="animate-spin" />
-          <span className="text-sm">Loading team…</span>
+          <span className="text-sm">{t("ttt.loading")}</span>
         </div>
       ) : !team || team.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm" style={{ color: C.textMuted }}>
@@ -166,13 +170,13 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       ) : (
         <ul>
           {team.map(m => {
-            const t = TIER_LABELS[m.tier] ?? TIER_LABELS.viewer;
+            const tm = TIER_LABELS[m.tier] ?? TIER_LABELS.viewer;
             const isLastOwner = m.tier === "owner" && ownerCount <= 1;
             return (
               <li key={m.userId} className="px-5 py-3 flex items-center gap-3 border-t" style={{ borderColor: C.border }}>
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${t.color}, color-mix(in srgb, ${t.color} 65%, white))`, color: "#fff" }}
+                  style={{ background: `linear-gradient(135deg, ${tm.color}, color-mix(in srgb, ${tm.color} 65%, white))`, color: "#fff" }}
                 >
                   {initials(m.displayName, m.email)}
                 </div>
@@ -190,30 +194,30 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
                       value={m.tier}
                       onChange={(e) => changeTier(m.userId, e.target.value as Tier)}
                       disabled={isLastOwner}
-                      title={isLastOwner ? "Cannot demote the last owner" : ""}
+                      title={isLastOwner ? t("ttt.lastOwner") : ""}
                       className="text-[11px] font-semibold uppercase tracking-wider px-2 py-1 rounded border outline-none"
-                      style={{ borderColor: C.border, backgroundColor: C.bg, color: t.color }}
+                      style={{ borderColor: C.border, backgroundColor: C.bg, color: tm.color }}
                     >
                       {ASSIGNABLE_TIERS.map(tt => (
-                        <option key={tt} value={tt}>{TIER_LABELS[tt].label}</option>
+                        <option key={tt} value={tt}>{t(TIER_LABELS[tt].labelKey)}</option>
                       ))}
                     </select>
                   ) : (
                     <span
                       className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
-                      style={{ backgroundColor: `${t.color}18`, color: t.color }}
+                      style={{ backgroundColor: `${tm.color}18`, color: tm.color }}
                     >
-                      {t.label}
+                      {t(tm.labelKey)}
                     </span>
                   )}
                   <span className="text-[11px] tabular-nums" style={{ color: C.textDim }}>
-                    {formatLastSeen(m.lastSeenAt)}
+                    {formatLastSeen(m.lastSeenAt, t)}
                   </span>
                   {canManage && m.tier !== "super_admin" && !isLastOwner && (
                     <button
                       onClick={() => setRemoveTarget(m)}
                       className="p-1 rounded hover:bg-black/[0.04]"
-                      title="Remove"
+                      title={t("ttt.remove")}
                     >
                       <Trash2 size={12} style={{ color: C.textMuted }} />
                     </button>
@@ -258,6 +262,7 @@ type InviteResult = { mode: "invited" | "added" | "already_member"; email: strin
 function InviteModal({
   companyBioId, onClose, onSuccess,
 }: { companyBioId: string; onClose: () => void; onSuccess: (result: InviteResult) => void }) {
+  const { t } = useLocale();
   const [email, setEmail] = useState("");
   const [tier, setTier] = useState<Tier>("seller");
   const [fullName, setFullName] = useState("");
@@ -335,43 +340,43 @@ function InviteModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Invite team member</h2>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("ttt.invite")}</h2>
           <button onClick={onClose}><X size={16} style={{ color: C.textMuted }} /></button>
         </div>
         <div className="px-6 py-4 space-y-3">
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Email</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("ttt.email")}</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="teammate@example.com"
+              placeholder={t("ttt.emailPh")}
               autoFocus
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Full name (optional)</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("ttt.fullNameOpt")}</label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="Juan Perez"
+              placeholder={t("ttt.namePh")}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Role</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("ttt.role")}</label>
             <div className="grid grid-cols-2 gap-2">
-              {assignableTiers.map(t => {
-                const meta = TIER_LABELS[t];
-                const selected = tier === t;
+              {assignableTiers.map(tt => {
+                const meta = TIER_LABELS[tt];
+                const selected = tier === tt;
                 return (
                   <button
-                    key={t}
-                    onClick={() => setTier(t)}
+                    key={tt}
+                    onClick={() => setTier(tt)}
                     className="text-xs font-semibold px-3 py-2 rounded-lg border text-left flex items-center justify-between"
                     style={{
                       borderColor: selected ? meta.color : C.border,
@@ -379,18 +384,18 @@ function InviteModal({
                       color: selected ? meta.color : C.textBody,
                     }}
                   >
-                    <span>{meta.label}</span>
+                    <span>{t(meta.labelKey)}</span>
                     {selected && <Check size={12} />}
                   </button>
                 );
               })}
             </div>
             <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-              {tier === "super_admin" && "Cross-tenant SWL ops. Lands as owner here + can switch into any tenant. Use sparingly."}
-              {tier === "owner" && "Full admin: can manage team + settings."}
-              {tier === "manager" && "Tenant-wide read/write. No team management."}
-              {tier === "seller" && "Only their own assigned leads + campaigns."}
-              {tier === "viewer" && "Read-only across the tenant."}
+              {tier === "super_admin" && t("ttt.desc.superAdmin")}
+              {tier === "owner" && t("ttt.desc.owner")}
+              {tier === "manager" && t("ttt.desc.manager")}
+              {tier === "seller" && t("ttt.desc.seller")}
+              {tier === "viewer" && t("ttt.desc.viewer")}
             </p>
           </div>
 
@@ -429,7 +434,7 @@ function InviteModal({
         </div>
         <div className="px-6 py-3 border-t flex items-center justify-end gap-2" style={{ borderColor: C.border }}>
           <button onClick={onClose} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-            Cancel
+            {t("ttt.cancel")}
           </button>
           <button
             onClick={submit}
@@ -449,6 +454,7 @@ function InviteModal({
 function RemoveModal({
   target, onCancel, onConfirm,
 }: { target: TeamRow; onCancel: () => void; onConfirm: () => void }) {
+  const { t } = useLocale();
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
@@ -461,14 +467,14 @@ function RemoveModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="px-5 py-4">
-          <h2 className="text-sm font-bold mb-2" style={{ color: C.textPrimary }}>Remove team member?</h2>
+          <h2 className="text-sm font-bold mb-2" style={{ color: C.textPrimary }}>{t("ttt.removeConfirm")}</h2>
           <p className="text-xs" style={{ color: C.textMuted }}>
-            <b style={{ color: C.textBody }}>{target.displayName ?? target.email ?? "This user"}</b> will lose access immediately. Their leads and campaigns remain in the tenant.
+            <b style={{ color: C.textBody }}>{target.displayName ?? target.email ?? t("ttt.thisUser")}</b> {t("ttt.willLose")}
           </p>
         </div>
         <div className="px-5 py-3 border-t flex items-center justify-end gap-2" style={{ borderColor: C.border }}>
           <button onClick={onCancel} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-            Cancel
+            {t("ttt.cancel")}
           </button>
           <button
             onClick={onConfirm}
