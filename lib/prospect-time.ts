@@ -65,6 +65,22 @@ const COUNTRY_TZ: Record<string, string> = {
   "singapore": "Asia/Singapore",
 };
 
+export const DEFAULT_DUE_TZ = "America/Argentina/Buenos_Aires";
+
+/**
+ * Resolve the timezone an activity due time should default to, server-side.
+ * Order (best-effort with what the lead model has today): explicit lead/contact
+ * country → company country → fallback. There is no stored per-lead IANA tz yet
+ * (that arrives with the Contacts phase); until then country is the signal.
+ */
+export function resolveDueTimezone(
+  leadCountry?: string | null,
+  companyCountry?: string | null,
+  fallback: string = DEFAULT_DUE_TZ,
+): string {
+  return countryToTimeZone(leadCountry) ?? countryToTimeZone(companyCountry) ?? fallback;
+}
+
 export function countryToTimeZone(country?: string | null): string | null {
   if (!country) return null;
   const key = country.trim().toLowerCase();

@@ -1,5 +1,7 @@
 import type { InstantlyConfig } from "@/lib/instantly-config";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { validateSenderPool, senderPoolLogPayload } from "@/lib/sender-pool";
+import { invalidateCampaignPool } from "@/lib/instantly-campaign-pool";
 
 // Per-FLOW Instantly campaign resolver (created + activated lazily on first use).
 //
@@ -38,6 +40,11 @@ export async function resolveFlowCampaignId(
   companyBioId: string,
   flowName: string,
   tenantLabel: string,
+  // The tenant's declared sender pool (company_bios.email_accounts). Provisioning
+  // is the strongest place to enforce identity separation: a clone that never
+  // gets activated can never send from the wrong mailbox. Pass null only where
+  // no pool is known — the guard degrades to a warning, never a silent pass.
+  declaredPool?: unknown,
 ): Promise<{ campaignId: string | null; error?: string; created?: boolean }> {
   const svc = getSupabaseService();
 
@@ -61,6 +68,18 @@ export async function resolveFlowCampaignId(
     return { campaignId: null, error: `template campaign fetch failed: HTTP ${tmpl.status}` };
   }
 
+  // GUARD 1 — the template's own pool. The clone inherits email_list verbatim,
+  // so a contaminated template mints contaminated campaigns forever. Free to
+  // check: we already have the template body in hand, no extra request.
+  const tmplVerdict = validateSenderPool({ declared: declaredPool, actual: tmpl.json.email_list });
+  if (tmplVerdict.status === "block") {
+    console.error(`[sender-pool] ${JSON.stringify(senderPoolLogPayload({
+      verdict: tmplVerdict, tenantBioId: companyBioId, tenantName: tenantLabel,
+      campaignId: config.campaignId, flowName, stage: "provision",
+    }))}`);
+    return { campaignId: null, error: `template sender pool rejected — ${tmplVerdict.reason}` };
+  }
+
   // 3. Create the per-flow campaign (name = "<Tenant> — <Flow>").
   const created = await inst(config.apiKey, "POST", "/campaigns", {
     name: `${tenantLabel} — ${flowName}`,
@@ -75,8 +94,31 @@ export async function resolveFlowCampaignId(
   }
   const newId = created.json.id as string;
 
+  // GUARD 2 — read the clone BACK and re-check it, before it can ever send.
+  // We do not trust that Instantly copied email_list faithfully: this is the
+  // exact field that silently drops when you POST `email_account_uuids` instead
+  // (2026-05-07 incident — campaigns came up with zero accounts). Verifying the
+  // persisted object, rather than the payload we sent, is the only way to know.
+  const check = await inst(config.apiKey, "GET", `/campaigns/${newId}`);
+  const cloneVerdict = validateSenderPool({
+    declared: declaredPool,
+    actual: check.status < 300 ? check.json?.email_list : [],
+  });
+  if (cloneVerdict.status === "block") {
+    console.error(`[sender-pool] ${JSON.stringify(senderPoolLogPayload({
+      verdict: cloneVerdict, tenantBioId: companyBioId, tenantName: tenantLabel,
+      campaignId: newId, flowName, stage: "provision",
+    }))}`);
+    // Leave nothing behind: an inactive orphan with the wrong pool is a trap for
+    // whoever looks at the workspace next. Never activated, never mapped.
+    await inst(config.apiKey, "DELETE", `/campaigns/${newId}`);
+    return { campaignId: null, error: `clone sender pool rejected, campaign deleted and NOT activated — ${cloneVerdict.reason}` };
+  }
+
   // 4. Activate so it actually sends (per-flow bounce-protection applies here).
   await inst(config.apiKey, "POST", `/campaigns/${newId}/activate`);
+  // The dispatch-time cache must not serve a pre-activation snapshot.
+  invalidateCampaignPool(newId);
 
   // 5. Persist the mapping. If a concurrent dispatch tick already created one
   //    (unique violation on company_bio_id+flow_name), defer to the winner and

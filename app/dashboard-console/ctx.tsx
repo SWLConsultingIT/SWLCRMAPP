@@ -5,7 +5,11 @@
 import { createContext, useContext } from "react";
 import type { OverviewData, TabsData } from "@/lib/console-data";
 
-export type ConsoleSnapshot = { D: OverviewData; T: TabsData };
+export type ConsoleSnapshot = {
+  D: OverviewData; T: TabsData;
+  /** Switch tab. The "Campaigns →" affordances are drill-downs, not decor. */
+  goTab?: (t: string) => void;
+};
 const Ctx = createContext<ConsoleSnapshot | null>(null);
 
 export function ConsoleProvider({ value, children }: { value: ConsoleSnapshot; children: React.ReactNode }) {
@@ -19,3 +23,4 @@ function use(): ConsoleSnapshot {
 }
 export const useD = () => use().D;
 export const useT = () => use().T;
+export const useGoTab = () => use().goTab;

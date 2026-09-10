@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { useGoTab } from "./ctx";
 
 export const gold = "var(--brand, #c9a83a)";
 export const n = (x: number) => x.toLocaleString("en-US");
@@ -109,12 +110,48 @@ export function Eyebrow({ children, note }: { children: React.ReactNode; note?: 
   );
 }
 
+/** Where each drill affordance goes.
+ *
+ *  Only three of the nine labels happened to match a tab name, so switching
+ *  on the label alone would have left six of them still inert. Anything not
+ *  listed here renders as plain text rather than a button that does nothing. */
+const DRILL_TAB: Record<string, string> = {
+  "Campaigns": "Campaigns",
+  "All flows": "Campaigns",
+  "Channels": "Channels",
+  "Sellers": "Sellers",
+  "Team": "Sellers",
+  "ICP list": "ICPs",
+};
+const DRILL_HREF: Record<string, string> = {
+  "Inbox": "/inbox",
+  "Call queue": "/queue?tab=inbox&channel=call",
+  "Weekly PDF": "/reports/print",
+};
+
 export function Drill({ label }: { label: string }) {
-  return (
-    <button className="inline-flex items-center gap-1 font-semibold" style={{ fontSize: 11.5, color: gold }}>
-      {label} <ArrowRight size={11} />
-    </button>
-  );
+  const goTab = useGoTab();
+  const tab = DRILL_TAB[label];
+  const href = DRILL_HREF[label];
+  const cls = "inline-flex items-center gap-1 font-semibold hover:underline";
+  const style = { fontSize: 11.5, color: gold } as const;
+
+  if (tab && goTab) {
+    return (
+      <button onClick={() => goTab(tab)} className={cls} style={style} aria-label={`Go to the ${tab} tab`}>
+        {label} <ArrowRight size={11} />
+      </button>
+    );
+  }
+  if (href) {
+    return (
+      <a href={href} className={cls} style={style}>
+        {label} <ArrowRight size={11} />
+      </a>
+    );
+  }
+  // No destination: say so quietly instead of faking an affordance.
+  return <span className="inline-flex items-center gap-1 font-semibold" style={{ ...style, color: C.textDim }}>{label}</span>;
 }
 
 /** The caveat line. Everywhere a number needed a qualifier the qualifier is
@@ -198,7 +235,7 @@ export function Ranked({ rows, note, unit = "contacted" }: {
               </div>
             </div>
             <div className="flex-1 h-1.5 rounded-full min-w-[40px]" style={{ backgroundColor: C.surface }}>
-              <div className="h-full rounded-full" style={{ width: `${(r.rate / best) * 100}%`, backgroundColor: gold, opacity: .9 }} />
+              <div className="h-full rounded-full" style={{ width: `${best > 0 ? (r.rate / best) * 100 : 0}%`, backgroundColor: gold, opacity: .9 }} />
             </div>
             <span className="w-[46px] shrink-0 text-right font-semibold tabular-nums" style={{ fontSize: 15, color: C.textPrimary }}>
               {r.rate}%

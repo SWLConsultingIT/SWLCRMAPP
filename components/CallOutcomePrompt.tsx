@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight } from "lucide-react";
+import { Loader2, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight, PhoneMissed, Inbox as InboxIcon, Plus } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import WhenScheduler, { type WhenValue } from "@/components/WhenScheduler";
+import ActivityComposer from "@/components/ActivityComposer";
+import { browserTimeZone } from "@/lib/activities";
 
 // Post-call outcome prompt. Lifted OUT of CallButton and driven by
 // AircallPhoneProvider so it ALWAYS appears when a call ends — regardless of
@@ -15,7 +18,7 @@ import { useLocale } from "@/lib/i18n";
 // ANY of them (not just pos/neg), and — for "Call back" — an inline recall
 // date/time (L-9). Each outcome → /api/leads/[id]/call-outcome maps to a
 // concrete CRM action; see that route for the side effects.
-type Outcome = "interested" | "meeting" | "info" | "callback" | "voicemail" | "not_interested" | "other_person" | "wrong_number";
+type Outcome = "interested" | "meeting" | "info" | "callback" | "voicemail" | "not_interested" | "other_person" | "wrong_number" | "no_contact_established" | "mailbox_full";
 
 // Default recall = tomorrow 10:00, local.
 function defaultCallbackDate(): string {
@@ -29,9 +32,14 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
   const { t } = useLocale();
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [note, setNote] = useState("");
-  const [cbDate, setCbDate] = useState(defaultCallbackDate());
-  const [cbTime, setCbTime] = useState("10:00");
-  const [remind, setRemind] = useState(true);
+  // Callback scheduling — one shared value driven by <WhenScheduler>. Default:
+  // tomorrow 10:00 in the seller's tz, reminder 10 min before.
+  const [when, setWhen] = useState<WhenValue>(() => {
+    const tz = browserTimeZone();
+    return { date: defaultCallbackDate(), time: "10:00", tz, reminderOffset: "10" };
+  });
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [ctxFetched, setCtxFetched] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -47,6 +55,17 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
     return () => { alive = false; };
   }, [leadId]);
 
+  // When "Call back" is chosen, default the scheduler to the LEAD's timezone
+  // (resolved server-side). One fetch, only when needed.
+  useEffect(() => {
+    if (outcome !== "callback" || ctxFetched) return;
+    setCtxFetched(true);
+    fetch(`/api/leads/${leadId}/callback-context`, { cache: "no-store" })
+      .then(r => r.json())
+      .then((d: { timezone?: string }) => { if (d?.timezone) setWhen(w => ({ ...w, tz: d.timezone as string })); })
+      .catch(() => {});
+  }, [outcome, ctxFetched, leadId]);
+
   const OPTS: { v: Outcome; label: string; desc: string; icon: typeof ThumbsUp; color: string }[] = [
     { v: "interested",     label: t("callOutcome.interested"),    desc: t("callOutcome.book"),            icon: ThumbsUp,   color: C.green },
     { v: "meeting",        label: t("callOutcome.meeting"),       desc: t("callOutcome.meetingDesc"),     icon: Calendar,   color: C.green },
@@ -56,32 +75,49 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
     { v: "not_interested", label: t("callOutcome.notInterested"), desc: t("callOutcome.close"),           icon: ThumbsDown, color: C.red },
     { v: "other_person",   label: t("callOutcome.otherPerson"),   desc: t("callOutcome.otherPersonDesc"), icon: UserPlus,   color: "#8B5CF6" },
     { v: "wrong_number",   label: t("callOutcome.wrongNumber"),   desc: t("callOutcome.wrongNumberDesc"), icon: PhoneOff,   color: C.textMuted },
+    { v: "no_contact_established", label: t("callOutcome.noContact"),   desc: t("callOutcome.noContactDesc"),   icon: PhoneMissed, color: "#7A8199" },
+    { v: "mailbox_full",   label: t("callOutcome.mailboxFull"),   desc: t("callOutcome.mailboxFullDesc"), icon: InboxIcon,  color: "#7A8199" },
   ];
+
+  // Outcomes that SUGGEST (never auto-create) a next step after saving.
+  const SUGGESTS: ReadonlySet<Outcome> = new Set(["interested", "info", "voicemail", "other_person", "no_contact_established", "mailbox_full"]);
 
   async function submit() {
     if (!outcome || classifying) return;
     setClassifying(true);
     setErr(null);
     try {
-      const callbackAt = outcome === "callback" ? new Date(`${cbDate}T${cbTime}`).toISOString() : undefined;
+      const isCallback = outcome === "callback";
+      // Send wall date/time + tz; the route resolves the tz (defaults to the
+      // LEAD's zone) and computes the absolute due_at server-side.
       const r = await fetch(`/api/leads/${leadId}/call-outcome`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome, note: note.trim() || undefined, callbackAt, remind }),
+        body: JSON.stringify({
+          outcome,
+          note: note.trim() || undefined,
+          callbackDate: isCallback ? when.date : undefined,
+          callbackTime: isCallback ? (when.time || "10:00") : undefined,
+          callbackTz: isCallback ? when.tz : undefined,
+          reminderOffset: isCallback ? (when.reminderOffset === "" ? null : Number(when.reminderOffset)) : undefined,
+        }),
       });
       if (!r.ok) {
         const { error } = await r.json().catch(() => ({ error: null }));
         setErr(error || t("callOutcome.errLog"));
         return;
       }
-      // L-10 — jump straight to the next lead in the flow when there is one,
-      // so the seller works a call list without bouncing back to /queue.
-      if (nextLeadId) {
+      router.refresh();
+      // Suggested next step (only when we're NOT auto-jumping a call list) →
+      // keep the modal open on a light "what's next?" screen. Otherwise keep the
+      // existing fast flow: jump to the next lead, or confirm-and-close.
+      if (SUGGESTS.has(outcome) && !nextLeadId) {
+        setSaved(true);
+      } else if (nextLeadId) {
         router.push(`/leads/${nextLeadId}`);
         onClose();
       } else {
         setSaved(true);
-        router.refresh();
         window.setTimeout(onClose, 900);
       }
     } catch {
@@ -111,11 +147,22 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
         }}
       >
         {saved ? (
-          <div className="flex flex-col items-center justify-center py-6 gap-2">
+          <div className="flex flex-col items-center justify-center py-6 gap-3">
             <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)` }}>
               <Check size={22} style={{ color: C.green }} />
             </div>
             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("callOutcome.logged")}</p>
+            {outcome && SUGGESTS.has(outcome) && (
+              <div className="w-full flex flex-col items-center gap-2 mt-1">
+                <p className="text-[11px]" style={{ color: C.textMuted }}>{t("callOutcome.whatsNext")}</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSuggestOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-bold" style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 70%, white))`, color: "#1A1505" }}>
+                    <Plus size={13} /> {t("callOutcome.scheduleFollowup")}
+                  </button>
+                  <button onClick={onClose} className="rounded-lg px-3 py-2 text-[12px] font-semibold" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textMuted }}>{t("callOutcome.done")}</button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -160,19 +207,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
                 <p className="text-[11px] font-semibold mb-2 flex items-center gap-1.5" style={{ color: "#D97706" }}>
                   <Calendar size={12} /> {t("callOutcome.callbackWhen")}
                 </p>
-                <div className="flex flex-wrap items-end gap-2">
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("callOutcome.date")}</span>
-                    <input type="date" value={cbDate} onChange={e => setCbDate(e.target.value)} className="rounded-md border px-2 py-1.5 text-[12px] outline-none" style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("callOutcome.time")}</span>
-                    <input type="time" value={cbTime} onChange={e => setCbTime(e.target.value)} className="rounded-md border px-2 py-1.5 text-[12px] outline-none" style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
-                  </label>
-                  <label className="flex items-center gap-1.5 ml-auto text-[11px] cursor-pointer pb-1.5" style={{ color: C.textMuted }}>
-                    <input type="checkbox" checked={remind} onChange={e => setRemind(e.target.checked)} /> {t("callOutcome.remind")}
-                  </label>
-                </div>
+                <WhenScheduler value={when} onChange={setWhen} />
               </div>
             )}
 
@@ -211,6 +246,18 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
           </>
         )}
       </div>
+
+      {/* Suggested follow-up — opens the universal composer (createActivity),
+          lead + source known, so the seller only picks When/Note. Optional. */}
+      {suggestOpen && (
+        <ActivityComposer
+          mode="modal"
+          open
+          context={{ leadId, type: "follow_up", source: "call_outcome" }}
+          onClose={() => { setSuggestOpen(false); onClose(); }}
+          onCreated={() => { setSuggestOpen(false); onClose(); }}
+        />
+      )}
     </div>
   );
 }

@@ -101,7 +101,7 @@ function Flow() {
         {st.slice(1).map((x, i) => (
           <text key={x.key} x={(pts[i].x + pts[i + 1].x) / 2} y={TOP - 12} textAnchor="middle" className="tabular-nums"
             style={{ fill: C.textMuted, fontSize: 13, fontWeight: 600 }}>
-            {((x.n / st[i].n) * 100).toFixed(1)}%
+            {st[i].n > 0 ? `${((x.n / st[i].n) * 100).toFixed(1)}%` : "—"}
           </text>
         ))}
       </svg>
@@ -160,7 +160,7 @@ function Channels() {
                   <DeltaTag d={r.delta} size={12} />
                 </div>
                 <div className="mt-2 h-2 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
-                  <div className="h-full rounded-full" style={{ width: `${(r.rate / best) * 100}%`, backgroundColor: lead ? gold : C.border2 }} />
+                  <div className="h-full rounded-full" style={{ width: `${best > 0 ? (r.rate / best) * 100 : 0}%`, backgroundColor: lead ? gold : C.border2 }} />
                 </div>
                 <div className="mt-1.5 tabular-nums" style={{ fontSize: 11.5, color: C.textDim }}>
                   {r.replies} of {n(r.reached)} leads reached · {n(r.sent)} messages sent
@@ -250,7 +250,7 @@ function Ranked({ rows, note }: {
               </div>
             </div>
             <div className="flex-1 h-1.5 rounded-full min-w-[40px]" style={{ backgroundColor: C.surface }}>
-              <div className="h-full rounded-full" style={{ width: `${(r.rate / best) * 100}%`, backgroundColor: gold, opacity: .9 }} />
+              <div className="h-full rounded-full" style={{ width: `${best > 0 ? (r.rate / best) * 100 : 0}%`, backgroundColor: gold, opacity: .9 }} />
             </div>
             <span className="w-[46px] shrink-0 text-right font-semibold tabular-nums" style={{ fontSize: 15, color: C.textPrimary }}>{r.rate}%</span>
           </div>
@@ -287,7 +287,7 @@ function ReplyQuality() {
           <div key={r.label} className="flex items-center gap-3">
             <span className="w-[92px] shrink-0" style={{ fontSize: 12.5, color: r.n === 0 ? C.textDim : C.textBody }}>{r.label}</span>
             <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.surface }}>
-              {r.n > 0 && <div className="h-full rounded-full" style={{ width: `${(r.n / max) * 100}%`, backgroundColor: tone[r.tone], opacity: .85 }} />}
+              {r.n > 0 && <div className="h-full rounded-full" style={{ width: `${max > 0 ? (r.n / max) * 100 : 0}%`, backgroundColor: tone[r.tone], opacity: .85 }} />}
             </div>
             <span className="w-[24px] shrink-0 text-right tabular-nums font-semibold"
               style={{ fontSize: 12.5, color: r.n === 0 ? C.textDim : C.textPrimary }}>{r.n}</span>
@@ -385,7 +385,7 @@ function Workspace() {
       </div>
       <div className="flex h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
         {w.parts.map((x, i) => (
-          <div key={x.label} style={{ width: `${(x.n / w.total) * 100}%`, backgroundColor: shade[i] }} />
+          <div key={x.label} style={{ width: `${w.total > 0 ? (x.n / w.total) * 100 : 0}%`, backgroundColor: shade[i] }} />
         ))}
       </div>
       <div className="flex flex-wrap mt-3.5" style={{ gap: 30 }}>

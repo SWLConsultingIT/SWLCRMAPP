@@ -20,7 +20,7 @@ import { C } from "@/lib/design";
 import { gold, Pick } from "./ui";
 import type { OverviewData, TabsData } from "@/lib/console-data";
 import { ConsoleProvider, useD } from "./ctx";
-import { TABS, type Tab } from "./tabs-data";
+import { VISIBLE_TABS, HIDDEN_TABS, type Tab } from "./tabs-data";
 
 import Overview from "./Console";
 import Icps from "./Icps";
@@ -79,7 +79,7 @@ function Controls({ tab }: { tab: Tab }) {
     go({ preset: p, from: r?.from ?? null, to: r?.to ?? null });
   };
 
-  const on = APPLIES[tab];
+  const on = APPLIES[tab] ?? [];
   const active = [
     on.includes("campaign") && a.campaign,
     on.includes("icp") && a.icp,
@@ -116,12 +116,10 @@ function Controls({ tab }: { tab: Tab }) {
           <X size={11} /> {t("cons.filter.clear")}
         </button>
       )}
-      {tab === "Portfolio" && (
-        <span style={{ fontSize: 11, color: C.textDim }}>{t("cons.portfolioNote")}</span>
-      )}
+
 
       <div className="flex-1" />
-      <span style={{ fontSize: 11.5, color: C.textDim }}>{pending ? "loading…" : D.period.range}</span>
+      <span style={{ fontSize: 11.5, color: C.textDim }}>{pending ? t("cons.loading") : D.period.range}</span>
     </div>
   );
 }
@@ -134,10 +132,13 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
   // dropdown thinks. Changing it navigates; it does not re-slice in place.
   const label = D.period.range;
 
-  const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[tab];
+  // Portfolio stays in the map so the component keeps compiling and one
+  // line brings it back; it is simply unreachable while hidden.
+  const safeTab: Tab = HIDDEN_TABS.includes(tab) ? "Overview" : tab;
+  const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[safeTab];
 
   return (
-    <ConsoleProvider value={{ D, T }}>
+    <ConsoleProvider value={{ D, T, goTab: (t) => setTab(t as Tab) }}>
     <div className="p-4 sm:p-6 w-full">
       {/* Same width as every other view — app/page.tsx, /leads, /results all
           use p-4 sm:p-6 w-full. A centred 1180px column left ~250px of dead
@@ -148,17 +149,13 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
 
         {/* tabs — names, one underline, no chapter numerals */}
         <nav className="flex items-center gap-1 mt-5" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
-          {TABS.map(name => {
+          {VISIBLE_TABS.map(name => {
             const on = name === tab;
             return (
               <button key={name} role="tab" aria-selected={on} onClick={() => setTab(name)}
                 className="px-3 py-2 font-medium relative"
                 style={{ fontSize: 13, color: on ? C.textPrimary : C.textMuted }}>
                 {t(`cons.tab.${name.toLowerCase()}`)}
-                {name === "Portfolio" && (
-                  <span className="ml-1.5 align-middle rounded-full px-1.5 py-px font-bold"
-                    style={{ fontSize: 8.5, border: `1px solid ${C.border}`, color: C.textDim }}>SA</span>
-                )}
                 {on && <span aria-hidden className="absolute left-2 right-2 -bottom-px" style={{ height: 2, backgroundColor: gold, borderRadius: 2 }} />}
               </button>
             );

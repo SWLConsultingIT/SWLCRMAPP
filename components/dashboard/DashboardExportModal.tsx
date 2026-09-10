@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileDown, FileSpreadsheet, X, ChevronDown, ChevronRight, Loader2, Check, Minus } from "lucide-react";
+import { FileDown, FileSpreadsheet, X, Loader2, Check, Minus } from "lucide-react";
 import { printPdf } from "@/lib/print-pdf";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
@@ -13,49 +13,20 @@ const gold = "var(--brand, #C9A83A)";
 type SubItem = { id: string; labelKey: string };
 type TabSection = { id: string; labelKey: string; descKey: string; items: SubItem[] };
 
+// The dashboard's own tabs. This list used to describe the PREVIOUS
+// dashboard — "Tabla de ICPs", "Desglose por canal", "Leaderboard" — so you
+// picked sections that no page had shown for weeks. One entry per tab, no
+// sub-items: the unit people think in is the tab they were just looking at.
 const TABS: TabSection[] = [
-  {
-    id: "overview",
-    labelKey: "rep.export.tab.overview",
-    descKey: "rep.export.headlineDesc",
-    items: [
-      { id: "kpis",  labelKey: "rep.export.item.kpis" },
-      { id: "icps",  labelKey: "rep.export.item.icps" },
-    ],
-  },
-  {
-    id: "outreach",
-    labelKey: "rep.export.tab.outreach",
-    descKey: "rep.export.campsDesc",
-    items: [
-      { id: "campaigns", labelKey: "rep.export.item.campaigns" },
-      { id: "channels",  labelKey: "rep.export.item.channels" },
-    ],
-  },
-  {
-    id: "channels",
-    labelKey: "rep.export.tab.channels",
-    descKey: "rep.export.channelsDesc",
-    items: [
-      { id: "email",    labelKey: "rep.export.item.email" },
-      { id: "linkedin", labelKey: "rep.export.item.linkedin" },
-      { id: "calls",    labelKey: "rep.export.item.callsCh" },
-    ],
-  },
-  {
-    id: "sellers",
-    labelKey: "rep.export.tab.sellers",
-    descKey: "rep.export.sellersDesc",
-    items: [
-      { id: "activity", labelKey: "rep.export.item.activity" },
-      { id: "table",    labelKey: "rep.export.item.table" },
-      { id: "calls",    labelKey: "rep.export.item.calls" },
-    ],
-  },
+  { id: "overview",  labelKey: "rep.export.tab.overview",  descKey: "rep.export.desc.overview", items: [] },
+  { id: "icps",      labelKey: "rep.export.tab.icps",      descKey: "rep.export.desc.icps",     items: [] },
+  { id: "campaigns", labelKey: "rep.export.tab.campaigns", descKey: "rep.export.desc.camps",    items: [] },
+  { id: "channels",  labelKey: "rep.export.tab.channels",  descKey: "rep.export.desc.chans",    items: [] },
+  { id: "sellers",   labelKey: "rep.export.tab.sellers",   descKey: "rep.export.desc.sellers",  items: [] },
 ];
 
 function allKeys() {
-  return new Set(TABS.flatMap(t => t.items.map(i => `${t.id}.${i.id}`)));
+  return new Set(TABS.map(t => t.id));
 }
 
 function Checkbox({ checked, partial = false }: { checked: boolean; partial?: boolean }) {
@@ -86,7 +57,6 @@ export default function DashboardExportModal({
 }) {
   const { t, locale } = useLocale();
   const [open, setOpen]         = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(TABS.map(t => t.id)));
   const [selected, setSelected] = useState<Set<string>>(allKeys());
   const [loading, setLoading]     = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
@@ -95,37 +65,22 @@ export default function DashboardExportModal({
   const [lang, setLang]           = useState<Locale>(locale);
 
   function toggleTab(tabId: string) {
-    const items   = TABS.find(t => t.id === tabId)?.items ?? [];
-    const allSel  = items.every(i => selected.has(`${tabId}.${i.id}`));
-    const next    = new Set(selected);
-    items.forEach(i => {
-      const k = `${tabId}.${i.id}`;
-      if (allSel) next.delete(k); else next.add(k);
-    });
-    setSelected(next);
-  }
-
-  function toggleItem(tabId: string, itemId: string) {
-    const k    = `${tabId}.${itemId}`;
     const next = new Set(selected);
-    if (next.has(k)) next.delete(k); else next.add(k);
-    setSelected(next);
-  }
-
-  function toggleExpand(tabId: string) {
-    const next = new Set(expanded);
     if (next.has(tabId)) next.delete(tabId); else next.add(tabId);
-    setExpanded(next);
+    setSelected(next);
   }
 
   function buildQs() {
     const qs = new URLSearchParams();
-    qs.set("sections", [...selected].join(","));
+    // The report reads the same params the dashboard does, so it renders the
+    // view you were looking at rather than a differently-scoped query.
+    qs.set("tabs", [...selected].join(","));
     if (searchParams.from)     qs.set("from",     searchParams.from);
     if (searchParams.to)       qs.set("to",        searchParams.to);
-    if (searchParams.campaign) qs.set("campaign",  searchParams.campaign);
-    if (searchParams.seller)   qs.set("seller",    searchParams.seller);
-    if (searchParams.icp)      qs.set("icp",       searchParams.icp);
+    if (searchParams.preset)   qs.set("preset",    searchParams.preset);
+    if (searchParams.campaign) qs.set("campaigns", searchParams.campaign);
+    if (searchParams.seller)   qs.set("sellers",   searchParams.seller);
+    if (searchParams.icp)      qs.set("icps",      searchParams.icp);
     qs.set("lang", lang);
     return qs;
   }
@@ -157,7 +112,7 @@ export default function DashboardExportModal({
     setTimeout(() => { setCsvLoading(false); setOpen(false); }, 8000);
   }
 
-  const totalItems = TABS.flatMap(t => t.items).length;
+  const totalItems = TABS.length;
 
   return (
     <>
@@ -171,7 +126,7 @@ export default function DashboardExportModal({
           boxShadow: `0 4px 14px color-mix(in srgb, var(--brand, #C9A83A) 28%, transparent)`,
         }}
       >
-        <FileDown size={13} /> Download
+        <FileDown size={13} /> {t("rep.export.download")}
       </button>
 
       {open && (
@@ -197,8 +152,8 @@ export default function DashboardExportModal({
                   <FileDown size={15} style={{ color: "var(--brand, #C9A83A)" }} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-bold leading-tight" style={{ color: C.textPrimary }}>{t("rep.export.title")}</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{t("rep.export.pickSections")}</p>
+                  <p className="text-[13px] font-bold leading-tight" style={{ color: C.textPrimary }}>{t("rep.export.dlDashboard")}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{periodLabel}</p>
                 </div>
               </div>
               <button
@@ -223,64 +178,29 @@ export default function DashboardExportModal({
               </div>
             </div>
 
-            {/* Section list */}
+            {/* What the report will contain — one row per tab, nothing nested */}
             <div className="flex-1 overflow-y-auto py-1">
               {TABS.map(tab => {
-                const allSel  = tab.items.every(i => selected.has(`${tab.id}.${i.id}`));
-                const someSel = tab.items.some(i => selected.has(`${tab.id}.${i.id}`));
-                const isExp   = expanded.has(tab.id);
-
+                const checked = selected.has(tab.id);
                 return (
-                  <div key={tab.id}>
-                    {/* Section header row */}
-                    <div
-                      className="flex items-center gap-3 px-5 py-3 cursor-pointer select-none group transition-colors hover:bg-black/[0.03]"
-                      onClick={() => toggleTab(tab.id)}
-                    >
-                      <Checkbox checked={allSel} partial={someSel && !allSel} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>
-                          {t(tab.labelKey)}
-                        </p>
-                        <p className="text-[10.5px] leading-tight mt-0.5" style={{ color: C.textMuted }}>
-                          {t(tab.descKey)}
-                        </p>
-                      </div>
-                      <button
-                        className="shrink-0 p-1 rounded hover:opacity-60 transition-opacity"
-                        style={{ color: C.textDim }}
-                        onClick={e => { e.stopPropagation(); toggleExpand(tab.id); }}
-                      >
-                        {isExp ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                      </button>
+                  <div
+                    key={tab.id}
+                    className="flex items-center gap-3 px-5 py-3 cursor-pointer select-none transition-colors hover:bg-black/[0.03]"
+                    onClick={() => toggleTab(tab.id)}
+                    role="checkbox"
+                    aria-checked={checked}
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleTab(tab.id); } }}
+                  >
+                    <Checkbox checked={checked} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>{t(tab.labelKey)}</p>
+                      <p className="text-[10.5px] leading-tight mt-0.5" style={{ color: C.textMuted }}>{t(tab.descKey)}</p>
                     </div>
-
-                    {/* Sub-items */}
-                    {isExp && (
-                      <div className="pb-2 border-b" style={{ borderColor: C.border }}>
-                        {tab.items.map(item => {
-                          const k       = `${tab.id}.${item.id}`;
-                          const checked = selected.has(k);
-                          return (
-                            <div
-                              key={item.id}
-                              className="flex items-center gap-3 py-2 px-5 pl-14 cursor-pointer hover:bg-black/[0.03] transition-colors"
-                              onClick={() => toggleItem(tab.id, item.id)}
-                            >
-                              <Checkbox checked={checked} />
-                              <span className="text-[11.5px]" style={{ color: C.textBody }}>
-                                {t(item.labelKey)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
-
             {/* Footer */}
             <div className="px-5 py-3 shrink-0 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
               {/* Language picker */}
@@ -312,7 +232,7 @@ export default function DashboardExportModal({
                   style={{ color: "var(--brand, #C9A83A)" }}
                   onClick={() => setSelected(selected.size === totalItems ? new Set() : allKeys())}
                 >
-                  {selected.size === totalItems ? "Ninguna" : "Todas"}
+                  {selected.size === totalItems ? t("rep.export.selNone") : t("rep.export.selAll")}
                 </button>
               </div>
 
@@ -327,8 +247,8 @@ export default function DashboardExportModal({
                 }}
               >
                 {loading
-                  ? <><Loader2 size={14} className="animate-spin" /> Abriendo...</>
-                  : <><FileDown size={14} /> Descargar PDF</>
+                  ? <><Loader2 size={14} className="animate-spin" /> {t("rep.export.opening")}</>
+                  : <><FileDown size={14} /> {t("rep.export.pdf")}</>
                 }
               </button>
 
@@ -343,8 +263,8 @@ export default function DashboardExportModal({
                 }}
               >
                 {csvLoading
-                  ? <><Loader2 size={14} className="animate-spin" /> Exportando...</>
-                  : <><FileSpreadsheet size={14} /> Descargar Excel</>
+                  ? <><Loader2 size={14} className="animate-spin" /> {t("rep.export.exporting")}</>
+                  : <><FileSpreadsheet size={14} /> {t("rep.export.excel")}</>
                 }
               </button>
             </div>

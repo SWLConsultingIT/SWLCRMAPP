@@ -648,7 +648,7 @@ export function buildTabs(ix: ConsoleIndex, t: Tr, locale: Locale = DEFAULT_LOCA
     { key: "call" as ChKey, label: t("cons.ch.calls"), icon: "call" as const,
       sent: callTotals.attempted, sentLabel: t("cons.card.callsAttempted"), reach: new Set(ix.callGroups.map(g => g.leadId).filter(Boolean)).size, reachLabel: t("cons.card.leadsDialled"),
       result: callTotals.confirmedConnected, resultLabel: t("cons.card.confirmedConnected"),
-      rate: callTotals.confirmedConnectRate == null ? 0 : Math.round(callTotals.confirmedConnectRate * 10) / 10,
+      rate: callTotals.confirmedConnectRate == null ? null : Math.round(callTotals.confirmedConnectRate * 10) / 10,
       rateLabel: t("cons.card.connectRateLabel"), delta: null as Delta, comparable: false,
       outcomes: [
         { label: t("cons.outcome.interested"), n: outcomeCount(["positive", "meeting_intent", "interested"]), tone: "good" as const },
@@ -702,7 +702,9 @@ export function buildTabs(ix: ConsoleIndex, t: Tr, locale: Locale = DEFAULT_LOCA
     return {
       name: s.name,
       attempted: m.attempted, connected: m.confirmedConnected,
-      connectRate: m.confirmedConnectRate == null ? 0 : Math.round(m.confirmedConnectRate),
+      // null, not 0: nobody with zero classified calls "connected 0% of the
+      // time" — there is simply nothing to divide.
+      connectRate: m.confirmedConnectRate == null ? null : Math.round(m.confirmedConnectRate),
       interested: c(["positive", "meeting_intent", "interested"]),
       followUp: c(["follow_up", "callback", "needs_info"]),
       negative: c(["negative", "not_interested"]),
@@ -719,7 +721,8 @@ export function buildTabs(ix: ConsoleIndex, t: Tr, locale: Locale = DEFAULT_LOCA
     for (const k of ["attempted", "connected", "interested", "followUp", "negative", "noAnswer", "unclassified"] as const) a[k] += s[k];
     return a;
   }, { attempted: 0, connected: 0, interested: 0, followUp: 0, negative: 0, noAnswer: 0, unclassified: 0 });
-  const sellerCallsTotal = { ...sct, name: t("cons.team"), connectRate: rate(sct.connected, sct.connected + sct.noAnswer) };
+  const sellerCallsTotal = { ...sct, name: t("cons.team"),
+    connectRate: sct.connected + sct.noAnswer > 0 ? rate(sct.connected, sct.connected + sct.noAnswer) : null };
 
   // Daily activity per seller: messages and calls, per business day.
   const dayKeys = [...new Set([...ix.msgsWin.map(m => businessDayKey(m.sent_at)), ...ix.callGroups.map(g => g.day)])].filter(Boolean).sort();
@@ -759,7 +762,7 @@ export function buildTabs(ix: ConsoleIndex, t: Tr, locale: Locale = DEFAULT_LOCA
     confirmedConnected: callTotals.confirmedConnected,
     confirmedNotConnected: callTotals.confirmedNotConnected,
     unknown: callTotals.unknown,
-    connectRate: callTotals.confirmedConnectRate == null ? 0 : Math.round(callTotals.confirmedConnectRate * 10) / 10,
+    connectRate: callTotals.confirmedConnectRate == null ? null : Math.round(callTotals.confirmedConnectRate * 10) / 10,
     queue: sellerRows.reduce((a, s) => a + s.queue, 0),
     /** replies in the window no flow can be tied to — never redistributed */
     unattributedReplies: ix.cohortReplies.filter(r => !r.lead_id || !ix.campOfLead.get(r.lead_id)).length,

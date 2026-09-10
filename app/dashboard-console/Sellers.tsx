@@ -62,7 +62,7 @@ function TeamHealth() {
     { v: n(h.sent), l: "Messages sent" },
     { v: n(h.calls), l: "Calls attempted" },
     { v: `${h.replyRate}%`, l: "Reply rate" },
-    { v: `${h.connectRate}%`, l: "Connect rate" },
+    { v: h.connectRate == null ? "—" : `${h.connectRate}%`, l: "Confirmed connect rate" },
   ];
 
   return (
@@ -201,7 +201,11 @@ function Detail({ s }: { s: CT.Seller }) {
 
             {/* B — calls */}
             <div>
-              <Eyebrow note={c.attempted > 0 ? `${c.connectRate}% connect rate` : "none this period"}>{t("cons.sell.calls")}</Eyebrow>
+              <Eyebrow note={c.attempted === 0
+                ? t("cons.sell.nonePeriod")
+                : c.connectRate == null
+                  ? t("cons.sell.noOutcomeLogged")
+                  : t("cons.sell.confirmedRate", { n: c.connectRate })}>{t("cons.sell.calls")}</Eyebrow>
               {c.attempted === 0 ? (
                 <p style={{ fontSize: 11.5, color: C.textDim }}>{t("cons.sell.noDials")}</p>
               ) : (
@@ -349,7 +353,7 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
             })}
 
             <tr style={{ borderTop: `2px solid ${C.border}` }}>
-              <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>Team</span></td>
+              <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>{t("cons.sell.team")}</span></td>
               <td className={`${PAD} text-right tabular-nums`} style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{n(team.contacted)}</td>
               <td className={`${PAD} text-right tabular-nums`} style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{team.replies}</td>
               <td className={`${PAD} text-right tabular-nums`} style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{team.replyRate}%</td>
@@ -430,7 +434,7 @@ function Compare() {
                 </div>
                 {meta.team !== null && (
                   <div aria-hidden className="absolute top-[-3px] bottom-[-3px]"
-                    style={{ left: `${(meta.team / max) * 100}%`, width: 1, backgroundColor: C.textMuted, opacity: .6 }} />
+                    style={{ left: `${max > 0 ? (meta.team / max) * 100 : 0}%`, width: 1, backgroundColor: C.textMuted, opacity: .6 }} />
                 )}
               </div>
               <span className="w-[64px] shrink-0 text-right tabular-nums font-semibold"
@@ -504,7 +508,7 @@ function Calls() {
               {num(r.connected)}
               <td className={`${PAD} text-right tabular-nums font-semibold`}
                 style={{ fontSize: 13.5, color: r.attempted === 0 ? C.textDim : C.textPrimary }}>
-                {r.attempted === 0 ? "—" : `${r.connectRate}%`}
+                {r.attempted === 0 || r.connectRate == null ? "—" : `${r.connectRate}%`}
               </td>
               {num(r.interested, TONE.good, r.interested > 0)}
               {num(r.followUp, TONE.neutral)}
@@ -513,10 +517,10 @@ function Calls() {
             </tr>
           ))}
           <tr style={{ borderTop: `2px solid ${C.border}` }}>
-            <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>Team</span></td>
+            <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>{t("cons.sell.team")}</span></td>
             {num(totalRow.attempted, C.textPrimary, true)}
             {num(totalRow.connected, C.textBody, true)}
-            <td className={`${PAD} text-right tabular-nums font-semibold`} style={{ fontSize: 13.5, color: C.textPrimary }}>{totalRow.connectRate}%</td>
+            <td className={`${PAD} text-right tabular-nums font-semibold`} style={{ fontSize: 13.5, color: C.textPrimary }}>{totalRow.connectRate == null ? "—" : `${totalRow.connectRate}%`}</td>
             {num(totalRow.interested, TONE.good, true)}
             {num(totalRow.followUp, TONE.neutral, true)}
             {num(totalRow.noAnswer, C.textMuted, true)}

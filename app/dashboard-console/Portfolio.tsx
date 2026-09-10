@@ -212,7 +212,7 @@ function Row({ t, best, maxVol, dim }: { t: T.Tenant; best: number; maxVol: numb
       </div>
 
       <div className="flex-1 h-2 rounded-full min-w-[50px]" style={{ backgroundColor: C.surface }}>
-        <div className="h-full rounded-full" style={{ width: `${(t.rate / best) * 100}%`, backgroundColor: gold, opacity: .9 }} />
+        <div className="h-full rounded-full" style={{ width: `${best > 0 ? (t.rate / best) * 100 : 0}%`, backgroundColor: gold, opacity: .9 }} />
       </div>
 
       <div className="w-[92px] shrink-0 text-right">

@@ -45,7 +45,7 @@ function Card({ c }: { c: CT.ChannelCard }) {
       </div>
 
       <div className="flex items-baseline gap-2 mb-4">
-        <span className="font-semibold tabular-nums" style={{ fontSize: 34, letterSpacing: "-0.03em", color: C.textPrimary }}>{c.rate}%</span>
+        <span className="font-semibold tabular-nums" style={{ fontSize: 34, letterSpacing: "-0.03em", color: C.textPrimary }}>{c.rate == null ? "—" : `${c.rate}%`}</span>
         <DeltaTag d={c.delta} size={11} />
       </div>
 
@@ -96,11 +96,11 @@ function HeadToHead() {
   const { t } = useLocale();
   const rows = T.channelCards.filter(c => c.comparable);
   const [a, b] = rows;
-  const maxRate = Math.max(a.rate, b.rate);
+  const maxRate = Math.max(a.rate ?? 0, b.rate ?? 0);
   const maxVol = Math.max(a.sent, b.sent);
 
   const LINES: { label: string; get: (c: CT.ChannelCard) => number; fmt: (v: number) => string; scale: number }[] = [
-    { label: t("cons.chan.replyRate"), get: c => c.rate, fmt: v => `${v}%`, scale: maxRate },
+    { label: t("cons.chan.replyRate"), get: c => c.rate ?? 0, fmt: v => `${v}%`, scale: maxRate },
     { label: t("cons.chan.messagesSent"), get: c => c.sent, fmt: v => n(v), scale: maxVol },
     { label: t("cons.chan.leadsReached"), get: c => c.reach, fmt: v => n(v), scale: maxVol },
     { label: t("cons.chan.leadsReplied"), get: c => c.result, fmt: v => n(v), scale: Math.max(a.result, b.result) },
@@ -166,9 +166,9 @@ function Volume() {
               <span style={{ fontSize: 11, color: C.textDim }}>{c.sentLabel.replace(/^\d+\s*/, "")}</span>
             </div>
             <div className="relative h-3 rounded-full" style={{ backgroundColor: C.surface }}>
-              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(c.sent / max) * 100}%`, backgroundColor: CH_COLOR[c.key], opacity: .35 }} />
-              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(c.reach / max) * 100}%`, backgroundColor: CH_COLOR[c.key] }} />
-              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max((c.result / max) * 100, 0.4)}%`, backgroundColor: gold }} />
+              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${max > 0 ? (c.sent / max) * 100 : 0}%`, backgroundColor: CH_COLOR[c.key], opacity: .35 }} />
+              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${max > 0 ? (c.reach / max) * 100 : 0}%`, backgroundColor: CH_COLOR[c.key] }} />
+              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${max > 0 ? Math.max((c.result / max) * 100, 0.4) : 0}%`, backgroundColor: gold }} />
             </div>
             <div className="mt-1 tabular-nums" style={{ fontSize: 11, color: C.textDim }}>
               {n(c.reach)} {c.reachLabel} · <span style={{ color: gold, fontWeight: 600 }}>{n(c.result)} {c.resultLabel}</span>

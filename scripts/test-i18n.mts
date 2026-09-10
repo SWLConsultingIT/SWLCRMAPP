@@ -34,7 +34,7 @@ for (const l of LOCALES) {
 // 3. No empty translation where English has text — an empty string renders as
 //    a blank label, which is worse than showing English.
 for (const l of LOCALES) {
-  const blanks = base.filter(k => en[k].trim() !== "" && byLocale[l.id][k].trim() === "");
+  const blanks = base.filter(k => en[k].trim() !== "" && (byLocale[l.id][k] ?? "\u00A0").trim() === "");
   ok(blanks.length === 0, `${l.id}: ${blanks.length} blank value(s) where en has text → ${blanks.slice(0, 8).join(", ")}`);
 }
 
