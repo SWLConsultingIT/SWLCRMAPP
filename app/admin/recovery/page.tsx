@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getT } from "@/lib/i18n-server";
 import { Archive, RotateCcw } from "lucide-react";
 import { C } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
@@ -62,6 +63,7 @@ async function getArchivedBios(scope: { userId: string | null; tier: string | nu
 }
 
 export default async function RecoveryPage() {
+  const t = await getT();
   const scope = await getUserScope();
   if (!scope.userId) redirect("/login");
 
@@ -79,7 +81,7 @@ export default async function RecoveryPage() {
         icon={Archive}
         section="Admin"
         title="Recovery"
-        description="Archived tenants stay recoverable for 30 days. After that, they are permanently deleted by the daily cleanup."
+        description={t("rcv.lede")}
         accentColor={C.gold}
         status={{ label: `${archived.length} archived`, active: archived.length > 0 }}
       />
@@ -87,7 +89,7 @@ export default async function RecoveryPage() {
       {archived.length === 0 ? (
         <div className="rounded-2xl border p-10 text-center" style={{ borderColor: C.border, backgroundColor: C.card }}>
           <RotateCcw size={24} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm" style={{ color: C.textBody }}>Nothing archived right now.</p>
+          <p className="text-sm" style={{ color: C.textBody }}>{t("rcv.nothing")}</p>
           <p className="text-[11px] mt-1" style={{ color: C.textMuted }}>
             When a tenant is archived, it appears here with a 30-day window to restore.
           </p>

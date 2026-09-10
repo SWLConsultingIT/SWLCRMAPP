@@ -83,7 +83,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       }
       setTeam(d.team ?? []);
     } catch {
-      setError("Network error");
+      setError(t("ttt.err.network"));
     } finally {
       setLoading(false);
     }
@@ -113,7 +113,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       }
     } catch {
       setTeam(prevTeam);
-      toast.show({ kind: "error", title: "Network error", description: t("ttt.retrySoon") });
+      toast.show({ kind: "error", title: t("ttt.err.network"), description: t("ttt.retrySoon") });
     }
   }
 
@@ -130,7 +130,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       }
     } catch {
       setTeam(prevTeam);
-      toast.show({ kind: "error", title: "Network error", description: t("ttt.retrySoon") });
+      toast.show({ kind: "error", title: t("ttt.err.network"), description: t("ttt.retrySoon") });
     }
   }
 
@@ -138,7 +138,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Team</p>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("ttt.team")}</p>
           <p className="text-sm" style={{ color: C.textPrimary }}>
             {team?.length ?? 0} {team?.length === 1 ? "member" : "members"}
           </p>
@@ -322,7 +322,7 @@ function InviteModal({
       const mode = (d.mode as InviteResult["mode"] | undefined) ?? "invited";
       onSuccess({ mode, email: email.trim() });
     } catch {
-      setError("Network error");
+      setError(t("ttt.err.network"));
     } finally {
       setSaving(false);
     }

@@ -19,12 +19,12 @@ type SellerOption = { id: string; name: string; userId: string | null };
 const ASSIGNABLE_TIERS: Tier[] = ["owner", "manager", "seller", "viewer"];
 const SUPER_ADMIN_ASSIGNABLE_TIERS: Tier[] = ["super_admin", "owner", "manager", "seller", "viewer"];
 
-const TIER_LABELS: Record<Tier, { label: string; color: string }> = {
-  super_admin: { label: "Super Admin", color: "#9333EA" },
-  owner: { label: "Owner", color: "#C9A83A" },
-  manager: { label: "Manager", color: "#3B82F6" },
-  seller: { label: "Seller", color: "#10B981" },
-  viewer: { label: "Viewer", color: "#6B7280" },
+const TIER_LABELS: Record<Tier, { labelKey: string; color: string }> = {
+  super_admin: { labelKey: "ttt.role.superAdmin", color: "#9333EA" },
+  owner: { labelKey: "ttt.role.owner", color: "#C9A83A" },
+  manager: { labelKey: "ttt.role.manager", color: "#3B82F6" },
+  seller: { labelKey: "ttt.role.seller", color: "#10B981" },
+  viewer: { labelKey: "ttt.role.viewer", color: "#6B7280" },
 };
 
 export type AddPersonResult = {
@@ -210,16 +210,16 @@ export default function AddPersonModal({
           {/* Role — applies to all selected companies */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-              Role {selectedIds.length > 1 && <span style={{ color: C.textDim }}>(applies to all selected)</span>}
+              {t("apm.role")} {selectedIds.length > 1 && <span style={{ color: C.textDim }}>{t("apm.appliesAll")}</span>}
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {assignableTiers.map(t => {
-                const meta = TIER_LABELS[t];
-                const selected = tier === t;
+              {assignableTiers.map(tt => {
+                const meta = TIER_LABELS[tt];
+                const selected = tier === tt;
                 return (
                   <button
-                    key={t}
-                    onClick={() => setTier(t)}
+                    key={tt}
+                    onClick={() => setTier(tt)}
                     className="text-xs font-semibold px-3 py-2 rounded-lg border text-left flex items-center justify-between"
                     style={{
                       borderColor: selected ? meta.color : C.border,
@@ -227,18 +227,18 @@ export default function AddPersonModal({
                       color: selected ? meta.color : C.textBody,
                     }}
                   >
-                    <span>{meta.label}</span>
+                    <span>{t(meta.labelKey)}</span>
                     {selected && <Check size={12} />}
                   </button>
                 );
               })}
             </div>
             <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-              {tier === "super_admin" && "Cross-tenant SWL ops. Lands as owner + can switch into any tenant. Use sparingly."}
-              {tier === "owner" && "Full admin: can manage team + settings in each company."}
-              {tier === "manager" && "Tenant-wide read/write. No team management."}
-              {tier === "seller" && "Only their own assigned leads + campaigns."}
-              {tier === "viewer" && "Read-only across the tenant."}
+              {tier === "super_admin" && t("apm.desc.superAdmin")}
+              {tier === "owner" && t("apm.desc.owner")}
+              {tier === "manager" && t("ttt.desc.manager")}
+              {tier === "seller" && t("ttt.desc.seller")}
+              {tier === "viewer" && t("ttt.desc.viewer")}
             </p>
           </div>
 

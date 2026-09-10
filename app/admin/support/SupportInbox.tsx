@@ -250,7 +250,7 @@ export default function SupportInbox() {
                   onChange={e => setNotesDraft(d => ({ ...d, [selected.id]: e.target.value }))}
                   rows={2}
                   maxLength={4000}
-                  placeholder="e.g. Why you're rejecting, or how it was resolved…"
+                  placeholder={t("sup.notesPh")}
                   className="w-full text-xs rounded-lg border px-3 py-2 outline-none resize-none"
                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
                 />

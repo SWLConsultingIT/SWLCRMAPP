@@ -134,11 +134,11 @@ export default function TenantHealthGrid({
 
             {/* 4 mini-KPIs */}
             <div className="grid grid-cols-4 gap-1.5 text-[10.5px]">
-              <Mini label="Sent 24h" value={t.sent24h} color={C.textBody} />
-              <Mini label="Queue" value={t.queued} color={t.queued > 0 ? C.linkedin : C.textDim} />
-              <Mini label="Fail+Stuck" value={t.failed + t.stuck} color={t.failed + t.stuck > 0 ? C.red : C.textDim}
+              <Mini label={tr("thg.sent24h")} value={t.sent24h} color={C.textBody} />
+              <Mini label={tr("thg.queue")} value={t.queued} color={t.queued > 0 ? C.linkedin : C.textDim} />
+              <Mini label={tr("thg.failStuck")} value={t.failed + t.stuck} color={t.failed + t.stuck > 0 ? C.red : C.textDim}
                 icon={t.failed + t.stuck > 0 ? AlertTriangle : undefined} />
-              <Mini label="Cooldown" value={t.cooldown} color={t.cooldown > 0 ? "#D97706" : C.textDim}
+              <Mini label={tr("thg.cooldown")} value={t.cooldown} color={t.cooldown > 0 ? "#D97706" : C.textDim}
                 icon={t.cooldown > 0 ? Snowflake : undefined} />
             </div>
 

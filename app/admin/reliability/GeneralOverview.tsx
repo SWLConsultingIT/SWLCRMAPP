@@ -100,7 +100,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
             ? { fg: "#DC2626", bg: "color-mix(in srgb, #DC2626 6%, transparent)", border: "color-mix(in srgb, #DC2626 32%, transparent)", icon: AlertTriangle, label: t("rel.flows.cards.health.critical") }
             : tn.health === "warning"
               ? { fg: "#D97706", bg: "color-mix(in srgb, #D97706 6%, transparent)", border: "color-mix(in srgb, #D97706 32%, transparent)", icon: AlertCircle, label: t("rel.flows.cards.health.warning") }
-              : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 6%, transparent)`, border: `color-mix(in srgb, ${C.green} 30%, transparent)`, icon: CheckCircle2, label: "ok" };
+              : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 6%, transparent)`, border: `color-mix(in srgb, ${C.green} 30%, transparent)`, icon: CheckCircle2, label: t("rel.ok") };
           const Icon = tone.icon;
           return (
             <Link key={tn.bioId} href={`/admin/reliability?tenant=${tn.bioId}`}

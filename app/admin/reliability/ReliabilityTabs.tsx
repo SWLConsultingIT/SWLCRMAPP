@@ -44,9 +44,9 @@ export default function ReliabilityTabs({
   };
 
   const tabs: Array<{ key: ReliabilityTabKey; label: string; sub: string; icon: LucideIcon; tone: "danger" | "neutral" | "muted" }> = [
-    { key: "status",   label: "Status",   sub: t("rel.tabs.generalHint"),     icon: Activity, tone: counts.status > 0 ? "danger" : "neutral" },
-    { key: "pipeline", label: "Pipeline", sub: t("rel.tabs.pipelineHint"),     icon: Workflow, tone: counts.pipeline > 0 ? "neutral" : "muted" },
-    { key: "history",  label: "History",  sub: t("rel.tabs.historyHint"),      icon: History,  tone: "muted" },
+    { key: "status",   label: t("rlt.status"),   sub: t("rel.tabs.generalHint"),  icon: Activity, tone: counts.status > 0 ? "danger" : "neutral" },
+    { key: "pipeline", label: t("rlt.pipeline"), sub: t("rel.tabs.pipelineHint"), icon: Workflow, tone: counts.pipeline > 0 ? "neutral" : "muted" },
+    { key: "history",  label: t("rlt.history"),  sub: t("rel.tabs.historyHint"),  icon: History,  tone: "muted" },
   ];
 
   return (

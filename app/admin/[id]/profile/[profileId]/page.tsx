@@ -38,7 +38,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
     <div className="p-6 w-full">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/admin" className="hover:underline">Admin</Link>
+        <Link href="/admin" className="hover:underline">{t("admt.admin")}</Link>
         <span>/</span>
         <Link href={`/admin/${id}`} className="hover:underline">{client?.company_name ?? "Client"}</Link>
         <span>/</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Building2, RotateCcw, Trash2, Loader2, AlertTriangle, Clock } from "lucide-react";
 import { C } from "@/lib/design";
@@ -22,6 +23,7 @@ function daysUntilHardDelete(archivedAt: string): number {
 }
 
 export default function RecoveryClient({ bios }: { bios: ArchivedBio[] }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +33,10 @@ export default function RecoveryClient({ bios }: { bios: ArchivedBio[] }) {
     try {
       const r = await fetch(`/api/company-bios/${id}/archive`, { method: "DELETE" });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Failed to restore");
+      if (!r.ok) throw new Error(d.error ?? t("adm.err.restore"));
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to restore");
+      setError(e instanceof Error ? e.message : t("adm.err.restore"));
     } finally {
       setBusyId(null);
     }

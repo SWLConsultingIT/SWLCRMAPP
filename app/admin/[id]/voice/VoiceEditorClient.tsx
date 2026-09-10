@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, MessageCircle } from "lucide-react";
@@ -30,6 +31,7 @@ const STEP_TYPES = [
 ];
 
 export default function VoiceEditorClient({ bio }: { bio: Bio }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [tone, setTone] = useState(bio.tone_of_voice ?? "");
   const [examples, setExamples] = useState<VoiceExample[]>(bio.ideal_message_examples ?? []);
@@ -81,7 +83,7 @@ export default function VoiceEditorClient({ bio }: { bio: Bio }) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <MessageCircle size={20} style={{ color: gold }} />
-            <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Brand Voice</h1>
+            <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{t("vec.brandVoice")}</h1>
           </div>
           <p className="text-sm" style={{ color: C.textMuted }}>
             Tone description + ideal message examples. Fed as few-shot to the AI message generator for {bio.company_name}.
@@ -137,7 +139,7 @@ export default function VoiceEditorClient({ bio }: { bio: Bio }) {
       {examples.length === 0 ? (
         <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <MessageCircle size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium mb-1" style={{ color: C.textBody }}>No examples yet</p>
+          <p className="text-sm font-medium mb-1" style={{ color: C.textBody }}>{t("vec.noExamples")}</p>
           <p className="text-xs" style={{ color: C.textMuted }}>
             Add a few proven outreach messages — the AI will mirror their voice when generating new campaigns.
           </p>
@@ -152,14 +154,14 @@ export default function VoiceEditorClient({ bio }: { bio: Bio }) {
                   style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
                   {STEP_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <button onClick={() => removeExample(i)} className="p-1.5 rounded hover:bg-red-50" title="Remove">
+                <button onClick={() => removeExample(i)} className="p-1.5 rounded hover:bg-red-50" title={t("adm.remove")}>
                   <Trash2 size={12} style={{ color: "#DC2626" }} />
                 </button>
               </div>
               <textarea
                 value={ex.body}
                 onChange={e => updateExample(i, { body: e.target.value })}
-                placeholder='Use {{first_name}}, {{role}}, {{company}}, {{seller_name}} and any enrichment placeholders.'
+                placeholder={t("vec.placeholders")}
                 rows={5}
                 className="w-full text-sm px-3 py-2 rounded-lg border resize-y font-mono"
                 style={{ borderColor: C.border, backgroundColor: C.bg }}

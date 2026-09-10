@@ -6,6 +6,7 @@
 // the operator expects mission-control style chrome.
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { RefreshCw, Pause, Play } from "lucide-react";
@@ -15,6 +16,7 @@ const REFRESH_INTERVAL_MS = 30_000;
 const gold = "var(--brand, #c9a83a)";
 
 export default function AutoRefresh() {
+  const { t } = useLocale();
   const router = useRouter();
   const [auto, setAuto] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<number>(Date.now());
@@ -67,7 +69,7 @@ export default function AutoRefresh() {
           border: `1px solid ${C.border}`,
           color: C.textBody,
         }}
-        title="Refresh now">
+        title={t("adm.refreshNow")}>
         <RefreshCw size={11} /> Refresh
       </button>
       <button

@@ -14,21 +14,22 @@ type SellerRow = { id: string; name: string; active: boolean; company_bio_id: st
 type AircallNumber = { id: number; name: string; digits: string; country: string };
 type InstantlyEmail = { email: string; dailyLimit: number; warmupScore: number; setupPending: boolean };
 
-const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  active:     { label: "Active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
-  restricted: { label: "Restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  banned:     { label: "Banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
-  warning:    { label: "Warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
+const linkedinStatusMeta: Record<string, { labelKey: string; color: string; bg: string }> = {
+  active:     { labelKey: "adm.st.active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  restricted: { labelKey: "adm.st.restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  banned:     { labelKey: "adm.st.banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
+  warning:    { labelKey: "adm.st.warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
 };
 
 export default function ClientResourcesTabs({ companyBioId, companyName }: Props) {
+  const { t } = useLocale();
   const [tab, setTab] = useState(0);
 
   const tabs = [
-    { label: "Users",    icon: Users,  color: C.blue },
-    { label: "Sellers",  icon: Share2, color: "#7C3AED" },
-    { label: "Aircall",  icon: Phone,  color: C.phone },
-    { label: "Emails",   icon: Mail,   color: "#7C3AED" },
+    { label: t("crt.users"),    icon: Users,  color: C.blue },
+    { label: t("crt.sellers"),  icon: Share2, color: "#7C3AED" },
+    { label: t("crt.aircall"),  icon: Phone,  color: C.phone },
+    { label: t("crt.emails"),   icon: Mail,   color: "#7C3AED" },
   ];
 
   return (
@@ -131,7 +132,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
   const renderRow = (seller: SellerRow, mode: "owned" | "share") => {
     const statusMeta = seller.linkedin_status ? linkedinStatusMeta[seller.linkedin_status] : null;
     const isShared = (seller.shared_with_company_bio_ids ?? []).includes(companyBioId);
-    const ownerLabel = seller.company_bio_id ? (companies[seller.company_bio_id] ?? "Other tenant") : "Unassigned";
+    const ownerLabel = seller.company_bio_id ? (companies[seller.company_bio_id] ?? t("crt.otherTenant")) : "Unassigned";
     return (
       <div key={seller.id} className="flex items-center gap-4 py-3">
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
@@ -141,14 +142,14 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
           <p className="text-[11px]" style={{ color: C.textDim }}>
-            {mode === "owned" ? (seller.active ? "Active · primary owner" : "Inactive · primary owner") : `Owned by ${ownerLabel}${seller.active ? "" : " · inactive"}`}
+            {mode === "owned" ? (seller.active ? t("crt.activePrimary") : t("crt.inactivePrimary")) : `Owned by ${ownerLabel}${seller.active ? "" : " · inactive"}`}
             {seller.linkedin_status_note ? ` · ${seller.linkedin_status_note}` : ""}
           </p>
         </div>
         {statusMeta && (
           <span className="text-[10px] font-bold px-2 py-1 rounded-full"
             style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>
-            {statusMeta.label}
+            {t(statusMeta.labelKey)}
           </span>
         )}
         {mode === "share" && (
@@ -159,7 +160,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
               backgroundColor: isShared ? "#7C3AED10" : C.bg,
               color: isShared ? "#7C3AED" : C.textBody,
             }}>
-            {isShared ? <><CheckCircle size={11} className="inline mr-1" /> Shared</> : "Share with this client"}
+            {isShared ? <><CheckCircle size={11} className="inline mr-1" /> {t("adm.shared")}</> : t("crt.shareWith")}
           </button>
         )}
       </div>
@@ -346,7 +347,7 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
           Seller → Aircall user
         </p>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>
-          Each seller dials from THEIR Aircall user. Without this binding the dispatcher falls back to "first available user" globally — which can ring on the wrong device when multiple sellers are signed in. Required when scaling beyond one active seller.
+          Each seller dials from THEIR Aircall user. Without this binding the dispatcher falls back to t("crt.firstAvailable") globally — which can ring on the wrong device when multiple sellers are signed in. Required when scaling beyond one active seller.
         </p>
         {sellersInScope.length === 0 ? (
           <p className="text-xs italic" style={{ color: C.textDim }}>{t("crt.noInScope")}</p>
