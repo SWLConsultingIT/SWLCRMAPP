@@ -101,13 +101,12 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
   return (
     <ConsoleProvider value={{ D, T }}>
     <div className="p-4 sm:p-6 w-full">
-      {/* The hero spans the full width, like every other view. The ANALYSIS
-          does not: a funnel and a stock bar stretched across 1600px read as
-          empty space with numbers floating in it. Capped and centred, the
-          eye can travel a row without losing the line. */}
-      {hero}
-
+      {/* ONE grid. The hero used to run full-bleed while the analysis sat in
+          a narrower centred column, so the page had two different left edges
+          and read as broken. Hero and content now share the same column. */}
       <div className="mx-auto w-full" style={{ maxWidth: 1180, paddingBottom: 64 }}>
+
+        {hero}
 
         {/* tabs — names, one underline, no chapter numerals */}
         <nav className="flex items-center gap-1 mt-5" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
