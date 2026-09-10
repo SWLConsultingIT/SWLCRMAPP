@@ -64,36 +64,43 @@ type HistoricFlow = {
   lastEndedAt: string | null;
 };
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,         color: "#F97316", label: "Call" },
-  whatsapp: { icon: MessageSquare, color: "#25D366", label: "WhatsApp" },
+// Module scope, so `labelKey` instead of a label — every reader of this map
+// is a component and has a translator of its own.
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "tv.ch.linkedin" },
+  email:    { icon: Mail,          color: "#7C3AED", labelKey: "tv.ch.email" },
+  call:     { icon: Phone,         color: "#F97316", labelKey: "tv.ch.call" },
+  whatsapp: { icon: MessageSquare, color: "#25D366", labelKey: "tv.ch.whatsapp" },
 };
 
 function ChannelChip({ ch }: { ch: string }) {
+  const { t: tr } = useLocale();
   const m = channelMeta[ch];
   if (!m) return null;
   const Icon = m.icon;
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
       style={{ backgroundColor: `${m.color}12`, color: m.color }}>
-      <Icon size={9} /> {m.label}
+      <Icon size={9} /> {tr(m.labelKey)}
     </span>
   );
 }
 
-function timeAgo(iso: string | null) {
-  if (!iso) return "Never used";
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+function timeAgo(iso: string | null, tr: Tr) {
+  if (!iso) return tr("tv.ago.never");
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return tr("tv.ago.min", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return tr("tv.ago.hour", { n: h });
+  return tr("tv.ago.day", { n: Math.floor(h / 24) });
 }
 
 export default function TemplatesView() {
-  const { t } = useLocale();
+  // `t` is a template in this file (rows, handlers, map callbacks), so the
+  // translator answers to `tr`.
+  const { t: tr } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const [templates, setTemplates] = useState<TemplateListItem[] | null>(null);
@@ -123,13 +130,13 @@ export default function TemplatesView() {
       const tplBody = await tplRes.json().catch(() => ({}));
       const icpBody = await icpRes.json().catch(() => ({}));
       if (!tplRes.ok) {
-        setErr(tplBody.error ?? `Failed (${tplRes.status})`);
+        setErr(tplBody.error ?? tr("tv.err.failed", { status: tplRes.status }));
         return;
       }
       setTemplates(tplBody.templates ?? []);
-      setIcps((icpBody.icps ?? []).map((i: any) => ({ id: i.id, profile_name: i.profile_name ?? "Untitled ICP" })));
+      setIcps((icpBody.icps ?? []).map((i: any) => ({ id: i.id, profile_name: i.profile_name ?? tr("tv.untitledIcp") })));
     } catch (e: any) {
-      setErr(e?.message ?? "Network error");
+      setErr(e?.message ?? tr("tv.err.network"));
     } finally {
       setLoading(false);
     }
@@ -144,12 +151,12 @@ export default function TemplatesView() {
       const res = await fetch("/api/templates/historic", { cache: "no-store" });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.show({ kind: "error", title: "Couldn't load historic flows", description: body.error ?? `HTTP ${res.status}` });
+        toast.show({ kind: "error", title: tr("tv.err.historicTitle"), description: body.error ?? `HTTP ${res.status}` });
         return;
       }
       setHistoric(body.historic ?? []);
     } catch (e: any) {
-      toast.show({ kind: "error", title: "Network error loading historic flows", description: e?.message ?? "unknown" });
+      toast.show({ kind: "error", title: tr("tv.err.historicNetwork"), description: e?.message ?? tr("tv.err.unknown") });
     }
   }
 
@@ -183,7 +190,7 @@ export default function TemplatesView() {
     // Pinned orphan bucket
     const orphans = byIcp.get(null);
     if (orphans && orphans.length > 0) {
-      groups.push({ key: "needs_icp", label: "Needs ICP", items: orphans, isOrphan: true });
+      groups.push({ key: "needs_icp", label: tr("tv.group.needsIcp"), items: orphans, isOrphan: true });
     }
 
     // Real ICPs — sort by total usage desc, then profile_name asc
@@ -195,10 +202,10 @@ export default function TemplatesView() {
       return (icpMap.get(a) ?? "").localeCompare(icpMap.get(b) ?? "");
     });
     for (const k of realKeys) {
-      groups.push({ key: k, label: icpMap.get(k) ?? "(deleted ICP)", items: byIcp.get(k) ?? [], isOrphan: false });
+      groups.push({ key: k, label: icpMap.get(k) ?? tr("tv.group.deletedIcp"), items: byIcp.get(k) ?? [], isOrphan: false });
     }
     return groups;
-  }, [templates, icps]);
+  }, [templates, icps, tr]);
 
   const flatRecent = useMemo(() => {
     const list = [...(templates ?? [])];
@@ -211,19 +218,19 @@ export default function TemplatesView() {
 
   async function handleDelete(t: TemplateListItem) {
     if (busyId) return;
-    if (!confirm(`Delete template "${t.name}"? This can't be undone.`)) return;
+    if (!confirm(tr("tv.confirm.delete", { name: t.name }))) return;
     setBusyId(t.id);
     try {
       const res = await fetch(`/api/templates/${t.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        toast.show({ kind: "error", title: "Couldn't delete template", description: body.error ?? "Try again in a moment." });
+        toast.show({ kind: "error", title: tr("tv.err.deleteTitle"), description: body.error ?? tr("tv.err.retrySoon") });
         return;
       }
       setTemplates(prev => (prev ?? []).filter(x => x.id !== t.id));
-      toast.show({ kind: "success", title: "Template deleted", description: t.name });
+      toast.show({ kind: "success", title: tr("tv.ok.deleted"), description: t.name });
     } catch (e: any) {
-      toast.show({ kind: "error", title: "Couldn't delete template", description: e?.message ?? "Network error" });
+      toast.show({ kind: "error", title: tr("tv.err.deleteTitle"), description: e?.message ?? tr("tv.err.network") });
     } finally {
       setBusyId(null);
     }
@@ -239,10 +246,10 @@ export default function TemplatesView() {
         body: JSON.stringify({ icp_profile_id: icpId }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.show({ kind: "error", title: "Couldn't move template", description: body.error ?? "Try again." }); return; }
+      if (!res.ok) { toast.show({ kind: "error", title: tr("tv.err.moveTitle"), description: body.error ?? tr("tv.err.retry") }); return; }
       setTemplates(prev => (prev ?? []).map(x => x.id === t.id ? { ...x, icp_profile_id: icpId } : x));
       setMenuOpenId(null);
-      toast.show({ kind: "success", title: "Template moved to ICP" });
+      toast.show({ kind: "success", title: tr("tv.ok.moved") });
     } finally {
       setBusyId(null);
     }
@@ -258,11 +265,11 @@ export default function TemplatesView() {
         body: JSON.stringify({ icp_profile_id: icpId }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.show({ kind: "error", title: "Couldn't duplicate template", description: body.error ?? "Try again." }); return; }
+      if (!res.ok) { toast.show({ kind: "error", title: tr("tv.err.dupTitle"), description: body.error ?? tr("tv.err.retry") }); return; }
       // Reload so the new template shows up under its new ICP section.
       void load();
       setMenuOpenId(null);
-      toast.show({ kind: "success", title: "Template duplicated" });
+      toast.show({ kind: "success", title: tr("tv.ok.duplicated") });
     } finally {
       setBusyId(null);
     }
@@ -287,10 +294,10 @@ export default function TemplatesView() {
         <div className="flex items-center gap-0.5 rounded-lg p-0.5 border"
           style={{ borderColor: C.border, backgroundColor: C.bg }}>
           {([
-            { id: "by_icp",   label: "By ICP",   icon: FolderTree },
-            { id: "recent",   label: "Recent",   icon: Clock },
-            { id: "all",      label: "All",      icon: List },
-            { id: "historic", label: "Historic", icon: Archive },
+            { id: "by_icp",   labelKey: "tv.tab.byIcp",    icon: FolderTree },
+            { id: "recent",   labelKey: "tv.tab.recent",   icon: Clock },
+            { id: "all",      labelKey: "tv.tab.all",      icon: List },
+            { id: "historic", labelKey: "tv.tab.historic", icon: Archive },
           ] as const).map(t => {
             const Icon = t.icon;
             const active = view === t.id;
@@ -305,7 +312,7 @@ export default function TemplatesView() {
                   color: active ? C.textPrimary : C.textMuted,
                   boxShadow: active ? `0 0 0 1px ${C.border}` : "none",
                 }}>
-                <Icon size={11} /> {t.label}
+                <Icon size={11} /> {tr(t.labelKey)}
               </button>
             );
           })}
@@ -316,7 +323,7 @@ export default function TemplatesView() {
             style={{ borderColor: C.border, backgroundColor: C.card }}>
             <Search size={13} style={{ color: C.textDim }} />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search templates..."
+              placeholder={tr("tv.searchPh")}
               className="bg-transparent text-sm outline-none flex-1"
               style={{ color: C.textPrimary }} />
             {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
@@ -335,7 +342,7 @@ export default function TemplatesView() {
                     borderColor: active ? `${m.color}40` : C.border,
                     color: active ? m.color : C.textMuted,
                   }}>
-                  <Icon size={11} /> {m.label}
+                  <Icon size={11} /> {tr(m.labelKey)}
                 </button>
               );
             })}
@@ -343,7 +350,7 @@ export default function TemplatesView() {
           <Link href="/campaigns/templates/new"
             className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-            <Plus size={12} /> {t("tpl.newTemplate")}
+            <Plus size={12} /> {tr("tpl.newTemplate")}
           </Link>
         </div>
       </div>
@@ -352,28 +359,28 @@ export default function TemplatesView() {
       {loading && templates === null ? (
         <div className="flex items-center justify-center py-16" style={{ color: C.textMuted }}>
           <Loader2 size={16} className="animate-spin mr-2" />
-          <span className="text-sm">{t("tpl.loadingTemplates")}</span>
+          <span className="text-sm">{tr("tpl.loadingTemplates")}</span>
         </div>
       ) : err ? (
         <div className="rounded-2xl border py-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <p className="text-sm" style={{ color: C.red }}>{err}</p>
-          <button onClick={load} className="text-xs mt-2 underline" style={{ color: gold }}>Try again</button>
+          <button onClick={load} className="text-xs mt-2 underline" style={{ color: gold }}>{tr("tv.tryAgain")}</button>
         </div>
       ) : (templates ?? []).length === 0 ? (
         (search || channelFilter) ? (
           <EmptyState
             icon={FileText}
-            title="No templates match"
-            description="Try clearing the search or channel filter to see your full library."
+            title={tr("tv.empty.noMatch")}
+            description={tr("tv.empty.noMatchDesc")}
             accent="var(--brand, #c9a83a)"
             accentSoft="color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)"
           />
         ) : (
           <EmptyState
             icon={FileText}
-            title="No templates yet"
-            description="Build a reusable outreach sequence + messages once, then apply it to any future campaign in one click. Templates support PDF attachments so the AI can pull context from your sales decks."
-            primaryCta={{ label: "Create your first template", href: "/campaigns/templates/new" }}
+            title={tr("tv.empty.none")}
+            description={tr("tv.empty.noneDesc")}
+            primaryCta={{ label: tr("tv.empty.cta"), href: "/campaigns/templates/new" }}
             accent="var(--brand, #c9a83a)"
             accentSoft="color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)"
           />
@@ -407,7 +414,7 @@ export default function TemplatesView() {
                   </span>
                   {isOrphan && (
                     <span className="text-[11px] font-normal" style={{ color: "#B45309" }}>
-                      · Legacy templates without an ICP — assign one to organize them
+                      · {tr("tv.group.orphanHint")}
                     </span>
                   )}
                 </button>
@@ -484,6 +491,7 @@ function TemplateRow({
   busy: boolean;
   showAssignAsMain: boolean;
 }) {
+  const { t: tr } = useLocale();
   const [submenu, setSubmenu] = useState<"main" | "move" | "duplicate">("main");
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -518,7 +526,7 @@ function TemplateRow({
           <p className="text-xs truncate mb-1" style={{ color: C.textBody }}>{t.description}</p>
         )}
         <p className="text-[10px]" style={{ color: C.textDim }}>
-          Used {t.usage_count}× · Last {timeAgo(t.last_used_at)}
+          {tr("tv.row.used", { n: t.usage_count, ago: timeAgo(t.last_used_at, tr) })}
         </p>
       </Link>
       <div className="flex items-center gap-1 shrink-0 relative">
@@ -529,7 +537,7 @@ function TemplateRow({
               className="text-xs font-medium px-3 py-1.5 rounded-md inline-flex items-center gap-1 border disabled:opacity-50"
               style={{ borderColor: "color-mix(in srgb, #D97706 34%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#92400E" }}>
               {busy ? <Loader2 size={11} className="animate-spin" /> : <FolderTree size={11} />}
-              Assign ICP <ChevronDown size={11} />
+              {tr("tv.row.assignIcp")} <ChevronDown size={11} />
             </button>
             {menuOpen && submenu === "move" && (
               <IcpPickerMenu icps={icps} onPick={onAssignIcp} onCancel={() => setMenuOpen(false)} />
@@ -539,8 +547,8 @@ function TemplateRow({
           <button onClick={onUse}
             className="text-xs font-medium px-3 py-1.5 rounded-md inline-flex items-center gap-1"
             style={{ backgroundColor: ACCENT, color: "#04070d" }}
-            title="Use this template in a new campaign">
-            <Play size={11} /> Use
+            title={tr("tv.row.useTitle")}>
+            <Play size={11} /> {tr("tv.row.use")}
           </button>
         )}
 
@@ -548,7 +556,7 @@ function TemplateRow({
           <button onClick={() => setMenuOpen(!menuOpen)}
             className="p-1.5 rounded transition-colors"
             style={{ color: C.textMuted }}
-            title="More actions">
+            title={tr("tv.row.more")}>
             <MoreHorizontal size={14} />
           </button>
           {menuOpen && submenu === "main" && (
@@ -558,37 +566,37 @@ function TemplateRow({
                 className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
                 style={{ color: C.textBody, display: "flex" }}
                 onClick={() => setMenuOpen(false)}>
-                <Pencil size={12} /> Edit template
+                <Pencil size={12} /> {tr("tv.menu.edit")}
               </Link>
               <button onClick={() => { setMenuOpen(false); printPdf(`/campaigns/templates/${t.id}/print`, t.name); }}
                 className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
                 style={{ color: C.textBody }}>
-                <Download size={12} /> Download PDF
+                <Download size={12} /> {tr("tv.menu.pdf")}
               </button>
               <button onClick={() => setSubmenu("duplicate")}
                 className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
                 style={{ color: C.textBody }}>
-                <Copy size={12} /> Duplicate to ICP… <ArrowRight size={10} className="ml-auto" />
+                <Copy size={12} /> {tr("tv.menu.dupToIcp")} <ArrowRight size={10} className="ml-auto" />
               </button>
               {!showAssignAsMain && (
                 <button onClick={() => setSubmenu("move")}
                   className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
                   style={{ color: C.textBody }}>
-                  <FolderTree size={12} /> Move to ICP… <ArrowRight size={10} className="ml-auto" />
+                  <FolderTree size={12} /> {tr("tv.menu.moveToIcp")} <ArrowRight size={10} className="ml-auto" />
                 </button>
               )}
               <button onClick={onDelete}
                 className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04] border-t"
                 style={{ color: C.red, borderColor: C.border }}>
-                <Trash2 size={12} /> Delete
+                <Trash2 size={12} /> {tr("tv.menu.delete")}
               </button>
             </div>
           )}
           {menuOpen && submenu === "duplicate" && (
-            <IcpPickerMenu icps={icps} onPick={onDuplicateToIcp} onCancel={() => setSubmenu("main")} title="Duplicate to which ICP?" />
+            <IcpPickerMenu icps={icps} onPick={onDuplicateToIcp} onCancel={() => setSubmenu("main")} title={tr("tv.picker.dupTitle")} />
           )}
           {menuOpen && submenu === "move" && !showAssignAsMain && (
-            <IcpPickerMenu icps={icps} onPick={onAssignIcp} onCancel={() => setSubmenu("main")} title="Move to which ICP?" excludeId={t.icp_profile_id} />
+            <IcpPickerMenu icps={icps} onPick={onAssignIcp} onCancel={() => setSubmenu("main")} title={tr("tv.picker.moveTitle")} excludeId={t.icp_profile_id} />
           )}
         </div>
       </div>
@@ -599,13 +607,14 @@ function TemplateRow({
 function IcpPickerMenu({
   icps, onPick, onCancel, title, excludeId,
 }: { icps: IcpOption[]; onPick: (id: string) => void; onCancel: () => void; title?: string; excludeId?: string | null }) {
+  const { t: tr } = useLocale();
   const items = excludeId ? icps.filter(i => i.id !== excludeId) : icps;
   return (
     <div className="absolute right-0 top-full mt-1 z-10 w-64 rounded-lg border shadow-lg overflow-hidden"
       style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>
-          {title ?? "Choose an ICP"}
+          {title ?? tr("tv.picker.default")}
         </span>
         <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="p-0.5" style={{ color: C.textMuted }}>
           <X size={11} />
@@ -613,7 +622,7 @@ function IcpPickerMenu({
       </div>
       <div className="max-h-64 overflow-y-auto">
         {items.length === 0 ? (
-          <p className="px-3 py-3 text-xs text-center" style={{ color: C.textMuted }}>No ICPs available.</p>
+          <p className="px-3 py-3 text-xs text-center" style={{ color: C.textMuted }}>{tr("tv.picker.none")}</p>
         ) : items.map(icp => (
           <button key={icp.id} onClick={(e) => { e.stopPropagation(); onPick(icp.id); }}
             className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-black/[0.04]"
@@ -634,13 +643,14 @@ function IcpPickerMenu({
 // channels used and how long it ran. Click-through opens any one
 // instance for the receipts.
 function HistoricFlowsList({ historic, icps }: { historic: HistoricFlow[] | null; icps: IcpOption[] }) {
+  const { t: tr } = useLocale();
   const [openIcps, setOpenIcps] = useState<Record<string, boolean>>({});
 
   if (historic === null) {
     return (
       <div className="flex items-center justify-center py-16" style={{ color: C.textMuted }}>
         <Loader2 size={16} className="animate-spin mr-2" />
-        <span className="text-sm">Loading historic flows…</span>
+        <span className="text-sm">{tr("tv.hist.loading")}</span>
       </div>
     );
   }
@@ -648,8 +658,8 @@ function HistoricFlowsList({ historic, icps }: { historic: HistoricFlow[] | null
     return (
       <EmptyState
         icon={Archive}
-        title="No historic flows yet"
-        description="When a flow finishes (every lead completes its sequence or is closed), it lands here as a permanent reference grouped by ICP."
+        title={tr("tv.hist.empty")}
+        description={tr("tv.hist.emptyDesc")}
         accent="var(--brand, #c9a83a)"
         accentSoft="color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)"
       />
@@ -661,7 +671,7 @@ function HistoricFlowsList({ historic, icps }: { historic: HistoricFlow[] | null
   const byIcp = new Map<string, { label: string; items: HistoricFlow[] }>();
   for (const h of historic) {
     const key = h.icp_profile_id ?? "_no_icp_";
-    const label = h.icp_profile_id ? (icpMap.get(h.icp_profile_id) ?? h.icp_name ?? "(deleted ICP)") : "Without ICP";
+    const label = h.icp_profile_id ? (icpMap.get(h.icp_profile_id) ?? h.icp_name ?? tr("tv.group.deletedIcp")) : tr("tv.hist.withoutIcp");
     if (!byIcp.has(key)) byIcp.set(key, { label, items: [] });
     byIcp.get(key)!.items.push(h);
   }
@@ -697,13 +707,13 @@ function HistoricFlowsList({ historic, icps }: { historic: HistoricFlow[] | null
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate" style={{ color: C.textPrimary }}>{h.name}</div>
                       <div className="text-[11px] flex items-center gap-3 mt-0.5" style={{ color: C.textMuted }}>
-                        <span>{h.cohortSize} leads</span>
+                        <span>{h.cohortSize} {tr("tv.hist.leads")}</span>
                         <span>·</span>
-                        <span>{h.messagesSent} msgs sent</span>
+                        <span>{h.messagesSent} {tr("tv.hist.msgs")}</span>
                         <span>·</span>
-                        <span style={{ color: h.repliesTotal > 0 ? "#0A66C2" : C.textMuted }}>{h.repliesTotal} replies</span>
-                        {h.positiveReplies > 0 && <><span>·</span><span style={{ color: "#059669" }}>{h.positiveReplies} positive</span></>}
-                        {h.replyRate > 0 && <><span>·</span><span>{h.replyRate}% reply rate</span></>}
+                        <span style={{ color: h.repliesTotal > 0 ? "#0A66C2" : C.textMuted }}>{h.repliesTotal} {tr("tv.hist.replies")}</span>
+                        {h.positiveReplies > 0 && <><span>·</span><span style={{ color: "#059669" }}>{h.positiveReplies} {tr("tv.hist.positive")}</span></>}
+                        {h.replyRate > 0 && <><span>·</span><span>{h.replyRate}{tr("tv.hist.replyRate")}</span></>}
                       </div>
                     </div>
                     <div className="hidden md:flex items-center gap-1.5 shrink-0">
@@ -711,7 +721,7 @@ function HistoricFlowsList({ historic, icps }: { historic: HistoricFlow[] | null
                     </div>
                     {h.lastEndedAt && (
                       <span className="hidden lg:inline text-[10px] shrink-0" style={{ color: C.textDim }}>
-                        {timeAgo(h.lastEndedAt)}
+                        {timeAgo(h.lastEndedAt, tr)}
                       </span>
                     )}
                     <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
