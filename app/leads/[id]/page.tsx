@@ -15,7 +15,7 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import LeadChatThread from "@/components/LeadChatThread";
 import LeadNotes from "@/components/LeadNotes";
-import LeadActivities from "@/components/LeadActivities";
+import LeadActivitiesPanel from "@/components/LeadActivitiesPanel";
 import LeadPinnedNotes from "@/components/LeadPinnedNotes";
 import CampaignJourney from "@/components/CampaignJourney";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
@@ -887,6 +887,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
+      {/* ── Operational panel (phase 3): NEXT ACTION + Activities, prominent,
+          derived from the Activities source of truth. ── */}
+      <LeadActivitiesPanel
+        leadId={id}
+        leadLabel={contactName}
+        company={(lead as any).company_name ?? null}
+        leadPhone={(lead as any).primary_phone ?? null}
+        leadCountry={(lead as any).company_country ?? null}
+        leadStatus={(lead as any).status ?? null}
+        canAssignOthers={canAssignActivities}
+      />
 
       {/* Gruppo Everest demo: flex wrapper so we can CSS-`order` the Details
           zone (tabs + About This Person) above the Rooftop/Account trio without
@@ -1797,9 +1808,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             Results/Opportunities so the conversation reads the same everywhere. */}
         <LeadChatThread leadId={id} leadName={contactName} />
 
-        {/* ── Activities ── per-lead task/follow-up system (P0, additive — sits
-            alongside the campaign/pipeline info, does not replace it). */}
-        <LeadActivities leadId={id} canAssignOthers={canAssignActivities} />
+        {/* Activities moved to the prominent LeadActivitiesPanel near the top
+            (phase 3) — no longer duplicated here. */}
 
         {/* ── TAB 6: Notes ── the lead collaboration hub (notes + @mentions + pin) */}
         <LeadNotes leadId={id} />
