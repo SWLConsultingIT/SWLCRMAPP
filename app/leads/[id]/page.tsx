@@ -3,54 +3,27 @@ import { getUserScope, canViewAllTenantData } from "@/lib/scope";
 import { decryptLeadPayload, redactClientLead, hydrateDecryptedLead, logDataAccess, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import {
-  Mail, Phone, Building2,
-  ExternalLink, CheckCircle2, AlertTriangle,
-  Megaphone, ChevronLeft, ChevronRight, FileDown,
-} from "lucide-react";
-import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
-import CollapsibleSection from "@/components/CollapsibleSection";
-import ActivityTimeline from "@/components/ActivityTimeline";
-import LeadChatThread from "@/components/LeadChatThread";
-import LeadNotes from "@/components/LeadNotes";
-import LeadActivitiesPanel from "@/components/LeadActivitiesPanel";
-import LeadPinnedNotes from "@/components/LeadPinnedNotes";
-import CampaignJourney from "@/components/CampaignJourney";
-import DeleteLeadButton from "@/components/DeleteLeadButton";
-import Breadcrumb from "@/components/Breadcrumb";
-import SyncAircallButton from "@/components/SyncAircallButton";
-import CallButton from "@/components/CallButton";
-import EditableLeadField from "@/components/EditableLeadField";
-import WrongNumberPill from "@/components/WrongNumberPill";
-import LogOutcomeButton from "@/components/LogOutcomeButton";
-import LeadMoreMenu from "@/components/LeadMoreMenu";
-import CallCard from "@/components/CallCard";
-import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
-import LeadSellerTags from "@/components/LeadSellerTags";
-import LeadSummaryTab from "@/components/LeadSummaryTab";
-import LeadStatsBar from "@/components/LeadStatsBar";
-import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
-import LeadQA from "@/components/LeadQA";
-import ScrapeCompanyButton from "@/components/ScrapeCompanyButton";
-import ProspectClock from "@/components/ProspectClock";
-import { countryToTimeZone } from "@/lib/prospect-time";
-import LinkedInEnrichment from "@/components/LinkedInEnrichment";
+import LeadActivitiesPanel from "@/components/LeadActivitiesPanel";
+import LeadNotes from "@/components/LeadNotes";
+import Breadcrumb from "@/components/Breadcrumb";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
+import LeadHero from "@/components/lead/LeadHero";
+import LeadOverview from "@/components/lead/LeadOverview";
+import LeadEngagement from "@/components/lead/LeadEngagement";
+import LeadResearch from "@/components/lead/LeadResearch";
+import type { TimelineEvent } from "@/components/lead/LeadTimeline";
+import { countryToTimeZone } from "@/lib/prospect-time";
+import { ACTIVITY_SELECT } from "@/lib/activities";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import { intlTag } from "@/lib/i18n-locale";
 import { renderPlaceholders } from "@/lib/placeholders";
-import { useLocale } from "@/lib/i18n";
 
-// Bypass Next's render cache. Without this, the page snapshots messages +
-// campaign state at build time and a freshly-sent step 1 keeps showing
-// "Message pending" until the user hard-refreshes.
+// Bypass Next's render cache — freshly-sent steps must show immediately.
 export const dynamic = "force-dynamic";
 
 const gold = "var(--brand, #c9a83a)";
-const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
 
 // ── Data fetchers ──
 
@@ -58,30 +31,14 @@ async function getLead(id: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase.from("leads").select("*").eq("id", id).single();
   if (!data) return null;
-
-  // SWL-uploaded leads are unprotected — return as-is.
   if (data.source !== "client") return data;
-
-  // Client-uploaded leads have all PII inside encrypted_payload. Resolve the
-  // caller's scope to decide between decrypt (same tenant) and redact (SWL
-  // super_admin not impersonating the tenant). Demo-impersonating super_admins
-  // get the decrypted view but the audit log records the access for the tenant.
   const scope = await getUserScope();
   const sameTenant = scope.companyBioId && scope.companyBioId === data.company_bio_id;
-
   if (!sameTenant) {
-    if (scope.tier === "super_admin") {
-      return redactClientLead(data);
-    }
-    // Anyone else (different tenant, no scope) cannot see this lead at all.
+    if (scope.tier === "super_admin") return redactClientLead(data);
     return null;
   }
-
-  if (!data.encrypted_payload) {
-    // Marked as client but no payload — treat as redacted to avoid leaking nulls.
-    return redactClientLead(data);
-  }
-
+  if (!data.encrypted_payload) return redactClientLead(data);
   try {
     const blob = bufferFromSupabaseBytea(data.encrypted_payload);
     const decrypted = await decryptLeadPayload(blob, data.company_bio_id);
@@ -121,10 +78,6 @@ async function getMessages(leadId: string) {
   return data ?? [];
 }
 
-// Prev/next navigation within the same flow (boss 2026-06-10: arrows to move
-// between leads in the same sequence). "Same flow" = leads whose campaign
-// shares this lead's campaign name (the flow groups per-lead campaign rows by
-// name), within the same tenant, ordered stably by the lead's created_at.
 async function getSequenceNav(leadId: string, campaignName: string | null, bioId: string | null) {
   if (!campaignName) return null;
   const supabase = await getSupabaseServer();
@@ -175,18 +128,35 @@ async function getCalls(leadId: string) {
   return Array.isArray(data) ? data : [];
 }
 
-// What we sell into this lead's segment — powers the "Account & industry angle"
-// card (our generic play for their industry, from the ICP + company bio).
-async function getAngleContext(icpId: string | null, bioId: string | null) {
+// Activities for this lead, server-seeded so the Overview Next-Action and the
+// Activities tab don't each fire a client fetch (RLS scopes to the viewer's
+// tenant; the client refetches after any mutation).
+async function getActivities(leadId: string) {
   const supabase = await getSupabaseServer();
-  const [icpRes, bioRes] = await Promise.all([
-    icpId ? supabase.from("icp_profiles").select("profile_name, solutions_offered, pain_points").eq("id", icpId).single() : Promise.resolve({ data: null }),
-    bioId ? supabase.from("company_bios").select("main_services, value_proposition").eq("id", bioId).single() : Promise.resolve({ data: null }),
-  ]);
-  return {
-    icp: (icpRes.data ?? null) as { profile_name?: string; solutions_offered?: string; pain_points?: string } | null,
-    bio: (bioRes.data ?? null) as { main_services?: string; value_proposition?: string } | null,
-  };
+  const { data } = await supabase
+    .from("activities")
+    .select(ACTIVITY_SELECT)
+    .eq("lead_id", leadId)
+    .order("due_at", { ascending: true, nullsFirst: false });
+  return data ?? [];
+}
+
+// Compact account counts for the Overview "Company snapshot" (two cheap
+// queries; scoped to the tenant via RLS). Never fetches the full company page.
+async function getCompanySnapshot(companyName: string | null, bioId: string | null) {
+  if (!companyName || !bioId) return null;
+  const supabase = await getSupabaseServer();
+  const { data: siblings } = await supabase
+    .from("leads").select("id").eq("company_name", companyName).eq("company_bio_id", bioId).limit(1000);
+  const ids = (siblings ?? []).map((r: any) => r.id);
+  let activeCampaigns = 0;
+  if (ids.length) {
+    const { count } = await supabase
+      .from("campaigns").select("id", { count: "exact", head: true })
+      .in("lead_id", ids).in("status", ["active", "paused"]);
+    activeCampaigns = count ?? 0;
+  }
+  return { contacts: ids.length, activeCampaigns };
 }
 
 // ── Helpers ──
@@ -197,124 +167,19 @@ function scoreBadge(score: number | null, priority: boolean) {
   return                                         { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
 }
 
-// Keys, not labels: module scope. The header resolves them.
-const statusMap: Record<string, { labelKey: string; color: string; bg: string }> = {
-  new:           { labelKey: "ld.status.new",          color: C.blue,      bg: C.blueLight },
-  contacted:     { labelKey: "ld.status.contacted",    color: C.orange,    bg: C.orangeLight },
-  connected:     { labelKey: "ld.status.connected",    color: C.accent,    bg: C.accentLight },
-  responded:     { labelKey: "ld.status.responded",    color: C.green,     bg: C.greenLight },
-  qualified:     { labelKey: "ld.status.qualified",    color: C.green,     bg: C.greenLight },
-  proposal_sent: { labelKey: "ld.status.proposalSent", color: C.accent,    bg: C.accentLight },
-  closed_won:    { labelKey: "ld.status.won",          color: C.green,     bg: C.greenLight },
-  closed_lost:   { labelKey: "ld.status.lost",         color: C.red,       bg: C.redLight },
-  nurturing:     { labelKey: "ld.status.nurturing",    color: C.textMuted, bg: C.surface },
+const statusMap: Record<string, { labelKey: string; color: string }> = {
+  new:           { labelKey: "ld.status.new",          color: C.blue },
+  contacted:     { labelKey: "ld.status.contacted",    color: C.orange },
+  connected:     { labelKey: "ld.status.connected",    color: C.accent },
+  responded:     { labelKey: "ld.status.responded",    color: C.green },
+  qualified:     { labelKey: "ld.status.qualified",    color: C.green },
+  proposal_sent: { labelKey: "ld.status.proposalSent", color: C.accent },
+  closed_won:    { labelKey: "ld.status.won",          color: C.green },
+  closed_lost:   { labelKey: "ld.status.lost",         color: C.red },
+  nurturing:     { labelKey: "ld.status.nurturing",    color: C.textMuted },
 };
 
-// Score ring SVG
-function ScoreRing({ score, color }: { score: number; color: string }) {
-  const { t } = useLocale();
-  const r = 22;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (Math.min(score, 100) / 100) * circ;
-  return (
-    <div className="relative w-14 h-14 flex items-center justify-center">
-      <svg width="56" height="56" className="absolute -rotate-90">
-        <circle cx="28" cy="28" r={r} fill="none" stroke={C.border} strokeWidth="3.5" />
-        <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="3.5"
-          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.22,1,0.36,1)" }} />
-      </svg>
-      <div className="text-center z-10">
-        <p className="text-sm font-bold leading-none" style={{ color: C.textPrimary }}>{score}</p>
-        <p style={{ color: C.textDim, fontSize: 8, letterSpacing: "0.05em" }}>{t("ld.score")}</p>
-      </div>
-    </div>
-  );
-}
-
-function isValidLinkedInUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  try {
-    const u = new URL(url);
-    return /(^|\.)linkedin\.com$/i.test(u.hostname) && /\/in\//.test(u.pathname);
-  } catch {
-    return false;
-  }
-}
-
-// Channel permission row. `hasData(lead)` decides whether the channel actually
-// has the underlying contact info — flagging mis-configured leads like an
-// allow_linkedin=true with no primary_linkedin_url, which is what makes
-// dispatch fail downstream with "no LinkedIn slug on lead".
-// Channel chip → deep link target. getHref returns the URL the chip
-// should open when clicked. The header row was confusing operators —
-// the email/phone/whatsapp chips were doubling as quick-actions that
-// opened mailto:/tel:/wa.me. Sellers expected the Call button + Mobile
-// card to be the one source of truth for outbound; the header chips
-// were sneaking in shortcuts that pulled them out of the CRM (mailto
-// opening Mail.app, tel: opening native dialer instead of Aircall).
-// `clickable: true` keeps the chip interactive — currently only
-// LinkedIn, because there's no in-app LinkedIn view to drop into. The
-// other chips render as static status indicators (ready / broken /
-// blocked) without href.
-const CHANNELS = [
-  {
-    key: "allow_linkedin", icon: <LinkedInIcon size={14} />, activeColor: "#0A66C2",
-    hasData: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url),
-    getHref: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url) ? (l.primary_linkedin_url as string) : null,
-    external: true,
-    clickable: true,
-  },
-  {
-    key: "allow_email", icon: <span className="text-sm">✉️</span>, activeColor: C.green,
-    hasData: (l: any) => !!l?.primary_work_email || !!l?.primary_personal_email,
-    getHref: (_l: any) => null,
-    external: false,
-    clickable: false,
-  },
-  {
-    key: "allow_call", icon: <span className="text-sm">📱</span>, activeColor: C.phone,
-    hasData: (l: any) => !!l?.primary_phone || !!l?.primary_secondary_phone,
-    getHref: (_l: any) => null,
-    external: false,
-    clickable: false,
-  },
-  {
-    key: "allow_whatsapp", icon: <span className="text-sm">💬</span>, activeColor: "#25D366",
-    hasData: (l: any) => !!l?.whatsapp_number || !!l?.primary_phone,
-    getHref: (_l: any) => null,
-    external: true,
-    clickable: false,
-  },
-  {
-    key: "allow_instagram", icon: <span className="text-sm">📸</span>, activeColor: "#E1306C",
-    hasData: (l: any) => !!l?.primary_instagram,
-    getHref: (_l: any) => null,
-    external: true,
-    clickable: false,
-  },
-  {
-    key: "allow_sms", icon: <span className="text-sm">💬</span>, activeColor: C.blue,
-    hasData: (l: any) => !!l?.primary_phone,
-    getHref: (_l: any) => null,
-    external: false,
-    clickable: false,
-  },
-];
-
-// ── Page ──
-
-// Mirrors the placeholder substitution that the dispatcher does at send time
-// (see app/api/cron/dispatch-queue/route.ts → personalizeNote). Used as a
-// fallback for messages that were sent before metadata.rendered_content was
-// being captured. Reads the current lead/seller — close enough for
-// "what was sent" since the dispatcher also writes back any LinkedIn name
-// correction onto the lead before dispatching.
-function renderTemplateFallback(
-  template: string,
-  lead: any,
-  sellerName: string | null,
-): string {
+function renderTemplateFallback(template: string, lead: any, sellerName: string | null): string {
   const first = lead?.primary_first_name ?? "there";
   const last = lead?.primary_last_name ?? "";
   const full = `${first} ${last}`.trim();
@@ -322,1631 +187,192 @@ function renderTemplateFallback(
   const role = lead?.primary_title_role ?? "";
   const seller = sellerName ?? "";
   return (template ?? "")
-    .replaceAll("{{first_name}}", first)
-    .replaceAll("{{last_name}}", last)
-    .replaceAll("{{full_name}}", full)
-    .replaceAll("{{company_name}}", company)
-    .replaceAll("{{company}}", company)
-    .replaceAll("{{role}}", role)
-    .replaceAll("{{title}}", role)
-    .replaceAll("{{seller_name}}", seller)
-    .replaceAll("{{seller_company}}", "");
+    .replaceAll("{{first_name}}", first).replaceAll("{{last_name}}", last).replaceAll("{{full_name}}", full)
+    .replaceAll("{{company_name}}", company).replaceAll("{{company}}", company)
+    .replaceAll("{{role}}", role).replaceAll("{{title}}", role)
+    .replaceAll("{{seller_name}}", seller).replaceAll("{{seller_company}}", "");
 }
 
-// Section divider used to break the lead view into clear, scannable zones
-// (Pre-call prep / Account / Research / Campaign / Details). Bold gold-accented
-// heading so the section names stand out.
-// Zone accents — one muted color per section, used on the label bar and the
-// matching card's side rail so each zone reads as a cohesive unit. Gold stays
-// reserved for the hero + the flagship pre-call brief.
-const ZONE = {
-  prep: "var(--brand, #c9a83a)",
-  account: "#0891B2",
-  research: "#7C3AED",
-  copilot: "#0E9F6E",
-  campaign: "#2563EB",
-  details: "#64748B",
-} as const;
-
-function ZoneLabel({ title, accent = "var(--brand, #c9a83a)" }: { title: string; accent?: string }) {
-  return (
-    <div className="flex items-center gap-3 mb-3">
-      <span className="w-1.5 h-5 rounded-full" style={{ background: `linear-gradient(180deg, ${accent}, color-mix(in srgb, ${accent} 55%, white))` }} />
-      <h2 className="text-[14px] font-extrabold uppercase" style={{ color: C.textPrimary, letterSpacing: "0.14em" }}>{title}</h2>
-      <span className="flex-1 h-px" style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 38%, transparent), transparent)` }} />
-    </div>
-  );
-}
-
-// Tonal wash behind a whole zone — a faint tint that groups each region
-// without reading as a solid colored panel. Kept very subtle (≈3%) and faded
-// quickly so it never competes with the cards' own tints (e.g. the gold
-// pre-call brief) or clashes with the navy hero above.
-function zoneStyle(accent: string) {
-  return {
-    background: `linear-gradient(180deg, color-mix(in srgb, ${accent} 9%, transparent), color-mix(in srgb, ${accent} 2%, transparent) 55%)`,
-    borderRadius: 20,
-    padding: "14px 14px 20px",
-    marginTop: 14,
-    border: `1px solid color-mix(in srgb, ${accent} 18%, transparent)`,
-  } as const;
-}
+// ── Page ──
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getT();
   const locale = await getServerLocale();
+  const localeTag = intlTag(locale);
   const { id } = await params;
   const lead = await getLead(id);
   if (!lead) notFound();
-  // Viewer scope — managers/owners/super_admin may assign activities to other
-  // sellers; a seller can only self-assign (enforced again server-side).
+
   const viewerScope = await getUserScope();
   const canAssignActivities = canViewAllTenantData(viewerScope.tier);
+  const bioId = (lead as any).company_bio_id ?? null;
 
-  // Account & industry angle context (our play for this lead's segment).
-  const angle = await getAngleContext((lead as any).icp_profile_id ?? null, (lead as any).company_bio_id ?? null);
-
-  const [campaign, rawMessages, replies, calls] = await Promise.all([
-    getCampaign(id),
-    getMessages(id),
-    getReplies(id),
-    getCalls(id),
+  const [campaign, rawMessages, replies, calls, activities] = await Promise.all([
+    getCampaign(id), getMessages(id), getReplies(id), getCalls(id), getActivities(id),
   ]);
 
-  // Hide phantom dial-markers from the call history (boss 2026-06-10: "se
-  // duplican las llamadas?"). Clicking "Call" writes a marker row
-  // (status=initiated, aircall_call_id=null) BEFORE the Aircall dialer opens;
-  // the REAL call then arrives via the webhook with an aircall_call_id. So one
-  // dial can leave 1 real row + 1-2 markers. A row is real iff it has an
-  // aircall_call_id OR a logged outcome (classification); everything else is a
-  // transient marker and shouldn't show as a separate "call".
-  const visibleCalls = ((calls as any[]) ?? []).filter(
-    (c: any) => c.aircall_call_id != null || c.classification != null,
-  );
+  const visibleCalls = ((calls as any[]) ?? []).filter((c: any) => c.aircall_call_id != null || c.classification != null);
+  const seqNav = await getSequenceNav(id, (campaign as any)?.name ?? null, bioId);
+  const companySnapshot = await getCompanySnapshot((lead as any).company_name ?? null, bioId);
 
-  // Prev/next navigation between leads of the same flow (boss 2026-06-10).
-  const seqNav = await getSequenceNav(id, (campaign as any)?.name ?? null, (lead as any)?.company_bio_id ?? null);
-
-  // Pre-render messages once on the server so every downstream component
-  // (Campaign tab, Recent Activity tab, stepper) shows the same actual
-  // text the lead received instead of the raw {{first_name}} template.
   const sellerName = (campaign as any)?.sellers?.name ?? null;
-
-  // Pre-render the flow's auto-replies with THIS lead's name/company so the
-  // "Mark result" modal shows the real message, not raw {{first_name}}. The
-  // send path re-renders authoritatively, so strict:false is safe here.
   const rawAutoReplies = (campaign?.metadata as { autoReplies?: { positive?: string; negative?: string } } | null)?.autoReplies ?? null;
-  const renderReply = (t?: string) =>
-    t ? renderPlaceholders(t, lead as Record<string, unknown>, { name: sellerName }, { strict: false })
+  const renderReply = (s?: string) =>
+    s ? renderPlaceholders(s, lead as Record<string, unknown>, { name: sellerName }, { strict: false })
           .replace(/\{\{[^}]*\}\}/g, "").replace(/[ \t]{2,}/g, " ").trim()
-      : (t ?? "");
+      : (s ?? "");
   const renderedAutoReplies = rawAutoReplies
     ? { positive: renderReply(rawAutoReplies.positive), negative: renderReply(rawAutoReplies.negative) }
     : null;
 
+  // Snapshot the actually-sent text (rendered_content) for messages missing it.
   const messages = (rawMessages ?? []).map((m: any) => {
     const meta = (m.metadata ?? {}) as Record<string, unknown>;
-    if (typeof meta.rendered_content === "string" && meta.rendered_content.length > 0) {
-      return m;
-    }
+    if (typeof meta.rendered_content === "string" && meta.rendered_content.length > 0) return m;
     if (m.status !== "sent" || !m.content) return m;
-    return {
-      ...m,
-      metadata: {
-        ...meta,
-        rendered_content: renderTemplateFallback(m.content, lead, sellerName),
-        rendered_source: "fallback-server-render",
-      },
-    };
+    return { ...m, metadata: { ...meta, rendered_content: renderTemplateFallback(m.content, lead, sellerName), rendered_source: "fallback-server-render" } };
   });
 
   const score = scoreBadge(lead.lead_score, lead.is_priority);
   const st = statusMap[lead.status] ?? statusMap.new;
+  const statusLabel = t(st.labelKey);
   const initials = `${(lead.primary_first_name ?? "?")[0]}${(lead.primary_last_name ?? "?")[0]}`.toUpperCase();
   const avatarBg = score.label === "HOT" ? gold : score.label === "WARM" ? "#334155" : "#9CA3AF";
+  const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
 
   const totalMsgsSent = messages.filter((m: any) => m.status === "sent").length;
   const totalReplies = replies.length;
   const positiveReplies = replies.filter((r: any) => ["positive", "meeting_intent"].includes(r.classification ?? "")).length;
-  // Step progress data
+
+  // Sequence progress
   const channelStepLabels: Record<string, string> = {
     linkedin: t("chan.linkedin"), email: t("chan.email"), call: t("chan.call"),
     whatsapp: t("chan.whatsapp"), sms: t("chan.sms"), instagram: t("chan.instagram"),
   };
   const rawSteps: any[] = campaign?.sequence_steps ?? [];
   const steps = rawSteps.map((s: any) => {
-    if (typeof s === 'string') return channelStepLabels[s.toLowerCase()] ?? s;
+    if (typeof s === "string") return channelStepLabels[s.toLowerCase()] ?? s;
     if (s?.channel) return channelStepLabels[s.channel.toLowerCase()] ?? s.channel;
     return t("ld.unknownStep");
   });
   const currentStep = campaign?.current_step ?? 0;
-  // Find which step is a call step (for validation)
   const callStepIndex = rawSteps.findIndex((s: any) => {
-    const ch = typeof s === 'string' ? s : s?.channel;
-    return ch && ch.toLowerCase() === 'call';
-  }) + 1; // Convert to 1-indexed
+    const ch = typeof s === "string" ? s : s?.channel;
+    return ch && ch.toLowerCase() === "call";
+  }) + 1;
   const isCallStep = callStepIndex > 0 && currentStep === callStepIndex;
-  const campDone = campaign?.status === 'completed' || campaign?.status === 'failed';
-  const campMsgsForStepper = campaign
-    ? messages.filter((m: any) => m.campaign_id === campaign.id).sort((a: any, b: any) => (a.step_number ?? 0) - (b.step_number ?? 0))
-    : [];
-  // Connection request (step_number = 0) is dispatched separately from the
-  // DM sequence but should count toward overall progress in the stepper.
-  const connectionStepMsg = campMsgsForStepper.find((m: any) => m.step_number === 0) ?? null;
-  const connectionStepSent = connectionStepMsg?.status === 'sent';
+  const nextStepName = callStepIndex > 0 && callStepIndex < steps.length ? steps[callStepIndex] : undefined;
+  const campDone = campaign?.status === "completed" || campaign?.status === "failed";
+  const connectionStepMsg = messages.find((m: any) => m.campaign_id === campaign?.id && m.step_number === 0) ?? null;
+  const connectionStepSent = connectionStepMsg?.status === "sent";
   const effectiveDenominator = steps.length + (connectionStepMsg ? 1 : 0);
   const effectiveNumerator = currentStep + (connectionStepSent ? 1 : 0);
-  const stepPct = campDone ? 100 : effectiveDenominator > 0
-    ? Math.round((effectiveNumerator / effectiveDenominator) * 100)
-    : 0;
+  const stepPct = campDone ? 100 : effectiveDenominator > 0 ? Math.round((effectiveNumerator / effectiveDenominator) * 100) : 0;
+  const stepStr = campaign ? `${campDone ? steps.length : Math.min(currentStep + 1, steps.length)}/${steps.length}` : "—";
 
-  // Build activity items scoped to this lead only
-  type ActivityItem = {
-    id: string; type: "message_sent" | "reply" | "campaign_start" | "lead_created";
-    contactName: string; channel: string; content: string | null; timestamp: string;
-    stepNumber?: number; classification?: string; aiConfidence?: number; requiresReview?: boolean; sellerName?: string;
-    attachments?: Array<{ name: string; mimeType?: string; sizeBytes?: number }>;
-  };
-
-  const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
-  const activityItems: ActivityItem[] = [];
-
-  // Sent messages: prefer the dispatcher-captured rendered_content over the
-  // raw template so the activity feed shows what the lead actually received
-  // ("Hi Steve, …") rather than the placeholder version ("Hi {{first_name}}, …").
-  // Attachments are looked up via campaigns.sequence_steps[stepNumber-1].attachments
-  // — same shape the dispatcher reads at send time, so the timeline shows
-  // exactly what went out (paperclip chip + filename).
-  messages.filter((m: any) => m.status === "sent").forEach((m: any) => {
-    const rendered = (m.metadata as Record<string, unknown> | null)?.rendered_content;
-    const displayed = typeof rendered === "string" && rendered.length > 0 ? rendered : (m.content ?? null);
-    const stepIdx = (m.step_number ?? 0) - 1;
-    const stepAttachments = stepIdx >= 0 && Array.isArray(rawSteps[stepIdx]?.attachments)
-      ? rawSteps[stepIdx].attachments as Array<{ name: string; mimeType?: string; sizeBytes?: number }>
-      : undefined;
-    activityItems.push({
-      id: m.id, type: "message_sent",
-      contactName,
-      channel: m.channel ?? campaign?.channel ?? "email",
-      content: displayed,
-      timestamp: m.sent_at,
-      stepNumber: m.step_number,
-      attachments: stepAttachments,
-    });
-  });
-
-  replies.forEach((r: any) => {
-    activityItems.push({
-      id: r.id, type: "reply",
-      contactName,
-      channel: r.channel ?? "email",
-      content: r.reply_text,
-      timestamp: r.received_at,
-      classification: r.classification,
-      aiConfidence: r.ai_confidence,
-      requiresReview: r.requires_human_review,
-    });
-  });
-
+  // ── Merged Engagement timeline (server-built once, rendered client-side) ──
+  const events: TimelineEvent[] = [];
+  for (const m of messages) {
+    if (m.status !== "sent" || !m.sent_at) continue;
+    const rendered = ((m.metadata as any)?.rendered_content as string) || m.content || null;
+    if (m.step_number === 0) {
+      events.push({ id: `m-${m.id}`, kind: "connection", at: m.sent_at, channel: "linkedin", title: t("ld2.tl.connection") });
+    } else {
+      const ch = (m.channel || campaign?.channel || "email") as string;
+      const chLabel = channelStepLabels[ch.toLowerCase()] ?? ch;
+      events.push({ id: `m-${m.id}`, kind: "message", at: m.sent_at, channel: ch, title: `${chLabel} ${t("ld2.tl.sent")}`, body: rendered });
+    }
+  }
+  for (const r of replies as any[]) {
+    if (!r.received_at || (r.channel || "") === "call") continue;
+    const cls = r.classification || "";
+    const tone = ["positive", "meeting_intent"].includes(cls) ? "positive" : ["negative", "unsubscribe", "spam"].includes(cls) ? "negative" : "neutral";
+    events.push({ id: `r-${r.id}`, kind: "reply", at: r.received_at, channel: r.channel || "email", title: t("ld2.tl.reply"), body: r.reply_text, tone, meta: cls || undefined });
+  }
+  for (const c of visibleCalls as any[]) {
+    if (!c.started_at) continue;
+    const cls = (c.classification || "").toLowerCase();
+    const tone = /positive|interest|qualified|meeting/.test(cls) ? "positive"
+      : /callback|call back|follow/.test(cls) ? "warning"
+      : /not|negative|wrong|no answer|voicemail/.test(cls) ? "negative" : "neutral";
+    const dur = c.duration ? `${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, "0")}` : null;
+    events.push({ id: `c-${c.id}`, kind: "call", at: c.started_at, channel: "call", title: t("ld2.tl.call"), body: c.classification || c.ai_summary || c.notes || null, tone, meta: [dur, c.classification].filter(Boolean).join(" · ") || undefined });
+  }
   if (campaign?.started_at) {
-    activityItems.push({
-      id: `camp-${campaign.id}`, type: "campaign_start",
-      contactName,
-      channel: campaign.channel ?? "email",
-      content: campaign.name,
-      timestamp: campaign.started_at,
-      sellerName: (campaign as any).sellers?.name,
-    });
+    events.push({ id: `camp-${campaign.id}`, kind: "campaign", at: campaign.started_at, title: `${t("ld2.tl.campaignStarted")} · ${campaign.name ?? ""}`.trim(), meta: sellerName || undefined });
+  }
+  for (const a of activities as any[]) {
+    const at = a.due_at || a.completed_at || a.created_at;
+    if (!at) continue;
+    const isCallback = a.source === "call_callback";
+    events.push({ id: `a-${a.id}`, kind: "activity", at, channel: a.type === "call" ? "call" : null, title: a.title, body: a.description, tone: a.status === "completed" ? "neutral" : isCallback ? "warning" : "info", meta: [a.status, isCallback ? "callback" : null].filter(Boolean).join(" · ") || undefined });
   }
 
-  activityItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-  const teamNotes: { author: string; text: string; time: string }[] = [];
-  if (lead.seller_notes) {
-    teamNotes.push({ author: lead.assigned_seller ?? t("ld.team"), text: lead.seller_notes, time: t("ld.recently") });
-  }
-
-  const keywords = lead.keywords ? lead.keywords.split(",").map((k: string) => k.trim()).filter(Boolean) : [];
-  const technologies: string[] = lead.organization_technologies ?? [];
-
-  // ── Gruppo Everest demo gate ───────────────────────────────────────────────
-  // EVERY change for the cross-selling demo is scoped behind this flag so no
-  // other tenant's lead page is affected. When true we render a focused header
-  // trio (About → Personalized → Account) under the hero and gate the originals
-  // (full Account zone + About-this-person card) off below.
-  const isEverest = (lead as any).company_bio_id === "4ab610c8-e852-4b37-97d7-c41ba19b0d0e";
-  const accountBlock = isEverest && lead.company_name ? (() => {
-    const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
-    const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
-    const website = lead.company_website ? (String(lead.company_website).startsWith("http") ? String(lead.company_website) : `https://${lead.company_website}`) : null;
-    const facts = [
-      { label: t("ld.industry"), value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
-      { label: t("ld.location"), value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
-    ].filter(f => f.value);
-    return (
-      <div className="rounded-2xl border overflow-hidden lift" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-        <div className="flex items-center gap-4 p-5 pb-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ZONE.account}, color-mix(in srgb, ${ZONE.account} 70%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>{t("imp.company")}</p>
-            <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>{t("ld.viewCompany")} <ExternalLink size={12} /></Link>
-          </div>
-        </div>
-        {facts.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 px-5 pb-4">
-            {facts.map(f => (
-              <div key={f.label} className="rounded-xl p-3" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 7%, transparent)` }}>
-                <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: C.textDim }}>{f.label}</p>
-                <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{f.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {ourPlay && (
-          <div className="mx-5 mb-4 rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>{t("ld.ourPlay")}</p>
-            <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 500)}</p>
-          </div>
-        )}
-        {valueProp && (
-          <div className="mx-5 mb-4 rounded-xl p-4" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)" }}>
-            <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}><span className="font-bold" style={{ color: gold }}>→ </span>{String(valueProp).slice(0, 320)}</p>
-          </div>
-        )}
-        {website && (
-          <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: C.border }}>
-            <a href={website} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.blue }}>{lead.company_website} <ExternalLink size={10} /></a>
-          </div>
-        )}
-      </div>
-    );
-  })() : null;
+  const tz = countryToTimeZone(lead.company_country);
+  const place = lead.company_city || lead.company_country || null;
+  const metrics = { messages: totalMsgsSent, replies: totalReplies, positive: positiveReplies, calls: visibleCalls.length, step: stepStr, stepPct };
 
   return (
     <div className="p-6 w-full fade-in">
-
       <Breadcrumb crumbs={[{ label: t("ld.leads"), href: "/leads" }, { label: lead.company_name ?? t("ld.contact") }, { label: contactName }]} />
       <RecentLeadTracker leadId={id} name={contactName} company={lead.company_name ?? null} />
 
-      {/* ═══ CONTACT HEADER ═══ */}
-      <div
-        className="rounded-2xl border mb-6 relative overflow-hidden reveal"
-        style={{
-          backgroundColor: C.card,
-          borderColor: C.border,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)",
-        }}
-      >
-        <div
-          className="absolute inset-x-0 top-0 h-[3px]"
-          style={{
-            background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, color-mix(in srgb, ${gold} 72%, white) 50%, ${gold} 70%, transparent 100%)`,
-          }}
-        />
+      {/* HERO */}
+      <LeadHero
+        lead={lead} leadId={id} contactName={contactName} initials={initials} avatarBg={avatarBg}
+        statusLabel={statusLabel} statusColor={st.color} scoreLabel={score.label} scoreColor={score.color}
+        campaign={campaign} seqNav={seqNav} isCallStep={isCallStep} nextStepName={nextStepName}
+        autoReplies={renderedAutoReplies} metrics={{ messages: totalMsgsSent, replies: totalReplies, positive: positiveReplies, step: stepStr }}
+        tz={tz} place={place} localeTag={localeTag}
+      />
 
-        {/* Main row — responsive: stacked on mobile (<md), inline on desktop.
-            Previously this was a hard `flex justify-between` that pushed the
-            12-element right cluster off-screen on tablet and stacked it to
-            5+ rows on mobile. Now: identity left, actions row right on lg+;
-            actions wrap below identity on smaller screens. */}
-        <div className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
-
-          {/* Left: Avatar + Name + Badges */}
-          <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-            {/* Avatar */}
-            <div
-              className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-base sm:text-lg font-bold text-white shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${avatarBg}, color-mix(in srgb, ${avatarBg} 75%, white))`,
-                boxShadow: `0 6px 20px color-mix(in srgb, ${avatarBg} 28%, transparent)`,
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-              }}
-            >
-              {initials}
-            </div>
-
-            {/* Name block */}
-            <div className="min-w-0 flex-1">
-              <h1
-                className="text-[18px] sm:text-[22px] font-bold leading-tight truncate"
-                style={{
-                  color: C.textPrimary,
-                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {lead.primary_first_name} {lead.primary_last_name}
-              </h1>
-              <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: C.textMuted }}>
-                {lead.primary_title_role ?? "—"}
-              </p>
-              {lead.company_name && (
-                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`}
-                  className="flex items-center gap-1.5 text-xs sm:text-sm mt-1 hover:underline truncate"
-                  style={{ color: C.blue }}>
-                  <Building2 size={12} className="shrink-0" style={{ color: C.textDim }} />
-                  <span className="truncate">{lead.company_name}</span>
-                  <ExternalLink size={10} className="shrink-0" style={{ opacity: 0.6 }} />
-                </Link>
-              )}
-              {/* Status as quiet dot+label (not big pills) — lead status +
-                  score band. Timezone/provenance + tags live in the metadata
-                  strip below; secondary actions in the "More" menu. */}
-              <div className="flex items-center gap-4 mt-2.5 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.textBody }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.color }} />
-                  {t(st.labelKey)}
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.textBody }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: score.color }} />
-                  {score.label}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right cluster — splits naturally into actions row + secondary
-              indicators row on mobile so nothing overflows. On desktop both
-              rows align horizontally with the identity block. */}
-          <div className="flex flex-col-reverse sm:flex-col gap-3 sm:gap-4 sm:items-end shrink-0 w-full sm:w-auto">
-            {/* Actions: Call + Delete — full-width on mobile, inline on sm+ */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap justify-stretch sm:justify-end w-full sm:w-auto">
-              {(lead.primary_phone || lead.primary_secondary_phone) && (
-                <div className="flex-1 sm:flex-initial">
-                  {lead.allow_call === false ? (
-                    // Phone marked wrong via the post-call outcome popup
-                    // (wrong_number). We swap the Call button for a red
-                    // clickable pill that opens an inline replace flow —
-                    // saving auto re-enables allow_call (PATCH route side
-                    // effect 2026-06-01) so the next render restores the
-                    // normal Call button without an admin step.
-                    <WrongNumberPill
-                      leadId={id}
-                      currentPhone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
-                    />
-                  ) : (
-                    <CallButton
-                      phone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
-                      leadId={id}
-                      size="sm"
-                      defaultNumberId={campaign?.aircall_number_id ?? null}
-                      phones={[
-                        ...(lead.primary_phone ? [{ label: t("ld.personal"), value: lead.primary_phone }] : []),
-                        ...(lead.primary_secondary_phone ? [{ label: t("ld.phoneCompany"), value: lead.primary_secondary_phone }] : []),
-                      ]}
-                      isCallStep={isCallStep}
-                      nextStepName={callStepIndex > 0 && callStepIndex < steps.length ? steps[callStepIndex] : undefined}
-                    />
-                  )}
-                </div>
-              )}
-              {/* Secondary actions (View flow / Export / Log outcome / Delete)
-                  collapse into one calm "More" menu so the row is just the
-                  primary Call + More + prev/next nav. */}
-              <LeadMoreMenu leadId={id} leadName={contactName} campaignId={campaign?.id ?? null} autoReplies={renderedAutoReplies} />
-
-              {/* Prev/next within the same flow (boss 2026-06-10) — two arrows
-                  to move between leads of the same sequence without going back
-                  to the list. Hidden when the lead isn't in a multi-lead flow. */}
-              {seqNav && (
-                <div className="inline-flex items-center rounded-lg border overflow-hidden" style={{ borderColor: C.border }}>
-                  {seqNav.prevId ? (
-                    <Link href={`/leads/${seqNav.prevId}`} title={t("ld.prevLead")}
-                      className="inline-flex items-center px-2 py-2 transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
-                      <ChevronLeft size={15} />
-                    </Link>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-2" style={{ color: C.textDim, opacity: 0.4 }}><ChevronLeft size={15} /></span>
-                  )}
-                  <span className="px-2 text-[11px] font-semibold tabular-nums border-x" style={{ color: C.textMuted, borderColor: C.border }}>
-                    {seqNav.index}/{seqNav.total}
-                  </span>
-                  {seqNav.nextId ? (
-                    <Link href={`/leads/${seqNav.nextId}`} title={t("ld.nextLead")}
-                      className="inline-flex items-center px-2 py-2 transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
-                      <ChevronRight size={15} />
-                    </Link>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-2" style={{ color: C.textDim, opacity: 0.4 }}><ChevronRight size={15} /></span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Indicators: channel chips + score ring */}
-            <div className="flex items-center gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
-              <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
-                {CHANNELS.map(ch => {
-                  const allowed = lead[ch.key] !== false;
-                  const hasData = ch.hasData(lead);
-                  const ready = allowed && hasData;
-                  const broken = allowed && !hasData;
-                  const label = ch.key.replace("allow_", "");
-                  const href = ch.getHref(lead);
-                  const sharedClass = "w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border relative transition-transform";
-                  const sharedStyle = {
-                    backgroundColor: ready
-                      ? `color-mix(in srgb, ${C.green} 14%, transparent)`
-                      : broken
-                      ? "color-mix(in srgb, #D97706 14%, transparent)"
-                      : C.surface,
-                    borderColor: ready
-                      ? `color-mix(in srgb, ${C.green} 35%, transparent)`
-                      : broken
-                      ? "color-mix(in srgb, #D97706 35%, transparent)"
-                      : C.border,
-                    opacity: allowed ? 1 : 0.45,
-                  } as const;
-                  const titleText = broken
-                    ? `${label} allowed but no contact data on file — dispatch will fail`
-                    : ready
-                    ? `${label}: ready · click to open`
-                    : `${label}: blocked`;
-                  const inner = (
-                    <>
-                      {ch.icon}
-                      {ready && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: C.green }}>
-                          <span style={{ color: "#fff", fontSize: 7, lineHeight: 1 }}>✓</span>
-                        </div>
-                      )}
-                      {broken && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: "#D97706" }}>
-                          <AlertTriangle size={7} color="#fff" />
-                        </div>
-                      )}
-                    </>
-                  );
-                  // Only LinkedIn is interactive in this row (see CHANNELS).
-                  // The other chips are status indicators — sellers should
-                  // hit Call / Mobile card / email composer for actions, not
-                  // sneak out to mailto:/tel: via these icons.
-                  if (ch.clickable && href && allowed) {
-                    return (
-                      <a
-                        key={ch.key}
-                        href={href}
-                        target={ch.external ? "_blank" : undefined}
-                        rel={ch.external ? "noreferrer" : undefined}
-                        className={`${sharedClass} hover:scale-110 cursor-pointer`}
-                        title={titleText}
-                        style={sharedStyle}
-                      >
-                        {inner}
-                      </a>
-                    );
-                  }
-                  return (
-                    <div key={ch.key}
-                      className={sharedClass}
-                      title={titleText}
-                      style={sharedStyle}>
-                      {inner}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {lead.lead_score > 0 && (
-                <ScoreRing score={lead.lead_score} color={score.color} />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ METADATA STRIP — full-width so status/score/timezone/provenance
-            chips + teammate tags lay out in a clean row instead of stacking in
-            the squeezed identity column (Fran 2026-08-12: "el hero está muy
-            colapsado y desprolijo"). ═══ */}
-        <div className="px-4 sm:px-6 pb-5 flex items-center gap-x-2.5 gap-y-1.5 flex-wrap text-xs" style={{ color: C.textMuted }}>
-          {(() => {
-            const bits: React.ReactNode[] = [];
-            const tz = countryToTimeZone(lead.company_country);
-            if (tz) {
-              const place = lead.company_city || lead.company_country || null;
-              bits.push(<ProspectClock key="clk" tz={tz} place={place} />);
-            }
-            if (lead.created_at) {
-              bits.push(<span key="add">Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>);
-            }
-            if (lead.assigned_seller) {
-              bits.push(
-                <span key="own" className="inline-flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: gold, fontSize: 9 }}>
-                    {lead.assigned_seller[0]}
-                  </span>
-                  {lead.assigned_seller}
-                </span>,
-              );
-            }
-            if (lead.source_universe) bits.push(<span key="src">{lead.source_universe}</span>);
-            return bits.map((b, i) => (
-              <span key={i} className="inline-flex items-center gap-2.5">
-                {i > 0 && <span style={{ color: C.textDim }}>·</span>}
-                {b}
-              </span>
-            ));
-          })()}
-          {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "#8a6b18", border: `1px solid color-mix(in srgb, ${gold} 34%, transparent)` }}>
-              {t("icpx.new")}
-            </span>
-          )}
-          {/* Teammate tags — pushed to the right edge on wider screens. */}
-          <div className="w-full sm:w-auto sm:ml-auto mt-1 sm:mt-0">
-            <LeadSellerTags leadId={lead.id} compact />
-          </div>
-        </div>
-
-        <LeadStatsBar
-          totalMsgsSent={totalMsgsSent}
-          totalReplies={totalReplies}
-          positiveReplies={positiveReplies}
-          campaignStep={campaign ? `${campDone ? steps.length : Math.min(currentStep + 1, steps.length)}/${steps.length}` : "—"}
-        />
-      </div>
-
-      {/* Gruppo Everest demo: flex wrapper so we can CSS-`order` the Details
-          zone (tabs + About This Person) above the Rooftop/Account trio without
-          physically moving 500+ lines of JSX. For every other tenant this is a
-          plain pass-through div (no flex, no order) — zero layout change. */}
-      <div style={isEverest ? { display: "flex", flexDirection: "column" } : undefined}>
-
-      {/* Rooftop Intelligence + Account trio. About This Person now lives back
-          in the Details / Profile-Overview tab (ordered to the top below). */}
-      {isEverest && (
-        <section className="reveal space-y-6" style={{ ...zoneStyle(ZONE.prep), order: -1 }}>
-          {/* — Personalized Info (Rooftop Intelligence) — */}
-          <PersonalizedInfoPanel enrichment={lead.enrichment} leadId={id} companyName={lead.company_name} />
-
-          {/* — Account (company) — */}
-          {accountBlock}
-        </section>
-      )}
-
-      <section className="reveal" style={zoneStyle(ZONE.prep)}>
-      <CollapsibleSection title={t("lead.zone.prep")} accent={ZONE.prep} collapsible={!isEverest} defaultOpen>
-
-      {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
-            on first view. First in the Overview flow: brief → account angle →
-            company → deep-dive → enrichment. ═══ */}
+      {/* PRE-CALL BRIEF (V3, unchanged) — standalone above the tabs */}
       <PreCallBrief
         leadId={id}
         initialPoints={(lead as any).call_talking_points ?? null}
         initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
       />
 
-      </CollapsibleSection>
+      {/* DETAILS — 5 canonical tabs */}
+      <section className="reveal rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: C.shadow }}>
+        <CompanyTabs tabs={[
+          { label: t("ld2.tab.overview") },
+          { label: t("ld.tab.activities") },
+          { label: t("ld2.tab.engagement") },
+          { label: t("ld2.tab.research") },
+          { label: t("ld.tab.notes") },
+        ]}>
+          <div className="px-4 sm:px-6 pb-6">
+            <LeadOverview
+              lead={lead} leadId={id} campaign={campaign} metrics={metrics}
+              initialActivities={activities as any[]} canAssignActivities={canAssignActivities}
+              autoReplies={renderedAutoReplies} tz={tz} place={place} company={companySnapshot}
+            />
+          </div>
+          <div className="px-4 sm:px-6 pb-6">
+            <LeadActivitiesPanel
+              leadId={id} leadLabel={contactName} company={(lead as any).company_name ?? null}
+              leadPhone={(lead as any).primary_phone ?? null} leadCountry={(lead as any).company_country ?? null}
+              leadStatus={(lead as any).status ?? null} canAssignOthers={canAssignActivities}
+              initialActivities={activities as any[]} variant="full"
+            />
+          </div>
+          <div className="px-4 sm:px-6 pb-6">
+            <LeadEngagement
+              events={events} localeTag={localeTag} campaign={campaign} messages={messages}
+              replies={replies} calls={visibleCalls} lead={lead} leadId={id}
+              step={stepStr} stepPct={stepPct} defaultNumberId={campaign?.aircall_number_id ?? null}
+              isCallStep={isCallStep} nextStepName={nextStepName}
+            />
+          </div>
+          <div className="px-4 sm:px-6 pb-6">
+            <LeadResearch lead={lead} leadId={id} />
+          </div>
+          <div className="px-4 sm:px-6 pb-6">
+            <LeadNotes leadId={id} />
+          </div>
+        </CompanyTabs>
       </section>
-      {!isEverest && (
-      <section className="reveal" style={zoneStyle(ZONE.account)}>
-      <CollapsibleSection title={t("lead.zone.account")} accent={ZONE.account} collapsible={!isEverest} defaultOpen>
-
-      {/* ═══ COMPANY — one rich section: facts + what they do + our industry
-            play + value prop + tech/keywords/news, clickable through to the
-            full company page. (Consolidates the old angle + company card and
-            the removed in-tab Company block.) ═══ */}
-      {lead.company_name && (() => {
-        const enr = (lead.enrichment as any) ?? {};
-        const techs = Array.isArray(enr.technologies) ? enr.technologies as string[] : [];
-        const kws = Array.isArray(enr.keywords) ? enr.keywords as string[] : [];
-        const scrape = (lead.company_scrape as { summary?: string; services?: string[]; scraped_at?: string } | null) ?? null;
-        // Conversation signals — what the company is publishing + sector trends.
-        // Both arrive as free text from enrichment; render best-effort.
-        const asText = (v: unknown) => (Array.isArray(v) ? v.join(" · ") : typeof v === "string" ? v : "");
-        const companyPosts = asText(lead.company_posts_content).trim();
-        const sectorTrends = asText(lead.industry_trends).trim();
-        // Company social links beyond the website.
-        const socials = [
-          lead.company_blog ? { label: "Blog", href: String(lead.company_blog).startsWith("http") ? String(lead.company_blog) : `https://${lead.company_blog}` } : null,
-          lead.company_instagram ? { label: "Instagram", href: String(lead.company_instagram).startsWith("http") ? String(lead.company_instagram) : `https://instagram.com/${String(lead.company_instagram).replace(/^@/, "")}` } : null,
-        ].filter(Boolean) as { label: string; href: string }[];
-        const whatTheyDo = (scrape?.summary as string | null) || (lead.organization_description as string | null) || (lead.website_summary as string | null) || null;
-        const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
-        const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
-        const facts = [
-          { label: t("lead.company.industry"), value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
-          { label: t("lead.company.location"), value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
-          { label: t("lead.company.employees"), value: (lead.employees ?? lead.company_employee_count) ?? null },
-          { label: t("lead.company.revenue"), value: lead.annual_revenue ? `$${lead.annual_revenue}` : null },
-        ].filter(f => f.value);
-        const website = lead.company_website ? (String(lead.company_website).startsWith("http") ? String(lead.company_website) : `https://${lead.company_website}`) : null;
-        return (
-          <div className="rounded-2xl border mt-6 overflow-hidden lift" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <div className="flex items-center gap-4 p-5 pb-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ZONE.account}, color-mix(in srgb, ${ZONE.account} 70%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>{t("lead.company.label")}</p>
-                <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <ScrapeCompanyButton leadId={id} hasScrape={!!scrape?.summary} />
-                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>{t("ld.viewCompany")} <ExternalLink size={12} /></Link>
-              </div>
-            </div>
-            {facts.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-5 pb-4">
-                {facts.map(f => (
-                  <div key={f.label} className="rounded-xl p-3" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 7%, transparent)` }}>
-                    <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: C.textDim }}>{f.label}</p>
-                    <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{f.value}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {(whatTheyDo || ourPlay) && (
-              <div className="grid md:grid-cols-2 gap-3 px-5 pb-4">
-                {whatTheyDo && (
-                  <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #0891B2" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#0891B2", letterSpacing: "0.08em" }}>{t("lead.company.whatTheyDo")}</p>
-                    <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(whatTheyDo).slice(0, 500)}</p>
-                  </div>
-                )}
-                {ourPlay && (
-                  <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>{t("lead.company.ourPlay")}</p>
-                    <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 500)}</p>
-                  </div>
-                )}
-              </div>
-            )}
-            {valueProp && (
-              <div className="mx-5 mb-4 rounded-xl p-4" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)" }}>
-                <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}><span className="font-bold" style={{ color: gold }}>→ </span>{String(valueProp).slice(0, 320)}</p>
-              </div>
-            )}
-            {(techs.length > 0 || kws.length > 0 || website || lead.recent_website_news || socials.length > 0 || companyPosts || sectorTrends) && (
-              <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: C.border }}>
-                <div className="flex items-center gap-3 flex-wrap">
-                  {website && (
-                    <a href={website} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.blue }}>{lead.company_website} <ExternalLink size={10} /></a>
-                  )}
-                  {socials.map(s => (
-                    <a key={s.label} href={s.href} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.textMuted }}>{s.label} <ExternalLink size={10} /></a>
-                  ))}
-                </div>
-                {(companyPosts || sectorTrends) && (
-                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 7%, transparent)`, borderLeft: `3px solid ${ZONE.account}` }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: ZONE.account, letterSpacing: "0.08em" }}>{t("lead.company.signals")}</p>
-                    {companyPosts && <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{companyPosts.slice(0, 280)}</p>}
-                    {sectorTrends && <p className="text-[12px] leading-relaxed mt-1.5" style={{ color: C.textMuted }}><span className="font-semibold">{t("lead.company.sector")}</span> {sectorTrends.slice(0, 220)}</p>}
-                  </div>
-                )}
-                {techs.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("lead.company.techStack")}</p>
-                    <div className="flex flex-wrap gap-1.5">{techs.slice(0, 12).map(t => <span key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: C.blueLight, color: C.blue }}>{t}</span>)}</div>
-                  </div>
-                )}
-                {kws.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("lead.company.keywords")}</p>
-                    <div className="flex flex-wrap gap-1.5">{kws.slice(0, 12).map(k => <span key={k} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>{k}</span>)}</div>
-                  </div>
-                )}
-                {lead.recent_website_news && (
-                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)", borderLeft: "3px solid #F59E0B" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#D97706" }}>{t("lead.company.recentNews")}</p>
-                    <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{lead.recent_website_news}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* ═══ CONVERSATION STARTERS — the prospect's own recent activity, the
-            best personalization fuel for a first touch. Only renders when we
-            actually captured a post. ═══ */}
-      {(() => {
-        const starters = [
-          lead.recent_linkedin_post ? { src: "LinkedIn", text: String(lead.recent_linkedin_post) } : null,
-          lead.recent_ig_post ? { src: "Instagram", text: String(lead.recent_ig_post) } : null,
-          lead.twitter_last_posts ? { src: "X / Twitter", text: Array.isArray(lead.twitter_last_posts) ? (lead.twitter_last_posts as string[]).join(" · ") : String(lead.twitter_last_posts) } : null,
-        ].filter(Boolean).filter(s => s!.text.trim()) as { src: string; text: string }[];
-        if (starters.length === 0) return null;
-        return (
-          <div className="rounded-2xl border mt-6 p-5 lift" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: ZONE.account, letterSpacing: "0.1em" }}>{t("ld.starters")}</p>
-            <div className="space-y-2.5">
-              {starters.map((s, i) => (
-                <div key={i} className="flex gap-3 items-start p-3 rounded-xl" style={{ backgroundColor: C.bg }}>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 mt-0.5" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 12%, transparent)`, color: ZONE.account }}>{s.src}</span>
-                  <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{s.text.slice(0, 320)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      </CollapsibleSection>
-      </section>
-      )}
-      <section className="reveal" style={zoneStyle(ZONE.research)}>
-      <CollapsibleSection title={t("lead.zone.research")} accent={ZONE.research} collapsible={!isEverest} defaultOpen>
-
-      {/* ═══ DEEP-DIVE RESEARCH — long-form prep dossier. ═══ */}
-      <div className="mt-6">
-        <LeadSummaryTab
-          leadId={id}
-          initialSummary={lead.ai_summary ?? null}
-          initialGeneratedAt={lead.ai_summary_at ?? null}
-          accent={ZONE.research}
-        />
-      </div>
-
-      {/* ═══ LINKEDIN ENRICHMENT — raw full profile, on demand. ═══ */}
-      <div className="mt-6">
-        <LinkedInEnrichment leadId={id} />
-      </div>
-
-      {/* ═══ LEAD COPILOT — grouped here with the rest of the research/AI tools. ═══ */}
-      <div className="mt-6">
-        <LeadQA leadId={id} initialHistory={(lead as any).ai_chat ?? null} accent={ZONE.copilot} />
-      </div>
-
-      </CollapsibleSection>
-      </section>
-      {/* Standalone Campaign zone — redundant with the Details ▸ Campaign tab,
-          so it's hidden for normal tenants. Kept for Gruppo Everest (demo). */}
-      {isEverest && (
-      <section className="reveal" style={zoneStyle(ZONE.campaign)}>
-      <CollapsibleSection title={t("lead.zone.campaign")} accent={ZONE.campaign} collapsible={!isEverest} defaultOpen>
-
-      {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
-            Sits above the stepper so the seller doesn't have to interpret the
-            progress bar to figure out what's pending. */}
-      {campaign && (() => {
-        const status = campaign.status;
-        const nextIdx = (campaign.current_step ?? 0);
-        const nextStep = steps[nextIdx];
-        const dueIso = (campaign as any).next_step_due_at as string | null | undefined;
-        const dueDate = dueIso ? new Date(dueIso) : null;
-        const isOverdue = dueDate ? dueDate.getTime() < Date.now() : false;
-
-        // Pick one of four states.
-        let tone = "neutral", title = "", subtitle = "", color: string = C.textMuted;
-        if (status === "completed" || status === "closed_won") {
-          tone = "won"; color = C.green;
-          title = t("ld.campaignCompleted");
-          subtitle = (campaign as any).reply_count
-            ? ((campaign as any).reply_count === 1
-                ? t("ld.repliesReceivedOne")
-                : t("ld.repliesReceived", { n: (campaign as any).reply_count }))
-            : t("ld.noReplyRan");
-        } else if (status === "closed_lost" || status === "failed") {
-          tone = "lost"; color = C.red;
-          title = t("ld.campaignEnded");
-          subtitle = t("ld.noMoreOutreach");
-        } else if (status === "paused") {
-          tone = "paused"; color = "#D97706";
-          title = t("ld.campaignPaused");
-          subtitle = t("ld.resumeHint");
-        } else if (nextStep) {
-          tone = "active"; color = C.blue;
-          const dueLabel = dueDate ? dueDate.toLocaleDateString(intlTag(locale), { day: "numeric", month: "short" }) : "";
-          const when = dueDate
-            ? (isOverdue ? t("ld.overdueWas", { date: dueLabel }) : t("ld.dueOn", { date: dueLabel }))
-            : t("ld.scheduledByOrch");
-          title = t("ld.nextStepOf", { step: nextStep, i: nextIdx + 1, n: steps.length });
-          subtitle = when;
-        }
-
-        if (!title) return null;
-        return (
-          <div
-            className="rounded-2xl border mb-4 px-5 py-3.5 flex items-center justify-between gap-4 flex-wrap"
-            style={{
-              backgroundColor: `color-mix(in srgb, ${color} 6%, ${C.card})`,
-              borderColor: `color-mix(in srgb, ${color} 28%, ${C.border})`,
-            }}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{
-                  backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`,
-                  color,
-                }}
-              >
-                {tone === "won" ? "✓" : tone === "lost" ? "✕" : tone === "paused" ? "II" : "→"}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color }}>
-                  {tone === "active" ? (isOverdue ? t("ld.actionOverdue") : t("ld.nextAction")) : t("fld.status")}
-                </p>
-                <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                  {title}
-                </p>
-                <p className="text-xs" style={{ color: C.textMuted }}>{subtitle}</p>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ═══ CAMPAIGN STEP PROGRESS (horizontal stepper) ═══ */}
-      {steps.length > 0 ? (
-        <div className="rounded-2xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
-                {t("ld.stepProgress")}
-              </p>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <p className="text-xs" style={{ color: C.textMuted }}>
-                  {campaign!.name ?? t("ld.outreachCampaign")}
-                </p>
-                {(campaign as any)?.call_advance_mode === "manual" && (
-                  <span title={t("ld.manualCallHint")}
-                    className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md"
-                    style={{
-                      backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)",
-                      color: "#D97706",
-                      border: "1px solid color-mix(in srgb, #D97706 35%, transparent)",
-                      letterSpacing: "0.06em",
-                    }}>
-                    {t("ld.manualGate")}
-                  </span>
-                )}
-                {campaign && (
-                  <Link href={`/campaigns/${campaign.id}`}
-                    className="text-[10px] font-semibold hover:underline flex items-center gap-1" style={{ color: gold }}>
-                    View campaign <ExternalLink size={10} />
-                  </Link>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {campaign && !campDone && (
-                <MoveForwardButton
-                  campaignId={campaign.id}
-                  currentStep={currentStep}
-                  totalSteps={steps.length}
-                  nextChannel={rawSteps[currentStep]?.channel}
-                />
-              )}
-              <span className="text-base font-bold italic" style={{ color: gold }}>
-                {stepPct}% Complete
-              </span>
-            </div>
-          </div>
-
-          {/* Horizontal stepper */}
-          <div className="relative flex items-start justify-between px-4">
-            {/* Connection-request pre-step (step_number=0 in DB). Only rendered when the
-                campaign actually has a connection-request message; otherwise the sequence
-                starts directly at step 1 (e.g. email-first or call-first campaigns). */}
-            {connectionStepMsg && (
-              <div key="invite" className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 100 }}>
-                <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
-                  {connectionStepSent ? (
-                    <div className="rounded-full flex items-center justify-center"
-                      style={{ width: 48, height: 48, backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
-                      <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
-                    </div>
-                  ) : (
-                    <div className="rounded-full"
-                      style={{ width: 40, height: 40, backgroundColor: "#D1D5DB" }} />
-                  )}
-                </div>
-                <p className="text-center leading-tight px-1"
-                  style={{ color: connectionStepSent ? C.textBody : "#9CA3AF", fontWeight: 500, fontSize: 12 }}>
-                  {t("cons.abbr.invite")}
-                </p>
-                {connectionStepMsg.sent_at && (
-                  <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
-                    {new Date(connectionStepMsg.sent_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
-                  </p>
-                )}
-              </div>
-            )}
-            {steps.map((stepLabel: string, idx: number) => {
-              const stepNum = idx + 1;
-              // current_step in DB = the step_number of the LAST step that was dispatched.
-              // After email (step_number=1) is sent, current_step=1, and the lead is now
-              // working on step 2 (call). The stepper marks completed steps with a check
-              // and highlights the NEXT step as "current" — so isCompleted is inclusive
-              // of currentStep and isCurrent points one past it.
-              const isCurrent = stepNum === currentStep + 1;
-              const isCompleted = stepNum <= currentStep;
-              const msg = campMsgsForStepper.find((m: any) => m.step_number === stepNum);
-
-              return (
-                <div key={idx} className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 100 }}>
-                  {/* Connector line */}
-                  {idx > 0 && (
-                    <div className="absolute"
-                      style={{
-                        top: 33,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: stepNum <= currentStep + 1 ? gold : "#D1D5DB",
-                        left: "-50%",
-                        width: "100%",
-                        zIndex: 0,
-                      }} />
-                  )}
-
-                  {/* Node */}
-                  <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
-                    {isCompleted ? (
-                      <div className="rounded-full flex items-center justify-center"
-                        style={{ width: 48, height: 48, backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
-                        <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
-                      </div>
-                    ) : isCurrent ? (
-                      <div className="rounded-full flex items-center justify-center"
-                        style={{ width: 68, height: 68, border: `3.5px solid ${gold}`, backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 5%, transparent)" }}>
-                        <div className="rounded-full flex items-center justify-center font-bold"
-                          style={{ width: 44, height: 44, border: `2.5px solid ${gold}`, color: "#5A4A1E", backgroundColor: "#fff", fontSize: 18 }}>
-                          {String(stepNum).padStart(2, "0")}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-full"
-                        style={{ width: 40, height: 40, backgroundColor: "#D1D5DB" }} />
-                    )}
-                  </div>
-
-                  {/* Label */}
-                  <p className="text-center leading-tight px-1"
-                    style={{
-                      color: isCurrent ? C.textPrimary : isCompleted ? C.textBody : "#9CA3AF",
-                      fontWeight: isCurrent ? 700 : isCompleted ? 500 : 400,
-                      fontSize: isCurrent ? 13 : 12,
-                    }}>
-                    {stepLabel}
-                  </p>
-
-                  {/* Date under step — sent date for completed, "In progress" for current */}
-                  {(isCompleted || isCurrent) && (
-                    <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
-                      {msg?.sent_at
-                        ? new Date(msg.sent_at).toLocaleDateString(intlTag(locale), { month: "short", day: "numeric" })
-                        : isCurrent ? t("ld.inProgress") : ""}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-6 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
-            <div className="h-1.5 rounded-full transition-[opacity,transform,box-shadow,background-color,border-color]" style={{ width: `${stepPct}%`, backgroundColor: gold }} />
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-2xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
-                {t("ld.stepProgress")}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                {campaign
-                  ? t("ld.noStepsYet", { name: campaign.name ?? t("ld.campaignFallback") })
-                  : t("ld.noCampaignYet")}
-              </p>
-            </div>
-            <span className="text-base font-bold italic" style={{ color: C.textDim }}>
-              {t("ld.zeroComplete")}
-            </span>
-          </div>
-          <div className="mt-5 h-1.5 rounded-full" style={{ backgroundColor: C.border }} />
-        </div>
-      )}
-
-      {/* ═══ TABS ═══ */}
-      {/* Tab order reflects what sellers actually open on a lead, most to
-          least often: contact info → sequence progress → call history →
-          AI summary (research) → full timeline → social deep-research.
-          The Pre-Call Brief above the tabs already provides the 30-second
-          summary, so Summary tab demotes to the research-tier. */}
-      </CollapsibleSection>
-      </section>
-      )}
-      <section className="reveal" style={{ ...zoneStyle(ZONE.details), ...(isEverest ? { order: -2 } : {}) }}>
-      <ZoneLabel title={t("lead.zone.details")} accent={ZONE.details} />
-
-      <CompanyTabs tabs={[
-        { label: t("ld.tab.activities") },
-        { label: t("ld.tab.profile") },
-        { label: t("ld.tab.campaign") },
-        { label: t("ld.tab.calls"), count: visibleCalls.length || undefined },
-        { label: t("ld.tab.conversation") },
-        { label: t("ld.tab.notes") },
-        { label: t("ld.tab.social") },
-      ]}>
-
-        {/* ── TAB 0: Activities ── operational center: NEXT ACTION + Open/Completed.
-            Derived from the Activities source of truth; default tab so a seller
-            lands on "what to do next" when opening a lead. */}
-        <LeadActivitiesPanel
-          leadId={id}
-          leadLabel={contactName}
-          company={(lead as any).company_name ?? null}
-          leadPhone={(lead as any).primary_phone ?? null}
-          leadCountry={(lead as any).company_country ?? null}
-          leadStatus={(lead as any).status ?? null}
-          canAssignOthers={canAssignActivities}
-        />
-
-        {/* ── TAB 1: Profile Overview ──
-            Single-column full-width. The old 2-col grid (`[1fr 340px]`) left
-            a permanent 340px dead zone on wide monitors whenever the right
-            rail's conditional cards (Lead Source, Career, Website) had no
-            data — which is most leads. Stacking everything full-width keeps
-            the layout consistent and stops the visual "half-filled page"
-            feel that came up in UX feedback. */}
-        <div className="space-y-5 w-full">
-
-          {/* About the Person + everything else, stacked full-width */}
-          <div className="space-y-5 min-w-0">
-
-            {/* About This Person */}
-            <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.aboutPerson")}</h3>
-
-              {/* Role + Seniority */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("ld.roleTitle")}</p>
-                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{lead.primary_title_role ?? "—"}</p>
-                </div>
-                <div className="p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("ld.seniority")}</p>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded"
-                    style={{ backgroundColor: goldLight, color: gold }}>
-                    {lead.primary_seniority?.replace("_", " ").toUpperCase() ?? "—"}
-                  </span>
-                </div>
-              </div>
-
-              {/* LinkedIn Headline */}
-              {lead.primary_headline && (
-                <div className="flex items-center gap-2.5 mb-4 px-3 py-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <span className="shrink-0"><LinkedInIcon size={14} /></span>
-                  <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.primary_headline}</p>
-                </div>
-              )}
-
-              {/* Contact methods */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {(() => {
-                  // Email-health flag, mirroring the wrong-number pill on Mobile.
-                  // primary_email_status is set by the Instantly verification pass
-                  // and the bounce handler — surface it here so a dead address is
-                  // visible right on the lead, not only in the funnel.
-                  // Always rendered (even with no email) so the seller can add or
-                  // fix it inline — same as the Mobile card. (Simo 2026-07-28)
-                  const es = lead.primary_email_status as string | null;
-                  const hasEmail = !!lead.primary_work_email;
-                  const label = hasEmail ? (es === "bounced" ? t("ld.email.bounced")
-                    : es === "invalid" ? t("ld.email.invalid")
-                    : es === "catch_all" ? t("ld.email.catchAll") : null) : null;
-                  const col = es === "catch_all" ? "#D97706" : C.red;
-                  const bad = !!label;
-                  return (
-                  <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: bad ? `color-mix(in srgb, ${col} 10%, transparent)` : C.bg, border: bad ? `1px solid color-mix(in srgb, ${col} 32%, transparent)` : "none" }}>
-                    <Mail size={14} style={{ color: bad ? col : C.email, marginTop: 2 }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("auth.email")}</p>
-                      <EditableLeadField
-                        leadId={id}
-                        field="primary_work_email"
-                        value={lead.primary_work_email ?? null}
-                        placeholder="name@company.com"
-                        inputType="email"
-                        displayAs="email"
-                        ariaLabel={t("ld.editWorkEmail")}
-                        displayClassName="text-sm font-medium hover:underline block truncate"
-                      />
-                      {label && (
-                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: col, backgroundColor: `color-mix(in srgb, ${col} 14%, transparent)` }}>
-                          ⚠ {label}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })()}
-                <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <Phone size={14} style={{ color: C.phone, marginTop: 2 }} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("ld.mobile")}</p>
-                    {lead.allow_call === false ? (
-                      // Wrong-number flag from the post-call popup. Surface
-                      // the same inline-replace flow we use in the header
-                      // so the seller can fix it here without scrolling up.
-                      <WrongNumberPill
-                        leadId={id}
-                        currentPhone={lead.primary_phone ?? null}
-                      />
-                    ) : (
-                      <EditableLeadField
-                        leadId={id}
-                        field="primary_phone"
-                        value={lead.primary_phone ?? null}
-                        placeholder="+54 9 11 1234 5678"
-                        inputType="tel"
-                        displayAs="tel"
-                        ariaLabel={t("ld.editMobile")}
-                      />
-                    )}
-                  </div>
-                </div>
-                {(() => {
-                  const url = lead.primary_linkedin_url as string | null;
-                  const valid = isValidLinkedInUrl(url);
-                  const disabled = lead.allow_linkedin === false;
-                  // Always show the LinkedIn card — even when allow_linkedin=false — so
-                  // the admin can SEE the underlying state (URL present/absent/invalid)
-                  // and decide whether to re-enable. Hiding the card hides the data
-                  // needed to triage it.
-                  const isWarn = !valid && !disabled;
-                  return (
-                    <div className="flex items-start gap-2.5 p-3 rounded-lg min-w-0"
-                      style={{
-                        backgroundColor: disabled ? C.surface : isWarn ? "color-mix(in srgb, #D97706 12%, transparent)" : C.bg,
-                        border: disabled ? `1px solid ${C.border}` : isWarn ? "1px solid color-mix(in srgb, #D97706 32%, transparent)" : "none",
-                        opacity: disabled ? 0.85 : 1,
-                      }}>
-                      <LinkedInIcon size={14} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-wider mb-0.5 flex items-center gap-2"
-                          style={{ color: C.textDim, fontSize: 10 }}>
-                          LinkedIn
-                          {disabled && (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                              style={{ backgroundColor: "#DC2626", color: "#fff" }}>{t("ld.disabled")}</span>
-                          )}
-                        </p>
-                        {url && valid && (
-                          <a href={url} target="_blank" rel="noopener"
-                            className="text-sm font-medium hover:underline flex items-center gap-1 break-all"
-                            style={{ color: "#0A66C2" }}>{url.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, "")} <ExternalLink size={11} className="shrink-0" /></a>
-                        )}
-                        {url && !valid && (
-                          <>
-                            <p className="text-xs font-semibold mb-1 flex items-center gap-1" style={{ color: "#92400E" }}>
-                              <AlertTriangle size={11} /> {t("ld.notLinkedInUrl")}
-                            </p>
-                            <a href={url} target="_blank" rel="noopener"
-                              className="text-xs hover:underline break-all"
-                              style={{ color: "#92400E" }}>{url}</a>
-                          </>
-                        )}
-                        {!url && (
-                          <p className="text-xs font-semibold flex items-center gap-1"
-                            style={{ color: disabled ? C.textMuted : "#92400E" }}>
-                            <AlertTriangle size={11} /> {t("ld.noLinkedInUrl")}{disabled ? "" : t("ld.dispatchWillFail")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Assigned Seller + Channel permissions */}
-              <div className="flex items-center gap-4 pt-4 border-t" style={{ borderColor: C.border }}>
-                {lead.assigned_seller && (
-                  <div className="flex items-center gap-2.5 pr-4 border-r" style={{ borderColor: C.border }}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                      style={{ backgroundColor: gold }}>
-                      {lead.assigned_seller[0]}
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: C.textDim, fontSize: 10 }}>{t("pulse.col.seller")}</p>
-                      <p className="text-sm font-semibold" style={{ color: C.textBody }}>{lead.assigned_seller}</p>
-                    </div>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: C.textDim, fontSize: 10 }}>{t("lost.channels")}</p>
-                  <div className="flex items-center gap-2">
-                    {[
-                      { key: "allow_linkedin",  label: t("chan.linkedin"),  icon: <LinkedInIcon size={15} /> },
-                      { key: "allow_email",     label: t("chan.email"),     icon: <span style={{ fontSize: 14 }}>✉️</span> },
-                      { key: "allow_call",      label: t("chan.call"),      icon: <span style={{ fontSize: 14 }}>📱</span> },
-                      { key: "allow_whatsapp",  label: t("chan.whatsapp"),  icon: <span style={{ fontSize: 14 }}>💬</span> },
-                      { key: "allow_instagram", label: t("chan.instagram"), icon: <span style={{ fontSize: 14 }}>📸</span> },
-                      { key: "allow_sms",       label: t("chan.sms"),       icon: <span style={{ fontSize: 14 }}>💬</span> },
-                    ].map(ch => {
-                      const allowed = lead[ch.key] !== false;
-                      return (
-                        <div key={ch.key} title={`${ch.label}: ${allowed ? t("ld.chanAllowed") : t("ld.chanBlocked")}`}
-                          className="w-9 h-9 rounded-full flex items-center justify-center border"
-                          style={{
-                            backgroundColor: allowed
-                              ? `color-mix(in srgb, ${C.green} 14%, transparent)`
-                              : C.surface,
-                            borderColor: allowed
-                              ? `color-mix(in srgb, ${C.green} 35%, transparent)`
-                              : C.border,
-                            opacity: allowed ? 1 : 0.4,
-                          }}>
-                          {ch.icon}
-                        </div>
-                  );
-                })}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Key notes — notes the seller pinned from the Notes tab */}
-            <LeadPinnedNotes leadId={id} />
-
-            {/* Personalized Info — client-specific enrichment (Pathway: credit signals).
-                Gruppo Everest renders this up top (under the hero) instead, so skip here. */}
-            {lead.company_bio_id !== "4ab610c8-e852-4b37-97d7-c41ba19b0d0e" && (
-              <PersonalizedInfoPanel enrichment={lead.enrichment} leadId={id} companyName={lead.company_name} />
-            )}
-
-            {/* Company Info moved to the Overview flow as a single clickable
-                card (links to /companies/[name]) — removed here to avoid the
-                duplicate Company block. */}
-
-            {/* Tech Stack & Keywords */}
-            {(technologies.length > 0 || keywords.length > 0) && (
-              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.techStack")}</h3>
-                {technologies.length > 0 && (
-                  <div className={keywords.length > 0 ? "mb-4" : ""}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>{t("ld.technologies")}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {technologies.map((t: string) => (
-                        <span key={t} className="text-xs font-medium px-2.5 py-1 rounded-lg"
-                          style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {keywords.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>{t("ld.keywords")}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {keywords.map((k: string) => (
-                        <span key={k} className="text-xs font-medium px-2.5 py-1 rounded-lg"
-                          style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                          {k}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Industry Context */}
-            {lead.industry_trends && (
-              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("ld.industryContext")}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.industry_trends}</p>
-              </div>
-            )}
-
-            {/* Social Activity — this person's posts */}
-            {(lead.recent_linkedin_post || lead.recent_ig_post || lead.twitter_last_posts) && (
-              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.recentSocial")}</h3>
-                <div className="space-y-3">
-                  {lead.recent_linkedin_post && (
-                    <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)" }}>
-                        <LinkedInIcon size={14} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold mb-1" style={{ color: "#0A66C2" }}>{t("rep.export.item.linkedin")}</p>
-                        <p className="text-sm leading-relaxed line-clamp-3" style={{ color: C.textBody }}>{lead.recent_linkedin_post}</p>
-                      </div>
-                    </div>
-                  )}
-                  {lead.recent_ig_post && (
-                    <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#FDF2F8" }}>
-                        <span style={{ fontSize: 14 }}>📸</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold mb-1" style={{ color: "#E1306C" }}>Instagram</p>
-                        <p className="text-sm leading-relaxed line-clamp-3" style={{ color: C.textBody }}>{lead.recent_ig_post}</p>
-                      </div>
-                    </div>
-                  )}
-                  {lead.twitter_last_posts && (
-                    <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.surface }}>
-                        <span style={{ fontSize: 13 }}>𝕏</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold mb-1" style={{ color: C.textPrimary }}>X / Twitter</p>
-                        <p className="text-sm leading-relaxed line-clamp-3" style={{ color: C.textBody }}>{lead.twitter_last_posts}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-
-          </div>
-
-          {/* Was a right sidebar, now full-width follow-up cards (Career,
-              Website Intelligence) stacked below the main block. */}
-          <div className="space-y-5">
-
-            {/* Lead Source removed — `source_tool` (Apollo / ZoomInfo / etc.)
-                reveals the upstream prospecting tool we'd rather not advertise
-                to clients reviewing a lead. `source_universe` and
-                `created_at` were moved up to the header badges where they
-                read as natural lead metadata. */}
-
-            {/* Career / Education */}
-            {lead.primary_career && (
-              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.careerEducation")}</h3>
-                <div className="space-y-0">
-                  {lead.primary_career.split("\n").filter(Boolean).map((item: string, idx: number) => (
-                    <div key={idx} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ backgroundColor: goldLight, color: gold, border: `1.5px solid ${gold}` }}>
-                          {idx + 1}
-                        </div>
-                        {idx < lead.primary_career.split("\n").filter(Boolean).length - 1 && (
-                          <div className="flex-1 w-px my-1" style={{ backgroundColor: C.border, minHeight: 12 }} />
-                        )}
-                      </div>
-                      <p className="text-sm leading-relaxed pb-3" style={{ color: C.textBody, paddingTop: 3 }}>
-                        {item.replace(/^[•\-]\s*/, "")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Website Intelligence */}
-            {(lead.website_summary || lead.recent_website_news) && (
-              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("ld.websiteIntel")}</h3>
-                {lead.website_summary && (
-                  <div className="mb-3">
-                    <p className="text-xs font-medium mb-1" style={{ color: C.textDim }}>{t("ld.services")}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {lead.website_summary.split(",").map((s: string) => s.trim()).filter(Boolean).map((s: string) => (
-                        <span key={s} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: C.bg, color: C.textBody }}>{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {lead.recent_website_news && (
-                  <div className="p-3 rounded-lg"
-                    style={{
-                      backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)",
-                      borderLeft: "3px solid #F59E0B",
-                    }}>
-                    <p className="text-xs font-bold mb-1" style={{ color: "#D97706" }}>{t("ld.recentNews")}</p>
-                    <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.recent_website_news}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── TAB 2: Campaign ── */}
-        <CampaignJourney campaign={campaign as any} messages={messages as any} replies={replies as any} />
-
-        {/* ── TAB 3: Calls ── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs" style={{ color: C.textMuted }}>
-              {visibleCalls.length > 0 ? `${visibleCalls.length} call${visibleCalls.length === 1 ? "" : "s"} recorded` : "No calls yet"}
-            </p>
-            <div className="flex items-center gap-2">
-              {(lead.primary_phone || lead.primary_secondary_phone) && (
-                <CallButton
-                  phone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
-                  leadId={id}
-                  size="sm"
-                  defaultNumberId={campaign?.aircall_number_id ?? null}
-                  phones={[
-                    ...(lead.primary_phone ? [{ label: t("ld.personal"), value: lead.primary_phone }] : []),
-                    ...(lead.primary_secondary_phone ? [{ label: t("ld.phoneCompany"), value: lead.primary_secondary_phone }] : []),
-                  ]}
-                  isCallStep={isCallStep}
-                  nextStepName={callStepIndex > 0 && callStepIndex < steps.length ? steps[callStepIndex] : undefined}
-                />
-              )}
-              <SyncAircallButton />
-            </div>
-          </div>
-          {/* Wrong-number banner: a one-liner above the call list when the
-              lead's allow_call=false, so the seller landing on the Calls
-              tab sees the warning + can jump back to the header pill to
-              replace the number. The badge is repeated once at the top
-              (not on every row — would be noisy with N call cards). */}
-          {lead.allow_call === false && (
-            <div
-              className="rounded-xl border px-4 py-2.5 mb-3 flex items-center gap-2 text-xs"
-              style={{
-                backgroundColor: "color-mix(in srgb, #DC2626 8%, transparent)",
-                borderColor: "color-mix(in srgb, #DC2626 30%, transparent)",
-                color: "#DC2626",
-              }}
-            >
-              <AlertTriangle size={13} />
-              <span className="font-semibold">{t("ld.phoneWrong")}</span>
-              <span className="opacity-75">{t("ld.phoneWrongTail")}</span>
-            </div>
-          )}
-          {visibleCalls.length === 0 ? (
-            <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-              <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("ld.noCalls")}</p>
-              <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-                Calls made via Aircall from the Queue will appear here. Click &ldquo;Sync from Aircall&rdquo; above to pull recent calls.
-              </p>
-            </div>
-          ) : (
-            visibleCalls.map((call: any) => <CallCard key={call.id} call={call} personalPhone={lead.primary_phone ?? null} companyPhone={lead.primary_secondary_phone ?? null} />)
-          )}
-        </div>
-
-        {/* Summary moved out to a card under LinkedIn Enrichment (boss
-            2026-06-09) — no longer a tab. */}
-
-        {/* ── Conversation ── the real LinkedIn/email/call thread
-            (sent + received + connection request), replacing the old
-            event-only Recent Activity timeline. Same chat component used in
-            Results/Opportunities so the conversation reads the same everywhere. */}
-        <LeadChatThread leadId={id} leadName={contactName} />
-
-        {/* Activities moved to the prominent LeadActivitiesPanel near the top
-            (phase 3) — no longer duplicated here. */}
-
-        {/* ── TAB 6: Notes ── the lead collaboration hub (notes + @mentions + pin) */}
-        <LeadNotes leadId={id} />
-
-        {/* ── TAB 7: Social & Content ── */}
-        <div className="space-y-5">
-
-          {/* Social Feed */}
-          {[
-            lead.recent_linkedin_post && {
-              platform: "LinkedIn",
-              icon: <LinkedInIcon size={16} />,
-              color: "#0A66C2",
-              bg: "color-mix(in srgb, #2563EB 12%, transparent)",
-              content: lead.recent_linkedin_post,
-              handle: lead.primary_linkedin_url ? `@${contactName.split(" ")[0].toLowerCase()}` : null,
-            },
-            lead.recent_ig_post && {
-              platform: "Instagram",
-              icon: <span style={{ fontSize: 15 }}>📸</span>,
-              color: "#E1306C",
-              bg: "#FDF2F8",
-              content: lead.recent_ig_post,
-              handle: lead.primary_instagram ? `@${lead.primary_instagram}` : null,
-            },
-            lead.twitter_last_posts && {
-              platform: "X / Twitter",
-              icon: <span style={{ fontSize: 14, fontWeight: 800 }}>𝕏</span>,
-              color: "#111827",
-              bg: C.surface,
-              content: lead.twitter_last_posts,
-              handle: lead.twitter_url ? `@${lead.twitter_url.split("/").pop()}` : null,
-            },
-            lead.company_blog && {
-              platform: t("ld.companyBlog"),
-              icon: <span style={{ fontSize: 14 }}>📝</span>,
-              color: C.accent,
-              bg: "#F0FDFA",
-              content: lead.company_blog,
-              handle: lead.company_name,
-            },
-            lead.company_posts_content && {
-              platform: t("ld.companyPost"),
-              icon: <span style={{ fontSize: 14 }}>🏢</span>,
-              color: gold,
-              bg: goldLight,
-              content: lead.company_posts_content,
-              handle: lead.company_name,
-            },
-          ].filter(Boolean).length > 0 ? (
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider px-1" style={{ color: C.textMuted }}>{t("ld.scrapedSocial")}</h3>
-              {[
-                lead.recent_linkedin_post && {
-                  platform: "LinkedIn",
-                  icon: <LinkedInIcon size={16} />,
-                  color: "#0A66C2",
-                  bg: "color-mix(in srgb, #2563EB 12%, transparent)",
-                  content: lead.recent_linkedin_post,
-                  handle: lead.primary_linkedin_url ? contactName : null,
-                },
-                lead.recent_ig_post && {
-                  platform: "Instagram",
-                  icon: <span style={{ fontSize: 15 }}>📸</span>,
-                  color: "#E1306C",
-                  bg: "#FDF2F8",
-                  content: lead.recent_ig_post,
-                  handle: lead.company_instagram ?? null,
-                },
-                lead.twitter_last_posts && {
-                  platform: "X / Twitter",
-                  icon: <span style={{ fontSize: 14, fontWeight: 800 }}>𝕏</span>,
-                  color: "#111827",
-                  bg: C.surface,
-                  content: lead.twitter_last_posts,
-                  handle: lead.twitter_url ? lead.twitter_url.split("/").pop() : null,
-                },
-                lead.company_blog && {
-                  platform: t("ld.companyBlog"),
-                  icon: <span style={{ fontSize: 14 }}>📝</span>,
-                  color: C.accent,
-                  bg: "#F0FDFA",
-                  content: lead.company_blog,
-                  handle: lead.company_name,
-                },
-                lead.company_posts_content && {
-                  platform: t("ld.companyPost"),
-                  icon: <span style={{ fontSize: 14 }}>🏢</span>,
-                  color: gold,
-                  bg: goldLight,
-                  content: lead.company_posts_content,
-                  handle: lead.company_name,
-                },
-              ].filter(Boolean).map((post: any, idx: number) => (
-                <div key={idx} className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                  {/* Post header */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: post.bg }}>
-                      {post.icon}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{post.platform}</span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: post.color, backgroundColor: post.bg }}>
-                          POST
-                        </span>
-                      </div>
-                      {post.handle && (
-                        <p className="text-xs" style={{ color: C.textDim }}>{post.handle}</p>
-                      )}
-                    </div>
-                  </div>
-                  {/* Post content */}
-                  <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{post.content}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <p className="text-sm" style={{ color: C.textDim }}>{t("ld.noSocial")}</p>
-            </div>
-          )}
-        </div>
-
-
-      </CompanyTabs>
-      </section>
-      </div>{/* /flex-order wrapper (Everest) */}
     </div>
   );
 }
