@@ -124,6 +124,20 @@ function TikTokIcon({ size = 14 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>;
 }
 
+// `resources[].type` is stored in English ("PDF", "Document", …). This maps
+// the stored value to a label; anything unrecognised prints as stored.
+const RESOURCE_TYPE_KEYS: Record<string, string> = {
+  Document: "cb.res.document",
+  Presentation: "cb.res.presentation",
+  Spreadsheet: "cb.res.spreadsheet",
+  Image: "cb.res.image",
+};
+function resourceTypeLabel(type: string | null | undefined, t: (k: string) => string): string {
+  if (!type) return "";
+  const key = RESOURCE_TYPE_KEYS[type];
+  return key ? t(key) : type;
+}
+
 const socialLinks = [
   { key: "linkedin_url", label: "LinkedIn", icon: LinkedInIcon, color: "#0A66C2" },
   { key: "instagram_url", label: "Instagram", icon: InstagramIcon, color: "#E4405F" },
@@ -869,7 +883,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate" style={{ color: C.textPrimary }}>{r.name}</p>
-                    <p className="text-xs" style={{ color: C.textDim }}>{r.type}</p>
+                    <p className="text-xs" style={{ color: C.textDim }}>{resourceTypeLabel(r.type, t)}</p>
                   </div>
                 </a>
               );
@@ -883,12 +897,19 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 }
 
 // ─── EDIT MODE ───────────────────────────────────────────
-const industryOptions = [
-  "Technology / SaaS", "Consulting", "Marketing / Advertising", "Fintech", "E-commerce",
-  "Healthcare / Healthtech", "Education / Edtech", "Manufacturing", "Real Estate", "Logistics",
-  "Legal", "Accounting / Finance", "Human Resources", "Insurance", "Energy",
-  "Food & Beverage", "Retail", "Telecommunications", "Automotive", "Other",
-];
+const INDUSTRY_KEYS: Record<string, string> = {
+  "Technology / SaaS": "cb.ind.tech", "Consulting": "cb.ind.consulting",
+  "Marketing / Advertising": "cb.ind.marketing", "Fintech": "cb.ind.fintech",
+  "E-commerce": "cb.ind.ecommerce", "Healthcare / Healthtech": "cb.ind.health",
+  "Education / Edtech": "cb.ind.education", "Manufacturing": "cb.ind.manufact",
+  "Real Estate": "cb.ind.realEstate", "Logistics": "cb.ind.logistics",
+  "Legal": "cb.ind.legal", "Accounting / Finance": "cb.ind.accounting",
+  "Human Resources": "cb.ind.hr", "Insurance": "cb.ind.insurance",
+  "Energy": "cb.ind.energy", "Food & Beverage": "cb.ind.food",
+  "Retail": "cb.ind.retail", "Telecommunications": "cb.ind.telco",
+  "Automotive": "cb.ind.automotive", "Other": "cb.ind.other",
+};
+const industryOptions = Object.keys(INDUSTRY_KEYS);
 
 const teamSizeOptions = ["1-5", "6-10", "11-25", "26-50", "51-100", "101-250", "251-500", "500+"];
 
@@ -977,7 +998,7 @@ function BrandPreview({ form }: { form: CompanyBio }) {
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{form.company_name || "Your company"}</p>
+            <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{form.company_name || t("cb.yourCompany")}</p>
             {form.tagline && <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{form.tagline}</p>}
           </div>
         </div>
@@ -1093,7 +1114,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
     } else {
       // For inserts we still need company_name (NOT NULL); ensure it's there.
       if (!payload.company_name) {
-        setError("Company name is required");
+        setError(t("cb.nameRequired"));
         setSaving(false);
         return;
       }
@@ -1140,22 +1161,22 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                   </button>
                 )}
               </div>
-              <p className="text-xs mt-1" style={{ color: C.textDim }}>PNG, JPG. Max 2MB.</p>
+              <p className="text-xs mt-1" style={{ color: C.textDim }}>{t("cb.logoHint")}</p>
             </div>
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Company name *</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.companyNameReq")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-              placeholder="E.g.: SWL Consulting" />
+              placeholder={t("cb.namePh")} />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Tagline / slogan</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.tagline")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.tagline} onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))}
-              placeholder="Short phrase that defines the company" />
+              placeholder={t("cb.taglinePh")} />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("ld.industry")}</label>
@@ -1166,8 +1187,8 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                 if (e.target.value === "__custom") return;
                 setForm(f => ({ ...f, industry: e.target.value }));
               }}>
-              <option value="">Select industry</option>
-              {industryOptions.map(o => <option key={o} value={o}>{o}</option>)}
+              <option value="">{t("cb.selectIndustry")}</option>
+              {industryOptions.map(o => <option key={o} value={o}>{t(INDUSTRY_KEYS[o])}</option>)}
               {form.industry && !industryOptions.includes(form.industry) && (
                 <option value="__custom">{form.industry} (custom)</option>
               )}
@@ -1177,7 +1198,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                 style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                 value={industryOptions.includes(form.industry) ? "" : form.industry}
                 onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                placeholder="Or type a custom industry…" />
+                placeholder={t("cb.customIndustry")} />
             )}
           </div>
           <div>
@@ -1185,23 +1206,23 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-              placeholder="Buenos Aires, Argentina" />
+              placeholder={t("cb.locationPh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Year Founded</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.yearFounded")}</label>
             <input type="number" className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.founded_year ?? ""} onChange={e => setForm(f => ({ ...f, founded_year: e.target.value ? Number(e.target.value) : null }))}
               placeholder="2020" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Team Size</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.teamSize")}</label>
             <select className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: form.team_size ? C.textPrimary : C.textDim, backgroundColor: C.bg }}
               value={form.team_size}
               onChange={e => setForm(f => ({ ...f, team_size: e.target.value }))}>
               <option value="">{t("inbox.select.one")}</option>
-              {teamSizeOptions.map(o => <option key={o} value={o}>{o} people</option>)}
+              {teamSizeOptions.map(o => <option key={o} value={o}>{t("cb.people", { band: o })}</option>)}
             </select>
           </div>
         </div>
@@ -1228,7 +1249,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
           <button onClick={addService}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
             style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-            <Plus size={14} /> Add
+            <Plus size={14} /> {t("cb.add")}
           </button>
         </div>
       </div>
@@ -1310,7 +1331,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                       ? { backgroundColor: gold, color: "#04070d" }
                       : { backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }
                     }>
-                    {lang}
+                    {t(`cb.lang.${lang}`)}
                   </button>
                 );
               })}
@@ -1349,12 +1370,12 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               <button onClick={addCaseStudy}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                 style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
-                <Plus size={12} /> Add case
+                <Plus size={12} /> {t("cb.addCase")}
               </button>
             </div>
             {(form.case_studies ?? []).length === 0 ? (
               <p className="text-xs text-center py-3" style={{ color: C.textDim }}>
-                Add case studies to provide more context for outreach messages.
+                {t("cb.addCasesHint")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -1365,14 +1386,14 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                     </button>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Title</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.title")}</label>
                         <input className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                           style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
                           value={cs.title} onChange={e => updateCaseStudy(i, "title", e.target.value)}
-                          placeholder="E.g.: CRM Implementation for Fintech" />
+                          placeholder={t("cb.casePh")} />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Link (optional)</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.linkOptional")}</label>
                         <input className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                           style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
                           value={cs.url ?? ""} onChange={e => updateCaseStudy(i, "url", e.target.value)}
@@ -1383,16 +1404,16 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                         <textarea rows={2} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                           style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
                           value={cs.description} onChange={e => updateCaseStudy(i, "description", e.target.value)}
-                          placeholder="Brief summary of the case and results" />
+                          placeholder={t("cb.caseSummaryPh")} />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Attachment</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.attachment")}</label>
                         {cs.file_url ? (
                           <div className="flex items-center gap-2">
                             <a href={cs.file_url} target="_blank" rel="noopener noreferrer"
                               className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg"
                               style={{ backgroundColor: C.accentLight, color: C.accent }}>
-                              <FileText size={12} /> View file
+                              <FileText size={12} /> {t("cb.viewFile")}
                             </a>
                             <button onClick={() => updateCaseStudy(i, "file_url", "")}
                               className="text-xs px-2 py-1.5 rounded-lg" style={{ color: C.red, backgroundColor: C.redLight }}>
@@ -1402,7 +1423,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                         ) : (
                           <label className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
                             style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>
-                            <Upload size={12} /> Upload PDF / Image
+                            <Upload size={12} /> {t("cb.uploadPdfImg")}
                             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
@@ -1426,11 +1447,11 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
         <div className="flex items-center justify-between mb-4">
           <span className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}><FolderOpen size={15} /></span>
-            <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Resources</span>
+            <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("cb.resources")}</span>
           </span>
           <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
             style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
-            <Upload size={12} /> Upload file
+            <Upload size={12} /> {t("cb.uploadFile")}
             <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" className="hidden" onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
@@ -1444,12 +1465,12 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
           </label>
         </div>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>
-          Pitch decks, brochures, brand guidelines, or any reference material for outreach.
+          {t("cb.resourcesHint")}
         </p>
         {(form.resources ?? []).length === 0 ? (
           <div className="border-2 border-dashed rounded-lg py-6 text-center" style={{ borderColor: C.border }}>
             <Upload size={20} className="mx-auto mb-2" style={{ color: C.textDim }} />
-            <p className="text-xs" style={{ color: C.textDim }}>Drop files here or click "Upload file"</p>
+            <p className="text-xs" style={{ color: C.textDim }}>{t("cb.dropFiles")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -1462,7 +1483,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{r.name}</p>
-                    <p className="text-xs" style={{ color: C.textMuted }}>{r.type}</p>
+                    <p className="text-xs" style={{ color: C.textMuted }}>{resourceTypeLabel(r.type, t)}</p>
                   </div>
                   <a href={r.file_url} target="_blank" rel="noopener noreferrer"
                     className="text-xs font-medium px-2 py-1 rounded" style={{ color: C.accent }}>
@@ -1496,7 +1517,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
               style={{ backgroundColor: gold, color: "#04070d" }}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("cb.saving") : t("cb.save")}
             </button>
             {!isNew && (
               <button onClick={onCancel}
@@ -1511,11 +1532,11 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               </span>
             ) : dirty && !saving ? (
               <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#D97706" }} /> Unsaved changes
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#D97706" }} /> {t("cb.unsaved")}
               </span>
             ) : !isNew && !saving ? (
               <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: C.green }}>
-                <CheckCircle2 size={13} /> All changes saved
+                <CheckCircle2 size={13} /> {t("cb.allSaved")}
               </span>
             ) : null}
           </div>
@@ -1524,7 +1545,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             <button onClick={() => setShowArchiveModal(true)}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-opacity hover:opacity-80"
               style={{ color: C.red }}>
-              <Trash2 size={13} /> Archive company
+              <Trash2 size={13} /> {t("cb.archiveCompany")}
             </button>
           )}
         </div>
@@ -1566,11 +1587,11 @@ export default function CompanyBiosPage() {
         body: JSON.stringify({ url: finalUrl, lang: scanLang }),
       });
       const data = await res.json();
-      if (!res.ok) { setScrapeError(data.error ?? "Failed to scrape"); return; }
+      if (!res.ok) { setScrapeError(data.error ?? t("cb.err.scrape")); return; }
       setPrefilled({ ...empty, ...data });
       setEditing(true);
     } catch {
-      setScrapeError("Could not connect to the website");
+      setScrapeError(t("cb.err.noConnect"));
     } finally {
       setScraping(false);
     }
