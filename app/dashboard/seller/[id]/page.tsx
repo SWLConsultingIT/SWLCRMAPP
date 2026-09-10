@@ -546,9 +546,7 @@ export default async function SellerDetailPage({
       {/* ═══ VOICE & CADENCE — narrative panel ═══
           Replaces the two giant heatmaps. We tell the manager when this
           seller actually works in plain language plus tiny sparklines for
-          context. Copy is written verbatim in locale strings — no i18n
-          keys here on purpose because the new keys hadn't landed in the
-          dictionary and surfaced as raw placeholders. */}
+          context. */}
       <section
         className="rounded-2xl border overflow-hidden relative"
         style={{
@@ -568,49 +566,43 @@ export default async function SellerDetailPage({
           </div>
           <div className="flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>
-              {locale === "es" ? "Patrón de trabajo" : "Working pattern"}
+              {t("sellerx.cadence.eyebrow")}
             </p>
             <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              {locale === "es" ? "Cuándo trabaja " : "When "}
-              <span style={{ color: gold }}>{d.seller.name.split(" ")[0]}</span>
-              {locale === "es" ? "" : " works"}
+              {/* One key with {name} rather than three fragments: word order
+                  around the name differs per language. */}
+              {t("sellerx.cadence.title", { name: d.seller.name.split(" ")[0] })}
             </p>
           </div>
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           <CadenceCard
             icon={Sun}
-            label={locale === "es" ? "Mejor franja para enviar" : "Best send window"}
+            label={t("sellerx.cadence.bestWindow")}
             value={d.cadence.peakSendCount > 0 ? hourRange(d.cadence.peakSendHour) : "—"}
             hint={d.cadence.peakSendCount > 0
-              ? (locale === "es"
-                  ? `${d.cadence.peakSendCount} envíos salieron en esta franja`
-                  : `${d.cadence.peakSendCount} sends fired in this band`)
-              : (locale === "es" ? "Aún no hay suficientes envíos" : "Not enough sends yet")}
+              ? t("sellerx.cadence.bestWindowHint", { n: d.cadence.peakSendCount })
+              : t("sellerx.cadence.notEnoughSends")}
             sparkData={sendHourSpark}
             color={gold}
           />
           <CadenceCard
             icon={Activity}
-            label={locale === "es" ? "Día más activo" : "Sharpest weekday"}
+            label={t("sellerx.cadence.sharpestDay")}
             value={d.cadence.peakSendDayCount > 0 ? peakDayLabel : "—"}
             hint={d.cadence.peakSendDayCount > 0
-              ? (locale === "es"
-                  ? `${d.cadence.peakSendDayCount} envíos los ${peakDayLabel.toLowerCase()}`
-                  : `${d.cadence.peakSendDayCount} sends on ${peakDayLabel}`)
-              : (locale === "es" ? "Aún no hay suficientes envíos" : "Not enough sends yet")}
+              ? t("sellerx.cadence.sharpestDayHint", { n: d.cadence.peakSendDayCount, day: peakDayLabel })
+              : t("sellerx.cadence.notEnoughSends")}
             sparkData={sendDaySpark}
             color="#0A66C2"
           />
           <CadenceCard
             icon={MessageSquare}
-            label={locale === "es" ? "Cuándo llegan las respuestas" : "When replies arrive"}
+            label={t("sellerx.cadence.replyWindow")}
             value={d.cadence.peakReplyHour !== null ? hourRange(d.cadence.peakReplyHour) : "—"}
             hint={d.cadence.peakReplyHour !== null
-              ? (locale === "es"
-                  ? `La mayoría de respuestas caen alrededor de ${hourRange(d.cadence.peakReplyHour)}`
-                  : `Most replies land around ${hourRange(d.cadence.peakReplyHour)}`)
-              : (locale === "es" ? "Sin respuestas todavía" : "No replies yet")}
+              ? t("sellerx.cadence.replyWindowHint", { range: hourRange(d.cadence.peakReplyHour) })
+              : t("sellerx.cadence.noReplies")}
             sparkData={d.cadence.peakReplyHour !== null ? Array.from({ length: 24 }, (_, h) => { let s = 0; for (let day = 0; day < 7; day++) s += d.replyHeatmap[day][h]; return s; }) : []}
             color={C.green}
           />
@@ -624,36 +616,36 @@ export default async function SellerDetailPage({
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         <MiniKpi
           icon={Share2}
-          label={locale === "es" ? "Connect rate" : "Connect rate"}
+          label={t("sellerx.kpi.connectRate")}
           value={d.connectRate === null ? "—" : `${d.connectRate}%`}
           hint={d.connectRate === null
-            ? (locale === "es" ? "Sin invites en LinkedIn" : "No LinkedIn invites")
-            : (locale === "es" ? "Invites aceptadas en LinkedIn" : "LinkedIn invites accepted")}
+            ? t("sellerx.kpi.connectRateNone")
+            : t("sellerx.kpi.connectRateHint")}
           color="#0A66C2"
         />
         <MiniKpi
           icon={d.momentumPct === null ? Minus : d.momentumPct >= 0 ? TrendingUp : TrendingDown}
-          label={locale === "es" ? "Momentum 7d" : "7d momentum"}
+          label={t("sellerx.kpi.momentum")}
           value={d.momentumPct === null ? "—" : `${d.momentumPct > 0 ? "+" : ""}${d.momentumPct}%`}
-          hint={locale === "es" ? "Envíos vs 7 días previos" : "Sends vs prior 7 days"}
+          hint={t("sellerx.kpi.momentumHint")}
           color={d.momentumPct === null ? C.textDim : d.momentumPct >= 0 ? C.green : C.red}
         />
         <MiniKpi
           icon={Sparkles}
-          label={locale === "es" ? "Velocidad a positivo" : "Conversion velocity"}
+          label={t("sellerx.kpi.velocity")}
           value={d.medianVelocityDays === null ? "—" : `${d.medianVelocityDays}d`}
-          hint={locale === "es" ? "Contacto → 1er positivo" : "Contact → 1st positive"}
+          hint={t("sellerx.kpi.velocityHint")}
           color="#A855F7"
         />
         <MiniKpi
           icon={Activity}
-          label={locale === "es" ? "Último envío" : "Last active"}
+          label={t("sellerx.kpi.lastActive")}
           value={d.lastActiveDays === null
             ? "—"
             : d.lastActiveDays === 0
-              ? (locale === "es" ? "Hoy" : "Today")
+              ? t("sellerx.kpi.today")
               : `${d.lastActiveDays}d`}
-          hint={locale === "es" ? "Desde su último envío" : "Days since last send"}
+          hint={t("sellerx.kpi.lastActiveHint")}
           color={d.lastActiveDays === null
             ? C.textDim
             : d.lastActiveDays > 3
@@ -664,9 +656,9 @@ export default async function SellerDetailPage({
         />
         <MiniKpi
           icon={Users}
-          label={locale === "es" ? "vs Equipo" : "vs Team"}
+          label={t("sellerx.kpi.vsTeam")}
           value={lift === null ? "—" : `${lift > 0 ? "+" : ""}${lift}%`}
-          hint={locale === "es" ? "Response rate vs equipo" : "Response rate vs team"}
+          hint={t("sellerx.kpi.vsTeamHint")}
           color={lift === null
             ? C.textDim
             : lift >= 5
@@ -677,9 +669,9 @@ export default async function SellerDetailPage({
         />
         <MiniKpi
           icon={Clock}
-          label={locale === "es" ? "Tiempo a respuesta" : "Median TTR"}
+          label={t("sellerx.kpi.ttr")}
           value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)}
-          hint={locale === "es" ? "1er envío → 1ra respuesta" : "1st send → 1st reply"}
+          hint={t("sellerx.kpi.ttrHint")}
           color="#6B7280"
         />
       </section>
@@ -707,10 +699,10 @@ export default async function SellerDetailPage({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>
-                {locale === "es" ? "Ranking" : "Ranking"}
+                {t("sellerx.icp.eyebrow")}
               </p>
               <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {locale === "es" ? "ICPs que más trabaja" : "Top ICPs by volume"}
+                {t("sellerx.icp.title")}
               </p>
             </div>
           </div>
@@ -721,7 +713,7 @@ export default async function SellerDetailPage({
                 const widthPct = Math.max(8, Math.round((i.leads / maxLeads) * 100));
                 const conv = i.conversionRate;
                 const barColor = conv >= 10 ? C.green : conv >= 3 ? gold : "#94A3B8";
-                const label = i.name === "_unknown_icp" ? (locale === "es" ? "Sin ICP" : "Unassigned") : i.name;
+                const label = i.name === "_unknown_icp" ? t("sellerx.icp.unassigned") : i.name;
                 const inner = (
                   <div className="flex items-center gap-3 group">
                     <span className="text-[10px] font-bold tabular-nums w-5 shrink-0" style={{ color: idx === 0 ? gold : C.textDim }}>
@@ -731,8 +723,8 @@ export default async function SellerDetailPage({
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-[13px] font-semibold truncate group-hover:underline" style={{ color: C.textPrimary }}>{label}</span>
                         <div className="flex items-center gap-3 text-[11px] shrink-0 tabular-nums" style={{ color: C.textMuted }}>
-                          <span>{i.leads} {locale === "es" ? "leads" : "leads"}</span>
-                          <span style={{ color: i.replied > 0 ? C.blue : C.textDim }}>{i.replied} {locale === "es" ? "resp." : "rep."}</span>
+                          <span>{i.leads} {t("sellerx.unit.leads")}</span>
+                          <span style={{ color: i.replied > 0 ? C.blue : C.textDim }}>{i.replied} {t("sellerx.unit.replies")}</span>
                           <span className="font-bold" style={{ color: i.positive > 0 ? C.green : C.textDim }}>{i.positive} positive</span>
                           <span className="font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${barColor} 12%, transparent)`, color: barColor }}>
                             {conv}%
@@ -781,10 +773,10 @@ export default async function SellerDetailPage({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.blue, letterSpacing: "0.14em" }}>
-                {locale === "es" ? "Canales" : "Channels"}
+                {t("sellerx.channels.eyebrow")}
               </p>
               <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {locale === "es" ? "Cómo distribuye su outreach" : "Outreach mix"}
+                {t("sellerx.channels.title")}
               </p>
             </div>
           </div>
@@ -795,7 +787,7 @@ export default async function SellerDetailPage({
               const isTop = idx === 0 && d.channelMix.length > 1;
               const chLabel = ch.channel === "linkedin" ? "LinkedIn"
                 : ch.channel === "email" ? "Email"
-                : ch.channel === "call" ? (locale === "es" ? "Llamadas" : "Calls")
+                : ch.channel === "call" ? t("sellerx.channels.call")
                 : ch.channel;
               return (
                 <div key={ch.channel} className="rounded-xl border p-3.5"
@@ -816,7 +808,7 @@ export default async function SellerDetailPage({
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span style={{ color: C.textMuted }}>
-                      <span className="font-bold tabular-nums" style={{ color: C.textPrimary }}>{ch.sent.toLocaleString(dateLoc)}</span> {locale === "es" ? "envíos" : "sent"}
+                      <span className="font-bold tabular-nums" style={{ color: C.textPrimary }}>{ch.sent.toLocaleString(dateLoc)}</span> {t("sellerx.unit.sent")}
                     </span>
                     <span style={{ color: ch.positive > 0 ? C.green : C.textMuted }}>
                       <span className="font-bold tabular-nums">{ch.positive}</span> positive
@@ -844,10 +836,10 @@ export default async function SellerDetailPage({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>
-              {locale === "es" ? "Pipeline" : "Pipeline"}
+              {t("sellerx.pipeline.eyebrow")}
             </p>
             <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              {locale === "es" ? "Flows que maneja" : "Flows owned"}
+              {t("sellerx.pipeline.title")}
             </p>
           </div>
           <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
@@ -858,7 +850,7 @@ export default async function SellerDetailPage({
         <div className="divide-y" style={{ borderColor: C.border }}>
           {d.campaignBreakdown.length === 0 ? (
             <p className="px-5 py-8 text-center text-xs" style={{ color: C.textMuted }}>
-              {locale === "es" ? "Este seller todavía no tiene flows asignados" : "No flows yet"}
+              {t("sellerx.pipeline.empty")}
             </p>
           ) : d.campaignBreakdown.slice(0, 10).map((c, idx) => (
             <Link
@@ -878,7 +870,7 @@ export default async function SellerDetailPage({
               <span className="text-sm font-semibold flex-1 truncate group-hover:underline" style={{ color: C.textPrimary }}>{c.name}</span>
               <div className="flex items-center gap-4 text-[11px] tabular-nums shrink-0" style={{ color: C.textMuted }}>
                 <span><span className="font-bold" style={{ color: C.textBody }}>{c.leads}</span> leads</span>
-                <span style={{ color: c.replied > 0 ? C.blue : C.textDim }}><span className="font-bold">{c.replied}</span> {locale === "es" ? "resp." : "rep."}</span>
+                <span style={{ color: c.replied > 0 ? C.blue : C.textDim }}><span className="font-bold">{c.replied}</span> {t("sellerx.unit.replies")}</span>
                 <span style={{ color: c.positive > 0 ? C.green : C.textDim }}><span className="font-bold">{c.positive}</span> positive</span>
                 <RateCell value={c.conversionRate} color={C.green} />
               </div>

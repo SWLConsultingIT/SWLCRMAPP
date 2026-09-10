@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ChevronRight, Mail, Share2, Phone, Smartphone, Send, MessageSquare } from "lucide-react";
 import { C } from "@/lib/design";
-import { dicts, type Locale, intlTag } from "@/lib/i18n-dicts";
+import { type Locale, intlTag, makeT } from "@/lib/i18n-dicts";
 
 export type MessageStepGroup = {
   step: number;
@@ -43,20 +43,12 @@ const classColor: Record<string, string> = {
   spam: "#374151", auto_reply: "#94A3B8", unclassified: "#9CA3AF",
 };
 
-function tx(locale: Locale, key: string, vars?: Record<string, string | number>): string {
-  let s = dicts[locale][key] ?? dicts.en[key] ?? key;
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) {
-      s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
-    }
-  }
-  return s;
-}
 
 export default function MessagesByStep({ groups, locale }: { groups: MessageStepGroup[]; locale: Locale }) {
   const dateLoc = intlTag(locale);
+  const t = makeT(locale);
   const tr = (k: string, fallback: string, vars?: Record<string, string | number>) => {
-    const v = tx(locale, k, vars);
+    const v = t(k, vars);
     return v === k ? fallback : v;
   };
   const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleString(dateLoc, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";

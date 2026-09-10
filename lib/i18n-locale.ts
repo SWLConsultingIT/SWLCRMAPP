@@ -40,3 +40,28 @@ export function normalizeLocale(v: unknown): Locale {
 export function intlTag(locale: Locale): string {
   return LOCALES.find(l => l.id === locale)?.intlTag ?? "en-US";
 }
+
+/**
+ * How to tell an LLM which language to answer in.
+ *
+ * The three lead-AI routes each carried their own `locale === "es" ? … : …`,
+ * so a user on any other language silently got English prose inside an
+ * otherwise translated screen. One map means adding a language cannot leave
+ * one of them behind.
+ */
+export const PROMPT_LANGUAGE: Record<Locale, string> = {
+  en: "English",
+  es: "Spanish (río-platense if Argentina, neutral otherwise)",
+  it: "Italian",
+};
+
+/** Instruction for a generated document. */
+export function writeAllContentIn(locale: Locale): string {
+  return `Write ALL content in ${PROMPT_LANGUAGE[locale]}. Section headings must also be in that language.`;
+}
+
+/** Instruction for a conversational answer. Leading space is intentional —
+ *  callers append it to an existing sentence. */
+export function respondIn(locale: Locale): string {
+  return ` Respond in ${PROMPT_LANGUAGE[locale]}.`;
+}

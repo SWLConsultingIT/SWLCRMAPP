@@ -11,19 +11,10 @@ import Link from "next/link";
 import { Fragment, useState, useMemo } from "react";
 import { ChevronRight, Search, Mail, Share2, Phone, Smartphone, Send, MessageSquare } from "lucide-react";
 import { C } from "@/lib/design";
-import { dicts, type Locale, intlTag } from "@/lib/i18n-dicts";
+import { type Locale, intlTag, makeT } from "@/lib/i18n-dicts";
 
 // Pure client-safe translator (mirrors lib/i18n-server.t signature) — only
 // imports the dict bundle, not the server-only locale resolver.
-function tx(locale: Locale, key: string, vars?: Record<string, string | number>): string {
-  let s = dicts[locale][key] ?? dicts.en[key] ?? key;
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) {
-      s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
-    }
-  }
-  return s;
-}
 
 export type LeadEngagementRow = {
   campaignId: string;
@@ -69,7 +60,7 @@ const classColor: Record<string, string> = {
 };
 
 export default function LeadEngagementTable({ rows, locale }: { rows: LeadEngagementRow[]; locale: Locale }) {
-  const t = (k: string, vars?: Record<string, string | number>) => tx(locale, k, vars);
+  const t = makeT(locale);
   const dateLoc = intlTag(locale);
 
   const [query, setQuery] = useState("");

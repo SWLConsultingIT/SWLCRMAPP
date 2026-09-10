@@ -47,7 +47,7 @@ const statusColor: Record<string, string> = {
 };
 
 export default function ContactCards({ contacts, campaignByLead = {} }: { contacts: Contact[]; campaignByLead?: CampaignByLead }) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   // i18n labels — channel + status names come from the dashx.* dictionary
   // so this card stays in sync with the dashboard / leads pages and
   // honours the Settings → Language toggle. Boss feedback 2026-05-28
@@ -60,13 +60,11 @@ export default function ContactCards({ contacts, campaignByLead = {} }: { contac
     if (!s) return "";
     return t(`dashx.tbl.status.${s}`) || s;
   };
-  const flowFallback = locale === "es" ? "Flow" : "Flow";
-  const noFlowTitle = locale === "es" ? "Sin flow" : "No flow";
-  const noFlowSubtitle = locale === "es" ? "Aún no está en ninguna campaña" : "Not in any outreach yet";
-  const seniorityFallback = locale === "es" ? "—" : "—";
-  void seniorityFallback;
-  const noContactInfo = locale === "es" ? "Sin datos de contacto" : "No contact info";
-  const addContact = locale === "es" ? "Agregar contacto" : "Add Contact";
+  const flowFallback = t("contacts.flowFallback");
+  const noFlowTitle = t("contacts.noFlow");
+  const noFlowSubtitle = t("contacts.noFlowHint");
+  const noContactInfo = t("contacts.noContactInfo");
+  const addContact = t("contacts.add");
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -76,7 +74,7 @@ export default function ContactCards({ contacts, campaignByLead = {} }: { contac
         const chColor = camp?.channel ? channelColor[camp.channel] : null;
         const stColor = camp?.status ? statusColor[camp.status] : null;
         const accent = chColor ?? gold;
-        const fullName = `${contact.primary_first_name ?? ""} ${contact.primary_last_name ?? ""}`.trim() || (locale === "es" ? "Sin nombre" : "Unknown");
+        const fullName = `${contact.primary_first_name ?? ""} ${contact.primary_last_name ?? ""}`.trim() || t("contacts.unknownName");
 
         return (
           <Link key={contact.id} href={`/leads/${contact.id}`}

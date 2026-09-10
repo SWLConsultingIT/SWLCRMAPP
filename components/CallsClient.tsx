@@ -7,6 +7,7 @@ import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import { Phone, Building2, Briefcase, ExternalLink, CheckCircle, Check, Loader } from "lucide-react";
+import { intlTag } from "@/lib/i18n-locale";
 
 type CallItem = {
   id: string;
@@ -271,7 +272,7 @@ export default function CallsClient({ initialQueue, history }: {
                           <p className="text-xs tabular-nums shrink-0 ml-2" style={{ color: C.textDim }}>
                             {c.completed_at
                               ? new Date(c.completed_at).toLocaleDateString(
-                                  locale === "es" ? "es-AR" : "en-GB",
+                                  intlTag(locale),
                                   { day: "2-digit", month: "2-digit" }
                                 )
                               : "—"}

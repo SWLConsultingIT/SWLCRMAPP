@@ -15,7 +15,7 @@ import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/com
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 import type { Locale } from "@/lib/i18n-dicts";
 
-type Tr = (key: string) => string;
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -129,15 +129,15 @@ function CampaignCard({ camp, t, locale }: { camp: CampaignGroup; t: Tr; locale:
 
   // Channel throughput chips — only the ones with actual activity.
   const throughputChips: { icon: typeof Share2; label: string; value: number; color: string }[] = [];
-  if (camp.liInvitesSent > 0)  throughputChips.push({ icon: UserPlus, label: locale === "es" ? "LI Invites" : "LI Invites",   value: camp.liInvitesSent,  color: "#0A66C2" });
-  if (camp.liMessagesSent > 0) throughputChips.push({ icon: Share2,   label: locale === "es" ? "LI Msgs"   : "LI Msgs",       value: camp.liMessagesSent, color: "#0A66C2" });
-  if (camp.emailsSent > 0)     throughputChips.push({ icon: Mail,     label: locale === "es" ? "Emails"    : "Emails",        value: camp.emailsSent,     color: "#059669" });
+  if (camp.liInvitesSent > 0)  throughputChips.push({ icon: UserPlus, label: t("ticket.chip.liInvites"),   value: camp.liInvitesSent,  color: "#0A66C2" });
+  if (camp.liMessagesSent > 0) throughputChips.push({ icon: Share2,   label: t("ticket.chip.liMsgs"),       value: camp.liMessagesSent, color: "#0A66C2" });
+  if (camp.emailsSent > 0)     throughputChips.push({ icon: Mail,     label: t("ticket.chip.emails"),        value: camp.emailsSent,     color: "#059669" });
 
   const sellerLine = camp.sellers.length === 0
     ? null
     : camp.sellers.length === 1
       ? camp.sellers[0]
-      : (locale === "es" ? `${camp.sellers[0]} +${camp.sellers.length - 1}` : `${camp.sellers[0]} +${camp.sellers.length - 1}`);
+      : `${camp.sellers[0]} +${camp.sellers.length - 1}`;
 
   return (
     <Link
@@ -231,11 +231,9 @@ function CampaignCard({ camp, t, locale }: { camp: CampaignGroup; t: Tr; locale:
             <span
               className="font-semibold"
               style={{ color: camp.acceptRate >= 50 ? C.green : camp.acceptRate >= 20 ? gold : C.textMuted }}
-              title={locale === "es"
-                ? `${camp.acceptedCount} de ${camp.inviteCohort} invites aceptadas`
-                : `${camp.acceptedCount} of ${camp.inviteCohort} invites accepted`}
+              title={t("ticket.acceptTitle", { accepted: camp.acceptedCount, cohort: camp.inviteCohort })}
             >
-              {locale === "es" ? `${camp.acceptRate}% accept` : `${camp.acceptRate}% accept`}
+              {t("ticket.acceptRate", { rate: camp.acceptRate })}
             </span>
           )}
           {responseRate > 0 && <span style={{ color: C.blue }}>{t("ticket.flow.responseRate").replace("{n}", String(responseRate))}</span>}
@@ -363,7 +361,7 @@ function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]
                     <span className="text-sm font-semibold flex-1 truncate" style={{ color: C.textBody }}>{c.name}</span>
                     <div className="flex items-center gap-3 shrink-0 text-xs" style={{ color: C.textMuted }}>
                       <span title={t("ticket.flow.leads")}>{c.totalLeads}L</span>
-                      <span title={locale === "es" ? "Mensajes enviados" : "Messages sent"} style={{ color: C.textBody }}>{c.totalMsgsSent}m</span>
+                      <span title={t("ticket.msgsSentTitle")} style={{ color: C.textBody }}>{c.totalMsgsSent}m</span>
                       <span title={t("ticket.flow.replies")} style={{ color: c.totalReplies > 0 ? C.blue : C.textDim }}>{c.totalReplies}r</span>
                       {responseRate > 0 && <span style={{ color: C.blue }}>{responseRate}% {t("ticket.flow.respShort")}</span>}
                       {c.channels.length > 0 && (

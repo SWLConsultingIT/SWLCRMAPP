@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/lib/i18n-locale";
 
 type Props = {
   leadId: string;
@@ -81,7 +82,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
             </h3>
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
               {generatedAt
-                ? t("summary.generated").replace("{stamp}", new Date(generatedAt).toLocaleString(locale === "es" ? "es-AR" : "en-GB", { dateStyle: "medium", timeStyle: "short" }))
+                ? t("summary.generated").replace("{stamp}", new Date(generatedAt).toLocaleString(intlTag(locale), { dateStyle: "medium", timeStyle: "short" }))
                 : t("summary.notGenerated")}
             </p>
           </div>

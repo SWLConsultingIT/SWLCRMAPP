@@ -159,67 +159,11 @@ function classifySteps(sequence: { channel: string; daysAfter: number }[]): { ty
 // Step descriptions — what each step is FOR (intent guidance, not template prescription).
 // In the new prompt-per-step UX the user writes their own intent below; these are
 // the contextual hint that sits above their textarea.
-const typeDescriptionsByLocale: Record<"es" | "en", Record<string, string>> = {
-  es: {
-    LINKEDIN_INTRO_DM: "Primer mensaje real después de que aceptan la conexión. Decile a la AI qué querés transmitir.",
-    LINKEDIN_FOLLOWUP: "Seguimiento sobre el mensaje anterior. ¿Qué ángulo nuevo querés traer? (data, caso, tendencia)",
-    EMAIL_INTRO: "Primer email. Tendrá subject + body. ¿Qué pain conectar y qué CTA querés al final?",
-    EMAIL_FOLLOWUP_CROSS: "Primer email después de tocarlos por otro canal. ¿Qué ángulo nuevo?",
-    EMAIL_FOLLOWUP: "Email de seguimiento corto. ¿Qué pieza nueva de valor querés traer?",
-    CALL_FIRST: "Script de llamada. ¿Qué tono, qué preguntas, qué pitch?",
-    CALL_FOLLOWUP: "Script de seguimiento por teléfono. ¿Qué nuevo ángulo y cómo cerrar?",
-  },
-  en: {
-    LINKEDIN_INTRO_DM: "First real message after they accept the connection. Tell the AI what you want this message to convey.",
-    LINKEDIN_FOLLOWUP: "Follow-up to the previous message. What new angle should it bring? (data point, case, trend)",
-    EMAIL_INTRO: "First email — will have subject + body. What pain to connect to, and what CTA at the end?",
-    EMAIL_FOLLOWUP_CROSS: "First email after reaching out on another channel. What new angle?",
-    EMAIL_FOLLOWUP: "Short follow-up email. What new value piece should it bring?",
-    CALL_FIRST: "Call script. What tone, what questions, what pitch?",
-    CALL_FOLLOWUP: "Follow-up call script. What new angle and how to close?",
-  },
-};
 
 // Prompt-style placeholders. These show the user HOW to write their intent.
-const typePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
-  es: {
-    LINKEDIN_INTRO_DM: "ej: Agradecé la conexión, mencioná que ayudamos a empresas de [industria] a [resultado], y proponé una charla de 15 min para ver si tiene sentido.",
-    LINKEDIN_FOLLOWUP: "ej: Volvé al mensaje anterior con un dato concreto (ej: '6h/semana de tiempo recuperado' en una empresa similar), preguntá si les resuena.",
-    EMAIL_INTRO: "ej: Subject corto y específico. Cuerpo: hook con un dato sobre su empresa, qué hacemos en una línea, conectá su pain con nuestra solución, una prueba social, CTA de 15 min.",
-    EMAIL_FOLLOWUP_CROSS: "ej: Referenciá el ping de LinkedIn, traé un ángulo distinto (caso de cliente similar), CTA suave.",
-    EMAIL_FOLLOWUP: "ej: Una pieza nueva de valor (artículo, dato, comparativa), volvé al CTA.",
-    CALL_FIRST: "ej: Apertura cálida con su nombre y por qué llamás. Pregunta abierta sobre [tema]. Pitch en 2 líneas. Cierre proponiendo 15 min.",
-    CALL_FOLLOWUP: "ej: Referenciá el contacto previo, traé un dato nuevo, cerrá pidiendo 15 min específicos esta semana.",
-  },
-  en: {
-    LINKEDIN_INTRO_DM: "e.g. Thank them for connecting, mention we help [industry] companies achieve [outcome], propose a 15-min chat to see if it's relevant.",
-    LINKEDIN_FOLLOWUP: "e.g. Refer back to the previous message with a concrete data point (e.g. '6h/week reclaimed at a similar company'), ask if it resonates.",
-    EMAIL_INTRO: "e.g. Short, specific subject. Body: hook with a data point about their company, what we do in one line, connect their pain to our solution, one social proof, soft 15-min CTA.",
-    EMAIL_FOLLOWUP_CROSS: "e.g. Reference the LinkedIn ping, bring a different angle (similar customer case), soft CTA.",
-    EMAIL_FOLLOWUP: "e.g. One new piece of value (article, data point, comparison), bring the CTA back.",
-    CALL_FIRST: "e.g. Warm opener with their name and why you're calling. Open question about [topic]. 2-line pitch. Close proposing 15 minutes.",
-    CALL_FOLLOWUP: "e.g. Reference the previous contact, bring a new data point, close by asking for a specific 15-min slot this week.",
-  },
-};
 
 // Tenant-agnostic placeholder examples. We avoid mentioning a specific company
 // name (e.g. "SWL Consulting") so the wizard reads correctly for any client tenant.
-const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
-  es: {
-    connectionRequest: "Hola [nombre], soy [vendedor] de [empresa]. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas.",
-    subject: "Línea de asunto (max 60 caracteres)...",
-    fallback: "Escribí tu mensaje...",
-    replyPositive: "¡Excelente! Me alegra tu interés. Te propongo coordinar una llamada de 15 min...",
-    replyNegative: "Entiendo perfectamente. Gracias por tu tiempo. Si en el futuro...",
-  },
-  en: {
-    connectionRequest: "Hi [name], I'm [seller] from [company]. I saw your work on [topic] and I'd love to connect to share ideas.",
-    subject: "Subject line (max 60 chars)...",
-    fallback: "Write your message...",
-    replyPositive: "Great! Glad you're interested. How about we book a quick 15-minute call...",
-    replyNegative: "Totally understand. Thanks for your time. If in the future...",
-  },
-};
 
 // ── Main Component ──
 
@@ -731,11 +675,23 @@ export function PlaceholdersHint({
 }
 
 export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, flowType = "generic", signals, sampleLeads, sellerName, placeholderCoverage, onAttachmentsChange, onReorderStep }: Props) {
-  const { locale, t } = useLocale();
-  const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
-  const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
-  const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
-  const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
+  const { t } = useLocale();
+  // These read like the old per-locale maps but resolve through the shared
+  // dictionaries, so a third language needs no change here. Keyed access is
+  // kept because ~30 call sites below index them by step type.
+  const byKey = (prefix: string) =>
+    new Proxy({} as Record<string, string>, {
+      get: (_target, key: string) => {
+        const full = `${prefix}.${key}`;
+        const v = t(full);
+        // t() echoes the key when there is no entry; step types we have no
+        // hint for should read as absent, not as "wiz.desc.SOMETHING".
+        return v === full ? "" : v;
+      },
+    });
+  const typePlaceholders = byKey("wiz.ph");
+  const inlinePlaceholders = byKey("wiz.inline");
+  const typeDescriptions = byKey("wiz.desc");
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   // Helper that turns whatever the API returns (string, nested object,
@@ -1210,10 +1166,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             <LaneIntent
               value={channelMessages.connectionRequestPrompt ?? ""}
               onChange={v => onChange({ ...channelMessages, connectionRequestPrompt: v })}
-              placeholder={locale === "es"
-                ? "ej: Mencionar que vimos su perfil, presentación corta y por qué queremos conectar."
-                : "e.g. Mention we saw their profile, short intro, and why we want to connect."
-              }
+              placeholder={t("wiz.connReq.intentPh")}
             />
             <LaneJoin
               hasIntent={!!(channelMessages.connectionRequestPrompt ?? "").trim()}

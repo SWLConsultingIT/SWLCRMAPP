@@ -10,8 +10,8 @@
 // IMPORTANT (RSC boundary): this is a "use client" component, so every
 // prop must be serializable. Past bug: a fmtRelative function prop was
 // passed from the server and crashed render with digest 1285441784.
-// Locale is now a plain string ("en"|"es"); relative-time formatting
-// happens inside this component.
+// Locale is a plain string; relative-time formatting happens inside this
+// component, translated through makeT.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -20,6 +20,7 @@ import {
   MessageSquare, Phone, UserPlus, AlertCircle,
 } from "lucide-react";
 import { C, N, T } from "@/lib/design";
+import { makeT, type Locale } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -49,14 +50,14 @@ export type TodayLabels = {
   sections: Record<TodaySectionKey, { label: string; hint: string; cta: string }>;
 };
 
-function fmtRelative(iso: string | null | undefined, locale: "en" | "es"): string | null {
+function fmtRelative(iso: string | null | undefined, locale: Locale): string | null {
   if (!iso) return null;
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return null;
   const diff = Date.now() - t;
   if (diff < 0) return null;
   const m = Math.floor(diff / 60_000);
-  if (m < 1) return locale === "es" ? "ahora" : "now";
+  if (m < 1) return makeT(locale)("today.now");
   if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
@@ -83,8 +84,9 @@ export default function TodayCard({
    * only the top-N preview rendered on expand; the header must show this
    * count, never `list.length` (which is capped and would lie). */
   counts: Record<TodaySectionKey, number>;
-  locale: "en" | "es";
+  locale: Locale;
 }) {
+  const t = makeT(locale);
   // Boss feedback follow-up 2026-05-27: both buckets land collapsed so
   // the operator sees the count + chooses where to drill. Expanding any
   // section is one click; the default no longer commits to a guess.
@@ -246,9 +248,7 @@ export default function TodayCard({
                           className="flex items-center justify-center gap-1.5 px-5 py-2.5 text-[11.5px] font-semibold transition-opacity hover:opacity-80"
                           style={{ color: s.accent }}
                         >
-                          {locale === "es"
-                            ? `+${s.count - s.list.length} más — ver todos`
-                            : `+${s.count - s.list.length} more — view all`}
+                          {t("today.moreViewAll", { n: s.count - s.list.length })}
                           <ArrowUpRight size={12} />
                         </Link>
                       </li>
@@ -273,9 +273,10 @@ function TodayLeadRow({
   lead: TodayLead;
   sectionKey: TodaySectionKey;
   accent: string;
-  locale: "en" | "es";
+  locale: Locale;
   noIcp: string;
 }) {
+  const t = makeT(locale);
   const when = fmtRelative(lead.when, locale);
   const hasName = !!lead.name;
   const hasCompany = lead.company && lead.company !== "—";
@@ -321,11 +322,11 @@ function TodayLeadRow({
             style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent, border: `1px solid color-mix(in srgb, ${accent} 30%, transparent)` }}
             aria-label={`Dial ${lead.phone}`}
           >
-            <Phone size={11} /> {locale === "es" ? "Llamar" : "Dial"}
+            <Phone size={11} /> {t("today.dial")}
           </a>
         ) : (
           <span className="text-[10px] italic shrink-0" style={{ color: C.textDim }}>
-            {locale === "es" ? "sin teléfono" : "no phone"}
+            {t("today.noPhone")}
           </span>
         )}
       </div>
@@ -343,10 +344,10 @@ function TodayLeadRow({
     const isNegative = cls === "negative" || cls === "unsubscribe";
     const isFollowUp = cls === "not_now" || cls === "follow_up" || cls === "nurturing";
     const classColor = isPositive ? "#10B981" : isNegative ? "#DC2626" : "#D97706";
-    const classLabel = isPositive ? (locale === "es" ? "positivo" : "positive")
-      : isNegative ? (locale === "es" ? "negativo" : "negative")
-      : isFollowUp ? (locale === "es" ? "seguimiento" : "follow-up")
-      : cls || (locale === "es" ? "revisar" : "review");
+    const classLabel = isPositive ? t("today.cls.positive")
+      : isNegative ? t("today.cls.negative")
+      : isFollowUp ? t("today.cls.followUp")
+      : cls || t("today.cls.review");
     const headline = hasName && hasCompany
       ? `${lead.name} — ${lead.company}`
       : (hasName ? lead.name! : (hasCompany ? lead.company : (lead.icp ?? noIcp)));

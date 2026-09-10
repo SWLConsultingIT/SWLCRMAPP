@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+import { LOCALES } from "@/lib/i18n-locale";
 import {
   Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2, Sparkles,
   LayoutDashboard, Users, Megaphone, Building2, Target, Shield, Bell,
@@ -51,23 +52,33 @@ export default function CommandPalette() {
 
   // Static commands — labels follow the active locale.
   const navCommands: NavCommand[] = useMemo(() => [
-    { id: "dashboard",  label: t("nav.dashboard"),    hint: locale === "es" ? "Vista general"      : "Overview",                      icon: LayoutDashboard, href: "/",              group: "navigation", keywords: ["home", "inicio"] },
-    { id: "leads",      label: t("nav.leads"),        hint: locale === "es" ? "Leads y campañas"   : "Leads and campaigns",           icon: Users,           href: "/leads",         group: "navigation", keywords: ["pipeline", "prospects"] },
-    { id: "campaigns",  label: "Outreach Flow™",      hint: locale === "es" ? "Crear y gestionar campañas" : "Create and manage campaigns", icon: Megaphone,       href: "/campaigns",     group: "navigation", keywords: ["outreach", "campaigns", "campañas"] },
-    { id: "icp",        label: "Lead Miner™",         hint: locale === "es" ? "Perfiles ICP"        : "ICP profiles",                  icon: Target,          href: "/icp",           group: "navigation", keywords: ["icp", "miner", "profiles"] },
-    { id: "accounts",   label: t("nav.accounts"),     hint: locale === "es" ? "Sellers y conexiones LinkedIn" : "Sellers and LinkedIn accounts", icon: UserCircle,      href: "/accounts",      group: "navigation", keywords: ["sellers", "linkedin", "unipile", "aircall"] },
-    { id: "ops",        label: t("nav.results"),      hint: locale === "es" ? "Ganados, perdidos y re-nurture" : "Won, lost & re-nurture",   icon: Trophy,          href: "/results",       group: "navigation", keywords: ["wins", "won", "ganados", "opportunities", "oportunidades", "results", "resultados", "lost", "perdidos", "converted"] },
-    { id: "queue",      label: t("nav.queue"),        hint: locale === "es" ? "Tareas pendientes"  : "Pending tasks",                 icon: Bell,            href: "/queue",         group: "navigation", keywords: ["calls", "reviews", "replies"] },
-    { id: "company",    label: t("nav.companyBio"),   hint: locale === "es" ? "Empresas"            : "Companies",                     icon: Building2,       href: "/company-bios",  group: "navigation", keywords: ["company", "empresa", "bios"] },
-    { id: "admin",      label: t("nav.admin"),        hint: locale === "es" ? "Panel admin (interno)" : "Admin panel (internal)",      icon: Shield,          href: "/admin",         group: "navigation", keywords: ["admin", "internal"] },
-    { id: "settings",   label: t("nav.settings"),     hint: locale === "es" ? "Tu cuenta"           : "Your account",                  icon: Settings,        href: "/settings",      group: "navigation", keywords: ["account", "preferences", "language"] },
+    { id: "dashboard",  label: t("nav.dashboard"),    hint: t("cmd.hint.dashboard"),                      icon: LayoutDashboard, href: "/",              group: "navigation", keywords: ["home", "inicio"] },
+    { id: "leads",      label: t("nav.leads"),        hint: t("cmd.hint.leads"),           icon: Users,           href: "/leads",         group: "navigation", keywords: ["pipeline", "prospects"] },
+    { id: "campaigns",  label: "Outreach Flow™",      hint: t("cmd.hint.campaigns"), icon: Megaphone,       href: "/campaigns",     group: "navigation", keywords: ["outreach", "campaigns", "campañas"] },
+    { id: "icp",        label: "Lead Miner™",         hint: t("cmd.hint.icp"),                  icon: Target,          href: "/icp",           group: "navigation", keywords: ["icp", "miner", "profiles"] },
+    { id: "accounts",   label: t("nav.accounts"),     hint: t("cmd.hint.accounts"), icon: UserCircle,      href: "/accounts",      group: "navigation", keywords: ["sellers", "linkedin", "unipile", "aircall"] },
+    { id: "ops",        label: t("nav.results"),      hint: t("cmd.hint.results"),   icon: Trophy,          href: "/results",       group: "navigation", keywords: ["wins", "won", "ganados", "opportunities", "oportunidades", "results", "resultados", "lost", "perdidos", "converted"] },
+    { id: "queue",      label: t("nav.queue"),        hint: t("cmd.hint.queue"),                 icon: Bell,            href: "/queue",         group: "navigation", keywords: ["calls", "reviews", "replies"] },
+    { id: "company",    label: t("nav.companyBio"),   hint: t("cmd.hint.company"),                     icon: Building2,       href: "/company-bios",  group: "navigation", keywords: ["company", "empresa", "bios"] },
+    { id: "admin",      label: t("nav.admin"),        hint: t("cmd.hint.admin"),      icon: Shield,          href: "/admin",         group: "navigation", keywords: ["admin", "internal"] },
+    { id: "settings",   label: t("nav.settings"),     hint: t("cmd.hint.settings"),                  icon: Settings,        href: "/settings",      group: "navigation", keywords: ["account", "preferences", "language"] },
     // Quick actions
-    { id: "new-flow",  label: locale === "es" ? "Crear nuevo flow" : "Create New Flow",  hint: "Outreach Flow™",            icon: Megaphone, href: "/campaigns?tab=new",       group: "actions", keywords: ["flow", "campaign", "campaña", "outreach", "nuevo", "new", "create", "crear"] },
-    { id: "import-leads", label: locale === "es" ? "Importar leads" : "Import leads", hint: locale === "es" ? "Subir CSV/Excel" : "Upload CSV/Excel", icon: Users, href: "/leads/import", group: "actions", keywords: ["import", "importar", "csv", "excel", "upload", "subir", "leads"] },
+    { id: "new-flow",  label: t("cmd.action.newFlow"),  hint: "Outreach Flow™",            icon: Megaphone, href: "/campaigns?tab=new",       group: "actions", keywords: ["flow", "campaign", "campaña", "outreach", "nuevo", "new", "create", "crear"] },
+    { id: "import-leads", label: t("cmd.action.import"), hint: t("cmd.action.importHint"), icon: Users, href: "/leads/import", group: "actions", keywords: ["import", "importar", "csv", "excel", "upload", "subir", "leads"] },
     // Real actions (client-side, no navigation) — turn ⌘K into a command runner,
     // not just a jump list. Safe: theme/language are per-user prefs, no data writes.
-    { id: "toggle-theme", label: theme === "dark" ? (locale === "es" ? "Cambiar a modo claro" : "Switch to Light mode") : (locale === "es" ? "Cambiar a modo oscuro" : "Switch to Dark mode"), hint: locale === "es" ? "Cambiar apariencia" : "Change appearance", icon: theme === "dark" ? Sun : Moon, action: () => setTheme(theme === "dark" ? "light" : "dark"), group: "actions", keywords: ["theme", "tema", "dark", "light", "oscuro", "claro", "modo", "appearance"] },
-    { id: "toggle-lang", label: locale === "es" ? "Switch to English" : "Cambiar a Español", hint: locale === "es" ? "Cambiar idioma" : "Change language", icon: Languages, action: () => setLocale(locale === "es" ? "en" : "es"), group: "actions", keywords: ["language", "idioma", "english", "español", "inglés", "lang", "spanish"] },
+    { id: "toggle-theme", label: theme === "dark" ? t("cmd.action.themeLight") : t("cmd.action.themeDark"), hint: t("cmd.action.themeHint"), icon: theme === "dark" ? Sun : Moon, action: () => setTheme(theme === "dark" ? "light" : "dark"), group: "actions", keywords: ["theme", "tema", "dark", "light", "oscuro", "claro", "modo", "appearance"] },
+    // One entry per language that is not the active one — a single toggle
+    // only worked while there were exactly two.
+    ...LOCALES.filter(l => l.id !== locale).map(l => ({
+      id: `set-lang-${l.id}`,
+      label: t("cmd.action.switchLang", { lang: l.label }),
+      hint: t("cmd.action.langHint"),
+      icon: Languages,
+      action: () => setLocale(l.id),
+      group: "actions" as const,
+      keywords: ["language", "idioma", "lingua", "lang", l.id, l.label.toLowerCase()],
+    })),
   ], [t, locale, theme, setTheme, setLocale]);
 
   // Filter nav commands by query (case-insensitive substring on label, hint, keywords).
@@ -159,13 +170,11 @@ export default function CommandPalette() {
   const navStartIdx = copilotOffset;
   const leadStartIdx = copilotOffset + navItems.length;
 
-  const placeholder = locale === "es"
-    ? "Buscar leads, navegar, ejecutar acciones…"
-    : "Search leads, navigate, run actions…";
-  const noResultsLabel = locale === "es" ? `Sin resultados para "${query}"` : `No results for "${query}"`;
-  const navHeading     = locale === "es" ? "Navegación" : "Navigation";
-  const actionsHeading = locale === "es" ? "Acciones rápidas" : "Quick actions";
-  const leadsHeading   = locale === "es" ? "Leads" : "Leads";
+  const placeholder    = t("cmd.placeholder");
+  const noResultsLabel = t("cmd.noResults", { q: query });
+  const navHeading     = t("cmd.heading.navigation");
+  const actionsHeading = t("cmd.heading.actions");
+  const leadsHeading   = t("cmd.heading.leads");
 
   // Split nav into navigation vs actions for visual grouping.
   const navOnly = navItems.filter(c => c.group === "navigation");
@@ -298,9 +307,9 @@ export default function CommandPalette() {
         {/* Footer */}
         <div className="px-5 py-2.5 border-t flex items-center gap-4" style={{ borderColor: C.border }}>
           {[
-            ["↑↓", locale === "es" ? "navegar" : "navigate"],
-            ["↵",  locale === "es" ? "abrir"   : "open"],
-            ["esc", locale === "es" ? "cerrar" : "close"],
+            ["↑↓", t("cmd.key.navigate")],
+            ["↵",  t("cmd.key.open")],
+            ["esc", t("cmd.key.close")],
           ].map(([k, l]) => (
             <span key={k} className="flex items-center gap-1.5 text-[10px]" style={{ color: C.textDim }}>
               <kbd
@@ -319,7 +328,7 @@ export default function CommandPalette() {
             >
               ⌘K
             </kbd>{" "}
-            {locale === "es" ? "para abrir" : "to open"}
+            {t("cmd.toOpen")}
           </span>
         </div>
       </div>

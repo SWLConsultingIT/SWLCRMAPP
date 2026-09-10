@@ -5,6 +5,7 @@ import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
+import { normalizeLocale, writeAllContentIn } from "@/lib/i18n-locale";
 
 // GET → return cached talking points (or null if not generated yet).
 // POST → (re)generate and persist. The Pre-Call Brief card calls POST on
@@ -57,10 +58,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
   const body = await req.json().catch(() => ({}));
-  const locale: string = (body as any).locale ?? "en";
-  const langInstruction = locale === "es"
-    ? "Write ALL content in Spanish (río-platense if Argentina, neutral otherwise). The seller's interface is in Spanish — the brief must be readable in Spanish."
-    : "Write ALL content in English.";
+  // The brief has to read in the seller's own interface language.
+  const locale = normalizeLocale((body as { locale?: unknown }).locale);
+  const langInstruction = writeAllContentIn(locale);
 
   const { id } = await params;
   const svc = getSupabaseService();

@@ -82,8 +82,11 @@ export default function NearbyCompaniesPage({
   plantLat: number | null; plantLng: number | null; potenzaKw: number | null;
   initial: NearbyCompany[];
 }) {
-  const { locale } = useLocale();
-  const L = (en: string, es: string) => (locale === "es" ? es : en);
+  const { t } = useLocale();
+  // The keyword classifier stores English category names; those are internal
+  // values, so they get translated at render time and keep their identity in
+  // filter state and sort comparisons.
+  const industryLabel = (v: string | null | undefined) => (v ? t(`nearbyIndustry.${v}`) : "—");
   const gold = C.gold;
 
   const [query, setQuery] = useState("");
@@ -164,7 +167,7 @@ export default function NearbyCompaniesPage({
   return (
     <div className="px-6 py-6 lg:px-10 w-full fade-in">
       <Link href={`/leads/${leadId}`} className="inline-flex items-center gap-1.5 text-[13px] font-semibold mb-5" style={{ color: C.textMuted }}>
-        <ArrowLeft size={15} /> {L("Back to lead", "Volver al lead")}
+        <ArrowLeft size={15} /> {t("nearbyPage.back")}
       </Link>
 
       {/* Hero — SWL navy with gold accents */}
@@ -176,24 +179,21 @@ export default function NearbyCompaniesPage({
           <div className="max-w-[68ch]">
             <span className="inline-flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full mb-3"
               style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 18%, transparent)", color: N.goldOnDark, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-              <Zap size={12} /> {L("Producer ↔ Consumer match", "Match productor ↔ consumidor")}
+              <Zap size={12} /> {t("nearbyPage.matchBadge")}
             </span>
             <h1 className="text-[30px] lg:text-[34px] font-bold tracking-tight leading-[1.1]" style={{ color: "#fff" }}>
-              {L("Energy consumers around", "Consumidores de energía cerca de")}{" "}
+              {t("nearbyPage.titleAround")}{" "}
               <span style={{ color: N.goldOnDark }}>{anchor}</span>
             </h1>
             <p className="text-[14px] mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.66)" }}>
-              {L(
-                `Businesses within reach of the ${potenzaKw ? `${Math.round(potenzaKw)} kW ` : ""}array — potential off-takers for surplus generation, or anchor members for a renewable energy community (CER).`,
-                `Negocios al alcance del parque ${potenzaKw ? `de ${Math.round(potenzaKw)} kW ` : ""}— posibles consumidores del excedente, o miembros de una comunidad energética (CER).`
-              )}
+              {t("nearbyPage.lede", { array: potenzaKw ? `${Math.round(potenzaKw)} kW ` : "" })}
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5 shrink-0">
             {[
-              { v: String(rows.length), l: L("companies nearby", "empresas cerca") },
-              { v: `~${totalDemand.toLocaleString("it-IT")}`, sub: `MWh/${L("yr", "año")}`, l: L("combined demand", "demanda combinada") },
-              { v: potenzaKw ? `${Math.round(potenzaKw)}` : "—", sub: "kW", l: L("plant array", "parque planta") },
+              { v: String(rows.length), l: t("nearbyPage.stat.companies") },
+              { v: `~${totalDemand.toLocaleString("it-IT")}`, sub: `MWh/${t("nearby.perYear")}`, l: t("nearbyPage.stat.demand") },
+              { v: potenzaKw ? `${Math.round(potenzaKw)}` : "—", sub: "kW", l: t("nearbyPage.stat.array") },
             ].map((s, i) => (
               <div key={i} className="rounded-xl px-4 py-3 min-w-[120px]" style={{ backgroundColor: "rgba(255,255,255,0.05)", border: `1px solid ${N.hairline}` }}>
                 <p className="text-[22px] font-bold leading-none" style={{ color: "#fff", fontVariantNumeric: "tabular-nums" }}>
@@ -210,15 +210,15 @@ export default function NearbyCompaniesPage({
       <div className="flex flex-wrap items-center gap-2.5 mb-3">
         <div className="relative flex-1 min-w-[220px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={L("Search company, city, industry…", "Buscar empresa, ciudad, industria…")}
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t("nearbyPage.search")}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl border text-[13px] outline-none" style={{ backgroundColor: C.card, borderColor: C.border, color: C.textPrimary }} />
         </div>
         <select value={industryFilter} onChange={e => setIndustryFilter(e.target.value)}
           className="py-2.5 px-3 rounded-xl border text-[13px] font-medium outline-none cursor-pointer" style={{ backgroundColor: C.card, borderColor: C.border, color: C.textPrimary }}>
-          <option value="all">{L("All industries", "Todas las industrias")}</option>
-          {industries.map(i => <option key={i} value={i}>{i}</option>)}
+          <option value="all">{t("nearbyPage.allIndustries")}</option>
+          {industries.map(i => <option key={i} value={i}>{industryLabel(i)}</option>)}
         </select>
-        <span className="text-[12px] font-semibold px-2" style={{ color: C.textMuted }}>{filtered.length} {L("results", "resultados")}</span>
+        <span className="text-[12px] font-semibold px-2" style={{ color: C.textMuted }}>{filtered.length} {t("nearbyPage.results")}</span>
       </div>
 
       {/* Table */}
@@ -227,13 +227,13 @@ export default function NearbyCompaniesPage({
           <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 860 }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: C.bg }}>
-                <Th k="name">{L("Company", "Empresa")}</Th>
-                <Th k="industry">{L("Industry", "Industria")}</Th>
-                <Th k="city">{L("City", "Ciudad")}</Th>
-                <Th k="distance" right>{L("Distance", "Distancia")}</Th>
-                <Th k="demand" right>{L("Est. demand", "Demanda est.")}</Th>
-                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{L("Fit", "Encaje")}</th>
-                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{L("Contact", "Contacto")}</th>
+                <Th k="name">{t("nearbyPage.col.company")}</Th>
+                <Th k="industry">{t("nearbyPage.col.industry")}</Th>
+                <Th k="city">{t("nearbyPage.col.city")}</Th>
+                <Th k="distance" right>{t("nearbyPage.col.distance")}</Th>
+                <Th k="demand" right>{t("nearbyPage.col.demand")}</Th>
+                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{t("nearbyPage.col.fit")}</th>
+                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{t("nearbyPage.col.contact")}</th>
                 <th className="px-2 py-3" />
               </tr>
             </thead>
@@ -253,11 +253,11 @@ export default function NearbyCompaniesPage({
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 11%, transparent)`, color: gold }}>{r.industry}</span>
+                      <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 11%, transparent)`, color: gold }}>{industryLabel(r.industry)}</span>
                     </td>
                     <td className="px-4 py-3 text-[13px]" style={{ color: C.textBody }}>{r.city ?? "—"}</td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>{r.distance != null ? <>{r.distance.toFixed(1)} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>km</span></> : "—"}</td>
-                    <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>~{r.demand} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>MWh/{L("yr", "año")}</span></td>
+                    <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>~{r.demand} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>MWh/{t("nearby.perYear")}</span></td>
                     <td className="px-4 py-3 text-center"><span className="text-[10.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ backgroundColor: fit.bg, color: fit.color }}>{fit.label}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2.5">
@@ -270,7 +270,7 @@ export default function NearbyCompaniesPage({
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-[13px]" style={{ color: C.textMuted }}>{L("No companies match your filters.", "Ninguna empresa coincide con los filtros.")}</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-[13px]" style={{ color: C.textMuted }}>{t("nearbyPage.empty")}</td></tr>
               )}
             </tbody>
           </table>
@@ -288,7 +288,7 @@ export default function NearbyCompaniesPage({
                 <div className="shrink-0" style={{ backgroundColor: C.bg }}>
                   <div className="relative h-52 flex items-center justify-center">
                     {loading ? (
-                      <div className="flex flex-col items-center gap-2" style={{ color: C.textMuted }}><Loader2 size={22} className="animate-spin" /><span className="text-[11px]">{L("Fetching photos & details…", "Trayendo fotos y datos…")}</span></div>
+                      <div className="flex flex-col items-center gap-2" style={{ color: C.textMuted }}><Loader2 size={22} className="animate-spin" /><span className="text-[11px]">{t("nearbyPage.fetchingPhotos")}</span></div>
                     ) : hero ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={hero} alt="" className="w-full h-full object-cover" />
@@ -313,35 +313,38 @@ export default function NearbyCompaniesPage({
             <div className="p-5 overflow-y-auto">
               <p className="text-[18px] font-bold leading-tight" style={{ color: C.textPrimary }}>{detail?.name ?? selected.name}</p>
               <div className="flex items-center flex-wrap gap-2 mt-2">
-                {industry && <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>{industry}</span>}
+                {industry && <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>{industryLabel(industry)}</span>}
                 {detail?.rating != null && <span className="inline-flex items-center gap-1 text-[12px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#B45309" }}><Star size={11} fill="#B45309" stroke="#B45309" /> {detail.rating}{detail.ratingsTotal != null && <span className="font-medium" style={{ color: C.textMuted }}>({detail.ratingsTotal})</span>}</span>}
               </div>
 
               {/* Producer ↔ Consumer match */}
               <div className="mt-4 rounded-xl p-4" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}>
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-2 inline-flex items-center gap-1.5" style={{ color: gold }}><Zap size={12} /> {L("Producer ↔ consumer match", "Match productor ↔ consumidor")}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2 inline-flex items-center gap-1.5" style={{ color: gold }}><Zap size={12} /> {t("nearbyPage.matchLabel")}</p>
                 <div className="grid grid-cols-3 gap-3">
-                  <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{L("Distance to plant", "Distancia a la planta")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{distKm != null ? `${distKm.toFixed(1)} km` : "—"}</p></div>
-                  <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{L("Est. demand", "Consumo est.")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>~{demand} MWh/{L("yr", "año")}</p></div>
-                  <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{L("Array", "Parque")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{potenzaKw ? `${Math.round(potenzaKw)} kW` : "—"}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("nearbyPage.distanceToPlant")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{distKm != null ? `${distKm.toFixed(1)} km` : "—"}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("nearbyPage.estConsumption")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>~{demand} MWh/{t("nearby.perYear")}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("nearbyPage.array")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{potenzaKw ? `${Math.round(potenzaKw)} kW` : "—"}</p></div>
                 </div>
                 <p className="text-[12.5px] leading-relaxed mt-3" style={{ color: C.textBody }}>
-                  {L(
-                    `${industry || "This business"} with steady daytime load, ${distKm != null ? `~${distKm.toFixed(1)} km from` : "near"} ${anchor}'s array — a strong off-taker for surplus generation, or an anchor member for a local renewable energy community (CER).`,
-                    `${industry || "Este negocio"} con consumo diurno sostenido, ${distKm != null ? `a ~${distKm.toFixed(1)} km de` : "cerca de"} el parque de ${anchor} — fuerte consumidor del excedente, o miembro ancla de una comunidad energética (CER) local.`
-                  )}
+                  {t("nearbyPage.detailProse", {
+                    industry: industry ? industryLabel(industry) : t("nearbyPage.thisBusiness"),
+                    proximity: distKm != null
+                      ? t("nearbyPage.proximity.km", { km: distKm.toFixed(1) })
+                      : t("nearbyPage.proximity.near"),
+                    anchor,
+                  })}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 mt-3">
-                {addr && <div className="p-2.5 rounded-lg col-span-2" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Address", "Dirección")}</p><p className="text-[13px] font-medium inline-flex items-start gap-1.5" style={{ color: C.textBody }}><MapPin size={13} style={{ color: gold, marginTop: 1 }} /> {addr}</p></div>}
-                {phone && <a href={`tel:${phone.replace(/\s/g, "")}`} className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Phone", "Teléfono")}</p><p className="text-[13px] font-semibold inline-flex items-center gap-1.5" style={{ color: C.textBody }}><Phone size={12} style={{ color: C.phone }} /> {phone}</p></a>}
-                {web && <a href={webHref(web)} target="_blank" rel="noopener" className="p-2.5 rounded-lg min-w-0" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Website", "Sitio web")}</p><p className="text-[13px] font-semibold inline-flex items-center gap-1.5 truncate" style={{ color: C.blue }}><Globe size={12} /> <span className="truncate">{web.replace(/^https?:\/\/(www\.)?/, "")}</span></p></a>}
+                {addr && <div className="p-2.5 rounded-lg col-span-2" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearbyPage.address")}</p><p className="text-[13px] font-medium inline-flex items-start gap-1.5" style={{ color: C.textBody }}><MapPin size={13} style={{ color: gold, marginTop: 1 }} /> {addr}</p></div>}
+                {phone && <a href={`tel:${phone.replace(/\s/g, "")}`} className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearbyPage.phone")}</p><p className="text-[13px] font-semibold inline-flex items-center gap-1.5" style={{ color: C.textBody }}><Phone size={12} style={{ color: C.phone }} /> {phone}</p></a>}
+                {web && <a href={webHref(web)} target="_blank" rel="noopener" className="p-2.5 rounded-lg min-w-0" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearbyPage.website")}</p><p className="text-[13px] font-semibold inline-flex items-center gap-1.5 truncate" style={{ color: C.blue }}><Globe size={12} /> <span className="truncate">{web.replace(/^https?:\/\/(www\.)?/, "")}</span></p></a>}
               </div>
 
               {(detail?.reviews?.length ?? 0) > 0 && (
                 <div className="mt-3">
-                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{L("Recent reviews", "Reseñas recientes")}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("nearbyPage.recentReviews")}</p>
                   <div className="space-y-2">
                     {detail!.reviews!.slice(0, 2).map((rv, i) => (
                       <div key={i} className="rounded-lg p-2.5" style={{ backgroundColor: C.bg }}>
@@ -353,7 +356,7 @@ export default function NearbyCompaniesPage({
                 </div>
               )}
 
-              <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener" className="mt-4 w-full flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}><MapPin size={14} /> {L("Open in Maps", "Abrir en Maps")}</a>
+              <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener" className="mt-4 w-full flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}><MapPin size={14} /> {t("nearbyPage.openInMaps")}</a>
             </div>
           </div>
         </div>
