@@ -38,11 +38,13 @@ export type BoardActivity = {
   description: string | null;
   assigned_to: string | null;
   due_at: string | null;
+  due_tz: string | null;
   status: ActivityStatus;
   priority: string | null;
   source: string;
   leadName: string;
   company: string;
+  campaign: string | null;
 };
 
 const COLUMNS: { key: "overdue" | "today" | "upcoming"; icon: React.ElementType; color: string }[] = [
