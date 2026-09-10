@@ -6,6 +6,10 @@
 // by canonical identity with Unknown always visible.
 import type { Metadata } from "next";
 import { getUserScope } from "@/lib/scope";
+import { getT } from "@/lib/i18n-server";
+import AuroraHero from "@/components/AuroraHero";
+import FreshnessChip from "@/components/dashboard/FreshnessChip";
+import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import { loadConsoleSource, buildIndex, buildOverview, buildTabs } from "@/lib/console-data";
 import Shell from "./Shell";
 
@@ -38,6 +42,33 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     sellerIds: many("sellers"),
   };
 
-  const ix = buildIndex(await loadConsoleSource(bioId), filters);
-  return <Shell D={buildOverview(ix, filters)} T={buildTabs(ix)} />;
+  const [t, ix] = await Promise.all([getT(), (async () => buildIndex(await loadConsoleSource(bioId), filters))()]);
+  const D = buildOverview(ix, filters);
+
+  // The app's own hero and Download, unchanged — the console replaces the
+  // charts below it, not the chrome above it.
+  const hero = (
+    <AuroraHero
+      eyebrow={t("dashx.hero.section")}
+      title={t("dashx.hero.title")}
+      subtitle={t("dashx.hero.desc")}
+      actions={
+        <>
+          <FreshnessChip renderedAt={new Date().toISOString()} />
+          <DashboardExportModal
+            periodLabel={D.period.range}
+            searchParams={{
+              from: from ?? undefined,
+              to: to ?? undefined,
+              campaign: filters.campaignNames?.[0],
+              seller: filters.sellerIds?.[0],
+              icp: filters.icpIds?.[0],
+            }}
+          />
+        </>
+      }
+    />
+  );
+
+  return <Shell D={D} T={buildTabs(ix)} hero={hero} />;
 }

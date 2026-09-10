@@ -53,7 +53,7 @@ function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPer
   ].filter(Boolean).length;
 
   return (
-    <div className="sticky top-0 z-40 -mx-8 px-8 py-3 flex items-center gap-2.5 flex-wrap"
+    <div className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 flex items-center gap-2.5 flex-wrap"
       style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 92%, transparent)`, backdropFilter: "blur(12px)" }}>
       <div className="inline-flex rounded-full border overflow-hidden" style={{ borderColor: C.border }}>
         {D.period.presets.map(p => (
@@ -88,7 +88,7 @@ function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPer
   );
 }
 
-export default function Shell({ D, T }: { D: OverviewData; T: TabsData }) {
+export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; hero?: React.ReactNode }) {
   const [tab, setTab] = useState<Tab>("Overview");
   // The window is chosen on the server and arrives with the data, so the
   // label describes what was actually measured rather than what a local
@@ -100,23 +100,13 @@ export default function Shell({ D, T }: { D: OverviewData; T: TabsData }) {
 
   return (
     <ConsoleProvider value={{ D, T }}>
-    <div className="min-h-screen" style={{ backgroundColor: C.bg }}>
-      <div className="mx-auto px-8" style={{ maxWidth: 1300, paddingBottom: 96 }}>
+    <div className="p-4 sm:p-6 w-full">
+      <div className="w-full" style={{ paddingBottom: 64 }}>
 
-        <div className="flex items-center gap-3 pt-4 pb-1">
-          <div>
-            <div className="font-semibold uppercase tracking-[.14em]" style={{ fontSize: 10, color: gold }}>Growth Engine</div>
-            <h1 className="font-semibold tracking-tight" style={{ fontSize: 21, color: C.textPrimary, letterSpacing: "-0.02em" }}>Dashboard</h1>
-          </div>
-          <div className="flex-1" />
-          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full border"
-            style={{ fontSize: 10.5, borderColor: `color-mix(in srgb, ${C.orange} 40%, transparent)`, color: C.orange }}>
-            {D.period.range}
-          </span>
-        </div>
+        {hero}
 
         {/* tabs — names, one underline, no chapter numerals */}
-        <nav className="flex items-center gap-1 mt-3" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
+        <nav className="flex items-center gap-1 mt-5" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
           {TABS.map(t => {
             const on = t === tab;
             return (
