@@ -23,6 +23,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveOutbound } from "@/lib/placeholders";
+import { t, getServerLocale } from "@/lib/i18n-server";
 
 export const runtime = "nodejs";
 // Up to ~4.5s of post-send delivery polling on top of the send itself.
@@ -45,6 +46,9 @@ export async function POST(
 
   const { leadId } = await params;
   const svc = getSupabaseService();
+  // These messages land on the seller's screen, so they follow the seller's
+  // interface language rather than being hardcoded in one.
+  const locale = await getServerLocale();
 
   let body: any = {};
   try { body = await req.json(); } catch { /* empty */ }
@@ -269,7 +273,7 @@ export async function POST(
         }
       } catch { /* handled by the guard below */ }
       if (!inbound?.id) {
-        return NextResponse.json({ error: "No encontré el email original en Instantly para responder en el hilo — puede que la respuesta del lead todavía no haya sincronizado. Probá de nuevo en un minuto." }, { status: 422 });
+        return NextResponse.json({ error: t(locale, "reply.err.noThread") }, { status: 422 });
       }
       const replyToUuid = inbound.id as string;
       // eaccount = the inbox that received the lead's email → reply from it.
@@ -328,7 +332,7 @@ export async function POST(
           } catch { /* retry */ }
         }
         sentMeta.delivery_confirmed = confirmed;
-        if (!confirmed) sendWarning = "Email enviado a Instantly, pero no pude confirmar la entrega — verificá en unos minutos.";
+        if (!confirmed) sendWarning = t(locale, "reply.warn.unconfirmed");
       }
     }
   } catch (e: any) {
@@ -387,7 +391,7 @@ export async function POST(
       ok: false,
       deliveryConfirmed: false,
       channel,
-      error: "LinkedIn no confirmó la entrega — la cuenta puede estar con un límite temporal. Reintentá en unos minutos.",
+      error: t(locale, "reply.err.linkedin"),
     }, { status: 502 });
   }
   return NextResponse.json({ ok: true, channel, providerMessageId, reviewed: true, sentAt: nowIso, deliveryConfirmed: !sendWarning, warning: sendWarning ?? undefined });

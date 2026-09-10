@@ -6,7 +6,7 @@
 // by canonical identity with Unknown always visible.
 import type { Metadata } from "next";
 import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
-import { getT } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/lib/i18n-server";
 import AuroraHero from "@/components/AuroraHero";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
@@ -50,9 +50,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     sellerIds: many("sellers"),
   };
 
-  const [t, ix] = await Promise.all([getT(), (async () => buildIndex(await loadConsoleSource(bioId), filters))()]);
-  const D = buildOverview(ix, filters);
-  const T0 = buildTabs(ix);
+  const [t, locale, ix] = await Promise.all([
+    getT(), getServerLocale(),
+    (async () => buildIndex(await loadConsoleSource(bioId), filters))(),
+  ]);
+  const D = buildOverview(ix, filters, t, locale);
+  const T0 = buildTabs(ix, t, locale);
 
   // The app's own hero and Download, unchanged — the console replaces the
   // charts below it, not the chrome above it.

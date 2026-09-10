@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { fetchPrefsCached, clearAllSessionCache } from "@/lib/session-cache";
-import { dicts, type Locale } from "@/lib/i18n-dicts";
+import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-dicts";
 
 export type { Locale };
 
@@ -33,7 +33,7 @@ function clearLegacyLocaleCache() {
 }
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
   useEffect(() => {
     let alive = true;
@@ -44,8 +44,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       // Unauthenticated → server has no opinion. Don't override the locale
       // already seeded from the cookie (same fix pattern as ThemeProvider).
       if ((d as { authenticated?: boolean }).authenticated === false) return;
-      const dbLocale: Locale = d.locale === "es" ? "es" : "en";
-      setLocaleState(dbLocale);
+      setLocaleState(normalizeLocale(d.locale));
     }
 
     // Wipe legacy localStorage cache from older builds.
@@ -78,7 +77,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   }
 
   function t(key: string, vars?: Record<string, string | number>) {
-    let s = dicts[locale][key] ?? dicts.en[key] ?? key;
+    // `<locale> → en → the key`. The en step matters for a key added in the
+    // same commit as the feature but not yet translated.
+    let s = dicts[locale]?.[key] ?? dicts.en[key] ?? key;
     if (vars) {
       for (const [k, v] of Object.entries(vars)) {
         s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));

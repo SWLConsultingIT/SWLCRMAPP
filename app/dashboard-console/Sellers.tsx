@@ -30,34 +30,38 @@ import { C } from "@/lib/design";
 import { gold, n, Band, Opening, Drill, Eyebrow, CH_COLOR, TONE } from "./ui";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
+import { useLocale } from "@/lib/i18n";
 
 const days = (a: number[]) => a.filter(v => v > 0).length;
 
 /** Steady, bursty or absent — derived, not asserted. */
 function rhythm(sent: number[], total: number) {
   const T = useT();
+  const { t } = useLocale();
   const active = days(sent);
   const peak = Math.max(...sent, 0);
   const share = total > 0 ? peak / total : 0;
-  if (share >= 0.5) return { label: "Burst-heavy", tone: C.orange, peak, share };
-  if (active <= T.WINDOW_DAYS / 3) return { label: "Sporadic", tone: C.orange, peak, share };
-  return { label: "Steady", tone: C.textMuted, peak, share };
+  // A key, not a label: this runs outside a component.
+  if (share >= 0.5) return { labelKey: "cons.sell.burstHeavy", tone: C.orange, peak, share };
+  if (active <= T.WINDOW_DAYS / 3) return { labelKey: "cons.sell.sporadic", tone: C.orange, peak, share };
+  return { labelKey: "cons.sell.steady", tone: C.textMuted, peak, share };
 }
 
 /* ═══ 1 · TEAM HEALTH ═════════════════════════════════════════════════════ */
 
 function TeamHealth() {
   const T = useT();
+  const { t } = useLocale();
   const h = T.teamHealth;
   const [all, setAll] = useState(false);
   const shown = all ? T.teamAlerts : T.teamAlerts.slice(0, 3);
 
   const MAIN = [
-    { v: `${h.activeSellers}/${h.totalSellers}`, l: "Sellers active" },
-    { v: n(h.contacted), l: "Leads contacted" },
-    { v: n(h.sent), l: "Messages sent" },
-    { v: n(h.calls), l: "Calls attempted" },
-    { v: `${h.replyRate}%`, l: "Reply rate" },
+    { v: `${h.activeSellers}/${h.totalSellers}`, l: t("cons.sell.kpi.active") },
+    { v: n(h.contacted), l: t("cons.sell.kpi.contacted") },
+    { v: n(h.sent), l: t("cons.sell.kpi.msgs") },
+    { v: n(h.calls), l: t("cons.sell.kpi.calls") },
+    { v: `${h.replyRate}%`, l: t("cons.sell.kpi.replyRate") },
     { v: h.connectRate == null ? "—" : `${h.connectRate}%`, l: "Confirmed connect rate" },
   ];
 
@@ -75,14 +79,14 @@ function TeamHealth() {
 
       {/* results, one line, clearly downstream of the row above */}
       <div className="flex items-baseline flex-wrap mt-5 pt-4" style={{ gap: 30, borderTop: `1px solid ${C.border}` }}>
-        <span className="font-semibold uppercase tracking-wider shrink-0" style={{ fontSize: 9.5, color: C.textMuted }}>Results</span>
+        <span className="font-semibold uppercase tracking-wider shrink-0" style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.sell.results")}</span>
         <span className="inline-flex items-baseline gap-2">
           <span className="font-semibold tabular-nums" style={{ fontSize: 22, color: gold }}>{n(h.replies)}</span>
-          <span style={{ fontSize: 12, color: C.textBody }}>replies</span>
+          <span style={{ fontSize: 12, color: C.textBody }}>{t("cons.sell.replies")}</span>
         </span>
         <span className="inline-flex items-baseline gap-2">
           <span className="font-semibold tabular-nums" style={{ fontSize: 22, color: h.positive > 0 ? C.green : C.textDim }}>{n(h.positive)}</span>
-          <span style={{ fontSize: 12, color: C.textBody }}>positive</span>
+          <span style={{ fontSize: 12, color: C.textBody }}>{t("cons.sell.positive")}</span>
         </span>
       </div>
 
@@ -104,7 +108,7 @@ function TeamHealth() {
         })}
         {T.teamAlerts.length > 3 && (
           <button onClick={() => setAll(v => !v)} className="font-semibold" style={{ fontSize: 11.5, color: gold }}>
-            {all ? "Show less" : `View all ${T.teamAlerts.length}`}
+            {all ? t("cons.sell.showLess") : t("cons.sell.viewAllN", { n: T.teamAlerts.length })}
           </button>
         )}
       </div>
@@ -145,22 +149,23 @@ const EDGE = { borderLeft: `1px solid var(--c-border)` } as const;
 
 function Detail({ s }: { s: CT.Seller }) {
   const T = useT();
+  const { t } = useLocale();
   const c = T.sellerCalls.find(x => x.name === s.name)!;
   const d = T.sellerDaily[s.name];
   const mix = [
-    { label: "LinkedIn invite", n: s.cr, k: "li_cr" },
-    { label: "LinkedIn DM", n: s.dm, k: "li_dm" },
-    { label: "Email", n: s.email, k: "email" },
-    { label: "Calls", n: s.calls, k: "call" },
+    { label: t("cons.sell.liInvite"), n: s.cr, k: "li_cr" },
+    { label: t("cons.ch.liDm"), n: s.dm, k: "li_dm" },
+    { label: t("cons.ch.email"), n: s.email, k: "email" },
+    { label: t("cons.sell.calls"), n: s.calls, k: "call" },
   ];
   const mixTotal = mix.reduce((a, x) => a + x.n, 0);
   const outcomes = [
-    { label: "Interested", n: c.interested, tone: "good" },
-    { label: "Follow up", n: c.followUp, tone: "neutral" },
-    { label: "Not interested", n: c.negative, tone: "bad" },
-    { label: "Voicemail", n: c.voicemail, tone: "muted" },
-    { label: "Wrong number", n: c.wrongNumber, tone: "muted" },
-    { label: "No outcome", n: c.unclassified, tone: "warn" },
+    { label: t("cons.outcome.interested"), n: c.interested, tone: "good" },
+    { label: t("cons.outcome.followUp"), n: c.followUp, tone: "neutral" },
+    { label: t("cons.outcome.notInterested"), n: c.negative, tone: "bad" },
+    { label: t("cons.outcome.voicemail"), n: c.voicemail, tone: "muted" },
+    { label: t("cons.outcome.wrongNumber"), n: c.wrongNumber, tone: "muted" },
+    { label: t("cons.camp.cls.noOutcome"), n: c.unclassified, tone: "warn" },
   ];
 
   return (
@@ -171,7 +176,7 @@ function Detail({ s }: { s: CT.Seller }) {
 
             {/* A — channel mix */}
             <div>
-              <Eyebrow note={`${n(mixTotal)} actions`}>Channel mix</Eyebrow>
+              <Eyebrow note={`${n(mixTotal)} actions`}>{t("cons.sell.channelMix")}</Eyebrow>
               <div className="flex rounded-full overflow-hidden mb-3" style={{ height: 8, backgroundColor: C.card }}>
                 {mix.filter(x => x.n > 0).map(x => (
                   <div key={x.k} title={`${x.label} · ${x.n}`} style={{ width: `${(x.n / mixTotal) * 100}%`, backgroundColor: CH_COLOR[x.k] }} />
@@ -196,19 +201,23 @@ function Detail({ s }: { s: CT.Seller }) {
 
             {/* B — calls */}
             <div>
-              <Eyebrow note={c.attempted === 0 ? "none this period" : c.connectRate == null ? "no outcome logged" : `${c.connectRate}% confirmed connect rate`}>Calls</Eyebrow>
+              <Eyebrow note={c.attempted === 0
+                ? t("cons.sell.nonePeriod")
+                : c.connectRate == null
+                  ? t("cons.sell.noOutcomeLogged")
+                  : t("cons.sell.confirmedRate", { n: c.connectRate })}>{t("cons.sell.calls")}</Eyebrow>
               {c.attempted === 0 ? (
-                <p style={{ fontSize: 11.5, color: C.textDim }}>No dials in the period.</p>
+                <p style={{ fontSize: 11.5, color: C.textDim }}>{t("cons.sell.noDials")}</p>
               ) : (
                 <>
                   <div className="flex items-baseline gap-5 mb-3">
                     <span className="inline-flex items-baseline gap-1.5">
                       <span className="tabular-nums font-semibold" style={{ fontSize: 20, color: C.textPrimary }}>{n(c.attempted)}</span>
-                      <span style={{ fontSize: 11, color: C.textMuted }}>attempted</span>
+                      <span style={{ fontSize: 11, color: C.textMuted }}>{t("cons.sell.attempted")}</span>
                     </span>
                     <span className="inline-flex items-baseline gap-1.5">
                       <span className="tabular-nums font-semibold" style={{ fontSize: 20, color: gold }}>{n(c.connected)}</span>
-                      <span style={{ fontSize: 11, color: C.textMuted }}>connected</span>
+                      <span style={{ fontSize: 11, color: C.textMuted }}>{t("cons.sell.connected")}</span>
                     </span>
                   </div>
                   <div className="flex flex-col" style={{ gap: 5 }}>
@@ -230,13 +239,13 @@ function Detail({ s }: { s: CT.Seller }) {
 
             {/* C — activity and backlog */}
             <div>
-              <Eyebrow>Activity and backlog</Eyebrow>
+              <Eyebrow>{t("cons.sell.activityBacklog")}</Eyebrow>
               <div className="grid grid-cols-2" style={{ gap: "14px 18px" }}>
                 {[
-                  { v: `${days(d.sent)} / ${T.WINDOW_DAYS}`, l: "active days" },
-                  { v: days(d.calls) > 0 ? `${days(d.calls)} / ${T.WINDOW_DAYS}` : "—", l: "days calling" },
-                  { v: s.lastActive, l: "last send" },
-                  { v: s.queue > 0 ? n(s.queue) : "—", l: "queued now", accent: s.queue > 500 ? C.orange : undefined },
+                  { v: `${days(d.sent)} / ${T.WINDOW_DAYS}`, l: t("cons.sell.activeDays") },
+                  { v: days(d.calls) > 0 ? `${days(d.calls)} / ${T.WINDOW_DAYS}` : "—", l: t("cons.sell.daysCalling") },
+                  { v: s.lastActive, l: t("cons.sell.lastSend") },
+                  { v: s.queue > 0 ? n(s.queue) : "—", l: t("cons.sell.queuedNow"), accent: s.queue > 500 ? C.orange : undefined },
                 ].map(x => (
                   <div key={x.l}>
                     <div className="tabular-nums font-semibold" style={{ fontSize: 16, color: x.accent ?? C.textPrimary }}>{x.v}</div>
@@ -248,11 +257,11 @@ function Detail({ s }: { s: CT.Seller }) {
                 <div className="mt-4 pt-3 flex items-baseline gap-4" style={{ borderTop: `1px solid ${C.border}` }}>
                   <span className="inline-flex items-baseline gap-1.5">
                     <span className="tabular-nums font-semibold" style={{ fontSize: 13, color: C.textBody }}>{c.avgSecs}s</span>
-                    <span style={{ fontSize: 10.5, color: C.textMuted }}>talk time</span>
+                    <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.talkTime")}</span>
                   </span>
                   <span className="inline-flex items-baseline gap-1.5">
                     <span className="tabular-nums font-semibold" style={{ fontSize: 13, color: C.textBody }}>{c.recorded}</span>
-                    <span style={{ fontSize: 10.5, color: C.textMuted }}>recorded</span>
+                    <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.recorded")}</span>
                   </span>
                 </div>
               )}
@@ -266,6 +275,7 @@ function Detail({ s }: { s: CT.Seller }) {
 
 function Performance({ open, setOpen }: { open: string | null; setOpen: (v: string | null) => void }) {
   const T = useT();
+  const { t } = useLocale();
   const rows = T.sellers;
   const team = T.teamHealth;
   const bestRate = Math.max(...rows.map(r => r.replyRate));
@@ -276,15 +286,15 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
         <table className="w-full" style={{ minWidth: 840, borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-              <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>Seller</th>
-              <Th hint="Leads that received at least one message in the period. Counted once per lead.">Contacted</Th>
-              <Th hint="Leads that wrote back. A logged call outcome is never counted as a reply.">Replies</Th>
-              <Th hint="Replies ÷ leads contacted, for this seller.">Reply rate</Th>
-              <Th tone="secondary" edge hint="LinkedIn actions sent: invitations plus DMs. Not unique leads.">LI sent</Th>
-              <Th tone="secondary" hint="Emails sent. Not unique leads.">Email sent</Th>
-              <Th tone="secondary" hint="Real dials. Click-to-dial markers are excluded.">Calls</Th>
-              <Th tone="ops" edge hint="Replies classified positive or meeting-intent.">Positive</Th>
-              <Th tone="ops" hint="Messages waiting inside a flow that is still active. Current stock, not period activity.">Queue</Th>
+              <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.sell.col.seller")}</th>
+              <Th hint={t("cons.sell.def.contacted")}>{t("cons.sell.col.contacted")}</Th>
+              <Th hint={t("cons.sell.def.replies")}>{t("cons.sell.col.replies")}</Th>
+              <Th hint={t("cons.sell.def.replyRate")}>{t("cons.sell.col.replyRate")}</Th>
+              <Th tone="secondary" edge hint={t("cons.sell.def.liSent")}>{t("cons.sell.col.liSent")}</Th>
+              <Th tone="secondary" hint={t("cons.sell.def.emailSent")}>{t("cons.sell.col.emailSent")}</Th>
+              <Th tone="secondary" hint={t("cons.sell.def.calls")}>{t("cons.sell.col.calls")}</Th>
+              <Th tone="ops" edge hint={t("cons.sell.def.positive")}>{t("cons.sell.col.positive")}</Th>
+              <Th tone="ops" hint={t("cons.sell.def.queue")}>{t("cons.sell.col.queue")}</Th>
             </tr>
           </thead>
           <tbody>
@@ -343,7 +353,7 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
             })}
 
             <tr style={{ borderTop: `2px solid ${C.border}` }}>
-              <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>Team</span></td>
+              <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>{t("cons.sell.team")}</span></td>
               <td className={`${PAD} text-right tabular-nums`} style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{n(team.contacted)}</td>
               <td className={`${PAD} text-right tabular-nums`} style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{team.replies}</td>
               <td className={`${PAD} text-right tabular-nums`} style={{ fontSize: 14, fontWeight: 600, color: C.textPrimary }}>{team.replyRate}%</td>
@@ -360,12 +370,12 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
       <div className="flex items-center gap-5 mt-3 flex-wrap">
         <span className="inline-flex items-center gap-1.5">
           <span style={{ width: 1, height: 10, backgroundColor: C.textMuted, opacity: .6 }} />
-          <span style={{ fontSize: 10.5, color: C.textMuted }}>team {team.replyRate}%</span>
+          <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.teamRate", { n: team.replyRate })}</span>
         </span>
-        <span style={{ fontSize: 10.5, color: C.textDim }}>click a row for the detail</span>
+        <span style={{ fontSize: 10.5, color: C.textDim }}>{t("cons.sell.clickRow")}</span>
         <div className="flex-1" />
         <span style={{ fontSize: 10.5, color: C.textDim }}>
-          {team.unattributedReplies} reply has no seller — not redistributed
+          {t(team.unattributedReplies === 1 ? "cons.sell.unattrOne" : "cons.sell.unattrN", { n: team.unattributedReplies })}
         </span>
       </div>
     </div>
@@ -374,16 +384,18 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
 
 /* ═══ 3 · COMPARE ═════════════════════════════════════════════════════════ */
 
+// Module scope: `key` addresses the metric, `labelKey` is what the tab prints.
 const METRICS = [
-  { key: "replyRate", label: "Reply rate", unit: "%", team: null },
-  { key: "replies", label: "Replies", unit: "", team: null },
-  { key: "contacted", label: "Contacted", unit: "", team: null },
-  { key: "sent", label: "Messages sent", unit: "", team: null },
-  { key: "calls", label: "Calls", unit: "", team: null },
+  { key: "replyRate", labelKey: "cons.sell.kpi.replyRate", unit: "%", team: null },
+  { key: "replies", labelKey: "cons.sell.replies", unit: "", team: null },
+  { key: "contacted", labelKey: "cons.sell.contacted", unit: "", team: null },
+  { key: "sent", labelKey: "cons.sell.kpi.msgs", unit: "", team: null },
+  { key: "calls", labelKey: "cons.sell.callsShort", unit: "", team: null },
 ] as const;
 
 function Compare() {
   const T = useT();
+  const { t } = useLocale();
   const [m, setM] = useState<(typeof METRICS)[number]["key"]>("replyRate");
   const meta = METRICS.find(x => x.key === m)!;
   const rows = [...T.sellers].sort((a, b) => (b[m] as number) - (a[m] as number));
@@ -400,11 +412,11 @@ function Compare() {
               color: m === x.key ? "#1A1405" : C.textBody,
               border: `1px solid ${m === x.key ? gold : C.border}`,
             }}>
-            {x.label}
+            {t(x.labelKey)}
           </button>
         ))}
         <div className="flex-1" />
-        <span style={{ fontSize: 11.5, color: C.textMuted }}>Sorted by {meta.label}</span>
+        <span style={{ fontSize: 11.5, color: C.textMuted }}>{t("cons.sell.sortedBy", { metric: t(meta.labelKey) })}</span>
       </div>
 
       <div className="flex flex-col" style={{ gap: 12 }}>
@@ -452,8 +464,9 @@ function Compare() {
 
 function Calls() {
   const T = useT();
+  const { t } = useLocale();
   const rows = [...T.sellerCalls].sort((a, b) => b.attempted - a.attempted);
-  const t = T.sellerCallsTotal;
+  const totalRow = T.sellerCallsTotal;
   const num = (v: number, tone?: string, bold?: boolean) => (
     <td className={`${PAD} text-right tabular-nums`}
       style={{ fontSize: 12.5, fontWeight: bold ? 600 : 400, color: v === 0 ? C.textDim : tone ?? C.textBody }}>
@@ -475,14 +488,14 @@ function Calls() {
       <table className="w-full" style={{ minWidth: 780, borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>Seller</th>
-            <Th hint="Real dials. Click-to-dial markers are excluded.">Attempted</Th>
-            <Th hint="A human conversation happened. Voicemail and wrong number do not count.">Connected</Th>
-            <Th hint="Connected ÷ attempted.">Connect rate</Th>
-            <Th tone="secondary">Interested</Th>
-            <Th tone="secondary" hint="Callback or needs info.">Follow up</Th>
-            <Th tone="secondary" hint="Voicemail or wrong number. The split is in the seller detail.">No answer</Th>
-            <Th hint="A real dial nobody classified. Still counted in the denominator.">Unclassified</Th>
+            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.sell.col.seller")}</th>
+            <Th hint={t("cons.sell.def.calls")}>{t("cons.sell.col.attempted")}</Th>
+            <Th hint={t("cons.sell.def.connected")}>{t("cons.sell.col.connected")}</Th>
+            <Th hint={t("cons.sell.def.connectRate")}>{t("cons.sell.col.connectRate")}</Th>
+            <Th tone="secondary">{t("cons.outcome.interested")}</Th>
+            <Th tone="secondary" hint={t("cons.sell.def.followUp")}>{t("cons.outcome.followUp")}</Th>
+            <Th tone="secondary" hint={t("cons.sell.def.noAnswer")}>{t("cons.sell.col.noAnswer")}</Th>
+            <Th hint={t("cons.sell.def.unclassified")}>{t("cons.sell.col.unclassified")}</Th>
           </tr>
         </thead>
         <tbody>
@@ -490,7 +503,7 @@ function Calls() {
             <tr key={r.name} style={{ borderBottom: `1px solid ${C.border}` }}>
               <td className={PAD}>
                 <span className="font-medium" style={{ fontSize: 13, color: r.attempted === 0 ? C.textMuted : C.textPrimary }}>{r.name}</span>
-                {r.attempted === 0 && <span className="ml-2" style={{ fontSize: 10.5, color: C.textDim }}>no dials</span>}
+                {r.attempted === 0 && <span className="ml-2" style={{ fontSize: 10.5, color: C.textDim }}>{t("cons.sell.noDials")}</span>}
               </td>
               {num(r.attempted, C.textPrimary, true)}
               {num(r.connected)}
@@ -505,14 +518,14 @@ function Calls() {
             </tr>
           ))}
           <tr style={{ borderTop: `2px solid ${C.border}` }}>
-            <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>Team</span></td>
-            {num(t.attempted, C.textPrimary, true)}
-            {num(t.connected, C.textBody, true)}
-            <td className={`${PAD} text-right tabular-nums font-semibold`} style={{ fontSize: 13.5, color: C.textPrimary }}>{t.connectRate == null ? "—" : `${t.connectRate}%`}</td>
-            {num(t.interested, TONE.good, true)}
-            {num(t.followUp, TONE.neutral, true)}
-            {num(t.noAnswer, C.textMuted, true)}
-            {unc(t.unclassified, t.attempted)}
+            <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>{t("cons.sell.team")}</span></td>
+            {num(totalRow.attempted, C.textPrimary, true)}
+            {num(totalRow.connected, C.textBody, true)}
+            <td className={`${PAD} text-right tabular-nums font-semibold`} style={{ fontSize: 13.5, color: C.textPrimary }}>{totalRow.connectRate == null ? "—" : `${totalRow.connectRate}%`}</td>
+            {num(totalRow.interested, TONE.good, true)}
+            {num(totalRow.followUp, TONE.neutral, true)}
+            {num(totalRow.noAnswer, C.textMuted, true)}
+            {unc(totalRow.unclassified, totalRow.attempted)}
           </tr>
         </tbody>
       </table>
@@ -545,6 +558,7 @@ function Spark({ sent, calls }: { sent: number[]; calls: number[] }) {
 
 function Consistency() {
   const T = useT();
+  const { t } = useLocale();
   const rows = T.sellers.map(s => {
     const d = T.sellerDaily[s.name];
     return { s, d, ds: days(d.sent), dc: days(d.calls), r: rhythm(d.sent, s.sent) };
@@ -555,12 +569,12 @@ function Consistency() {
       <table className="w-full" style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>Seller</th>
-            <Th hint="Days in the window on which this person sent at least one message.">Active days</Th>
-            <Th hint="Days on which this person dialled at all.">Days calling</Th>
-            <Th hint="Share of this person's messages that went out on their single busiest day.">Biggest day</Th>
-            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted, width: 250 }}>Pattern</th>
-            <th className={`${PAD} text-right font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>Consistency</th>
+            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.sell.col.seller")}</th>
+            <Th hint={t("cons.sell.def.activeDays")}>{t("cons.sell.col.activeDays")}</Th>
+            <Th hint={t("cons.sell.def.daysCalling")}>{t("cons.sell.col.daysCalling")}</Th>
+            <Th hint={t("cons.sell.biggestHint")}>{t("cons.sell.biggestDay")}</Th>
+            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted, width: 250 }}>{t("cons.sell.pattern")}</th>
+            <th className={`${PAD} text-right font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.sell.consistency")}</th>
           </tr>
         </thead>
         <tbody>
@@ -579,7 +593,7 @@ function Consistency() {
               </td>
               <td className={PAD}><Spark sent={d.sent} calls={d.calls} /></td>
               <td className={`${PAD} text-right`}>
-                <span className="font-semibold" style={{ fontSize: 12, color: r.tone }}>{r.label}</span>
+                <span className="font-semibold" style={{ fontSize: 12, color: r.tone }}>{t(r.labelKey)}</span>
               </td>
             </tr>
           ))}
@@ -589,14 +603,14 @@ function Consistency() {
         <span style={{ fontSize: 10.5, color: C.textDim }}>{T.WINDOW_START} → {T.WINDOW_END}</span>
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded-sm" style={{ width: 8, height: 8, backgroundColor: C.blue }} />
-          <span style={{ fontSize: 10.5, color: C.textMuted }}>messages</span>
+          <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.messagesLower")}</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded-sm" style={{ width: 8, height: 8, backgroundColor: gold }} />
-          <span style={{ fontSize: 10.5, color: C.textMuted }}>calls</span>
+          <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.callsLower")}</span>
         </span>
         <span style={{ fontSize: 10.5, color: C.textDim }}>
-          Burst-heavy = half the sends on one day · Sporadic = active on a third of the window or less
+          {t("cons.sell.burstNote")}
         </span>
       </div>
     </div>
@@ -607,6 +621,7 @@ function Consistency() {
 
 function Insights() {
   const T = useT();
+  const { t } = useLocale();
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 28 }}>
       {T.sellerInsights.map(i => (
@@ -631,30 +646,31 @@ function Insights() {
 
 export default function Sellers({ label }: { label: string }) {
   const T = useT();
+  const { t } = useLocale();
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
-      <Opening question="How is the team doing?" sub={`in ${label}`} aside={<Drill label="Team" />}>
+      <Opening question={t("cons.sell.q1")} sub={t("cons.sell.inLabel", { label })} aside={<Drill label={t("cons.sell.team")} />}>
         <TeamHealth />
       </Opening>
 
-      <Band question="Who is producing what?" sub="click a row for the detail" aside={<Drill label="Call queue" />}>
+      <Band question={t("cons.sell.q2")} sub={t("cons.sell.clickRow")} aside={<Drill label={t("cons.sell.callQueue")} />}>
         <Performance open={open} setOpen={setOpen} />
       </Band>
 
-      <Band question="Compare them">
+      <Band question={t("cons.sell.q3")}>
         <Compare />
       </Band>
 
-      <Band question="Who is on the phone?" sub={`${T.sellerCallsTotal.attempted} real dials`}>
+      <Band question={t("cons.sell.q4")} sub={`${T.sellerCallsTotal.attempted} real dials`}>
         <Calls />
       </Band>
 
-      <Band question="Steady, or in bursts?">
+      <Band question={t("cons.sell.q5")}>
         <Consistency />
       </Band>
 
-      <Band question="Key insights">
+      <Band question={t("cons.sell.q6")}>
         <Insights />
       </Band>
     </>

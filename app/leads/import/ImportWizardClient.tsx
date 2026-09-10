@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import {
   Upload, FileSpreadsheet, Loader2, AlertTriangle, CheckCircle2,
   Lock, ChevronRight, X, Sparkles, Target, Search, EyeOff, Database, Layers, Phone,
@@ -14,9 +15,9 @@ const gold = "var(--brand, #c9a83a)";
 // Canonical lead columns the wizard can map to. Kept in three buckets so
 // the Map step can group them — Person / Company / Org enrichment — and
 // the operator finds the right target faster than scrolling 40 options.
-const CANONICAL_GROUPS: { label: string; targets: string[] }[] = [
+const CANONICAL_GROUPS: { labelKey: string; targets: string[] }[] = [
   {
-    label: "Person",
+    labelKey: "imp.grp.person",
     targets: [
       "primary_first_name", "primary_last_name", "primary_personal_email", "primary_work_email",
       "primary_phone", "primary_secondary_phone", "primary_linkedin_url", "primary_instagram",
@@ -25,7 +26,7 @@ const CANONICAL_GROUPS: { label: string; targets: string[] }[] = [
     ],
   },
   {
-    label: "Company",
+    labelKey: "imp.grp.company",
     targets: [
       "company_name", "company_website", "company_address_1", "company_address_2", "company_cp",
       "company_city", "company_state", "company_country", "company_phone", "company_email",
@@ -34,7 +35,7 @@ const CANONICAL_GROUPS: { label: string; targets: string[] }[] = [
     ],
   },
   {
-    label: "Org enrichment",
+    labelKey: "imp.grp.orgEnrich",
     targets: [
       "keywords", "organization_tagline", "organization_description", "organization_short_desc",
       "organization_logo_url", "organization_technologies", "similar_organization",
@@ -119,6 +120,7 @@ type ImportResult = {
 };
 
 export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [step, setStep] = useState<Step>("icp");
 
@@ -175,7 +177,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
       fd.append("file", f);
       const res = await fetch("/api/leads/import/parse", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Parse failed");
+      if (!res.ok) throw new Error(data.error ?? t("imp.err.parse"));
       setParsed(data);
 
       setMappingLoading(true);
@@ -189,7 +191,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
         }),
       });
       const mapData: MappingResult = await mapRes.json();
-      if (!mapRes.ok) throw new Error((mapData as { error?: string }).error ?? "Mapping failed");
+      if (!mapRes.ok) throw new Error((mapData as { error?: string }).error ?? t("imp.err.mapping"));
       const aiBySource = new Map(mapData.mappings.map(m => [m.source, m.target]));
       const completeMapping: Mapping[] = data.headers.map((h: string) => ({
         source: h,
@@ -208,7 +210,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
       setSourceTool(mapData.source_tool);
       setStep("map");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(err instanceof Error ? err.message : t("imp.err.upload"));
     } finally {
       setParsing(false);
       setMappingLoading(false);
@@ -262,11 +264,11 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Preview failed");
+      if (!res.ok) throw new Error(data.error ?? t("imp.err.preview"));
       setDryRun(data);
       setStep("confirm");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Preview failed");
+      setError(err instanceof Error ? err.message : t("imp.err.preview"));
     } finally {
       setDryRunLoading(false);
     }
@@ -289,7 +291,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Import failed");
+      if (!res.ok) throw new Error(data.error ?? t("imp.err.import"));
       setResult({
         inserted: data.inserted ?? 0,
         updated: data.updated ?? 0,
@@ -300,7 +302,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
       });
       setStep("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
+      setError(err instanceof Error ? err.message : t("imp.err.import"));
     } finally {
       setCommitting(false);
     }
@@ -332,7 +334,7 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
         <div className="rounded-xl border px-4 py-3 mb-4 flex items-start gap-3" style={{ borderColor: `${C.red}40`, backgroundColor: C.redLight }}>
           <AlertTriangle size={16} style={{ color: C.red, flexShrink: 0, marginTop: 2 }} />
           <div>
-            <p className="text-xs font-bold" style={{ color: C.red }}>Something went wrong</p>
+            <p className="text-xs font-bold" style={{ color: C.red }}>{t("imp.somethingWrong")}</p>
             <p className="text-xs" style={{ color: C.red }}>{error}</p>
           </div>
           <button onClick={() => setError(null)} className="ml-auto"><X size={14} style={{ color: C.red }} /></button>
@@ -405,12 +407,13 @@ export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean
 // ── steps ─────────────────────────────────────────────────────────────────
 
 function Stepper({ step }: { step: Step }) {
+  const { t } = useLocale();
   const steps: { key: Step; label: string }[] = [
-    { key: "icp",     label: "ICP" },
-    { key: "upload",  label: "Upload" },
-    { key: "map",     label: "Map columns" },
-    { key: "confirm", label: "Confirm" },
-    { key: "done",    label: "Done" },
+    { key: "icp",     label: t("imp.step.icp") },
+    { key: "upload",  label: t("imp.step.upload") },
+    { key: "map",     label: t("imp.step.map") },
+    { key: "confirm", label: t("imp.step.confirm") },
+    { key: "done",    label: t("imp.step.done") },
   ];
   const idx = steps.findIndex(s => s.key === step);
   return (
@@ -451,6 +454,7 @@ function IcpPickStep({
   setSelectedIcpId: (id: string) => void;
   onContinue: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-2xl border p-6" style={{ borderColor: C.border, backgroundColor: C.card }}>
       <div className="flex items-center gap-3 mb-4">
@@ -459,7 +463,7 @@ function IcpPickStep({
           <Target size={16} />
         </span>
         <div>
-          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>Pick the ICP these leads belong to</p>
+          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("imp.pickIcp")}</p>
           <p className="text-[11px]" style={{ color: C.textMuted }}>
             Every lead lands attached to one ICP so a campaign can pull from it (one-ICP-per-campaign LAW).
           </p>
@@ -468,11 +472,11 @@ function IcpPickStep({
 
       {loading ? (
         <div className="py-12 flex items-center justify-center gap-2 text-xs" style={{ color: C.textMuted }}>
-          <Loader2 size={14} className="animate-spin" /> Loading ICPs…
+          <Loader2 size={14} className="animate-spin" /> {t("imp.loadingIcps")}
         </div>
       ) : !icps || icps.length === 0 ? (
         <div className="rounded-xl border p-6 text-center" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-          <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>No ICPs in this tenant yet</p>
+          <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>{t("imp.noIcps")}</p>
           <p className="text-xs mb-4" style={{ color: C.textMuted }}>
             Create one first so the imported leads have somewhere to live.
           </p>
@@ -555,6 +559,7 @@ function UploadStep({
   icp: IcpRow;
   onBack: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="space-y-4">
       <IcpChip icp={icp} onChange={onBack} />
@@ -581,10 +586,10 @@ function UploadStep({
             {parsing ? <Loader2 size={22} className="animate-spin" style={{ color: "#fff" }} /> : <Upload size={22} style={{ color: "#fff" }} />}
           </div>
           <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>
-            {mapping ? "Mapping columns with AI…" : parsing ? `Reading ${file?.name ?? "file"}…` : "Drop your file here or click to browse"}
+            {mapping ? t("imp.mappingAi") : parsing ? t("imp.reading", { file: file?.name ?? "file" }) : t("imp.dropFile")}
           </p>
           <p className="text-xs" style={{ color: C.textMuted }}>
-            CSV, XLSX, XLS, TSV — up to 10MB · 50,000 rows
+            {t("imp.fileLimits")}
           </p>
         </label>
 
@@ -594,12 +599,12 @@ function UploadStep({
             : <AlertTriangle size={16} style={{ color: C.orange, flexShrink: 0, marginTop: 2 }} />}
           <div>
             <p className="text-xs font-bold" style={{ color: willEncrypt ? C.green : C.orange }}>
-              {willEncrypt ? "Encrypted at rest" : "SWL admin import (plain)"}
+              {willEncrypt ? t("imp.encAtRest") : t("imp.adminPlain")}
             </p>
             <p className="text-[11px] leading-relaxed" style={{ color: C.textBody }}>
               {willEncrypt
-                ? "Your leads will be encrypted with AES-256. SWL operators won't see them in admin views. Every read is logged."
-                : "Leads imported through this admin path are stored unencrypted. Use the tenant flow for client-private imports."}
+                ? t("imp.encDesc")
+                : t("imp.plainDesc")}
             </p>
           </div>
         </div>
@@ -626,6 +631,7 @@ function MapStep({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [activeBucket, setActiveBucket] = useState<"all" | "canonical" | "enrichment" | "skipped">("all");
 
@@ -662,13 +668,13 @@ function MapStep({
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold truncate" style={{ color: C.textPrimary }}>{parsed.fileName}</p>
           <p className="text-[11px]" style={{ color: C.textMuted }}>
-            {parsed.totalRows.toLocaleString()} rows · {parsed.headers.length} columns
-            {sourceTool && <> · detected as <span style={{ color: gold, fontWeight: 600 }}>{sourceTool}</span></>}
+            {t("imp.rowsCols", { rows: parsed.totalRows.toLocaleString(), cols: parsed.headers.length })}
+            {sourceTool && <> {t("imp.detectedAs")} <span style={{ color: gold, fontWeight: 600 }}>{sourceTool}</span></>}
           </p>
         </div>
         {mappingLoading && (
           <div className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: C.blue }}>
-            <Sparkles size={12} className="animate-pulse" /> Mapping with AI…
+            <Sparkles size={12} className="animate-pulse" /> {t("imp.mappingWithAi")}
           </div>
         )}
       </div>
@@ -687,28 +693,28 @@ function MapStep({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <BucketTile
           icon={Database}
-          label="Canonical fields"
+          label={t("imp.canonicalFields")}
           count={buckets.canonical.length}
           color={C.green}
-          description="Mapped 1:1 to CRM columns — searchable, filterable, used by AI generator."
+          description={t("imp.canonicalDesc")}
           active={activeBucket === "canonical"}
           onClick={() => setActiveBucket(activeBucket === "canonical" ? "all" : "canonical")}
         />
         <BucketTile
           icon={Layers}
-          label="Enrichment"
+          label={t("imp.enrichment")}
           count={buckets.enrichment.length}
           color={C.blue}
-          description="Custom columns saved in the lead's enrichment JSONB — visible on the lead detail."
+          description={t("imp.enrichDesc")}
           active={activeBucket === "enrichment"}
           onClick={() => setActiveBucket(activeBucket === "enrichment" ? "all" : "enrichment")}
         />
         <BucketTile
           icon={EyeOff}
-          label="Skipped"
+          label={t("imp.skipped")}
           count={buckets.skipped.length}
           color={C.textMuted}
-          description="Won't be imported. Use for tracking columns (Email Open, Stage…) or empty ones."
+          description={t("imp.skipDesc")}
           active={activeBucket === "skipped"}
           onClick={() => setActiveBucket(activeBucket === "skipped" ? "all" : "skipped")}
         />
@@ -721,9 +727,9 @@ function MapStep({
           <p className="text-[11.5px] leading-snug" style={{ color: C.textBody }}>
             <strong style={{ color: C.textPrimary }}>{phoneCols} phone columns detected.</strong>{" "}
             No need to pick one — on import we keep the best number (mobile &gt; direct &gt; other) as the
-            <span style={{ color: gold, fontWeight: 600 }}> primary phone</span>, the next as the
-            <span style={{ color: gold, fontWeight: 600 }}> secondary</span>, company lines as
-            <span style={{ color: gold, fontWeight: 600 }}> company phone</span>, and preserve any extras in enrichment. Nothing is dropped.
+            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.primaryPhone")}</span>, the next as the
+            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.secondary")}</span>, company lines as
+            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.companyPhone")}</span>, and preserve any extras in enrichment. Nothing is dropped.
           </p>
         </div>
       )}
@@ -737,13 +743,13 @@ function MapStep({
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by source header or target field…"
+              placeholder={t("imp.searchHeader")}
               className="w-full pl-7 pr-3 py-1.5 text-[12px] rounded-lg border outline-none"
               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
             />
           </div>
           <p className="text-[10.5px]" style={{ color: C.textMuted }}>
-            Showing {visible.length} of {mapping.length} · click <strong>Maps to</strong> to override.
+            Showing {visible.length} of {mapping.length} · click <strong>{t("imp.mapsTo")}</strong> to override.
           </p>
         </div>
 
@@ -752,9 +758,9 @@ function MapStep({
             <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg }}>
               <tr style={{ color: C.textMuted }}>
                 <th className="text-left px-4 py-2 font-semibold w-8" />
-                <th className="text-left px-4 py-2 font-semibold">Your column</th>
-                <th className="text-left px-4 py-2 font-semibold">Sample value</th>
-                <th className="text-left px-4 py-2 font-semibold">Maps to</th>
+                <th className="text-left px-4 py-2 font-semibold">{t("imp.yourColumn")}</th>
+                <th className="text-left px-4 py-2 font-semibold">{t("imp.sampleValue")}</th>
+                <th className="text-left px-4 py-2 font-semibold">{t("imp.mapsTo")}</th>
               </tr>
             </thead>
             <tbody>
@@ -776,12 +782,12 @@ function MapStep({
                     <td className="px-4 py-2.5 font-semibold align-top" style={{ color: C.textPrimary }}>
                       {row.source}
                       <p className="text-[9.5px] font-bold uppercase tracking-wider mt-0.5" style={{ color: accent }}>
-                        {bucket === "canonical" ? "Canonical" : bucket === "enrichment" ? "Enrichment" : "Skipped"}
+                        {bucket === "canonical" ? t("imp.canonical") : bucket === "enrichment" ? t("imp.enrichment") : t("imp.skipped")}
                       </p>
                     </td>
                     <td className="px-4 py-2.5 align-top">
                       <span className="block truncate max-w-[260px] text-[11.5px]" style={{ color: C.textMuted }} title={sample}>
-                        {sample ? sample.slice(0, 110) : <em style={{ color: C.textDim }}>(empty)</em>}
+                        {sample ? sample.slice(0, 110) : <em style={{ color: C.textDim }}>{t("imp.empty")}</em>}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 align-top">
@@ -815,7 +821,7 @@ function MapStep({
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1A2E" }}
         >
           {dryRunLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-          {dryRunLoading ? "Building preview…" : "Continue → Preview"}
+          {dryRunLoading ? t("imp.building") : t("imp.continuePreview")}
         </button>
       </div>
     </div>
@@ -869,6 +875,7 @@ function TargetSelect({
   sourceHeader: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useLocale();
   const isExtra = value.startsWith("_extra:");
   // A canonical target the AI/heuristic emitted but that isn't in the UI groups
   // (the mapper knows ~60 columns, the groups list ~40) would make the native
@@ -887,17 +894,17 @@ function TargetSelect({
       style={{ backgroundColor: C.bg, color: C.textPrimary, border: `1px solid ${C.border}` }}
     >
       <option value="_skip">— Skip (don&apos;t import) —</option>
-      <option value="_extra">Custom field → enrichment</option>
+      <option value="_extra">{t("imp.customEnrichment")}</option>
       {isOrphan && <option value={value}>{value}</option>}
       <option disabled>──────────</option>
       {CANONICAL_GROUPS.map(group => (
-        <optgroup key={group.label} label={group.label}>
+        <optgroup key={group.labelKey} label={t(group.labelKey)}>
           {group.targets.map(t => <option key={t} value={t}>{t}</option>)}
         </optgroup>
       ))}
       <option disabled>──────────</option>
-      <option value="_fullname">Full name (split into first + last)</option>
-      <option value="_location">Location (split into city / state / country)</option>
+      <option value="_fullname">{t("imp.fullNameSplit")}</option>
+      <option value="_location">{t("imp.locationSplit")}</option>
     </select>
   );
 }
@@ -918,6 +925,7 @@ function ConfirmStep({
   onBack: () => void;
   onCommit: () => void;
 }) {
+  const { t } = useLocale();
   const dupRows = dryRun.outcomes.filter(o => o.status === "skipped_duplicate");
   const noDataRows = dryRun.outcomes.filter(o => o.status === "skipped_no_data");
 
@@ -933,10 +941,10 @@ function ConfirmStep({
           Import preview · {parsed.totalRows.toLocaleString()} rows
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <PreviewTile label="Will insert"        value={dryRun.counts.insert}            color={C.green}    icon={CheckCircle2} accent />
-          <PreviewTile label="Will update"        value={dryRun.counts.update}            color={C.blue}     icon={Database} />
-          <PreviewTile label="Duplicates skipped" value={dryRun.counts.skippedDuplicate}  color="#D97706"    icon={AlertTriangle} />
-          <PreviewTile label="No-data skipped"    value={dryRun.counts.skippedNoData}     color={C.textMuted} icon={EyeOff} />
+          <PreviewTile label={t("imp.willInsert")}        value={dryRun.counts.insert}            color={C.green}    icon={CheckCircle2} accent />
+          <PreviewTile label={t("imp.willUpdate")}        value={dryRun.counts.update}            color={C.blue}     icon={Database} />
+          <PreviewTile label={t("imp.dupesSkipped")} value={dryRun.counts.skippedDuplicate}  color="#D97706"    icon={AlertTriangle} />
+          <PreviewTile label={t("imp.noDataSkipped")}    value={dryRun.counts.skippedNoData}     color={C.textMuted} icon={EyeOff} />
         </div>
       </div>
 
@@ -962,7 +970,7 @@ function ConfirmStep({
         <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.card }}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Encrypt these leads at rest?</p>
+              <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("imp.encryptQuestion")}</p>
               <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
                 Default: <strong>off</strong> — leads stored as <code style={{ fontFamily: "monospace" }}>source=swl</code> plaintext.
                 Turn on only when uploading on behalf of a client that asked for at-rest encryption.
@@ -991,19 +999,19 @@ function ConfirmStep({
           : <AlertTriangle size={16} style={{ color: C.orange, flexShrink: 0, marginTop: 2 }} />}
         <div>
           <p className="text-xs font-bold mb-1" style={{ color: willEncrypt ? C.green : C.orange }}>
-            {willEncrypt ? "Will be encrypted at rest" : "Will be stored unencrypted"}
+            {willEncrypt ? t("imp.willEncrypt") : t("imp.willPlain")}
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: C.textBody }}>
             {willEncrypt
-              ? "These leads will be marked source=client and stored encrypted. SWL admin views will see redacted PII."
-              : "These leads will be marked source=swl and stored in plain text."}
+              ? t("imp.willEncDesc")
+              : t("imp.willPlainDesc")}
           </p>
         </div>
       </div>
 
       <div className="flex items-center justify-end gap-3">
         <button onClick={onBack} disabled={committing} className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" style={{ backgroundColor: C.surface, color: C.textBody }}>
-          Back to mapping
+          {t("imp.backToMapping")}
         </button>
         <button
           onClick={onCommit}
@@ -1013,8 +1021,8 @@ function ConfirmStep({
         >
           {committing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
           {committing
-            ? "Importing…"
-            : `Import ${(dryRun.counts.insert + dryRun.counts.update).toLocaleString()} leads`}
+            ? t("imp.importing")
+            : t("imp.importN", { n: (dryRun.counts.insert + dryRun.counts.update).toLocaleString() })}
         </button>
       </div>
     </div>
@@ -1022,17 +1030,18 @@ function ConfirmStep({
 }
 
 function ReachabilityPanel({ reach }: { reach: Reach }) {
+  const { t } = useLocale();
   const pct = (n: number) => (reach.total ? Math.round((n / reach.total) * 100) : 0);
   const chan = [
-    { label: "Email",    value: reach.email,    color: C.blue,  bad: reach.badEmail, badLabel: "malformed" },
-    { label: "Phone",    value: reach.phone,    color: C.green, bad: reach.badPhone, badLabel: "invalid" },
-    { label: "LinkedIn", value: reach.linkedin, color: "#0A66C2", bad: 0, badLabel: "" },
+    { label: t("chan.email"), value: reach.email,    color: C.blue,  bad: reach.badEmail, badLabel: t("imp.malformed") },
+    { label: t("imp.phone"),  value: reach.phone,    color: C.green, bad: reach.badPhone, badLabel: t("imp.invalid") },
+    { label: t("chan.linkedin"), value: reach.linkedin, color: "#0A66C2", bad: 0, badLabel: "" },
   ];
   return (
     <div className="rounded-2xl border p-5" style={{ borderColor: C.border, backgroundColor: C.card }}>
-      <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Channel reachability</p>
+      <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("imp.reachability")}</p>
       <p className="text-[11px] mb-3" style={{ color: C.textMuted }}>
-        Of the {reach.total.toLocaleString()} new leads — how many carry a way to reach them on each channel.
+        {t("imp.reachOf", { n: reach.total.toLocaleString() })}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {chan.map(c => (
@@ -1093,19 +1102,20 @@ function PreviewTile({
 }
 
 function DupSection({ title, rows, color }: { title: string; rows: DryRunOutcome[]; color: string }) {
+  const { t } = useLocale();
   return (
     <details className="rounded-xl border" style={{ borderColor: `color-mix(in srgb, ${color} 28%, ${C.border})`, backgroundColor: C.card }}>
       <summary className="px-4 py-3 cursor-pointer text-xs font-semibold flex items-center gap-2" style={{ color }}>
-        <AlertTriangle size={12} /> {title} <span style={{ color: C.textMuted, fontWeight: 400 }}>· click to view</span>
+        <AlertTriangle size={12} /> {title} <span style={{ color: C.textMuted, fontWeight: 400 }}>{t("imp.clickToView")}</span>
       </summary>
       <div className="max-h-72 overflow-y-auto border-t" style={{ borderColor: C.border }}>
         <table className="w-full text-xs" style={{ minWidth: 600 }}>
           <thead style={{ position: "sticky", top: 0, backgroundColor: C.surface }}>
             <tr>
-              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 60 }}>Row</th>
-              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>Lead</th>
-              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>Company</th>
-              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>Reason</th>
+              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 60 }}>{t("imp.row")}</th>
+              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>{t("imp.lead")}</th>
+              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>{t("imp.company")}</th>
+              <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>{t("imp.reason")}</th>
             </tr>
           </thead>
           <tbody>
@@ -1138,6 +1148,7 @@ function DoneStep({
   onAnother: () => void;
   onView: () => void;
 }) {
+  const { t } = useLocale();
   const total = result.inserted + result.updated + result.skipped + result.errors;
   const hasIssues = result.errors > 0 || result.skipped > 0;
   return (
@@ -1160,10 +1171,10 @@ function DoneStep({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <BreakdownTile label="Inserted" value={result.inserted} color={C.green} />
-        <BreakdownTile label="Updated" value={result.updated} color={C.blue} />
-        <BreakdownTile label="Skipped" value={result.skipped} color="#D97706" />
-        <BreakdownTile label="Errors" value={result.errors} color={C.red} />
+        <BreakdownTile label={t("imp.inserted")} value={result.inserted} color={C.green} />
+        <BreakdownTile label={t("imp.updated")} value={result.updated} color={C.blue} />
+        <BreakdownTile label={t("imp.skipped")} value={result.skipped} color="#D97706" />
+        <BreakdownTile label={t("imp.errors")} value={result.errors} color={C.red} />
       </div>
 
       {hasIssues && result.rowResults && result.rowResults.length > 0 && (
@@ -1175,9 +1186,9 @@ function DoneStep({
             <table className="w-full text-xs">
               <thead style={{ position: "sticky", top: 0, backgroundColor: C.surface }}>
                 <tr>
-                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 80 }}>Row</th>
-                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 140 }}>Status</th>
-                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>Reason</th>
+                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 80 }}>{t("imp.row")}</th>
+                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 140 }}>{t("imp.status")}</th>
+                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>{t("imp.reason")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1186,11 +1197,11 @@ function DoneStep({
                   .slice(0, 200)
                   .map(r => {
                     const meta = {
-                      "updated": { label: "Updated", color: C.blue },
-                      "skipped_duplicate": { label: "Duplicate", color: "#D97706" },
-                      "skipped_no_data": { label: "No data", color: "#6B7280" },
-                      "error": { label: "Error", color: C.red },
-                      "inserted": { label: "Inserted", color: C.green },
+                      "updated": { label: t("imp.updated"), color: C.blue },
+                      "skipped_duplicate": { label: t("imp.duplicate"), color: "#D97706" },
+                      "skipped_no_data": { label: t("imp.noData"), color: "#6B7280" },
+                      "error": { label: t("imp.error"), color: C.red },
+                      "inserted": { label: t("imp.inserted"), color: C.green },
                     }[r.status];
                     return (
                       <tr key={r.rowIndex} style={{ borderTop: `1px solid ${C.border}` }}>
@@ -1239,13 +1250,14 @@ function BreakdownTile({ label, value, color }: { label: string; value: number; 
 //    the operator never loses sight of which ICP they're loading into. ──
 
 function IcpChip({ icp, onChange }: { icp: IcpRow; onChange?: () => void }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-xl border px-4 py-2.5 flex items-center gap-3" style={{ borderColor: `color-mix(in srgb, ${gold} 26%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${gold} 4%, ${C.card})` }}>
       <span className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
         <Target size={12} />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: gold }}>Loading into</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: gold }}>{t("imp.loadingInto")}</p>
         <p className="text-[13px] font-bold truncate" style={{ color: C.textPrimary }}>{icp.profile_name}</p>
       </div>
       {onChange && (

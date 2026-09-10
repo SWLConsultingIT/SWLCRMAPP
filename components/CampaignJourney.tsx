@@ -4,6 +4,8 @@ import { useState } from "react";
 import { C } from "@/lib/design";
 import { ChevronDown, ChevronUp, CheckCircle2, Clock, Send, MessageSquare, Pencil, Save, Loader2 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
+import { useLocale } from "@/lib/i18n";
+import { intlTag, type Locale } from "@/lib/i18n-locale";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -64,34 +66,24 @@ function ChannelIcon({ channel, size = 14 }: { channel: string | null; size?: nu
   return <span style={{ fontSize: size }}>💬</span>;
 }
 
-const channelLabels: Record<string, string> = {
-  linkedin: "LinkedIn DM", email: "Email", call: "Phone Call",
-  whatsapp: "WhatsApp", sms: "SMS", instagram: "Instagram DM",
+// Module scope: keys, resolved by whoever renders the step.
+const channelLabelKeys: Record<string, string> = {
+  linkedin: "jrn.ch.linkedin", email: "chan.email", call: "jrn.ch.call",
+  whatsapp: "chan.whatsapp", sms: "chan.sms", instagram: "jrn.ch.instagram",
 };
 
-const classificationStyles: Record<string, { label: string; color: string; bg: string }> = {
-  positive:       { label: "POSITIVE",       color: C.green,  bg: C.greenLight },
-  meeting_intent: { label: "MEETING INTENT", color: C.green,  bg: C.greenLight },
-  needs_info:     { label: "NEEDS INFO",     color: C.blue,   bg: C.blueLight },
-  nurturing:      { label: "NURTURING",      color: gold,     bg: goldLight },
-  not_now:        { label: "NOT NOW",        color: C.orange, bg: C.orangeLight },
-  negative:       { label: "NEGATIVE",       color: C.red,    bg: C.redLight },
-  unsubscribe:    { label: "UNSUBSCRIBE",    color: C.red,    bg: C.redLight },
-  spam:           { label: "SPAM",           color: C.textMuted, bg: C.surface },
-  auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: C.surface },
-};
 
-function formatDate(iso: string | null) {
+function formatDate(iso: string | null, locale: Locale) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString(intlTag(locale), { day: "numeric", month: "short", year: "numeric" });
 }
 
 function statusBadge(status: string | null) {
-  if (status === "active")    return { label: "ACTIVE",    color: C.green,  bg: C.greenLight };
-  if (status === "paused")    return { label: "PAUSED",    color: C.orange, bg: C.orangeLight };
-  if (status === "completed") return { label: "COMPLETED", color: C.blue,   bg: C.blueLight };
-  if (status === "failed")    return { label: "FAILED",    color: C.red,    bg: C.redLight };
-  return { label: "UNKNOWN", color: C.textMuted, bg: C.surface };
+  if (status === "active")    return { labelKey: "jrn.st.active",    color: C.green,  bg: C.greenLight };
+  if (status === "paused")    return { labelKey: "jrn.st.paused",    color: C.orange, bg: C.orangeLight };
+  if (status === "completed") return { labelKey: "jrn.st.completed", color: C.blue,   bg: C.blueLight };
+  if (status === "failed")    return { labelKey: "jrn.st.failed",    color: C.red,    bg: C.redLight };
+  return { labelKey: "jrn.st.unknown", color: C.textMuted, bg: C.surface };
 }
 
 /* ── Single Campaign Block ── */
@@ -105,6 +97,7 @@ function CampaignBlock({
   toggleStep: (k: string) => void;
   defaultOpen: boolean;
 }) {
+  const { t, locale } = useLocale();
   const [open, setOpen] = useState(defaultOpen);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -151,12 +144,12 @@ function CampaignBlock({
             </div>
             <div>
               <p className="text-base font-bold" style={{ color: C.textPrimary }}>
-                {campaign.name ?? "Outreach Campaign"}
+                {campaign.name ?? t("jrn.outreachCampaign")}
               </p>
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                Channel: <span className="font-medium capitalize">{campaign.channel ?? "—"}</span>
+                {t("jrn.channelLabel")} <span className="font-medium capitalize">{campaign.channel ?? "—"}</span>
                 {campaign.sellers?.name && (
-                  <> · Seller: <span className="font-medium">{campaign.sellers.name}</span></>
+                  <> {t("jrn.seller")} <span className="font-medium">{campaign.sellers.name}</span></>
                 )}
               </p>
             </div>
@@ -164,7 +157,7 @@ function CampaignBlock({
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-bold px-2 py-1 rounded"
               style={{ color: st.color, backgroundColor: st.bg }}>
-              {st.label}
+              {t(st.labelKey)}
             </span>
             {open ? <ChevronUp size={16} style={{ color: C.textDim }} /> : <ChevronDown size={16} style={{ color: C.textDim }} />}
           </div>
@@ -172,20 +165,20 @@ function CampaignBlock({
 
         <div className="mt-3 flex items-center gap-6 flex-wrap text-xs" style={{ color: C.textMuted }}>
           {campaign.started_at && (
-            <span>Started: <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.started_at)}</span></span>
+            <span>{t("jrn.started")} <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.started_at, locale)}</span></span>
           )}
           {campaign.next_step_due_at && (
             <span className="flex items-center gap-1">
               <Clock size={11} style={{ color: C.orange }} />
-              Next step: <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at)}</span>
+              {t("jrn.nextStep")} <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at, locale)}</span>
             </span>
           )}
           {campaign.completed_at && (
-            <span>Completed: <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.completed_at)}</span></span>
+            <span>{t("jrn.completed")} <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.completed_at, locale)}</span></span>
           )}
           {steps.length > 0 && (
             <span>
-              {connectionSent && <>Invite sent · </>}
+              {connectionSent && <>{t("jrn.inviteSent")} </>}
               {currentStep > 0 ? currentStep - 1 : 0} of {steps.length} follow-ups completed
             </span>
           )}
@@ -221,11 +214,11 @@ function CampaignBlock({
                             backgroundColor: connectionSent ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.surface,
                             color: connectionSent ? "#22C55E" : "#9CA3AF",
                           }}>
-                          Invite
+                          {t("cons.abbr.invite")}
                         </span>
                         <LinkedInIcon size={13} />
                         <span className="text-sm font-medium" style={{ color: C.textBody }}>
-                          Connection Request
+                          {t("vc.step.cr")}
                         </span>
                       </div>
                       <div className="shrink-0">
@@ -234,7 +227,7 @@ function CampaignBlock({
                             color: connectionSent ? "#22C55E" : "#9CA3AF",
                             backgroundColor: connectionSent ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.surface,
                           }}>
-                          {connectionSent ? "SENT" : (connectionMsg.status ?? "PENDING").toUpperCase()}
+                          {connectionSent ? t("jrn.step.sent") : (connectionMsg.status ?? t("jrn.step.pending")).toUpperCase()}
                         </span>
                       </div>
                     </div>
@@ -268,7 +261,7 @@ function CampaignBlock({
 
                 const stepKey = `${campaign.id}-${stepNum}`;
                 const isExpanded = expandedSteps.has(stepKey);
-                const label = channelLabels[stepChannel] ?? stepChannel;
+                const label = channelLabelKeys[stepChannel] ? t(channelLabelKeys[stepChannel]) : stepChannel;
                 const lineColor = isCompleted ? "#22C55E" : isCurrent ? gold : C.border;
 
                 return (
@@ -320,16 +313,16 @@ function CampaignBlock({
                         </div>
                         <div className="shrink-0">
                           {msg?.status === "sent" && (
-                            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: "#22C55E", backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>SENT</span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: "#22C55E", backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>{t("jrn.step.sent")}</span>
                           )}
                           {isCurrent && msg?.status !== "sent" && (
-                            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: gold, backgroundColor: goldLight }}>CURRENT</span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: gold, backgroundColor: goldLight }}>{t("jrn.step.current")}</span>
                           )}
                           {msg && msg.status !== "sent" && !isCurrent && (
-                            <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ color: C.orange, backgroundColor: C.orangeLight }}>DRAFT</span>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ color: C.orange, backgroundColor: C.orangeLight }}>{t("jrn.step.draft")}</span>
                           )}
                           {!msg && (
-                            <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ color: "#9CA3AF", backgroundColor: C.surface }}>PENDING</span>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ color: "#9CA3AF", backgroundColor: C.surface }}>{t("jrn.step.pending")}</span>
                           )}
                         </div>
                       </div>
@@ -348,11 +341,11 @@ function CampaignBlock({
                         {isCurrent && campaign.next_step_due_at && (
                           <span className="flex items-center gap-1">
                             <Clock size={10} style={{ color: C.orange }} />
-                            Response deadline: <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at)}</span>
+                            {t("jrn.deadline")} <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at, locale)}</span>
                           </span>
                         )}
                         {isPending && !msg && (
-                          <span style={{ color: C.textDim }}>Awaiting previous steps</span>
+                          <span style={{ color: C.textDim }}>{t("jrn.awaitingPrevious")}</span>
                         )}
                       </div>
 
@@ -367,19 +360,19 @@ function CampaignBlock({
                                 className="flex items-center gap-1.5 text-xs font-medium"
                                 style={{ color: C.textMuted }}>
                                 <Send size={10} />
-                                {isSent ? "Message sent" : "Message created"}
+                                {isSent ? t("jrn.messageSent") : t("jrn.messageCreated")}
                                 {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                               </button>
                               {!isSent && isExpanded && !isEditing && (
                                 <button onClick={() => { setEditingId(msg.id); setEditContent(msg.content ?? ""); }}
                                   className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
                                   style={{ color: gold, backgroundColor: goldLight }}>
-                                  <Pencil size={10} /> Edit
+                                  <Pencil size={10} /> {t("acc.edit")}
                                 </button>
                               )}
                               {isSent && isExpanded && (
                                 <span className="text-xs px-2 py-0.5 rounded" style={{ color: C.textDim, backgroundColor: C.surface }}>
-                                  Read-only
+                                  {t("jrn.readOnly")}
                                 </span>
                               )}
                             </div>
@@ -398,12 +391,12 @@ function CampaignBlock({
                                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-white"
                                       style={{ backgroundColor: gold, opacity: saving ? 0.7 : 1 }}>
                                       {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                      {saving ? "Saving…" : "Save"}
+                                      {saving ? t("jrn.saving") : t("jrn.save")}
                                     </button>
                                     <button onClick={() => setEditingId(null)}
                                       className="text-xs font-medium px-3 py-1.5 rounded-lg"
                                       style={{ color: C.textMuted }}>
-                                      Cancel
+                                      {t("acc.cancel")}
                                     </button>
                                   </div>
                                 </div>
@@ -423,7 +416,7 @@ function CampaignBlock({
                         <div className="mt-2.5 px-3.5 py-3 rounded-lg border border-dashed flex items-center gap-2"
                           style={{ borderColor: gold, backgroundColor: goldLight }}>
                           <Clock size={13} style={{ color: gold }} />
-                          <span className="text-xs font-medium" style={{ color: gold }}>Message pending — waiting to be sent</span>
+                          <span className="text-xs font-medium" style={{ color: gold }}>{t("jrn.messagePending")}</span>
                         </div>
                       )}
                     </div>
@@ -475,7 +468,7 @@ function CampaignBlock({
           ) : (
             /* No steps and no messages */
             <div className="px-5 py-6 text-center">
-              <p className="text-xs" style={{ color: C.textDim }}>No sequence steps or messages defined for this campaign yet.</p>
+              <p className="text-xs" style={{ color: C.textDim }}>{t("jrn.noSteps")}</p>
             </div>
           )}
         </div>
@@ -492,6 +485,7 @@ export default function CampaignJourney({
   messages: Message[];
   replies: Reply[];
 }) {
+  const { t } = useLocale();
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   const toggleStep = (key: string) => {
@@ -507,8 +501,8 @@ export default function CampaignJourney({
     return (
       <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="text-3xl mb-3">🚀</div>
-        <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>No campaign assigned</p>
-        <p className="text-xs" style={{ color: C.textDim }}>This contact hasn't been assigned to a campaign yet.</p>
+        <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>{t("jrn.noCampaign")}</p>
+        <p className="text-xs" style={{ color: C.textDim }}>{t("jrn.noCampaignDesc")}</p>
       </div>
     );
   }

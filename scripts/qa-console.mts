@@ -27,7 +27,10 @@ const src = await loadConsoleSource(BIO);
 const view = (f: Partial<ConsoleFilters>) => {
   const filters = { from: day(now - 29 * 864e5), to: day(now), bioId: BIO, preset: "30 days", ...f } as ConsoleFilters;
   const ix = buildIndex(src, filters);
-  return { D: buildOverview(ix, filters), T: buildTabs(ix), ix };
+  // This script checks shape and arithmetic, not copy, so the translator is
+  // the identity: a key echoes itself.
+  const t = (key: string) => key;
+  return { D: buildOverview(ix, filters, t), T: buildTabs(ix, t), ix };
 };
 
 const CAMP = "Odoo Implementation — Argentina - Multicanal";

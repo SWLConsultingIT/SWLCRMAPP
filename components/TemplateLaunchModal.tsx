@@ -6,6 +6,7 @@ import {
   X, Plus, Trash2, Loader2, Search, Users, Rocket, AlertCircle,
 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 const ACCENT = gold;
@@ -42,6 +43,7 @@ export default function TemplateLaunchModal({
   icpProfileId: string | null;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
 
   // Data
@@ -262,14 +264,14 @@ export default function TemplateLaunchModal({
                 <button onClick={addSellerQuota}
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1"
                   style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                  <Plus size={11} /> Add seller
+                  <Plus size={11} /> {t("launch.addSeller")}
                 </button>
               )}
             </div>
             <div className="space-y-2">
               {sellerQuotas.length === 0 && (
                 <p className="text-xs text-center py-3" style={{ color: C.textDim }}>
-                  Click <b>Add seller</b> to start.
+                  Click <b>{t("launch.addSeller")}</b> to start.
                 </p>
               )}
               {sellerQuotas.map((q, idx) => {
@@ -294,7 +296,7 @@ export default function TemplateLaunchModal({
                       onChange={e => updateSellerQuota(idx, { quota: Math.max(0, parseInt(e.target.value || "0", 10)) })}
                       className="w-16 text-xs rounded border px-2 py-1 outline-none tabular-nums text-center"
                       style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }} />
-                    <span className="text-[10px]" style={{ color: C.textMuted }}>leads max</span>
+                    <span className="text-[10px]" style={{ color: C.textMuted }}>{t("launch.leadsMax")}</span>
                     {sellerObj?.linkedin_daily_limit && (
                       <span className="text-[10px]" style={{ color: C.textDim }} title="Seller's LinkedIn daily cap">
                         · cap {sellerObj.linkedin_daily_limit}/d
@@ -322,7 +324,7 @@ export default function TemplateLaunchModal({
           <div className="px-5 py-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
-                <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Pick leads</h3>
+                <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("launch.pickLeads")}</h3>
                 <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
                   Scoped to this template's ICP. {leads ? `${leads.length} available.` : ""}
                 </p>
@@ -334,7 +336,7 @@ export default function TemplateLaunchModal({
                     backgroundColor: statusFilter === "new" ? accentSoft(15) : C.bg,
                     borderColor: statusFilter === "new" ? accentSoft(40) : C.border,
                     color: statusFilter === "new" ? ACCENT : C.textBody,
-                  }}>New only</button>
+                  }}>{t("launch.newOnly")}</button>
                 <button onClick={() => setStatusFilter("all")}
                   className="text-[10px] font-semibold px-2 py-1 rounded-md border"
                   style={{
@@ -349,7 +351,7 @@ export default function TemplateLaunchModal({
               style={{ borderColor: C.border, backgroundColor: C.bg }}>
               <Search size={12} style={{ color: C.textDim }} />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search by name, company, title…"
+                placeholder={t("launch.search")}
                 className="bg-transparent text-sm outline-none flex-1"
                 style={{ color: C.textPrimary }} />
               {search && <button onClick={() => setSearch("")}><X size={11} style={{ color: C.textDim }} /></button>}
@@ -378,13 +380,13 @@ export default function TemplateLaunchModal({
             {loading ? (
               <div className="py-10 text-center" style={{ color: C.textMuted }}>
                 <Loader2 size={16} className="animate-spin mx-auto mb-2" />
-                <p className="text-xs">Loading leads…</p>
+                <p className="text-xs">{t("launch.loadingLeads")}</p>
               </div>
             ) : filteredLeads.length === 0 ? (
               <div className="py-10 text-center" style={{ color: C.textDim }}>
-                <p className="text-sm">No leads match.</p>
+                <p className="text-sm">{t("launch.noLeads")}</p>
                 {statusFilter === "new" && (
-                  <p className="text-[11px] mt-1">Try toggling to <b>All</b> if you want to include contacted leads too.</p>
+                  <p className="text-[11px] mt-1">{t("launch.tryToggling")} <b>All</b> {t("launch.tryTogglingEnd")}</p>
                 )}
               </div>
             ) : (
@@ -451,7 +453,7 @@ export default function TemplateLaunchModal({
               <p className="text-[10px]" style={{ color: C.textMuted }}>
                 {sellerQuotas.length} {sellerQuotas.length === 1 ? "seller" : "sellers"} · {totalQuota} quota
                 {selectedCount > totalQuota && totalQuota > 0 && (
-                  <span style={{ color: "#D97706" }}> · overflow round-robins past quotas</span>
+                  <span style={{ color: "#D97706" }}> {t("launch.overflowNote")}</span>
                 )}
               </p>
             </div>

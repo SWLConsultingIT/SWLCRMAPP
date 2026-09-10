@@ -5,10 +5,12 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { TrendingUp, X } from "lucide-react";
 import Link from "next/link";
+import { useLocale } from "@/lib/i18n";
 
 type NewReply = { id: string; lead_id: string; name: string; company: string };
 
 export default function PositiveReplyBanner() {
+  const { t } = useLocale();
   const [toasts, setToasts] = useState<NewReply[]>([]);
 
   useEffect(() => {
@@ -51,22 +53,22 @@ export default function PositiveReplyBanner() {
 
   return (
     <div className="fixed bottom-6 right-6 space-y-2 z-50">
-      {toasts.map(t => (
-        <div key={t.id} className="toast-in flex items-start gap-3 rounded-xl border px-4 py-3 shadow-2xl max-w-72"
+      {toasts.map(reply => (
+        <div key={reply.id} className="toast-in flex items-start gap-3 rounded-xl border px-4 py-3 shadow-2xl max-w-72"
           style={{ backgroundColor: C.card, borderColor: `${C.green}30`, boxShadow: `0 0 24px ${C.greenGlow}` }}>
           <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
             style={{ backgroundColor: C.greenGlow }}>
             <TrendingUp size={15} style={{ color: C.green }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold" style={{ color: C.green }}>¡Respuesta positiva!</p>
-            <Link href={`/leads/${t.lead_id}`} onClick={() => dismiss(t.id)}
+            <p className="text-xs font-semibold" style={{ color: C.green }}>{t("banner.positiveReply")}</p>
+            <Link href={`/leads/${reply.lead_id}`} onClick={() => dismiss(reply.id)}
               className="text-sm font-medium mt-0.5 block hover:underline" style={{ color: C.textPrimary }}>
               {t.name || "Lead"}
             </Link>
-            {t.company && <p className="text-xs" style={{ color: C.textMuted }}>{t.company}</p>}
+            {reply.company && <p className="text-xs" style={{ color: C.textMuted }}>{reply.company}</p>}
           </div>
-          <button onClick={() => dismiss(t.id)} className="shrink-0 mt-0.5" style={{ color: C.textMuted }}>
+          <button onClick={() => dismiss(reply.id)} className="shrink-0 mt-0.5" style={{ color: C.textMuted }}>
             <X size={13} />
           </button>
         </div>

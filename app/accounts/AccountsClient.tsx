@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import EmailPoolManager from "@/components/EmailPoolManager";
 import AircallPoolManager from "@/components/AircallPoolManager";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -67,18 +68,21 @@ function usageColor(pct: number): string {
   return C.green;
 }
 
-function usageStatus(pct: number): { label: string; color: string; bg: string } {
-  if (pct >= 100) return { label: "Limited", color: C.red, bg: C.redLight };
-  if (pct >= 80) return { label: "Almost Full", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
-  return { label: "Available", color: C.green, bg: C.greenLight };
+// A key, not a label: this is module scope, with no translator in hand.
+function usageStatus(pct: number): { labelKey: string; color: string; bg: string } {
+  if (pct >= 100) return { labelKey: "acc.cap.limited", color: C.red, bg: C.redLight };
+  if (pct >= 80) return { labelKey: "acc.cap.almostFull", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
+  return { labelKey: "acc.cap.available", color: C.green, bg: C.greenLight };
 }
 
 const TG_BLUE = "#229ED9";
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
+// Brand names stay as they are; only "Call" is a common noun, so it goes
+// through the dictionary like every other one.
+const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string; labelKey?: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
   email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+  call:     { icon: Phone,  color: "#F97316", label: "Call", labelKey: "inbox.channel.call" },
   telegram: { icon: Send,   color: TG_BLUE,   label: "Telegram" },
 };
 
@@ -128,6 +132,7 @@ function AddAccountModal({
   currentBioId: string | null;
   existingSeller?: SellerCard;
 }) {
+  const { t } = useLocale();
   // Reconnect flow: skip channel picker, prefill name/limit from the existing
   // seller row, and pass its id back to the API so it reuses the row instead
   // of creating a duplicate.
@@ -209,8 +214,8 @@ function AddAccountModal({
             {step === "channel" ? "Add Account"
               : step === "connecting" ? "Connecting LinkedIn"
               : step === "connected" ? "Connected"
-              : step === "share_existing" ? "Share existing seller"
-              : step === "pick_unipile" ? "Link existing Unipile account"
+              : step === "share_existing" ? t("acc.add.share")
+              : step === "pick_unipile" ? t("acc.add.link")
               : existingSeller ? "Reconnect LinkedIn" : "Add LinkedIn Seller"}
           </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
@@ -224,8 +229,8 @@ function AddAccountModal({
             {[
               {
                 key: "linkedin" as const,
-                label: "LinkedIn seller",
-                desc: "Add a new seller and connect their LinkedIn via Unipile.",
+                label: t("acc.add.seller"),
+                desc: t("acc.add.sellerDesc"),
                 icon: Share2,
                 color: "#0A66C2",
                 onClick: () => setStep("form"),
@@ -238,16 +243,16 @@ function AddAccountModal({
               ...(isAdmin && currentBioId ? [
                 {
                   key: "share_existing" as const,
-                  label: "Share existing seller",
-                  desc: "Reuse a seller already connected in another tenant — no LinkedIn re-auth.",
+                  label: t("acc.add.share"),
+                  desc: t("acc.add.shareDesc"),
                   icon: Link2,
                   color: "#16A34A",
                   onClick: () => setStep("share_existing"),
                 },
                 {
                   key: "pick_unipile" as const,
-                  label: "Link existing Unipile account",
-                  desc: "Attach a LinkedIn account that's already connected on Unipile but not yet wired to any seller.",
+                  label: t("acc.add.link"),
+                  desc: t("acc.add.linkDesc"),
                   icon: Share2,
                   color: "#0A66C2",
                   onClick: () => setStep("pick_unipile"),
@@ -259,16 +264,16 @@ function AddAccountModal({
               ...(isAdmin ? [
                 {
                   key: "email" as const,
-                  label: "Email inbox",
-                  desc: "Claim Instantly inboxes into your tenant's email pool.",
+                  label: t("acc.add.emailInbox"),
+                  desc: t("acc.add.emailDesc"),
                   icon: Mail,
                   color: "#7C3AED",
                   onClick: () => { onClose(); onPickEmail(); },
                 },
                 {
                   key: "calls" as const,
-                  label: "Aircall number",
-                  desc: "Claim an Aircall line into your tenant's calls pool.",
+                  label: t("acc.add.aircall"),
+                  desc: t("acc.add.aircallDesc"),
                   icon: Phone,
                   color: "#F97316",
                   onClick: () => { onClose(); onPickCalls(); },
@@ -304,18 +309,18 @@ function AddAccountModal({
           <>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textMuted }}>Seller Name *</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Juan Perez"
+                <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textMuted }}>{t("acc.form.sellerName")}</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t("acc.form.sellerNamePh")}
                   className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }} />
               </div>
               <div className="rounded-2xl border p-4" style={{ borderColor: "#0A66C230", background: "linear-gradient(135deg, #0A66C204 0%, #0A66C20D 100%)", boxShadow: "0 4px 14px rgba(10,102,194,0.06)" }}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Share2 size={14} style={{ color: "#0A66C2" }} />
-                    <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn Connection</span>
+                    <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>{t("acc.form.liConnection")}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Daily limit:</label>
+                    <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{t("acc.form.dailyLimit")}</label>
                     <input type="number" value={linkedinLimit} onChange={e => setLinkedinLimit(Number(e.target.value))}
                       className="w-14 rounded px-2 py-1 text-xs text-center focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
                   </div>
@@ -325,19 +330,19 @@ function AddAccountModal({
                 </p>
               </div>
               <p className="text-[10px]" style={{ color: C.textDim }}>
-                <b>Note:</b> Email sending uses a shared Instantly pool, not per-seller accounts. Calls use Aircall numbers.
+                <b>{t("acc.form.note")}</b> Email sending uses a shared Instantly pool, not per-seller accounts. Calls use Aircall numbers.
               </p>
             </div>
 
             {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
             <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
-              <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+              <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>{t("acc.cancel")}</button>
               <button onClick={handleStartConnection} disabled={saving || !name.trim()}
                 className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: "#0A66C2", color: "#fff" }}>
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
-                {saving ? "Preparing..." : "Connect LinkedIn"}
+                {saving ? "Preparing..." : t("acc.connectLinkedIn")}
               </button>
             </div>
           </>
@@ -348,7 +353,7 @@ function AddAccountModal({
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "#0A66C215" }}>
               <Loader2 size={24} className="animate-spin" style={{ color: "#0A66C2" }} />
             </div>
-            <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>Waiting for LinkedIn authentication…</p>
+            <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>{t("acc.waitingLinkedIn")}</p>
             <p className="text-xs" style={{ color: C.textMuted }}>
               Complete the login in the Unipile window. This modal will update automatically.
             </p>
@@ -368,7 +373,7 @@ function AddAccountModal({
             )}
 
             <p className="text-[10px] mt-6" style={{ color: C.textDim }}>
-              If you closed the window, <button onClick={() => { setStep("form"); setAuthUrlState(null); }} className="underline" style={{ color: "#0A66C2" }}>try again</button>.
+              If you closed the window, <button onClick={() => { setStep("form"); setAuthUrlState(null); }} className="underline" style={{ color: "#0A66C2" }}>{t("acc.tryAgain")}</button>.
             </p>
           </div>
         )}
@@ -378,7 +383,7 @@ function AddAccountModal({
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
               <Shield size={24} style={{ color: "#16A34A" }} />
             </div>
-            <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>LinkedIn connected ✓</p>
+            <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>{t("acc.liConnected")}</p>
             <p className="text-xs" style={{ color: C.textMuted }}>{name} is ready to start campaigns.</p>
           </div>
         )}
@@ -425,6 +430,7 @@ function ShareExistingSellerPicker({
   onBack: () => void;
   onShared: () => void;
 }) {
+  const { t } = useLocale();
   const [sellers, setSellers] = useState<SharableSeller[]>([]);
   const [companies, setCompanies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -477,14 +483,14 @@ function ShareExistingSellerPicker({
       {loading && (
         <div className="py-10 text-center">
           <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: C.textMuted }} />
-          <p className="text-xs" style={{ color: C.textMuted }}>Loading sellers…</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.loadingSellers")}</p>
         </div>
       )}
 
       {!loading && candidates.length === 0 && (
         <div className="py-10 text-center">
-          <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>No sellers to share</p>
-          <p className="text-xs" style={{ color: C.textMuted }}>Every existing seller is already in this tenant.</p>
+          <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>{t("acc.noSellersToShare")}</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.allSellersHere")}</p>
         </div>
       )}
 
@@ -520,7 +526,7 @@ function ShareExistingSellerPicker({
       {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
       <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
-        <button onClick={onBack} className="text-xs font-semibold" style={{ color: C.textMuted }}>← Back</button>
+        <button onClick={onBack} className="text-xs font-semibold" style={{ color: C.textMuted }}>{t("acc.back")}</button>
       </div>
     </>
   );
@@ -542,6 +548,7 @@ function PickUnipileAccount({
   onBack: () => void;
   onLinked: () => void;
 }) {
+  const { t } = useLocale();
   const [accounts, setAccounts] = useState<OrphanUnipile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -587,14 +594,14 @@ function PickUnipileAccount({
       {loading && (
         <div className="py-10 text-center">
           <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: C.textMuted }} />
-          <p className="text-xs" style={{ color: C.textMuted }}>Loading Unipile accounts…</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.loadingUnipile")}</p>
         </div>
       )}
 
       {!loading && accounts.length === 0 && (
         <div className="py-10 text-center">
-          <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>No orphan Unipile accounts</p>
-          <p className="text-xs" style={{ color: C.textMuted }}>Every connected LinkedIn account already belongs to a seller. Connect a new one in Unipile first, or use the LinkedIn seller flow.</p>
+          <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>{t("acc.noOrphans")}</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.noOrphansDesc")}</p>
         </div>
       )}
 
@@ -619,7 +626,7 @@ function PickUnipileAccount({
                   />
                   <p className="text-[10px] font-mono mt-0.5 truncate" style={{ color: C.textDim }}>
                     {acc.id.slice(0, 16)}… · {acc.status}
-                    {!statusOk && <span style={{ color: C.red }}> · check status</span>}
+                    {!statusOk && <span style={{ color: C.red }}> {t("acc.checkStatus")}</span>}
                   </p>
                 </div>
                 <button onClick={() => linkOne(acc)} disabled={busy}
@@ -637,7 +644,7 @@ function PickUnipileAccount({
       {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
       <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
-        <button onClick={onBack} className="text-xs font-semibold" style={{ color: C.textMuted }}>← Back</button>
+        <button onClick={onBack} className="text-xs font-semibold" style={{ color: C.textMuted }}>{t("acc.back")}</button>
       </div>
     </>
   );
@@ -645,6 +652,7 @@ function PickUnipileAccount({
 
 // ─── Connect Telegram Modal ─────────────────────────────────────────────────
 function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCard; onClose: () => void; onSuccess: () => void }) {
+  const { t } = useLocale();
   const [step, setStep] = useState<"form" | "connecting" | "connected">("form");
   const [dailyLimit, setDailyLimit] = useState(20);
   const [saving, setSaving] = useState(false);
@@ -716,7 +724,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
                 SWL never sees your Telegram credentials.
               </p>
               <div className="flex items-center justify-between mt-3">
-                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Daily send limit</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{t("acc.form.dailySendLimit")}</label>
                 <input type="number" value={dailyLimit} min={1} max={50} onChange={e => setDailyLimit(Number(e.target.value))}
                   className="w-16 rounded px-2 py-1 text-xs text-center focus:outline-none"
                   style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
@@ -726,7 +734,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
             {error && <div className="mb-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
             <div className="flex items-center justify-end gap-3">
-              <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+              <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>{t("acc.cancel")}</button>
               <button onClick={handleConnect} disabled={saving}
                 className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: TG_BLUE, color: "#fff" }}>
@@ -742,8 +750,8 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${TG_BLUE}15` }}>
               <Loader2 size={24} className="animate-spin" style={{ color: TG_BLUE }} />
             </div>
-            <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>Waiting for Telegram authentication…</p>
-            <p className="text-xs" style={{ color: C.textMuted }}>Complete the flow in the Unipile window. This modal updates automatically.</p>
+            <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>{t("acc.waitingTelegram")}</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.waitingTelegramDesc")}</p>
             {authUrl && (
               <a href={authUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-block mt-4 text-xs font-semibold underline" style={{ color: TG_BLUE }}>
@@ -758,7 +766,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
               <Shield size={24} style={{ color: "#16A34A" }} />
             </div>
-            <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>Telegram connected ✓</p>
+            <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>{t("acc.telegramConnected")}</p>
             <p className="text-xs" style={{ color: C.textMuted }}>{seller.name} is ready to send Telegram campaigns.</p>
           </div>
         )}
@@ -769,6 +777,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
 
 // ─── Edit Seller Modal ──────────────────────────────────────────────────────
 function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; onClose: () => void; onSuccess: () => void }) {
+  const { t } = useLocale();
   const [name, setName] = useState(seller.name);
   const [unipileId, setUnipileId] = useState(seller.unipileId ?? "");
   const [linkedinLimit, setLinkedinLimit] = useState(seller.linkedin.limit);
@@ -799,13 +808,13 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>Edit Seller</h2>
+          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>{t("acc.editSeller")}</h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textMuted }}>Seller Name *</label>
+            <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textMuted }}>{t("acc.form.sellerName")}</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)}
               className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }} />
           </div>
@@ -816,12 +825,12 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textDim }}>Unipile Account ID</label>
-                <input type="text" value={unipileId} onChange={e => setUnipileId(e.target.value)} placeholder="Empty if not configured"
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textDim }}>{t("acc.form.unipileId")}</label>
+                <input type="text" value={unipileId} onChange={e => setUnipileId(e.target.value)} placeholder={t("acc.form.emptyIfNone")}
                   className="w-full rounded-lg px-3 py-2 text-xs font-mono focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
               </div>
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textDim }}>Daily Limit</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textDim }}>{t("acc.form.dailyLimitLabel")}</label>
                 <input type="number" value={linkedinLimit} onChange={e => setLinkedinLimit(Number(e.target.value))}
                   className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
               </div>
@@ -832,7 +841,7 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
         {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
         <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>{t("acc.cancel")}</button>
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
             style={{ backgroundColor: C.blue, color: "#fff" }}>
@@ -847,6 +856,7 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
 
 // ─── Link Existing Unipile Account Modal ────────────────────────────────────
 function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; onClose: () => void; onSuccess: () => void }) {
+  const { t } = useLocale();
   type UnlinkedAccount = { id: string; name: string; created_at: string; status: string };
   const [accounts, setAccounts] = useState<UnlinkedAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -893,12 +903,12 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
         {loading ? (
           <div className="py-10 text-center">
             <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: "#0A66C2" }} />
-            <p className="text-xs" style={{ color: C.textMuted }}>Loading accounts…</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.loadingAccounts")}</p>
           </div>
         ) : accounts.length === 0 ? (
           <div className="py-10 text-center rounded-xl border border-dashed" style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <Share2 size={20} className="mx-auto mb-2" style={{ color: C.textDim }} />
-            <p className="text-xs font-medium" style={{ color: C.textBody }}>No unlinked LinkedIn accounts in Unipile</p>
+            <p className="text-xs font-medium" style={{ color: C.textBody }}>{t("acc.noUnlinked")}</p>
             <p className="text-[10px] mt-1" style={{ color: C.textMuted }}>
               Connect a LinkedIn account first via &quot;Add Seller → Connect LinkedIn&quot;.
             </p>
@@ -936,7 +946,7 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
         {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
         <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>{t("acc.cancel")}</button>
           <button onClick={handleLink} disabled={!selectedId || saving}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-40"
             style={{ backgroundColor: "#0A66C2", color: "#fff" }}>
@@ -951,6 +961,7 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
 
 // ─── Delete Confirmation Modal ───────────────────────────────────────────────
 function DeleteModal({ name, onConfirm, onClose, loading }: { name: string; onConfirm: () => void; onClose: () => void; loading: boolean }) {
+  const { t } = useLocale();
   const [typedName, setTypedName] = useState("");
   const matches = typedName.trim().toLowerCase() === name.toLowerCase();
 
@@ -958,29 +969,29 @@ function DeleteModal({ name, onConfirm, onClose, loading }: { name: string; onCo
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="rounded-2xl border p-6 w-full max-w-md shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold" style={{ color: C.red }}>Remove Seller</h2>
+          <h2 className="text-lg font-bold" style={{ color: C.red }}>{t("acc.removeSeller")}</h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
         <div className="rounded-2xl border p-4 mb-4" style={{ borderColor: `${C.red}30`, background: `linear-gradient(135deg, ${C.red}05 0%, ${C.red}0D 100%)`, boxShadow: `0 4px 14px ${C.red}10` }}>
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle size={16} style={{ color: C.red }} />
-            <span className="text-sm font-semibold" style={{ color: C.red }}>This action cannot be undone</span>
+            <span className="text-sm font-semibold" style={{ color: C.red }}>{t("acc.cannotUndo")}</span>
           </div>
-          <p className="text-xs" style={{ color: C.textBody }}>Deactivates <strong>{name}</strong>. Active campaigns continue but no new flows will be assigned.</p>
+          <p className="text-xs" style={{ color: C.textBody }}>{t("acc.deactivates")} <strong>{name}</strong>{t("acc.deactivatesTail")}</p>
         </div>
         <div>
-          <label className="text-xs font-semibold block mb-2" style={{ color: C.textMuted }}>Type <strong style={{ color: C.textPrimary }}>{name}</strong> to confirm:</label>
+          <label className="text-xs font-semibold block mb-2" style={{ color: C.textMuted }}>{t("acc.typeToConfirm")} <strong style={{ color: C.textPrimary }}>{name}</strong> {t("acc.typeToConfirmTail")}</label>
           <input type="text" value={typedName} onChange={e => setTypedName(e.target.value)} placeholder={name}
             className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none"
             style={{ color: C.textPrimary, backgroundColor: C.bg, border: `2px solid ${matches ? C.red : C.border}` }} autoFocus />
         </div>
         <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>{t("acc.cancel")}</button>
           <button onClick={onConfirm} disabled={!matches || loading}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-30 transition-opacity"
             style={{ backgroundColor: C.red, color: "#fff" }}>
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-            {loading ? "Removing..." : "Remove"}
+            {loading ? "Removing..." : t("acc.remove")}
           </button>
         </div>
       </div>
@@ -992,6 +1003,7 @@ function DeleteModal({ name, onConfirm, onClose, loading }: { name: string; onCo
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════
 export default function AccountsClient({ sellers, history, instantly, aircall, totals }: Props) {
+  const { t } = useLocale();
   const router = useRouter();
   const [tab, setTab] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -1059,8 +1071,8 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   });
 
   const tabs = [
-    { label: "Last 24h", count: `${sellers.length}`, color: gold },
-    { label: "History", count: `${dates.length}d`, color: C.blue },
+    { label: t("acc.last24h"), count: `${sellers.length}`, color: gold },
+    { label: t("acc.history"), count: `${dates.length}d`, color: C.blue },
   ];
 
   return (
@@ -1069,7 +1081,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="rounded-2xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 5%, transparent) 100%)`, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Team Members</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.teamMembers")}</span>
             <Users size={14} style={{ color: gold }} />
           </div>
           <p className="text-2xl font-bold" style={{ color: C.textBody }}>{sellers.length}</p>
@@ -1077,7 +1089,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
         <div className="rounded-2xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #0A66C20D 100%)", borderColor: C.border, borderTop: "3px solid #0A66C2", boxShadow: "0 4px 16px rgba(10,102,194,0.06)" }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>LinkedIn · Last 24h</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.liLast24h")}</span>
             <Share2 size={14} style={{ color: "#0A66C2" }} />
           </div>
           <p className="text-2xl font-bold tabular-nums" style={{ color: usageColor(liPct) }}>
@@ -1087,7 +1099,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
         <div className="rounded-2xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #7C3AED0D 100%)", borderColor: C.border, borderTop: `3px solid ${usageColor(instantlyPct)}`, boxShadow: "0 4px 16px rgba(124,58,237,0.06)" }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Instantly Pool</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.instantlyPool")}</span>
             <Mail size={14} style={{ color: usageColor(instantlyPct) }} />
           </div>
           <p className="text-2xl font-bold tabular-nums" style={{ color: usageColor(instantlyPct) }}>
@@ -1100,11 +1112,11 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
         <div className="rounded-2xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #F973160D 100%)", borderColor: C.border, borderTop: "3px solid #F97316", boxShadow: "0 4px 16px rgba(249,115,22,0.06)" }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Aircall This Month</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.aircallThisMonth")}</span>
             <Phone size={14} style={{ color: "#F97316" }} />
           </div>
           <p className="text-2xl font-bold tabular-nums" style={{ color: "#F97316" }}>
-            {aircall?.totalMinutes ?? 0}<span className="text-sm font-medium" style={{ color: C.textMuted }}> min</span>
+            {aircall?.totalMinutes ?? 0}<span className="text-sm font-medium" style={{ color: C.textMuted }}> {t("acc.min")}</span>
           </p>
           <p className="text-[9px] mt-0.5" style={{ color: C.textDim }}>
             {aircall?.totalCalls ?? 0} calls · {aircall?.numbers.length ?? 0} number{(aircall?.numbers.length ?? 0) !== 1 ? "s" : ""}
@@ -1114,18 +1126,18 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
       {/* Tabs + Add button */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-        {tabs.map((t, i) => {
+        {tabs.map((tb, i) => {
           const isActive = tab === i;
           return (
-            <button key={t.label} onClick={() => setTab(i)}
+            <button key={tb.label} onClick={() => setTab(i)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
-              style={{ color: isActive ? t.color : C.textMuted }}>
-              {t.label}
+              style={{ color: isActive ? tb.color : C.textMuted }}>
+              {tb.label}
               <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
-                {t.count}
+                style={{ backgroundColor: isActive ? `${tb.color}15` : C.surface, color: isActive ? tb.color : C.textDim }}>
+                {tb.count}
               </span>
-              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
+              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: tb.color }} />}
             </button>
           );
         })}
@@ -1148,8 +1160,8 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Share2 size={16} style={{ color: "#0A66C2" }} />
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>LinkedIn Accounts</h2>
-              <span className="text-[10px]" style={{ color: C.textMuted }}>Per-seller Unipile accounts</span>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("acc.liAccounts")}</h2>
+              <span className="text-[10px]" style={{ color: C.textMuted }}>{t("acc.liAccountsSub")}</span>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {sellers.map(seller => {
@@ -1165,23 +1177,23 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                           {seller.isShared && (
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
                               style={{ backgroundColor: "#7C3AED15", color: "#7C3AED", border: "1px solid #7C3AED30" }}
-                              title="Shared from another tenant via admin">
+                              title={t("acc.sharedFrom")}>
                               Shared
                             </span>
                           )}
                         </div>
                         {seller.hasLinkedin
                           ? <p className="text-[10px] font-mono mt-0.5" style={{ color: C.textDim }}>{seller.unipileId?.slice(0, 14)}…</p>
-                          : <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>No Unipile configured</p>}
+                          : <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{t("acc.noUnipileConfigured")}</p>}
                       </div>
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: status.bg, color: status.color }}>
-                        {status.label}
+                        {t(status.labelKey)}
                       </span>
                     </div>
                     <div className="px-5 py-4 space-y-4">
                       {seller.hasLinkedin
                         ? <UsageBar sent={seller.linkedin.sent} limit={seller.linkedin.limit} channel="linkedin" />
-                        : <p className="text-xs text-center py-2" style={{ color: C.textDim }}>No LinkedIn configured</p>}
+                        : <p className="text-xs text-center py-2" style={{ color: C.textDim }}>{t("acc.noLiConfigured")}</p>}
                       {seller.hasTelegram && (
                         <UsageBar sent={seller.telegram.sent} limit={seller.telegram.limit} channel="telegram" />
                       )}
@@ -1195,12 +1207,12 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       {!seller.hasLinkedin && !seller.isShared && (
                         <button onClick={() => setReconnectTarget(seller)}
                           className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
-                          style={{ backgroundColor: "#0A66C2", color: "#fff" }}><Share2 size={10} /> Connect LinkedIn</button>
+                          style={{ backgroundColor: "#0A66C2", color: "#fff" }}><Share2 size={10} /> {t("acc.connectLinkedIn")}</button>
                       )}
                       {!seller.hasLinkedin && !seller.isShared && isAdmin && (
                         <button onClick={() => setLinkTarget(seller)}
                           className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
-                          style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link existing</button>
+                          style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> {t("acc.linkExisting")}</button>
                       )}
                       {!seller.hasTelegram && !seller.isShared && (
                         <button onClick={() => setConnectTelegramTarget(seller)}
@@ -1216,23 +1228,23 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                         </span>
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
-                        title="Per-campaign messages sent, replies & positives for this seller"
+                        title={t("acc.perCampaignHint")}
                         className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
-                        style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><TrendingUp size={10} /> Per-campaign</Link>
+                        style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><TrendingUp size={10} /> {t("acc.perCampaign")}</Link>
                       <span className="flex-1" />
                       {!seller.isShared && (
                         <button onClick={() => setEditTarget(seller)}
                           className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
-                          style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> Edit</button>
+                          style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> {t("acc.edit")}</button>
                       )}
                       {!seller.isShared && (
                         <button onClick={() => setDeleteTarget({ id: seller.id, name: seller.name })}
                           className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
-                          style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={10} /> Remove</button>
+                          style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={10} /> {t("acc.remove")}</button>
                       )}
                       {seller.isShared && isAdmin && authUser?.companyBioId && (
                         <button onClick={() => handleUnshare(seller.id)} disabled={unsharingId === seller.id}
-                          title="Remove this shared seller from the current tenant (the primary owner is not touched)"
+                          title={t("acc.removeSharedHint")}
                           className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: C.redLight, color: C.red }}>
                           {unsharingId === seller.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
@@ -1250,8 +1262,8 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Mail size={16} style={{ color: "#7C3AED" }} />
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Instantly Email Pool</h2>
-              <span className="text-[10px]" style={{ color: C.textMuted }}>Shared pool across all campaigns</span>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("acc.emailPool")}</h2>
+              <span className="text-[10px]" style={{ color: C.textMuted }}>{t("acc.emailPoolSub")}</span>
             </div>
             {instantlyPct >= 80 && instantlyPoolLimit > 0 && (
               <div className="rounded-2xl border px-4 py-3 mb-4 flex items-center gap-3"
@@ -1270,28 +1282,28 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
             )}
             {!instantly ? (
               <div className="rounded-2xl border p-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <p className="text-sm" style={{ color: C.textDim }}>Instantly API unavailable</p>
+                <p className="text-sm" style={{ color: C.textDim }}>{t("acc.instantlyUnavailable")}</p>
               </div>
             ) : (
               <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${usageColor(instantlyPct)}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <div className="px-5 py-4 flex items-center gap-6 border-b" style={{ borderColor: C.border }}>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Sent Today</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.sentToday")}</p>
                     <p className="text-2xl font-bold tabular-nums" style={{ color: usageColor(instantlyPct) }}>
                       {instantlyUsed} <span className="text-sm" style={{ color: C.textMuted }}>/ {instantly.totalDailyLimit}</span>
                     </p>
                   </div>
                   <div className="h-12 w-px" style={{ backgroundColor: C.border }} />
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Accounts</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.accounts")}</p>
                     <p className="text-2xl font-bold tabular-nums" style={{ color: C.textBody }}>{instantly.total}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Ready</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.ready")}</p>
                     <p className="text-2xl font-bold tabular-nums" style={{ color: C.green }}>{instantly.ready}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Warming Up</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acc.warmingUp")}</p>
                     <p className="text-2xl font-bold tabular-nums" style={{ color: "#D97706" }}>{instantly.warmupPending}</p>
                   </div>
                   <div className="flex-1" />
@@ -1330,7 +1342,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                   if (rows.length === 0) return null;
                   return (
                     <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>By domain · emails/day budget</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>{t("acc.byDomain")}</p>
                       <div className="space-y-1.5">
                         {rows.map(([dom, d]) => (
                           <div key={dom} className="flex items-center justify-between gap-3 text-xs">
@@ -1380,12 +1392,12 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Phone size={16} style={{ color: "#F97316" }} />
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Aircall Numbers</h2>
-              <span className="text-[10px]" style={{ color: C.textMuted }}>Minutes per month · No daily limit</span>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("acc.aircallNumbers")}</h2>
+              <span className="text-[10px]" style={{ color: C.textMuted }}>{t("acc.aircallNumbersSub")}</span>
             </div>
             {!aircall || aircall.numbers.length === 0 ? (
               <div className="rounded-2xl border p-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <p className="text-sm" style={{ color: C.textDim }}>No Aircall numbers configured</p>
+                <p className="text-sm" style={{ color: C.textDim }}>{t("acc.noAircall")}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1414,15 +1426,15 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Minutes</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{t("acc.minutes")}</p>
                           <p className="text-xl font-bold tabular-nums" style={{ color: "#F97316" }}>{n.minutes}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Calls</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{t("acc.calls")}</p>
                           <p className="text-xl font-bold tabular-nums" style={{ color: C.textBody }}>{n.calls}</p>
                         </div>
                       </div>
-                      <p className="text-[10px]" style={{ color: C.textDim }}>This month</p>
+                      <p className="text-[10px]" style={{ color: C.textDim }}>{t("acc.thisMonth")}</p>
                     </div>
                   </Link>
                 ))}
@@ -1447,10 +1459,10 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
             <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ backgroundColor: C.bg }}>
               {[
-                { key: "all", label: "All Channels" },
+                { key: "all", label: t("acc.allChannels") },
                 { key: "linkedin", label: "LinkedIn", color: "#0A66C2" },
                 { key: "email", label: "Email", color: "#7C3AED" },
-                { key: "call", label: "Call", color: "#F97316" },
+                { key: "call", label: t("inbox.channel.call"), color: "#F97316" },
               ].map(opt => (
                 <button key={opt.key} onClick={() => setHistoryChannel(opt.key)}
                   className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
@@ -1480,15 +1492,15 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
             {(historyDate || historyChannel !== "all" || historySeller !== "all") && (
               <button onClick={() => { setHistoryDate(""); setHistoryChannel("all"); setHistorySeller("all"); }}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-md" style={{ color: C.red }}>Clear all</button>
+                className="text-[10px] font-medium px-2 py-0.5 rounded-md" style={{ color: C.red }}>{t("acc.clearAll")}</button>
             )}
           </div>
 
           {filteredDates.length === 0 ? (
             <EmptyState
               icon={Calendar}
-              title="No usage data for this period"
-              description="Adjust the date, channel, or seller filter — or wait for the next dispatch tick to populate today's usage."
+              title={t("acc.noUsage")}
+              description={t("acc.noUsageHint")}
             />
           ) : (
             <div className="space-y-4">
@@ -1507,7 +1519,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                     <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{displayDate}</span>
-                        {isToday && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>Today</span>}
+                        {isToday && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{t("acc.today")}</span>}
                       </div>
                       <span className="text-xs font-bold tabular-nums" style={{ color: C.textMuted }}>{dayTotal} messages</span>
                     </div>

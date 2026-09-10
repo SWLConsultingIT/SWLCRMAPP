@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { normalizeLocale, respondIn } from "@/lib/i18n-locale";
 
 // Lead Copilot — a grounded Q&A chat about a single lead. The seller asks
 // questions ("how do I handle the price objection?", "what's the strongest
@@ -49,8 +50,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}));
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   if (!question) return NextResponse.json({ error: "Empty question" }, { status: 400 });
-  const locale: string = typeof body?.locale === "string" ? body.locale : "en";
-  const langInstruction = locale === "es" ? " Respond in Spanish." : " Respond in English.";
+  const locale = normalizeLocale(body?.locale);
+  const langInstruction = respondIn(locale);
 
   const svc = getSupabaseService();
   const { data: leadRow } = await svc.from("leads").select("*").eq("id", id).single();

@@ -124,6 +124,20 @@ function TikTokIcon({ size = 14 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>;
 }
 
+// `resources[].type` is stored in English ("PDF", "Document", …). This maps
+// the stored value to a label; anything unrecognised prints as stored.
+const RESOURCE_TYPE_KEYS: Record<string, string> = {
+  Document: "cb.res.document",
+  Presentation: "cb.res.presentation",
+  Spreadsheet: "cb.res.spreadsheet",
+  Image: "cb.res.image",
+};
+function resourceTypeLabel(type: string | null | undefined, t: (k: string) => string): string {
+  if (!type) return "";
+  const key = RESOURCE_TYPE_KEYS[type];
+  return key ? t(key) : type;
+}
+
 const socialLinks = [
   { key: "linkedin_url", label: "LinkedIn", icon: LinkedInIcon, color: "#0A66C2" },
   { key: "instagram_url", label: "Instagram", icon: InstagramIcon, color: "#E4405F" },
@@ -134,13 +148,14 @@ const socialLinks = [
 ] as const;
 
 // ─── Tone selector with per-channel overrides ────────────
-const TONE_OPTIONS: { id: ToneKey; label: string; hint: string }[] = [
-  { id: "serious",       label: "Serious",       hint: "no jokes, just business" },
-  { id: "professional",  label: "Professional",  hint: "polished, neutral" },
-  { id: "friendly",      label: "Friendly",      hint: "warm, approachable" },
-  { id: "consultative",  label: "Consultative",  hint: "advisor energy" },
-  { id: "direct",        label: "Direct",        hint: "no fluff, no buzzwords" },
-  { id: "witty",         label: "Witty",         hint: "smart, with personality" },
+// Keys, not labels: module scope. TonePillRow resolves them.
+const TONE_OPTIONS: { id: ToneKey; labelKey: string; hintKey: string }[] = [
+  { id: "serious",      labelKey: "cb.tone.serious",      hintKey: "cb.tone.seriousDesc" },
+  { id: "professional", labelKey: "cb.tone.professional", hintKey: "cb.tone.professionalDesc" },
+  { id: "friendly",     labelKey: "cb.tone.friendly",     hintKey: "cb.tone.friendlyDesc" },
+  { id: "consultative", labelKey: "cb.tone.consultative", hintKey: "cb.tone.consultativeDesc" },
+  { id: "direct",       labelKey: "cb.tone.direct",       hintKey: "cb.tone.directDesc" },
+  { id: "witty",        labelKey: "cb.tone.witty",        hintKey: "cb.tone.wittyDesc" },
 ];
 
 function TonePillRow({
@@ -154,6 +169,7 @@ function TonePillRow({
   allowNull?: boolean;
   size?: "sm" | "md";
 }) {
+  const { t } = useLocale();
   const padding = size === "sm" ? "px-2.5 py-1" : "px-3 py-1.5";
   const fontSize = size === "sm" ? "text-[11px]" : "text-xs";
   return (
@@ -178,7 +194,7 @@ function TonePillRow({
             key={opt.id}
             type="button"
             onClick={() => onChange(opt.id)}
-            title={opt.hint}
+            title={t(opt.hintKey)}
             className={`${padding} ${fontSize} font-semibold rounded-full transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 hover:opacity-95`}
             style={active
               ? {
@@ -189,7 +205,7 @@ function TonePillRow({
               : { backgroundColor: C.cardHov, color: C.textBody, border: `1px solid ${C.border}` }
             }
           >
-            {opt.label}
+            {t(opt.labelKey)}
           </button>
         );
       })}
@@ -271,6 +287,7 @@ function ToneSelector({
 
 // ─── Tag Input ───────────────────────────────────────────
 function TagList({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+  const { t } = useLocale();
   const [input, setInput] = useState("");
   function add() {
     const s = input.trim();
@@ -313,11 +330,12 @@ function TagList({ values, onChange, placeholder }: { values: string[]; onChange
 // Hover-reveal pencil for a read-view section → jumps into edit mode at that
 // section (sets the hash that BioForm scrolls to on mount).
 function EditPencil({ onClick }: { onClick: () => void }) {
+  const { t } = useLocale();
   return (
-    <button onClick={onClick} title="Edit this section"
+    <button onClick={onClick} title={t("cb.editSection")}
       className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md"
       style={{ color: C.textMuted, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
-      <Pencil size={10} /> Edit
+      <Pencil size={10} /> {t("acc.edit")}
     </button>
   );
 }
@@ -361,7 +379,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         style={{ borderColor: `color-mix(in srgb, ${gold} 26%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
         <Sparkles size={14} style={{ color: "var(--fg1)", flexShrink: 0 }} />
         <p className="text-[11.5px]" style={{ color: C.textBody }}>
-          This profile is your AI's source of truth — it grounds every <strong>outreach message</strong> and <strong>reply suggestion</strong>. The more complete it is, the sharper the AI.
+          This profile is your AI's source of truth — it grounds every <strong>{t("cb.outreachMessage")}</strong> and <strong>{t("cb.replySuggestion")}</strong>. The more complete it is, the sharper the AI.
         </p>
       </div>
 
@@ -454,7 +472,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               one clear action instead of a button + a separate badge. */}
           <button
             onClick={() => goEdit()}
-            title={readiness.missing.length ? `${readiness.pct}% complete · missing: ${readiness.missing.join(", ")}` : "Profile complete"}
+            title={readiness.missing.length ? t("cb.pctMissing", { pct: readiness.pct, list: readiness.missing.map(k => t(k)).join(", ") }) : t("cb.profileComplete")}
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md shrink-0"
             style={{
               background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
@@ -865,7 +883,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate" style={{ color: C.textPrimary }}>{r.name}</p>
-                    <p className="text-xs" style={{ color: C.textDim }}>{r.type}</p>
+                    <p className="text-xs" style={{ color: C.textDim }}>{resourceTypeLabel(r.type, t)}</p>
                   </div>
                 </a>
               );
@@ -879,12 +897,19 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 }
 
 // ─── EDIT MODE ───────────────────────────────────────────
-const industryOptions = [
-  "Technology / SaaS", "Consulting", "Marketing / Advertising", "Fintech", "E-commerce",
-  "Healthcare / Healthtech", "Education / Edtech", "Manufacturing", "Real Estate", "Logistics",
-  "Legal", "Accounting / Finance", "Human Resources", "Insurance", "Energy",
-  "Food & Beverage", "Retail", "Telecommunications", "Automotive", "Other",
-];
+const INDUSTRY_KEYS: Record<string, string> = {
+  "Technology / SaaS": "cb.ind.tech", "Consulting": "cb.ind.consulting",
+  "Marketing / Advertising": "cb.ind.marketing", "Fintech": "cb.ind.fintech",
+  "E-commerce": "cb.ind.ecommerce", "Healthcare / Healthtech": "cb.ind.health",
+  "Education / Edtech": "cb.ind.education", "Manufacturing": "cb.ind.manufact",
+  "Real Estate": "cb.ind.realEstate", "Logistics": "cb.ind.logistics",
+  "Legal": "cb.ind.legal", "Accounting / Finance": "cb.ind.accounting",
+  "Human Resources": "cb.ind.hr", "Insurance": "cb.ind.insurance",
+  "Energy": "cb.ind.energy", "Food & Beverage": "cb.ind.food",
+  "Retail": "cb.ind.retail", "Telecommunications": "cb.ind.telco",
+  "Automotive": "cb.ind.automotive", "Other": "cb.ind.other",
+};
+const industryOptions = Object.keys(INDUSTRY_KEYS);
 
 const teamSizeOptions = ["1-5", "6-10", "11-25", "26-50", "51-100", "101-250", "251-500", "500+"];
 
@@ -894,6 +919,7 @@ import ArchiveCompanyModal from "@/components/ArchiveCompanyModal";
 
 // Icon + accent header for each form section (replaces the gray uppercase h2s).
 function SectionHeader({ icon: Icon, title, color = gold }: { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; title: string; color?: string }) {
+  const { t } = useLocale();
   return (
     <h2 className="flex items-center gap-2.5 mb-4">
       <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -905,19 +931,20 @@ function SectionHeader({ icon: Icon, title, color = gold }: { icon: React.Compon
   );
 }
 
-// Which fields meaningfully feed the AI. Drives the "AI Readiness" meter so the
+// Which fields meaningfully feed the AI. Drives the readiness meter so the
 // user knows how complete the bio is (it grounds messages, ICPs, suggestions).
 function bioReadiness(f: CompanyBio): { pct: number; filled: number; total: number; missing: string[] } {
   const checks: Array<[string, boolean]> = [
-    ["Industry", !!f.industry?.trim()],
-    ["Description", !!f.description?.trim()],
-    ["Value proposition", !!f.value_proposition?.trim()],
-    ["Differentiators", !!f.differentiators?.trim()],
-    ["Main services", (f.main_services?.length ?? 0) > 0],
-    ["Target market", !!f.target_market?.trim()],
-    ["Languages", (f.languages?.length ?? 0) > 0],
-    ["Logo", !!f.logo_url],
-    ["Proof (clients / cases)", (f.key_clients?.length ?? 0) > 0 || (f.case_studies?.length ?? 0) > 0],
+    // Keys, resolved by the panel — this runs outside a component.
+    ["cb.check.industry", !!f.industry?.trim()],
+    ["cb.check.description", !!f.description?.trim()],
+    ["cb.valuePropLower", !!f.value_proposition?.trim()],
+    ["cb.differentiators", !!f.differentiators?.trim()],
+    ["cb.check.mainServices", (f.main_services?.length ?? 0) > 0],
+    ["cb.targetMarket", !!f.target_market?.trim()],
+    ["cb.check.languages", (f.languages?.length ?? 0) > 0],
+    ["cb.check.logo", !!f.logo_url],
+    ["cb.check.proof", (f.key_clients?.length ?? 0) > 0 || (f.case_studies?.length ?? 0) > 0],
   ];
   const filled = checks.filter(([, ok]) => ok).length;
   const total = checks.length;
@@ -925,28 +952,29 @@ function bioReadiness(f: CompanyBio): { pct: number; filled: number; total: numb
 }
 
 function ReadinessPanel({ form }: { form: CompanyBio }) {
+  const { t } = useLocale();
   const r = bioReadiness(form);
   const tone = r.pct >= 85 ? C.green : r.pct >= 50 ? "#D97706" : C.red;
   return (
     <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${tone}` }}>
       <div className="flex items-center gap-2 mb-2.5">
         <Sparkles size={14} style={{ color: tone }} />
-        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>AI Readiness</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>{t("cb.aiReadiness")}</p>
         <span className="ml-auto text-[18px] font-bold tabular-nums" style={{ color: tone, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{r.pct}%</span>
       </div>
       <div className="h-2 rounded-full overflow-hidden mb-1" style={{ backgroundColor: C.border }}>
         <div className="h-2 rounded-full transition-all" style={{ width: `${r.pct}%`, backgroundColor: tone }} />
       </div>
-      <p className="text-[10.5px] mb-2.5" style={{ color: C.textDim }}>{r.filled} of {r.total} key fields · this is what the AI uses to write your outreach.</p>
+      <p className="text-[10.5px] mb-2.5" style={{ color: C.textDim }}>{t("cb.keyFields", { filled: r.filled, total: r.total })}</p>
       {r.missing.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {r.missing.map(m => (
             <span key={m} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>{m}</span>
+              style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>{t(m)}</span>
           ))}
         </div>
       ) : (
-        <p className="text-[11px] font-semibold flex items-center gap-1" style={{ color: C.green }}><CheckCircle2 size={12} /> Complete — your AI context is fully loaded.</p>
+        <p className="text-[11px] font-semibold flex items-center gap-1" style={{ color: C.green }}><CheckCircle2 size={12} /> {t("cb.complete")}</p>
       )}
     </div>
   );
@@ -954,10 +982,11 @@ function ReadinessPanel({ form }: { form: CompanyBio }) {
 
 // Live brand card — updates as the user types so the page feels purposeful.
 function BrandPreview({ form }: { form: CompanyBio }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-4 py-2.5 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Live preview</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("cb.livePreview")}</p>
       </div>
       <div className="p-4">
         <div className="flex items-center gap-3 mb-3">
@@ -969,7 +998,7 @@ function BrandPreview({ form }: { form: CompanyBio }) {
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{form.company_name || "Your company"}</p>
+            <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{form.company_name || t("cb.yourCompany")}</p>
             {form.tagline && <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{form.tagline}</p>}
           </div>
         </div>
@@ -998,6 +1027,7 @@ function BrandPreview({ form }: { form: CompanyBio }) {
 }
 
 function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; onSave: (b: CompanyBio) => void; onCancel: () => void; onDelete?: () => void; isNew: boolean }) {
+  const { t } = useLocale();
   const [form, setForm] = useState<CompanyBio>(bio);
   const [saving, setSaving] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -1084,7 +1114,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
     } else {
       // For inserts we still need company_name (NOT NULL); ensure it's there.
       if (!payload.company_name) {
-        setError("Company name is required");
+        setError(t("cb.nameRequired"));
         setSaving(false);
         return;
       }
@@ -1099,7 +1129,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       <div className="space-y-6 min-w-0">
       {/* 1. Company info */}
       <div id="bsec-company" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Building2} title="Company Information" color={gold} />
+        <SectionHeader icon={Building2} title={t("cb.companyInfo")} color={gold} />
         <div className="grid grid-cols-2 gap-4">
           {/* Logo upload */}
           <div className="col-span-2 flex items-center gap-5 pb-4 mb-2 border-b" style={{ borderColor: C.border }}>
@@ -1112,11 +1142,11 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               </div>
             )}
             <div>
-              <p className="text-xs font-medium mb-2" style={{ color: C.textBody }}>Company Logo</p>
+              <p className="text-xs font-medium mb-2" style={{ color: C.textBody }}>{t("cb.companyLogo")}</p>
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
                   style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-                  <Upload size={12} /> Upload
+                  <Upload size={12} /> {t("imp.step.upload")}
                   <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -1127,29 +1157,29 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                 {form.logo_url && (
                   <button onClick={() => setForm(f => ({ ...f, logo_url: "" }))}
                     className="text-xs px-2 py-1.5 rounded-lg" style={{ color: C.red, backgroundColor: C.redLight }}>
-                    Remove
+                    {t("acc.remove")}
                   </button>
                 )}
               </div>
-              <p className="text-xs mt-1" style={{ color: C.textDim }}>PNG, JPG. Max 2MB.</p>
+              <p className="text-xs mt-1" style={{ color: C.textDim }}>{t("cb.logoHint")}</p>
             </div>
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Company name *</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.companyNameReq")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-              placeholder="E.g.: SWL Consulting" />
+              placeholder={t("cb.namePh")} />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Tagline / slogan</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.tagline")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.tagline} onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))}
-              placeholder="Short phrase that defines the company" />
+              placeholder={t("cb.taglinePh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Industry</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("ld.industry")}</label>
             <select className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: form.industry ? C.textPrimary : C.textDim, backgroundColor: C.bg }}
               value={industryOptions.includes(form.industry) ? form.industry : form.industry ? "__custom" : ""}
@@ -1157,8 +1187,8 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                 if (e.target.value === "__custom") return;
                 setForm(f => ({ ...f, industry: e.target.value }));
               }}>
-              <option value="">Select industry</option>
-              {industryOptions.map(o => <option key={o} value={o}>{o}</option>)}
+              <option value="">{t("cb.selectIndustry")}</option>
+              {industryOptions.map(o => <option key={o} value={o}>{t(INDUSTRY_KEYS[o])}</option>)}
               {form.industry && !industryOptions.includes(form.industry) && (
                 <option value="__custom">{form.industry} (custom)</option>
               )}
@@ -1168,31 +1198,31 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                 style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                 value={industryOptions.includes(form.industry) ? "" : form.industry}
                 onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                placeholder="Or type a custom industry…" />
+                placeholder={t("cb.customIndustry")} />
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Location</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("ld.location")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-              placeholder="Buenos Aires, Argentina" />
+              placeholder={t("cb.locationPh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Year Founded</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.yearFounded")}</label>
             <input type="number" className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.founded_year ?? ""} onChange={e => setForm(f => ({ ...f, founded_year: e.target.value ? Number(e.target.value) : null }))}
               placeholder="2020" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Team Size</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.teamSize")}</label>
             <select className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: form.team_size ? C.textPrimary : C.textDim, backgroundColor: C.bg }}
               value={form.team_size}
               onChange={e => setForm(f => ({ ...f, team_size: e.target.value }))}>
-              <option value="">Select</option>
-              {teamSizeOptions.map(o => <option key={o} value={o}>{o} people</option>)}
+              <option value="">{t("inbox.select.one")}</option>
+              {teamSizeOptions.map(o => <option key={o} value={o}>{t("cb.people", { band: o })}</option>)}
             </select>
           </div>
         </div>
@@ -1200,7 +1230,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 2. Services */}
       <div id="bsec-services" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Briefcase} title="Main Services" color="#0EA5E9" />
+        <SectionHeader icon={Briefcase} title={t("cb.mainServices")} color="#0EA5E9" />
         <div className="flex flex-wrap gap-2 mb-3">
           {(form.main_services ?? []).map((s, i) => (
             <span key={i} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
@@ -1215,21 +1245,21 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={newService} onChange={e => setNewService(e.target.value)}
             onKeyDown={e => e.key === "Enter" && addService()}
-            placeholder="Add service…" />
+            placeholder={t("cb.addService")} />
           <button onClick={addService}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
             style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-            <Plus size={14} /> Add
+            <Plus size={14} /> {t("cb.add")}
           </button>
         </div>
       </div>
 
       {/* 3. Online — Links (moved before pitch) */}
       <div id="bsec-links" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Globe} title="Links & Social Media" color="#0A66C2" />
+        <SectionHeader icon={Globe} title={t("cb.linksSocial")} color="#0A66C2" />
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Website</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.website")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
@@ -1251,42 +1281,42 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 4. Your pitch */}
       <div id="bsec-pitch" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Target} title="Value Proposition" color={C.green} />
+        <SectionHeader icon={Target} title={t("cb.valueProposition")} color={C.green} />
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Company Description</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.companyDescription")}</label>
             <textarea rows={4} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              placeholder="What does the company do, its mission, how many years, etc." />
+              placeholder={t("cb.companyDescriptionPh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Value proposition</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.valuePropLower")}</label>
             <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.value_proposition} onChange={e => setForm(f => ({ ...f, value_proposition: e.target.value }))}
-              placeholder="In one sentence: what problem does it solve and for whom" />
+              placeholder={t("cb.valuePropPh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Differentiators</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.differentiators")}</label>
             <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.differentiators} onChange={e => setForm(f => ({ ...f, differentiators: e.target.value }))}
-              placeholder="What makes this company different from the competition" />
+              placeholder={t("cb.differentiatorsPh")} />
           </div>
         </div>
       </div>
 
       {/* 5. Target audience & communication */}
       <div id="bsec-audience" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={MessageSquare} title="Target Audience & Communication" color="#8B5CF6" />
+        <SectionHeader icon={MessageSquare} title={t("cb.targetAudience")} color="#8B5CF6" />
         <div className="space-y-4">
           <ToneSelector
             value={form.tone_by_channel ?? DEFAULT_TONE_BY_CHANNEL}
             onChange={v => setForm(f => ({ ...f, tone_by_channel: v }))}
           />
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Languages</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.languages")}</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {languageOptions.map(lang => {
                 const selected = (form.languages ?? []).includes(lang);
@@ -1301,7 +1331,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                       ? { backgroundColor: gold, color: "#04070d" }
                       : { backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }
                     }>
-                    {lang}
+                    {t(`cb.lang.${lang}`)}
                   </button>
                 );
               })}
@@ -1309,43 +1339,43 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             <TagList
               values={(form.languages ?? []).filter(l => !languageOptions.includes(l))}
               onChange={custom => setForm(f => ({ ...f, languages: [...(f.languages ?? []).filter(l => languageOptions.includes(l)), ...custom] }))}
-              placeholder="Add another language…"
+              placeholder={t("cb.addLanguage")}
             />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Target market</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.targetMarket")}</label>
             <textarea rows={3} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.target_market} onChange={e => setForm(f => ({ ...f, target_market: e.target.value }))}
-              placeholder="Ideal client type, industry, company size, geography, etc." />
+              placeholder={t("cb.targetMarketPh")} />
           </div>
         </div>
       </div>
 
       {/* 6. Track Record (clients + certs + cases) */}
       <div id="bsec-track" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Trophy} title="Track Record" color="#D97706" />
+        <SectionHeader icon={Trophy} title={t("cb.trackRecord")} color="#D97706" />
         <div className="space-y-5">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Key Clients</label>
-            <TagList values={form.key_clients ?? []} onChange={v => setForm(f => ({ ...f, key_clients: v }))} placeholder="Client name…" />
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.keyClients")}</label>
+            <TagList values={form.key_clients ?? []} onChange={v => setForm(f => ({ ...f, key_clients: v }))} placeholder={t("cb.clientNamePh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Certifications / Awards</label>
-            <TagList values={form.certifications ?? []} onChange={v => setForm(f => ({ ...f, certifications: v }))} placeholder="Google Partner, ISO 9001…" />
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.certifications")}</label>
+            <TagList values={form.certifications ?? []} onChange={v => setForm(f => ({ ...f, certifications: v }))} placeholder={t("cb.certificationsPh")} />
           </div>
           <div className="pt-4 border-t" style={{ borderColor: C.border }}>
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Case Studies / Portfolio</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("cb.caseStudies")}</label>
               <button onClick={addCaseStudy}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                 style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
-                <Plus size={12} /> Add case
+                <Plus size={12} /> {t("cb.addCase")}
               </button>
             </div>
             {(form.case_studies ?? []).length === 0 ? (
               <p className="text-xs text-center py-3" style={{ color: C.textDim }}>
-                Add case studies to provide more context for outreach messages.
+                {t("cb.addCasesHint")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -1356,44 +1386,44 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                     </button>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Title</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.title")}</label>
                         <input className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                           style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
                           value={cs.title} onChange={e => updateCaseStudy(i, "title", e.target.value)}
-                          placeholder="E.g.: CRM Implementation for Fintech" />
+                          placeholder={t("cb.casePh")} />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Link (optional)</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.linkOptional")}</label>
                         <input className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                           style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
                           value={cs.url ?? ""} onChange={e => updateCaseStudy(i, "url", e.target.value)}
                           placeholder="https://..." />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Description</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.check.description")}</label>
                         <textarea rows={2} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                           style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
                           value={cs.description} onChange={e => updateCaseStudy(i, "description", e.target.value)}
-                          placeholder="Brief summary of the case and results" />
+                          placeholder={t("cb.caseSummaryPh")} />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Attachment</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.attachment")}</label>
                         {cs.file_url ? (
                           <div className="flex items-center gap-2">
                             <a href={cs.file_url} target="_blank" rel="noopener noreferrer"
                               className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg"
                               style={{ backgroundColor: C.accentLight, color: C.accent }}>
-                              <FileText size={12} /> View file
+                              <FileText size={12} /> {t("cb.viewFile")}
                             </a>
                             <button onClick={() => updateCaseStudy(i, "file_url", "")}
                               className="text-xs px-2 py-1.5 rounded-lg" style={{ color: C.red, backgroundColor: C.redLight }}>
-                              Remove
+                              {t("acc.remove")}
                             </button>
                           </div>
                         ) : (
                           <label className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
                             style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>
-                            <Upload size={12} /> Upload PDF / Image
+                            <Upload size={12} /> {t("cb.uploadPdfImg")}
                             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
@@ -1417,11 +1447,11 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
         <div className="flex items-center justify-between mb-4">
           <span className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}><FolderOpen size={15} /></span>
-            <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Resources</span>
+            <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("cb.resources")}</span>
           </span>
           <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
             style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
-            <Upload size={12} /> Upload file
+            <Upload size={12} /> {t("cb.uploadFile")}
             <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" className="hidden" onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
@@ -1435,12 +1465,12 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
           </label>
         </div>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>
-          Pitch decks, brochures, brand guidelines, or any reference material for outreach.
+          {t("cb.resourcesHint")}
         </p>
         {(form.resources ?? []).length === 0 ? (
           <div className="border-2 border-dashed rounded-lg py-6 text-center" style={{ borderColor: C.border }}>
             <Upload size={20} className="mx-auto mb-2" style={{ color: C.textDim }} />
-            <p className="text-xs" style={{ color: C.textDim }}>Drop files here or click "Upload file"</p>
+            <p className="text-xs" style={{ color: C.textDim }}>{t("cb.dropFiles")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -1453,7 +1483,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{r.name}</p>
-                    <p className="text-xs" style={{ color: C.textMuted }}>{r.type}</p>
+                    <p className="text-xs" style={{ color: C.textMuted }}>{resourceTypeLabel(r.type, t)}</p>
                   </div>
                   <a href={r.file_url} target="_blank" rel="noopener noreferrer"
                     className="text-xs font-medium px-2 py-1 rounded" style={{ color: C.accent }}>
@@ -1487,13 +1517,13 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
               style={{ backgroundColor: gold, color: "#04070d" }}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("cb.saving") : t("cb.save")}
             </button>
             {!isNew && (
               <button onClick={onCancel}
                 className="rounded-lg px-5 py-2.5 text-sm font-medium"
                 style={{ color: C.textMuted, backgroundColor: C.surface }}>
-                Cancel
+                {t("acc.cancel")}
               </button>
             )}
             {error ? (
@@ -1502,11 +1532,11 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               </span>
             ) : dirty && !saving ? (
               <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#D97706" }} /> Unsaved changes
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#D97706" }} /> {t("cb.unsaved")}
               </span>
             ) : !isNew && !saving ? (
               <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: C.green }}>
-                <CheckCircle2 size={13} /> All changes saved
+                <CheckCircle2 size={13} /> {t("cb.allSaved")}
               </span>
             ) : null}
           </div>
@@ -1515,7 +1545,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             <button onClick={() => setShowArchiveModal(true)}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-opacity hover:opacity-80"
               style={{ color: C.red }}>
-              <Trash2 size={13} /> Archive company
+              <Trash2 size={13} /> {t("cb.archiveCompany")}
             </button>
           )}
         </div>
@@ -1557,11 +1587,11 @@ export default function CompanyBiosPage() {
         body: JSON.stringify({ url: finalUrl, lang: scanLang }),
       });
       const data = await res.json();
-      if (!res.ok) { setScrapeError(data.error ?? "Failed to scrape"); return; }
+      if (!res.ok) { setScrapeError(data.error ?? t("cb.err.scrape")); return; }
       setPrefilled({ ...empty, ...data });
       setEditing(true);
     } catch {
-      setScrapeError("Could not connect to the website");
+      setScrapeError(t("cb.err.noConnect"));
     } finally {
       setScraping(false);
     }

@@ -8,6 +8,7 @@ import { C, N } from "@/lib/design";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
 import { stashLeadSelection, leadSelectionQuery, clearLeadSelection } from "@/lib/lead-selection";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -19,13 +20,14 @@ function HistoryPills({ counts, total, active, onChange }: {
   active: HistoryKey;
   onChange: (v: HistoryKey) => void;
 }) {
+  const { t } = useLocale();
   type PillDef = { key: HistoryKey; label: string; count: number; color: string; bg: string; border: string };
   const pills: PillDef[] = ([
-    { key: "all"       as HistoryKey, label: "All",        count: total,            color: "#6B7280", bg: "#F3F4F6",                   border: "#D1D5DB" },
-    { key: "new"       as HistoryKey, label: "New",        count: counts.new,       color: "#2563EB", bg: "rgba(37,99,235,0.08)",       border: "rgba(37,99,235,0.30)" },
-    { key: "renurture" as HistoryKey, label: "Re-nurture", count: counts.renurture, color: "#D97706", bg: "rgba(217,119,6,0.09)",       border: "rgba(217,119,6,0.35)" },
-    { key: "lost"      as HistoryKey, label: "Lost",       count: counts.lost,      color: "#DC2626", bg: "rgba(220,38,38,0.08)",       border: "rgba(220,38,38,0.30)" },
-    { key: "won"       as HistoryKey, label: "Won",        count: counts.won,       color: "#16A34A", bg: "rgba(22,163,74,0.08)",       border: "rgba(22,163,74,0.30)" },
+    { key: "all"       as HistoryKey, label: t("pick.hist.all"),       count: total,            color: "#6B7280", bg: "#F3F4F6",                   border: "#D1D5DB" },
+    { key: "new"       as HistoryKey, label: t("pick.hist.new"),       count: counts.new,       color: "#2563EB", bg: "rgba(37,99,235,0.08)",       border: "rgba(37,99,235,0.30)" },
+    { key: "renurture" as HistoryKey, label: t("pick.hist.renurture"), count: counts.renurture, color: "#D97706", bg: "rgba(217,119,6,0.09)",       border: "rgba(217,119,6,0.35)" },
+    { key: "lost"      as HistoryKey, label: t("pick.hist.lost"),      count: counts.lost,      color: "#DC2626", bg: "rgba(220,38,38,0.08)",       border: "rgba(220,38,38,0.30)" },
+    { key: "won"       as HistoryKey, label: t("pick.hist.won"),       count: counts.won,       color: "#16A34A", bg: "rgba(22,163,74,0.08)",       border: "rgba(22,163,74,0.30)" },
   ] as PillDef[]).filter(p => p.key === "all" || p.count > 0);
 
   return (
@@ -98,6 +100,7 @@ export default function PickLeadsClient({
    *  already enrolled in an active flow and therefore not offered here. */
   totalInIcp: number;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
   const [historyFilter, setHistoryFilter] = useState<"all" | "new" | "renurture" | "lost" | "won">("all");
@@ -244,7 +247,7 @@ export default function PickLeadsClient({
         <div className="relative flex items-center justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.24em]" style={{ color: gold }}>
-              New outreach flow · {profileName}
+              {t("pick.eyebrow", { icp: profileName })}
             </p>
             <h1
               className="text-[24px] sm:text-[28px] font-semibold leading-tight mt-1.5"
@@ -254,12 +257,12 @@ export default function PickLeadsClient({
                 letterSpacing: "-0.02em",
               }}
             >
-              Select the leads for this flow
+              {t("pick.title")}
             </h1>
             <p className="text-[13px] mt-2 max-w-[640px]" style={{ color: "color-mix(in srgb, white 65%, transparent)" }}>
               {leads.length === 0
-                ? "No eligible leads for this ICP — every lead is already in an active or paused flow."
-                : "Pick the leads you want to enrol. Once selected, you can create a new flow with them or add them to an existing flow for this ICP."}
+                ? t("pick.noneEligible")
+                : t("pick.lede")}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -310,18 +313,18 @@ export default function PickLeadsClient({
               needing more vertical space. (The old -mt-1 here was also eating
               the 12px HistoryPills leaves below itself.) */}
           <div className="flex items-center gap-2.5 flex-wrap mb-3">
-            <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>Reachable on</span>
+            <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>{t("pick.reachableOn")}</span>
             <div
               className="inline-flex gap-0.5 p-0.5 rounded-full"
               style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
               role="group"
-              aria-label="Filter by reachable channel"
+              aria-label={t("pick.reachFilterAria")}
             >
               {([
-                { key: "all", label: "Any", n: leads.length },
-                { key: "linkedin", label: "LinkedIn", n: leads.filter(l => l.has_linkedin).length },
-                { key: "email", label: "Email", n: leads.filter(l => l.has_email).length },
-                { key: "phone", label: "Phone", n: leads.filter(l => l.has_phone).length },
+                { key: "all", label: t("pick.reach.any"), n: leads.length },
+                { key: "linkedin", label: t("chan.linkedin"), n: leads.filter(l => l.has_linkedin).length },
+                { key: "email", label: t("chan.email"), n: leads.filter(l => l.has_email).length },
+                { key: "phone", label: t("pick.reach.phone"), n: leads.filter(l => l.has_phone).length },
               ] as const).map(p => {
                 const on = reachFilter === p.key;
                 return (
@@ -374,9 +377,9 @@ export default function PickLeadsClient({
                 >
                   {allFilteredSelected && <CheckSquare size={11} style={{ color: N.ink }} strokeWidth={3} />}
                 </span>
-                {allFilteredSelected ? "Deselect all" : "Select all"}
+                {allFilteredSelected ? t("pick.deselectAll") : t("pick.selectAll")}
                 <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>
-                  ({filtered.length === leads.length ? leads.length : `${filtered.length} of ${leads.length}`})
+                  ({filtered.length === leads.length ? leads.length : t("pick.ofTotal", { n: filtered.length, total: leads.length })})
                 </span>
               </button>
               {/* Say why the list is shorter than the ICP. It used to just
@@ -400,7 +403,7 @@ export default function PickLeadsClient({
                   <Users size={13} style={{ color: gold }} />
                   <span>
                     <span className="text-[15px] font-bold tabular-nums" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{selected.size}</span>
-                    <span className="ml-1" style={{ color: C.textMuted }}>selected</span>
+                    <span className="ml-1" style={{ color: C.textMuted }}>{t("pick.selected")}</span>
                   </span>
                 </span>
                 {selected.size > 0 && (
@@ -423,15 +426,15 @@ export default function PickLeadsClient({
               {filtered.length === 0 ? (
                 <div className="px-5 py-12 text-center">
                   <p className="text-[13px] font-medium" style={{ color: C.textBody }}>
-                    No leads match the current filters.
+                    {t("pick.noMatch")}
                   </p>
                   <p className="text-[11.5px] mt-1" style={{ color: C.textDim }}>
-                    Clear a facet above to widen the cohort.
+                    {t("pick.widen")}
                   </p>
                 </div>
               ) : filtered.map((l, idx) => {
                 const checked = selected.has(l.id);
-                const nm = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || l.company_name || "Unknown";
+                const nm = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || l.company_name || t("pick.unknown");
                 const initials = `${l.first_name?.[0] ?? ""}${l.last_name?.[0] ?? ""}`.toUpperCase() || "··";
                 const scoreBand: "hot" | "warm" | "nurture" = l.lead_score != null && l.lead_score >= 80
                   ? "hot" : l.lead_score != null && l.lead_score >= 50 ? "warm" : "nurture";
@@ -509,14 +512,14 @@ export default function PickLeadsClient({
                         the flow gets skipped for this lead. This is what
                         decides whether the flow can run, and the row used to
                         say nothing about it. */}
-                    <span className="hidden sm:inline-flex gap-1 shrink-0" title="Reachable on: LinkedIn · email · phone">
+                    <span className="hidden sm:inline-flex gap-1 shrink-0" title={t("pick.reachTitle")}>
                       {([
-                        { on: l.has_linkedin, Icon: Share2, color: C.linkedin, label: "LinkedIn" },
-                        { on: l.has_email, Icon: Mail, color: C.email, label: "Email" },
-                        { on: l.has_phone, Icon: Phone, color: "#EA580C", label: "Phone" },
+                        { on: l.has_linkedin, Icon: Share2, color: C.linkedin, label: t("chan.linkedin") },
+                        { on: l.has_email, Icon: Mail, color: C.email, label: t("chan.email") },
+                        { on: l.has_phone, Icon: Phone, color: "#EA580C", label: t("pick.reach.phone") },
                       ] as const).map(r => (
                         <span key={r.label}
-                          title={r.on ? `${r.label}: reachable` : `${r.label}: no data — this step is skipped`}
+                          title={r.on ? t("pick.reachYes", { channel: r.label }) : t("pick.reachNo", { channel: r.label })}
                           className="w-5 h-5 rounded-md grid place-items-center"
                           style={r.on
                             ? { backgroundColor: `color-mix(in srgb, ${r.color} 15%, transparent)`, color: r.color }
@@ -549,9 +552,9 @@ export default function PickLeadsClient({
                     </div>
                     {l.history !== "new" && (() => {
                       const hMeta = {
-                        renurture: { label: "Re-nurture", color: "#D97706", bg: "rgba(217,119,6,0.10)", border: "rgba(217,119,6,0.28)" },
-                        lost:      { label: "Lost",       color: "#DC2626", bg: "rgba(220,38,38,0.10)", border: "rgba(220,38,38,0.22)" },
-                        won:       { label: "Won",        color: "#16A34A", bg: "rgba(22,163,74,0.10)", border: "rgba(22,163,74,0.22)" },
+                        renurture: { label: t("pick.hist.renurture"), color: "#D97706", bg: "rgba(217,119,6,0.10)", border: "rgba(217,119,6,0.28)" },
+                        lost:      { label: t("pick.hist.lost"),      color: "#DC2626", bg: "rgba(220,38,38,0.10)", border: "rgba(220,38,38,0.22)" },
+                        won:       { label: t("pick.hist.won"),       color: "#16A34A", bg: "rgba(22,163,74,0.10)", border: "rgba(22,163,74,0.22)" },
                       }[l.history];
                       return (
                         <span
@@ -636,7 +639,7 @@ export default function PickLeadsClient({
               border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)`,
             }}
           >
-            <Megaphone size={13} /> Add to existing flow
+            <Megaphone size={13} /> {t("pick.addToExisting")}
           </button>
           {/* Primary CTA — Create new flow (continues to the wizard with
               the picked leads in the query string). */}
@@ -650,7 +653,7 @@ export default function PickLeadsClient({
               boxShadow: `0 6px 18px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
             }}
           >
-            <Send size={13} /> Create new flow
+            <Send size={13} /> {t("pick.createNew")}
           </button>
           <style>{`@keyframes pick-bar-rise { from { transform: translate(-50%, 18px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }`}</style>
         </div>

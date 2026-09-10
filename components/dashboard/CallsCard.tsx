@@ -5,6 +5,7 @@
 // function props.
 
 import Link from "next/link";
+import { useLocale } from "@/lib/i18n";
 import { Phone, ArrowUpRight } from "lucide-react";
 import { C, T } from "@/lib/design";
 
@@ -43,18 +44,14 @@ export default function CallsCard({
   // instead of inside it: a percentage computed over 7 classified calls out
   // of 22 attempts means something different from one computed over 22, and
   // hiding that is how a dashboard lies without a single wrong number.
+  const { t } = useLocale();
   const rate = confirmedConnectRate == null ? "—" : `${confirmedConnectRate.toFixed(1)}%`;
   const items = [
-    { label: "Attempted", value: attempted, accent: C.textPrimary,
-      hint: "Distinct physical calls in this period. Several technical rows for one call count once." },
-    { label: "Confirmed conn.", value: confirmedConnected, accent: "#10B981",
-      hint: "A human logged a conversational outcome. Aircall's 'answered' is not accepted as evidence." },
-    { label: "Not connected", value: confirmedNotConnected, accent: "#DC2626",
-      hint: "A human logged voicemail, wrong number or no answer." },
-    { label: "Unknown", value: unknown, accent: "#94A3B8",
-      hint: "Nobody logged an outcome. Not a failure — and never counted in the rate." },
-    { label: "Pending", value: pending, accent: "#94A3B8",
-      hint: "Call steps queued in a flow, waiting to be dialled." },
+    { label: t("cc.attempted"), value: attempted, accent: C.textPrimary, hint: t("cc.attemptedHint") },
+    { label: t("cc.confirmedConn"), value: confirmedConnected, accent: "#10B981", hint: t("cc.confirmedHint") },
+    { label: t("cc.notConnected"), value: confirmedNotConnected, accent: "#DC2626", hint: t("cc.notConnHint") },
+    { label: t("cc.unknown"), value: unknown, accent: "#94A3B8", hint: t("cc.unknownHint") },
+    { label: t("cc.pending"), value: pending, accent: "#94A3B8", hint: t("cc.pendingHint") },
   ];
 
   return (

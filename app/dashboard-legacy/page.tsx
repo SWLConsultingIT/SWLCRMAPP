@@ -52,6 +52,7 @@ import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsC
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
 import { NOT_MEASURED_REASON } from "@/lib/metric-defs";
 import { DashboardTabsProvider, TabPanel, TabChrome } from "@/components/dashboard/DashboardTabs";
+import { intlTag } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -308,7 +309,7 @@ export default async function DashboardPage({
     }
   );
   const withScope = (subtitle: string) => scopeLabel ? `${subtitle} · ${scopeLabel}` : subtitle;
-  const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const dateLoc = intlTag(locale);
   // Locale-bound bundles spread onto every KpiCard / Funnel so we don't
   // forget to pass them and have hardcoded Spanish leak through.
   const kpi18n = { vsPriorLabel: t("dashx.kpi.vsPrior"), noPriorLabel: t("dashx.kpi.noPrior") };
@@ -444,7 +445,7 @@ export default async function DashboardPage({
       <DimWhileLoading dataKey={filterKey}>
       {/* ═══ PORTFOLIO · cross-tenant comparison (super-admin only) ═══ */}
       {onPortfolio && portfolioData && (
-        <PortfolioView companies={portfolioData} days={pdays} locale={locale === "es" ? "es" : "en"} />
+        <PortfolioView companies={portfolioData} days={pdays} />
       )}
 
       {/* ═══ OVERVIEW ═══════════════════════════════════════════ */}

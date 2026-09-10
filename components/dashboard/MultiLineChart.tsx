@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { C } from "@/lib/design";
+import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -42,7 +43,7 @@ export default function MultiLineChart({
   resetLabel?: string;
   totalLabel?: string;
   /** Locale for the date axis formatter. Defaults to "en". */
-  locale?: "en" | "es";
+  locale?: Locale;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -54,7 +55,7 @@ export default function MultiLineChart({
   // is trailing-N-days where index n-1 is "today" and index 0 is "today - (n-1)
   // days". Showing "12 May" instead of "29d ago" reads much faster for the
   // operator who's used to thinking in dates (boss feedback 2026-05-27).
-  const dateLocStr = locale === "es" ? "es-AR" : "en-US";
+  const dateLocStr = intlTag(locale);
   const dateAtIdx = (idx: number, totalN: number) => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);

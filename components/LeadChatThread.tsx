@@ -12,6 +12,7 @@ import { Share2, Mail, Phone, Smartphone, MessageSquare, PhoneCall, ChevronRight
 import Link from "next/link";
 import { C } from "@/lib/design";
 import InboxComposer from "./InboxComposer";
+import { useLocale } from "@/lib/i18n";
 
 // Call outcome → compact label + colour (mirrors the post-call popup + Calls
 // History so the wording reads the same across the app).
@@ -87,6 +88,7 @@ function dayLabel(iso: string) {
 }
 
 export default function LeadChatThread({ leadId, leadName, readOnly = false, highlightText = null }: { leadId?: string; leadName?: string | null; readOnly?: boolean; highlightText?: string | null }) {
+  const { t } = useLocale();
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -132,7 +134,7 @@ export default function LeadChatThread({ leadId, leadName, readOnly = false, hig
     return (
       <div className="space-y-3">
         <div className="rounded-2xl border py-14 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <p className="text-sm font-semibold" style={{ color: C.textBody }}>Sin mensajes todavía</p>
+          <p className="text-sm font-semibold" style={{ color: C.textBody }}>{t("chat.noMessages")}</p>
           <p className="text-xs mt-1" style={{ color: C.textMuted }}>
             Cuando el lead responda o le mandes algo, va a aparecer acá.
           </p>
@@ -198,7 +200,7 @@ export default function LeadChatThread({ leadId, leadName, readOnly = false, hig
                   )}
                 </div>
               ) : leadId ? (
-                <Link href={`/leads/${leadId}?tab=calls`} title="Ver la llamada (grabación + transcript + notas)">{card}</Link>
+                <Link href={`/leads/${leadId}?tab=calls`} title={t("chat.viewCall")}>{card}</Link>
               ) : card}
             </div>
           );
@@ -245,7 +247,7 @@ export default function LeadChatThread({ leadId, leadName, readOnly = false, hig
                   )}
                   {entry.body && entry.body.trim()
                     ? <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.body}</p>
-                    : <p className="text-sm" style={{ color: C.textMuted }}>(sin contenido)</p>}
+                    : <p className="text-sm" style={{ color: C.textMuted }}>{t("chat.noContent")}</p>}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.textDim }}>
                   {/* Channel chip — always shown so it's clear which channel

@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getT } from "@/lib/i18n-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { C } from "@/lib/design";
@@ -110,7 +111,7 @@ async function getAircallUsage() {
   }
 }
 
-async function getData() {
+async function getData(t: (k: string) => string) {
   const supabase = await getSupabaseServer();
 
   // Use the shared scope helper so demo-impersonation and tenant boundaries
@@ -239,7 +240,7 @@ async function getData() {
     const ch = msg.channel ?? "unknown";
     const key = `${date}:${sellerId}:${ch}`;
     if (!historyMap[key]) {
-      historyMap[key] = { date, sellerId, sellerName: sellerNameMap[sellerId] ?? "Unknown", channel: ch, count: 0 };
+      historyMap[key] = { date, sellerId, sellerName: sellerNameMap[sellerId] ?? t("acc.unknownSeller"), channel: ch, count: 0 };
     }
     historyMap[key].count++;
   }
@@ -309,7 +310,8 @@ async function getData() {
 }
 
 export default async function AccountsPage() {
-  const data = await getData();
+  const t = await getT();
+  const data = await getData(t);
 
   // Per-channel connection status — gives the seller an instant "is the
   // outreach channel ready to use?" answer without scrolling through the
@@ -325,27 +327,27 @@ export default async function AccountsPage() {
   return (
     <div className="p-6 w-full">
       <AuroraHero
-        eyebrow="Operations"
-        title="Accounts & Usage"
-        subtitle="Monitor daily sending limits and account health across channels."
+        eyebrow={t("acc.eyebrow")}
+        title={t("acc.heroTitle")}
+        subtitle={t("acc.heroSubtitle")}
         actions={
           <span className="inline-flex items-center gap-2 aurora-btn plain" style={{ cursor: "default" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#22C55E" }} />
-            Active
+            {t("acc.active")}
           </span>
         }
         kpis={[
-          { label: "LinkedIn ready", value: `${linkedinReady}/${linkedinTotal}`, tone: linkedinReady > 0 ? "green" : "gold" },
-          { label: "Email ready", value: `${emailReady}/${emailTotal}`, tone: emailReady > 0 ? "green" : "gold" },
-          { label: "Calls ready", value: `${callsReady}/${callsTotal}`, tone: callsReady > 0 ? "green" : "gold" },
-          { label: "LinkedIn sent today", value: `${data.totals.linkedinSent}/${data.totals.linkedinLimit}` },
+          { label: t("acc.kpi.liReady"), value: `${linkedinReady}/${linkedinTotal}`, tone: linkedinReady > 0 ? "green" : "gold" },
+          { label: t("acc.kpi.emailReady"), value: `${emailReady}/${emailTotal}`, tone: emailReady > 0 ? "green" : "gold" },
+          { label: t("acc.kpi.callsReady"), value: `${callsReady}/${callsTotal}`, tone: callsReady > 0 ? "green" : "gold" },
+          { label: t("acc.kpi.liSentToday"), value: `${data.totals.linkedinSent}/${data.totals.linkedinLimit}` },
         ]}
       />
 
       <ConnectionStatusHeader
-        linkedin={{ ready: linkedinReady, total: linkedinTotal, label: "sellers with LinkedIn" }}
-        email={{ ready: emailReady, total: emailTotal, label: "inboxes ready" }}
-        calls={{ ready: callsReady, total: callsTotal, label: "Aircall numbers active" }}
+        linkedin={{ ready: linkedinReady, total: linkedinTotal, label: t("acc.sellersWithLi") }}
+        email={{ ready: emailReady, total: emailTotal, label: t("acc.inboxesReady") }}
+        calls={{ ready: callsReady, total: callsTotal, label: t("acc.aircallActive") }}
       />
 
       <AccountsClient
@@ -368,19 +370,20 @@ function ConnectionStatusHeader({ linkedin, email, calls }: {
 }) {
   return (
     <div className="mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <ChannelStatusCard icon={Share2} channel="LinkedIn" status={linkedin} color={C.linkedin ?? "#0A66C2"} />
-      <ChannelStatusCard icon={Mail} channel="Email" status={email} color={C.email ?? "#059669"} />
-      <ChannelStatusCard icon={Phone} channel="Calls" status={calls} color="#F97316" />
+      <ChannelStatusCard icon={Share2} channelKey="chan.linkedin" status={linkedin} color={C.linkedin ?? "#0A66C2"} />
+      <ChannelStatusCard icon={Mail} channelKey="chan.email" status={email} color={C.email ?? "#059669"} />
+      <ChannelStatusCard icon={Phone} channelKey="acc.calls" status={calls} color="#F97316" />
     </div>
   );
 }
 
-function ChannelStatusCard({ icon: Icon, channel, status, color }: {
+async function ChannelStatusCard({ icon: Icon, channelKey, status, color }: {
   icon: typeof Share2;
-  channel: string;
+  channelKey: string;
   status: ChannelStatus;
   color: string;
 }) {
+  const t = await getT();
   // "Ready" = at least one connected account / number / inbox available to
   // actually send today. "Not set up" surfaces the empty case explicitly so
   // sellers don't blame the wider app when the underlying channel is missing.
@@ -402,7 +405,7 @@ function ChannelStatusCard({ icon: Icon, channel, status, color }: {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[11px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>
-          {channel}
+          {t(channelKey)}
         </p>
         <div className="flex items-center gap-1.5">
           {isReady ? (
@@ -411,10 +414,10 @@ function ChannelStatusCard({ icon: Icon, channel, status, color }: {
             <X size={13} style={{ color: C.textDim }} strokeWidth={2.5} />
           )}
           <p className="text-sm font-bold" style={{ color: C.textPrimary }}>
-            {isReady ? `${status.ready}${status.total ? ` / ${status.total}` : ""}` : "Not set up"}
+            {isReady ? `${status.ready}${status.total ? ` / ${status.total}` : ""}` : t("acc.notSetUp")}
           </p>
           <p className="text-[11px]" style={{ color: C.textMuted }}>
-            {isReady ? status.label : "no accounts connected"}
+            {isReady ? status.label : t("acc.noAccounts")}
           </p>
         </div>
       </div>

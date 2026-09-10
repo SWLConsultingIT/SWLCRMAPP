@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Users, MessageSquare, CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/lib/i18n-locale";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -35,7 +36,7 @@ export default function DashboardHero({ pulse }: Props) {
     // Render the date client-side so SSR / TZ mismatches don't show the
     // wrong day. Format: "Tue · 21 May" in en, "mar · 21 may" in es.
     const now = new Date();
-    const fmt = new Intl.DateTimeFormat(locale === "es" ? "es-AR" : "en-GB", {
+    const fmt = new Intl.DateTimeFormat(intlTag(locale), {
       weekday: "short", day: "numeric", month: "short",
     });
     setDateLabel(fmt.format(now));
@@ -119,11 +120,11 @@ export default function DashboardHero({ pulse }: Props) {
           {pulse && (
             <div className="flex items-stretch gap-2 shrink-0">
               <PulseTile icon={Users} value={pulse.leadsToday}
-                label={locale === "es" ? "leads hoy" : "leads today"} />
+                label={t("hero.pulse.leadsToday")} />
               <PulseTile icon={MessageSquare} value={pulse.repliesToday}
-                label={locale === "es" ? "respuestas hoy" : "replies today"} />
+                label={t("hero.pulse.repliesToday")} />
               <PulseTile icon={CheckCircle2} value={pulse.transferredToday}
-                label={locale === "es" ? "ganados hoy" : "won today"} />
+                label={t("hero.pulse.wonToday")} />
             </div>
           )}
         </div>

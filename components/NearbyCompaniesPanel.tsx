@@ -50,8 +50,7 @@ export default function NearbyCompaniesPanel({
   plantLng?: number | null;
   plantCompany?: string | null;
 }) {
-  const { locale } = useLocale();
-  const L = (en: string, es: string) => (locale === "es" ? es : en);
+  const { t } = useLocale();
   // Demo: start EMPTY on purpose — the seller taps the AI button and watches it
   // scrape the area live. (initial is ignored for display; kept for API parity.)
   void initial;
@@ -73,8 +72,8 @@ export default function NearbyCompaniesPanel({
       const r = await fetch(`/api/leads/${leadId}/nearby-companies`, { method: "POST" });
       const d = await r.json();
       if (r.ok && Array.isArray(d.companies)) { setList(d.companies); setOpen(true); setScraped(true); }
-      else setErr(d.error || L("Couldn't search", "No se pudo buscar"));
-    } catch { setErr(L("Network error", "Error de red")); }
+      else setErr(d.error || t("nearby.err.search"));
+    } catch { setErr(t("nearby.err.network")); }
     finally { setLoading(false); }
   }
 
@@ -134,15 +133,26 @@ export default function NearbyCompaniesPanel({
   const web = detail?.web ?? selected?.web ?? null;
   const industry = industryOf(detail?.types);
   const about = detail?.description
-    ?? (industry && addr ? L(`${industry} based in ${addr.split(",").slice(-3, -1).join(",").trim()}.`, `${industry} en ${addr.split(",").slice(-3, -1).join(",").trim()}.`) : null);
+    ?? (industry && addr
+      ? t("nearby.about", { industry, city: addr.split(",").slice(-3, -1).join(",").trim() })
+      : null);
   const distanceKm = (plantLat != null && plantLng != null && detail?.lat != null && detail?.lng != null)
     ? haversineKm(plantLat, plantLng, detail.lat, detail.lng) : null;
   const fit = solarFit(industry);
-  const anchorName = plantCompany ? plantCompany.replace(/\s+(s\.?r\.?l\.?|srl|s\.?p\.?a\.?|spa)\.?$/i, "").trim() : L("the plant", "la planta");
-  const aiAngle = detail ? L(
-    `${industry ? industry + " " : ""}${distanceKm != null ? `~${distanceKm.toFixed(1)} km from ${anchorName}'s plant` : `near ${anchorName}'s plant`} — a strong candidate to join the CACER energy community. Pitch: pool a ~${fit.kwp} kWp rooftop install into the community for ~€${fit.savingsEur.toLocaleString()}/yr in savings, zero capex via Transizione 5.0 / PNRR.`,
-    `${industry ? industry + " " : ""}${distanceKm != null ? `a ~${distanceKm.toFixed(1)} km de la planta de ${anchorName}` : `cerca de la planta de ${anchorName}`} — fuerte candidata a sumarse a la comunidad energética (CACER). Pitch: integrar un techo solar de ~${fit.kwp} kWp a la comunidad para ~€${fit.savingsEur.toLocaleString()}/año de ahorro, sin capex vía Transizione 5.0 / PNRR.`
-  ) : null;
+  const anchorName = plantCompany ? plantCompany.replace(/\s+(s\.?r\.?l\.?|srl|s\.?p\.?a\.?|spa)\.?$/i, "").trim() : t("nearby.thePlant");
+  // The proximity clause is its own key: the preposition and word order
+  // around the distance differ per language, so it cannot be interpolated
+  // from an English skeleton.
+  const aiAngle = detail
+    ? t("nearby.aiAngle", {
+        prefix: industry ? industry + " " : "",
+        proximity: distanceKm != null
+          ? t("nearby.proximity.km", { km: distanceKm.toFixed(1), anchor: anchorName })
+          : t("nearby.proximity.near", { anchor: anchorName }),
+        kwp: fit.kwp,
+        savings: fit.savingsEur.toLocaleString(),
+      })
+    : null;
 
   return (
     <div className="mt-5">
@@ -156,10 +166,10 @@ export default function NearbyCompaniesPanel({
             style={{ background: `linear-gradient(135deg, ${ai}, #5B21B6)`, boxShadow: `0 4px 14px color-mix(in srgb, ${ai} 38%, transparent)` }}
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            <span className="text-[13px]">{loading ? L("Scanning the area with AI…", "Escaneando el área con IA…") : L("Find nearby companies", "Buscar empresas cercanas")}</span>
+            <span className="text-[13px]">{loading ? t("nearby.scanning") : t("nearby.find")}</span>
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(255,255,255,0.22)" }}>AI</span>
           </button>
-          {!loading && <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>{L("Scan the plant's surroundings to surface cross-sell targets.", "Escaneá los alrededores de la planta para encontrar oportunidades de cross-sell.")}</p>}
+          {!loading && <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>{t("nearby.findHint")}</p>}
           {err && <p className="text-[11px] mt-1" style={{ color: C.red }}>{err}</p>}
         </div>
       ) : (
@@ -167,18 +177,18 @@ export default function NearbyCompaniesPanel({
           {/* results header + actions */}
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: ai }}>
-              <Sparkles size={14} /> {list.length} {L("nearby companies", "empresas cercanas")}
+              <Sparkles size={14} /> {list.length} {t("nearby.countLabel")}
             </span>
             <div className="flex items-center gap-1.5">
-              <button onClick={scrape} disabled={loading} title={L("Re-scan", "Re-escanear")}
+              <button onClick={scrape} disabled={loading} title={t("nearby.rescan")}
                 className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border disabled:opacity-50"
                 style={{ backgroundColor: C.bg, color: C.textMuted, borderColor: C.border }}>
-                <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {loading ? L("Scanning…", "Escaneando…") : L("Re-scan", "Re-escanear")}
+                <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {loading ? t("nearby.scanningShort") : t("nearby.rescan")}
               </button>
-              <button onClick={clear} title={L("Clear", "Limpiar")}
+              <button onClick={clear} title={t("nearby.clear")}
                 className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border"
                 style={{ backgroundColor: C.bg, color: C.textMuted, borderColor: C.border }}>
-                <X size={12} /> {L("Clear", "Limpiar")}
+                <X size={12} /> {t("nearby.clear")}
               </button>
             </div>
           </div>
@@ -219,7 +229,7 @@ export default function NearbyCompaniesPanel({
               {detailLoading ? (
                 <div className="flex flex-col items-center gap-2" style={{ color: C.textMuted }}>
                   <Loader2 size={22} className="animate-spin" />
-                  <span className="text-[11px] font-medium">{L("Fetching company details from Google…", "Trayendo datos de la empresa de Google…")}</span>
+                  <span className="text-[11px] font-medium">{t("nearby.fetchingDetails")}</span>
                 </div>
               ) : detail?.photoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -234,7 +244,7 @@ export default function NearbyCompaniesPanel({
             </div>
 
             <div className="p-5 overflow-y-auto">
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: teal }}>{L("Nearby company · cross-sell", "Empresa cercana · cross-sell")}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: teal }}>{t("nearby.eyebrow")}</p>
               <p className="text-[20px] font-bold leading-tight" style={{ color: C.textPrimary }}>{detail?.name ?? selected.name}</p>
 
               {/* badges: industry + rating + open + price */}
@@ -249,7 +259,7 @@ export default function NearbyCompaniesPanel({
                 )}
                 {detail?.openNow != null && (
                   <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: detail.openNow ? C.greenLight : C.redLight, color: detail.openNow ? C.green : C.red }}>
-                    {detail.openNow ? L("Open now", "Abierto") : L("Closed", "Cerrado")}
+                    {detail.openNow ? t("nearby.openNow") : t("nearby.closed")}
                   </span>
                 )}
                 {detail?.priceLevel != null && detail.priceLevel > 0 && (
@@ -260,7 +270,7 @@ export default function NearbyCompaniesPanel({
               {/* About / what they do */}
               {about && (
                 <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: C.bg, borderLeft: `3px solid ${teal}` }}>
-                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: teal }}>{L("What they do", "A qué se dedican")}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: teal }}>{t("nearby.whatTheyDo")}</p>
                   <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{about}</p>
                 </div>
               )}
@@ -268,7 +278,7 @@ export default function NearbyCompaniesPanel({
               {/* AI cross-sell angle */}
               {aiAngle && (
                 <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: `color-mix(in srgb, ${ai} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${ai} 28%, transparent)` }}>
-                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1 inline-flex items-center gap-1" style={{ color: ai }}><Sparkles size={11} /> {L("AI cross-sell angle", "Ángulo de cross-sell IA")}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1 inline-flex items-center gap-1" style={{ color: ai }}><Sparkles size={11} /> {t("nearby.aiAngleLabel")}</p>
                   <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{aiAngle}</p>
                 </div>
               )}
@@ -287,41 +297,41 @@ export default function NearbyCompaniesPanel({
               <div className="grid grid-cols-2 gap-2.5 mt-3">
                 {industry && (
                   <div className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
-                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Industry", "Industria")}</p>
+                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearby.industry")}</p>
                     <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{industry}</p>
                   </div>
                 )}
                 {detail?.rating != null && (
                   <div className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
-                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Rating", "Reputación")}</p>
-                    <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{detail.rating} ★ {detail.ratingsTotal != null ? `· ${detail.ratingsTotal} ${L("reviews", "reseñas")}` : ""}</p>
+                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearby.rating")}</p>
+                    <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{detail.rating} ★ {detail.ratingsTotal != null ? `· ${detail.ratingsTotal} ${t("nearby.reviews")}` : ""}</p>
                   </div>
                 )}
                 {phone && (
                   <a href={`tel:${phone.replace(/\s/g, "")}`} className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
-                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Phone", "Teléfono")}</p>
+                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearby.phone")}</p>
                     <p className="text-[13px] font-semibold inline-flex items-center gap-1.5" style={{ color: C.textBody }}><Phone size={12} style={{ color: C.phone }} /> {phone}</p>
                   </a>
                 )}
                 {web && (
                   <a href={webHref(web)} target="_blank" rel="noopener" className="p-2.5 rounded-lg min-w-0" style={{ backgroundColor: C.bg }}>
-                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Website", "Sitio web")}</p>
+                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearby.website")}</p>
                     <p className="text-[13px] font-semibold inline-flex items-center gap-1.5 truncate" style={{ color: C.blue }}><Globe size={12} /> <span className="truncate">{web.replace(/^https?:\/\/(www\.)?/, "")}</span></p>
                   </a>
                 )}
                 {distanceKm != null && (
                   <div className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
-                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Distance to plant", "Distancia a la planta")}</p>
+                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearby.distance")}</p>
                     <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{distanceKm.toFixed(1)} km</p>
                   </div>
                 )}
                 <div className="p-2.5 rounded-lg" style={{ backgroundColor: "color-mix(in srgb, #D97706 8%, transparent)" }}>
-                  <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: "#B45309" }}>{L("Solar fit (est.)", "Fit solar (est.)")}</p>
-                  <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>~{fit.kwp} kWp · ~€{fit.savingsEur.toLocaleString()}/{L("yr", "año")}</p>
+                  <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: "#B45309" }}>{t("nearby.solarFit")}</p>
+                  <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>~{fit.kwp} kWp · ~€{fit.savingsEur.toLocaleString()}/{t("nearby.perYear")}</p>
                 </div>
                 {addr && (
                   <div className="p-2.5 rounded-lg col-span-2" style={{ backgroundColor: C.bg }}>
-                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Address", "Dirección")}</p>
+                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{t("nearby.address")}</p>
                     <p className="text-[13px] font-medium inline-flex items-start gap-1.5" style={{ color: C.textBody }}><MapPin size={13} style={{ color: teal, marginTop: 1 }} /> {addr}</p>
                   </div>
                 )}
@@ -330,7 +340,7 @@ export default function NearbyCompaniesPanel({
               {/* Recent reviews */}
               {(detail?.reviews?.length ?? 0) > 0 && (
                 <div className="mt-3">
-                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{L("Recent reviews", "Reseñas recientes")}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("nearby.recentReviews")}</p>
                   <div className="space-y-2">
                     {detail!.reviews!.slice(0, 2).map((rv, i) => (
                       <div key={i} className="rounded-lg p-2.5" style={{ backgroundColor: C.bg }}>
@@ -351,25 +361,25 @@ export default function NearbyCompaniesPanel({
                 {createState === "created" ? (
                   <a href={`/leads/${createdId}`} className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold"
                     style={{ backgroundColor: C.greenLight, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}>
-                    <CheckCircle2 size={14} /> {L("Lead created · view", "Lead creado · ver")}
+                    <CheckCircle2 size={14} /> {t("nearby.leadCreated")}
                   </a>
                 ) : (
                   <button onClick={createLead} disabled={createState === "creating"}
                     className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold disabled:opacity-60"
                     style={{ background: "linear-gradient(135deg, var(--brand, #c9a83a), #A8862E)", color: "#fff" }}>
                     {createState === "creating"
-                      ? <><Loader2 size={14} className="animate-spin" /> {L("Creating…", "Creando…")}</>
-                      : <><UserPlus size={14} /> {L("Create as lead", "Crear como lead")}</>}
+                      ? <><Loader2 size={14} className="animate-spin" /> {t("nearby.creating")}</>
+                      : <><UserPlus size={14} /> {t("nearby.createAsLead")}</>}
                   </button>
                 )}
                 <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener"
-                  title={L("Open in Google Maps", "Abrir en Google Maps")}
+                  title={t("nearby.openInMaps")}
                   className="flex items-center justify-center gap-2 px-4 p-2.5 rounded-lg text-[13px] font-semibold"
                   style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}>
                   <MapPin size={14} /> Maps
                 </a>
               </div>
-              {createState === "error" && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>{L("Couldn't create the lead", "No se pudo crear el lead")}</p>}
+              {createState === "error" && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>{t("nearby.err.create")}</p>}
             </div>
           </div>
         </div>

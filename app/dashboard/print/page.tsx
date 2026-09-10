@@ -15,6 +15,8 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { loadConsoleSource, buildIndex, buildOverview, buildTabs, CH_KEYS } from "@/lib/console-data";
 import PrintTrigger from "@/app/reports/print/PrintTrigger";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { isLocale, intlTag, type Locale } from "@/lib/i18n-locale";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -60,8 +62,29 @@ const T = {
     unknownNote: (u: number, a: number) => `${u} of ${a} calls have no human outcome — excluded from the rate`,
     footer: "Growth AI Engine — SWL Consulting",
   },
+  it: {
+    report: "Report", dashboard: "Dashboard", engine: "Growth Engine",
+    generated: (d: string) => `Generato il ${d}`, allTime: "Tutto il periodo",
+    scope: "Ambito", period: "Periodo", noFilter: "Nessun filtro — intero workspace",
+    contacted: "Contattati", replied: "Hanno risposto", positive: "Positivi",
+    attempted: "Chiamate tentate", connected: "Contatti confermati",
+    notConnected: "Non contattati", unknown: "Senza esito", connectRate: "Tasso di contatto confermato",
+    overview: "Panoramica", funnelQ: "Dove finiscono i lead?",
+    channels: "Canali", replyRate: "Tasso di risposta", sent: "Inviati", reach: "Lead raggiunti",
+    icps: "ICP", campaigns: "Campagne", sellers: "Venditori",
+    name: "Nome", replies: "Risposte", rate: "Tasso", calls: "Chiamate",
+    icpCol: "ICP", enrolled: "Iscritti", queue: "In coda", messages: "Messaggi",
+    noData: "Nessuna attività in questo periodo",
+    unknownNote: (u: number, a: number) => `${u} chiamate su ${a} non hanno un esito umano — escluse dal tasso`,
+    footer: "Growth AI Engine — SWL Consulting",
+  },
 };
 type L = typeof T.es;
+
+// Compile-time guard: a new locale in the registry has to bring a label block
+// with it, or this line stops building.
+const _tCoversEveryLocale: Record<Locale, L> = T;
+void _tCoversEveryLocale;
 
 async function branding() {
   const scope = await getUserScope().catch(() => null);
@@ -130,7 +153,9 @@ const day = (d: Date) => new Date(d.getTime() - 180 * 60_000).toISOString().slic
 export default async function Page_({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   const one = (k: string) => { const v = sp[k]; return Array.isArray(v) ? v[0] : v; };
-  const L: L = one("lang") === "en" ? T.en : T.es;
+  const langParam = one("lang");
+  const lang: Locale = isLocale(langParam) ? langParam : await getServerLocale();
+  const L: L = T[lang];
 
   const tabs = new Set((one("tabs") ?? "overview,icps,campaigns,channels,sellers").split(",").filter(Boolean));
   const has = (k: string) => tabs.has(k);
@@ -148,9 +173,10 @@ export default async function Page_({ searchParams }: { searchParams: Promise<Re
 
   const filters = { from, to, bioId, preset, assignedUserId: assigned,
     campaignNames: many("campaigns"), icpIds: many("icps"), sellerIds: many("sellers") };
+  const t = await getT();
   const ix = buildIndex(await loadConsoleSource(bioId), filters);
-  const D = buildOverview(ix, filters);
-  const K = buildTabs(ix);
+  const D = buildOverview(ix, filters, t, lang);
+  const K = buildTabs(ix, t, lang);
 
   const activeBits = [
     filters.campaignNames?.[0],
@@ -159,7 +185,7 @@ export default async function Page_({ searchParams }: { searchParams: Promise<Re
   ].filter(Boolean) as string[];
 
   const h = K.teamHealth;
-  const today = new Date().toLocaleDateString(L === T.es ? "es-AR" : "en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const today = new Date().toLocaleDateString(intlTag(lang), { day: "numeric", month: "long", year: "numeric" });
 
   return (
     <>

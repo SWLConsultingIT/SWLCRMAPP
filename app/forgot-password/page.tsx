@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, ChevronRight, ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useLocale } from "@/lib/i18n";
 
 export default function ForgotPasswordPage() {
+  const { t } = useLocale();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -53,7 +55,7 @@ export default function ForgotPasswordPage() {
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "rgba(183,152,50,0.1)", border: "1px solid rgba(183,152,50,0.3)" }}>
               <Mail size={28} style={{ color: "#b79832" }} />
             </div>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>Check your email</h2>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>{t("auth.checkEmail")}</h2>
             <p className="text-sm leading-relaxed" style={{ color: "rgba(217,222,226,0.6)" }}>
               If an account exists for <strong style={{ color: "#f8fafc" }}>{email}</strong>, we sent a 6-digit code. Redirecting…
             </p>
@@ -71,7 +73,7 @@ export default function ForgotPasswordPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Email</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.email")}</p>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                   <input
@@ -112,7 +114,7 @@ export default function ForgotPasswordPage() {
                     Sending…
                   </span>
                 ) : (
-                  <>Send link<ChevronRight size={15} /></>
+                  <>{t("auth.sendLink")}<ChevronRight size={15} /></>
                 )}
               </button>
             </form>

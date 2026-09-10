@@ -95,17 +95,25 @@ export function clearProfileCache(): void {
  * Pass any Supabase client that can SELECT user_profiles (service role
  * for unrestricted reads). Returns null if the row doesn't exist.
  */
+/**
+ * The slice of a Supabase client this module needs, kept deliberately opaque.
+ *
+ * A fully-typed structural shape here does not work: supabase-js returns a
+ * PostgrestBuilder from `single()` — thenable, but without `catch`/`finally`,
+ * so a `Promise` return made every real client fail to match (TS2345 across
+ * six call sites), and a `PromiseLike` one made TypeScript structurally
+ * compare the entire `SupabaseClient` generic on each call, which trips
+ * TS2589 in the caller. Stopping the type at `from` keeps both away; the
+ * three chained calls below are covered by the row assertion, which sits
+ * right next to the column list that produces it.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type ProfileReader = { from: (table: string) => any };
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 export async function getOrFetchProfile(
   userId: string,
-  svc: {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (col: string, val: string) => {
-          single: () => Promise<{ data: CachedProfileRow | null; error: unknown }>;
-        };
-      };
-    };
-  },
+  svc: ProfileReader,
 ): Promise<CachedProfileRow | null> {
   const cached = getCachedProfile(userId);
   if (cached) return cached;
@@ -114,6 +122,7 @@ export async function getOrFetchProfile(
     .select("role, tier, company_bio_id, theme, locale, company_bios(archived_at, company_name, logo_url, primary_color, use_brand_colors)")
     .eq("user_id", userId)
     .single();
-  if (data) setCachedProfile(userId, data);
-  return data ?? null;
+  const row = (data ?? null) as CachedProfileRow | null;
+  if (row) setCachedProfile(userId, row);
+  return row;
 }

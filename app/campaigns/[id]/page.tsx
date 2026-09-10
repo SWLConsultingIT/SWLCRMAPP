@@ -1,7 +1,8 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { selectAllPages } from "@/lib/supabase-bulk";
 import { C } from "@/lib/design";
-import { getT } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { intlTag } from "@/lib/i18n-locale";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -52,18 +53,18 @@ export const maxDuration = 60;
 
 const gold = "var(--brand, #c9a83a)";
 
-const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  whatsapp: { icon: Mail,   color: "#22c55e", label: "WhatsApp" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+const channelMeta: Record<string, { icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  whatsapp: { icon: Mail,   color: "#22c55e", labelKey: "chan.whatsapp" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
 };
 
-const statusMeta: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  active:    { label: "Active",    color: C.green,    bg: C.greenLight,  icon: PlayCircle },
-  paused:    { label: "Paused",    color: "#D97706",  bg: "color-mix(in srgb, #D97706 13%, transparent)",     icon: PauseCircle },
-  completed: { label: "Completed", color: C.textMuted, bg: C.surface,    icon: CheckCircle },
-  failed:    { label: "Failed",    color: C.red,      bg: C.redLight,    icon: XCircle },
+const statusMeta: Record<string, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
+  active:    { labelKey: "campaignDetail.st.active",    color: C.green,    bg: C.greenLight,  icon: PlayCircle },
+  paused:    { labelKey: "campaignDetail.st.paused",    color: "#D97706",  bg: "color-mix(in srgb, #D97706 13%, transparent)",     icon: PauseCircle },
+  completed: { labelKey: "campaignDetail.st.completed", color: C.textMuted, bg: C.surface,    icon: CheckCircle },
+  failed:    { labelKey: "campaignDetail.st.failed",    color: C.red,      bg: C.redLight,    icon: XCircle },
 };
 
 async function getCampaign(id: string) {
@@ -203,7 +204,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
   const spStr = (k: string): string | null => { const v = sp[k]; return typeof v === "string" && v ? v : null; };
   const supabase = await getSupabaseServer();
   const { id } = await params;
-  const [campaign, t] = await Promise.all([getCampaign(id), getT()]);
+  const [campaign, t, locale] = await Promise.all([getCampaign(id), getT(), getServerLocale()]);
   if (!campaign) notFound();
 
   // Tenant scope for the "Add Leads" tab.
@@ -486,7 +487,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
     <div className="p-6 w-full">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/campaigns" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> Campaigns</Link>
+        <Link href="/campaigns" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> {t("lost.campaigns")}</Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{campaign.name}</span>
       </div>
@@ -530,7 +531,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: st.color }} />
                 )}
                 <StIcon size={11} style={{ color: st.color }} />
-                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: st.color, letterSpacing: "0.06em" }}>{st.label}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: st.color, letterSpacing: "0.06em" }}>{t(st.labelKey)}</span>
               </div>
               {channels.map(ch => {
                 const meta = channelMeta[ch];
@@ -549,17 +550,17 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
                       border: `1px solid color-mix(in srgb, ${ramp} 30%, transparent)`,
                     }}
                   >
-                    <Icon size={11} style={{ color: ramp }} /> {meta.label}
+                    <Icon size={11} style={{ color: ramp }} /> {t(meta.labelKey)}
                   </span>
                 );
               })}
               {hasCallStep && (() => {
                 const m = advanceMode === "manual"
-                  ? { color: C.yellow, Icon: Phone, label: "Manual calls", hint: "waits for the seller to dial" }
-                  : { color: C.blue,   Icon: Zap,   label: "Auto-advance", hint: "skips the call after 3 days" };
+                  ? { color: C.yellow, Icon: Phone, label: t("campaignDetail.manualCalls"), hint: t("campaignDetail.manualHint") }
+                  : { color: C.blue,   Icon: Zap,   label: t("campaignDetail.autoAdvance"), hint: t("campaignDetail.autoHint") };
                 return (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                    title={`Call step is ${advanceMode === "manual" ? "MANUAL — the sequence pauses here until a seller calls the lead." : "AUTO — if no one calls within 3 days the call step is skipped and the flow continues."}`}
+                    title={advanceMode === "manual" ? t("campaignDetail.manualTitle") : t("campaignDetail.autoTitle")}
                     style={{ backgroundColor: `color-mix(in srgb, ${m.color} 11%, transparent)`, color: m.color, border: `1px solid color-mix(in srgb, ${m.color} 30%, transparent)` }}>
                     <m.Icon size={11} /> {m.label}
                     <span style={{ opacity: 0.7, fontWeight: 500 }}>· {m.hint}</span>
@@ -570,7 +571,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
                 <span className="text-[11px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
                   style={{ color: C.textMuted, border: `1px solid ${C.border}`, backgroundColor: C.surface }}>
                   <Clock size={11} />
-                  {t("campaignDetail.started").replace("{date}", new Date(campaign.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }))}
+                  {t("campaignDetail.started").replace("{date}", new Date(campaign.started_at).toLocaleDateString(intlTag(locale), { day: "2-digit", month: "short", year: "numeric" }))}
                 </span>
               )}
             </div>
@@ -591,7 +592,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
                 border: `1px solid var(--fg2)`,
                 boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)`,
               }}>
-              <UserPlus size={12} /> Add leads
+              <UserPlus size={12} /> {t("cd.addLeads")}
             </Link>
           </div>
         </div>
@@ -638,7 +639,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
         campaignName={campaign.name}
         campaignStatus={campaign.status}
         campaignIcpId={campaign.leads?.icp_profile_id ?? null}
-        sellerName={campaign.sellers?.name ?? "Unassigned"}
+        sellerName={campaign.sellers?.name ?? t("campaignDetail.unassigned")}
         sequence={sequence}
         messages={messages}
         dayPerStep={dayPerStep}

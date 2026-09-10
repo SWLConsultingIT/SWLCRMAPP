@@ -10,6 +10,7 @@ import {
 import { C } from "@/lib/design";
 import { useTheme } from "@/lib/theme";
 import { useLocale } from "@/lib/i18n";
+import { LOCALES } from "@/lib/i18n-dicts";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import { applyBrand, clearBrandVars } from "@/lib/brand";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
@@ -291,15 +292,14 @@ function BrandingCard() {
 
 function LanguageCard() {
   const { locale, setLocale, t } = useLocale();
-  const options: { id: "en" | "es"; label: string; flag: string }[] = [
-    { id: "en", label: "English", flag: "🇺🇸" },
-    { id: "es", label: "Español", flag: "🇦🇷" },
-  ];
+  // The offered languages come from the LOCALES registry in i18n-dicts, so
+  // adding a language is one edit there instead of a second list to forget.
+  const options = LOCALES;
   return (
     <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("prefs.language")}</h3>
       <p className="text-xs mb-4" style={{ color: C.textMuted }}>{t("prefs.languageHelp")}</p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {options.map(opt => {
           const isActive = locale === opt.id;
           return (

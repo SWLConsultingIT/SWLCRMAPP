@@ -170,7 +170,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         <button type="button" onClick={() => setOpen(null)}><XCircle size={14} style={{ color: C.textDim }} /></button>
       </div>
       {(m.drill[open] ?? []).length === 0
-        ? <p className="px-4 py-3 text-xs" style={{ color: C.textDim }}>None</p>
+        ? <p className="px-4 py-3 text-xs" style={{ color: C.textDim }}>{t("fmp.none")}</p>
         : (m.drill[open] ?? []).map((d, i) => (
           <div key={d.id + i} className="flex items-center justify-between gap-3 px-4 py-1.5 border-b last:border-b-0" style={{ borderColor: C.border }}>
             <div className="min-w-0">
@@ -197,9 +197,9 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         { k: "Accepted", v: m.linkedin.accepted },
         { k: "DMs sent", v: m.linkedin.dmsSent },
         { k: "Replies", v: m.linkedin.replies },
-        { k: "Reply rate", v: fmtPct(m.linkedin.replyRate), c: m.linkedin.dmsSent > 0 ? bench(m.linkedin.replyRate, 10, 4) : undefined },
+        { k: t("fmp.k.replyRate"), v: fmtPct(m.linkedin.replyRate), c: m.linkedin.dmsSent > 0 ? bench(m.linkedin.replyRate, 10, 4) : undefined },
         { k: "Positive", v: m.linkedin.positive, c: m.linkedin.positive > 0 ? C.green : undefined },
-        { k: "Pos. reply rate", v: fmtPct(m.linkedin.positiveReplyRate), c: m.linkedin.replies > 0 ? bench(m.linkedin.positiveReplyRate, 25, 12) : undefined },
+        { k: t("fmp.k.posReplyRate"), v: fmtPct(m.linkedin.positiveReplyRate), c: m.linkedin.replies > 0 ? bench(m.linkedin.positiveReplyRate, 25, 12) : undefined },
         // Failed sends surface as a per-metric warning (red), not a red border
         // on the whole card — keeps the container consistent with Email/Call.
         ...(m.linkedin.failed > 0 ? [{ k: "Failed", v: m.linkedin.failed, c: C.red }] : []),
@@ -211,29 +211,29 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       metrics: [
         { k: "Sent", v: m.email.sent },
         { k: "Bounces", v: m.email.bounced, c: m.email.bounced > 0 ? C.red : undefined },
-        { k: "Bounce rate", v: fmtPct(m.email.bounceRate), c: m.email.sent > 0 ? (m.email.bounceRate <= 2 ? "#16A34A" : m.email.bounceRate <= 5 ? "#D97706" : C.red) : undefined },
+        { k: t("fmp.k.bounceRate"), v: fmtPct(m.email.bounceRate), c: m.email.sent > 0 ? (m.email.bounceRate <= 2 ? "#16A34A" : m.email.bounceRate <= 5 ? "#D97706" : C.red) : undefined },
         { k: "Replies", v: m.email.replies },
-        { k: "Reply rate", v: fmtPct(m.email.replyRate), c: m.email.sent > 0 ? bench(m.email.replyRate, 8, 3) : undefined },
+        { k: t("fmp.k.replyRate"), v: fmtPct(m.email.replyRate), c: m.email.sent > 0 ? bench(m.email.replyRate, 8, 3) : undefined },
         { k: "Positive", v: m.email.positive, c: m.email.positive > 0 ? C.green : undefined },
-        { k: "Pos. reply rate", v: fmtPct(m.email.positiveReplyRate), c: m.email.replies > 0 ? bench(m.email.positiveReplyRate, 25, 12) : undefined },
+        { k: t("fmp.k.posReplyRate"), v: fmtPct(m.email.positiveReplyRate), c: m.email.replies > 0 ? bench(m.email.positiveReplyRate, 25, 12) : undefined },
       ],
     },
     (m.call || m.callStage) && {
-      key: "call", label: "Cold Calling", Icon: Phone, color: "var(--fg4)",
+      key: "call", label: t("fmp.coldCalling"), Icon: Phone, color: "var(--fg4)",
       reached: m.stageReach.call,
       metrics: m.callStage ? [
-        { k: "Calls made", v: m.callStage.made },
+        { k: t("fmp.k.callsMade"), v: m.callStage.made },
         { k: "Connected", v: m.callStage.connected },
-        { k: "Connect rate", v: fmtPct(m.callStage.connectRate), c: m.callStage.made > 0 ? bench(m.callStage.connectRate, 40, 25) : undefined },
+        { k: t("fmp.k.connectRate"), v: fmtPct(m.callStage.connectRate), c: m.callStage.made > 0 ? bench(m.callStage.connectRate, 40, 25) : undefined },
         { k: "Positive", v: m.callStage.positiveOutcomes, c: m.callStage.positiveOutcomes > 0 ? C.green : undefined },
         { k: "Meetings", v: m.callStage.meetings, c: m.callStage.meetings > 0 ? "var(--fg1)" : undefined },
-        { k: "Meeting conv.", v: fmtPct(m.callStage.meetingConversion), c: m.callStage.connected > 0 ? bench(m.callStage.meetingConversion, 6, 3) : undefined },
+        { k: t("fmp.k.meetingConv"), v: fmtPct(m.callStage.meetingConversion), c: m.callStage.connected > 0 ? bench(m.callStage.meetingConversion, 6, 3) : undefined },
       ] : [{ k: "Dialed", v: m.call!.dialed }],
     },
   ].filter(Boolean)) as { key: string; label: string; Icon: typeof Mail; color: string; reached: number; metrics: { k: string; v: string | number; c?: string }[] }[];
 
   const RANGES: { k: string; label: string }[] = [
-    { k: "all", label: "All time" }, { k: "7d", label: "7 days" }, { k: "4w", label: "4 weeks" }, { k: "90d", label: "90 days" }, { k: "custom", label: "Custom" },
+    { k: "all", label: t("fmp.period.all") }, { k: "7d", label: t("fmp.period.7d") }, { k: "4w", label: t("fmp.period.4w") }, { k: "90d", label: t("fmp.period.90d") }, { k: "custom", label: t("fmp.period.custom") },
   ];
   return (
     <div className="space-y-5">
@@ -242,10 +242,10 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       <div className="flex flex-wrap items-center gap-2">
         {sellers.length > 1 && (
           <label className="inline-flex items-center gap-2 text-[12px] rounded-lg border px-3 py-1.5" style={{ borderColor: C.border2, backgroundColor: C.card }}>
-            <span className="font-semibold uppercase tracking-wider text-[9px]" style={{ color: C.textDim }}>Seller</span>
+            <span className="font-semibold uppercase tracking-wider text-[9px]" style={{ color: C.textDim }}>{t("fmp.seller")}</span>
             <select value={curSeller ?? ""} onChange={e => applyFilters({ seller: e.target.value || null })}
               className="bg-transparent outline-none font-semibold cursor-pointer" style={{ color: C.textBody }}>
-              <option value="">All sellers</option>
+              <option value="">{t("fmp.allSellers")}</option>
               {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
@@ -271,7 +271,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
             <span className="text-[11px]" style={{ color: C.textDim }}>→</span>
             <input type="date" value={cTo} onChange={e => setCTo(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ borderColor: C.border2, backgroundColor: C.card, color: C.textBody }} />
             <button type="button" disabled={!cFrom} onClick={() => cFrom && applyFilters({ range: "custom", from: cFrom, to: cTo })}
-              className="text-[11px] font-bold px-2.5 py-1 rounded-md disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>Apply</button>
+              className="text-[11px] font-bold px-2.5 py-1 rounded-md disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>{t("fmp.apply")}</button>
           </span>
         )}
         {updating && (
@@ -296,7 +296,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           <div className="w-11 h-11 rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)` }}>
             <Search size={18} style={{ color: gold }} />
           </div>
-          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>No leads in this view</p>
+          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("fmp.noLeadsInView")}</p>
           <p className="text-xs mt-1 max-w-xs" style={{ color: C.textMuted }}>
             No leads were enrolled in the selected period{curSeller ? " for this seller" : ""}. Adjust the filters above to see activity.
           </p>
@@ -324,7 +324,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           {[
             { v: m.totalLeads, l: "Leads", conv: null as string | null, color: C.textPrimary, delta: null as number | null },
             { v: m.contacted, l: "Contacted", conv: `${fmtPct(m.contactedRate)} of leads`, color: C.textPrimary, delta: null },
-            { v: m.positive, l: "Positive replies", conv: `${fmtPct(m.positiveLeadRate)} of leads`, color: C.green, delta: m.deltas?.positive?.pct ?? null },
+            { v: m.positive, l: t("fmp.hint.pos"), conv: `${fmtPct(m.positiveLeadRate)} of leads`, color: C.green, delta: m.deltas?.positive?.pct ?? null },
             { v: m.meetings, l: "Meetings", conv: `${fmtPct(m.meetingRate)} of leads`, color: "var(--fg1)", delta: m.deltas?.meetings?.pct ?? null },
           ].map((k, i) => (
             <Fragment key={k.l}>
@@ -354,12 +354,12 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           that would imply Email volume derives from LinkedIn, which is false.
           Absorbs the old "By channel" cards; keeps the correct per-channel
           denominators. (Data-accuracy call, boss 2026-08-28.) */}
-      <Section title="Channel performance">
+      <Section title={t("fmp.channelPerf")}>
         {flowStages.length === 0 ? (
-          <p className="text-xs" style={{ color: C.textDim }}>No channels configured for this flow.</p>
+          <p className="text-xs" style={{ color: C.textDim }}>{t("fmp.noChannels")}</p>
         ) : (
           <>
-            <p className="text-[11px] mb-3" style={{ color: C.textDim }}>Leads reached on each channel across the whole sequence — independent activity, not a sequential cohort.</p>
+            <p className="text-[11px] mb-3" style={{ color: C.textDim }}>{t("fmp.channelNote")}</p>
             <div className="space-y-2.5">
               {flowStages.map(st => (
                 <div key={st.key} className="rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.bg }}>
@@ -390,23 +390,23 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         )}
         {/* secondary chips + drill (awaiting acceptance is LinkedIn-stage detail) */}
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-          <MiniChip icon={Hourglass} label="awaiting acceptance" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "funnel"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "funnel")} clickable={has("pendingAccept")} />
-          <MiniChip icon={XCircle} label="lost" n={m.lost} color={C.red} />
+          <MiniChip icon={Hourglass} label={t("fmp.awaitingAcceptance")} n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "funnel"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "funnel")} clickable={has("pendingAccept")} />
+          <MiniChip icon={XCircle} label={t("fmp.lost")} n={m.lost} color={C.red} />
         </div>
         {openFrom === "funnel" && drillPanel}
       </Section>
 
       {/* ── PIPELINE STATUS — where the leads are NOW (mutually exclusive,
           partitions the cohort). Distribution bar + time-in-stage aging. ── */}
-      <Section title="Pipeline status">
+      <Section title={t("fmp.pipelineStatus")}>
         {(() => {
           const p = m.pipeline;
           const segs = [
-            { k: "In LinkedIn", n: p.inLinkedin, c: "var(--fg1)" },
-            { k: "In Email", n: p.inEmail, c: "var(--fg3)" },
-            { k: "In Cold calling", n: p.inCall, c: "var(--fg4)" },
-            { k: "Replied · exited", n: p.repliedExited, c: C.green },
-            { k: "Completed · no response", n: p.completedNoResponse, c: C.textMuted },
+            { k: t("fmp.p.inLinkedin"), n: p.inLinkedin, c: "var(--fg1)" },
+            { k: t("fmp.p.inEmail"), n: p.inEmail, c: "var(--fg3)" },
+            { k: t("fmp.p.inCall"), n: p.inCall, c: "var(--fg4)" },
+            { k: t("fmp.p.repliedExited"), n: p.repliedExited, c: C.green },
+            { k: t("fmp.p.completedNoResponse"), n: p.completedNoResponse, c: C.textMuted },
             { k: "Removed", n: p.removed, c: C.textDim },
             ...(p.failed ? [{ k: "Failed", n: p.failed, c: C.red }] : []),
             ...(p.other ? [{ k: "Other", n: p.other, c: C.textDim }] : []),
@@ -429,7 +429,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
               </div>
               {agingRows.length > 0 && (
                 <div className="mt-4 pt-3 border-t flex flex-wrap gap-2 items-center" style={{ borderColor: C.border }}>
-                  <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: C.textDim }}>Time in stage</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: C.textDim }}>{t("fmp.timeInStage")}</span>
                   {agingRows.map(([ch, a]) => {
                     const meta = CH[ch] ?? { label: ch, color: C.textMuted, Icon: Mail };
                     const warn = a.stuckOver3d > 0;
@@ -449,22 +449,22 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
 
       {/* ── OUTCOMES & DIAGNOSTICS — why (call outcome groups + reply quality
           + the one or two insights that actually matter). ── */}
-      <Section title="Outcomes & diagnostics">
+      <Section title={t("fmp.outcomes")}>
         <div className="flex flex-wrap gap-6">
           {m.callStage && (m.callStage.made > 0) && (
             <div className="min-w-[260px] flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Call outcomes <span className="font-normal normal-case tracking-normal" style={{ color: C.textDim }}>· click a group for the real outcomes</span></p>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>{t("fmp.callOutcomes")} <span className="font-normal normal-case tracking-normal" style={{ color: C.textDim }}>{t("fmp.callOutcomesHint")}</span></p>
               <CallOutcomes groups={m.callStage.groups} outcomesByGroup={m.callStage.outcomesByGroup} />
             </div>
           )}
           <div className="min-w-[220px]">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Reply quality</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>{t("fmp.replyQuality")}</p>
             <div className="flex flex-wrap gap-1.5">
-              <Tag label="positive" n={m.replyBreakdown.positive} color={C.green} />
-              <Tag label="question" n={m.replyBreakdown.question} color="#0EA5E9" />
-              <Tag label="follow-up" n={m.replyBreakdown.followup} color="#D97706" />
-              <Tag label="negative" n={m.replyBreakdown.negative} color={C.red} />
-              <Tag label="other" n={m.replyBreakdown.other} color={C.textMuted} />
+              <Tag label={t("fmp.positive")} n={m.replyBreakdown.positive} color={C.green} />
+              <Tag label={t("fmp.question")} n={m.replyBreakdown.question} color="#0EA5E9" />
+              <Tag label={t("fmp.followUp")} n={m.replyBreakdown.followup} color="#D97706" />
+              <Tag label={t("fmp.negative")} n={m.replyBreakdown.negative} color={C.red} />
+              <Tag label={t("fmp.other")} n={m.replyBreakdown.other} color={C.textMuted} />
             </div>
           </div>
         </div>
@@ -507,7 +507,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           if (!shown.length) return null;
           return (
             <div className="mt-4 pt-3 border-t space-y-1.5" style={{ borderColor: C.border }}>
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textDim }}>What to act on</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textDim }}>{t("fmp.whatToActOn")}</p>
               {shown.map((s, i) => (<div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: C.textBody }}><span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: gold }} />{s.text}</div>))}
             </div>
           );
@@ -518,16 +518,16 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           engagement → outcomes → meetings, + meetings-per-100 to compare
           sellers regardless of volume. ── */}
       {m.sellers.length > 0 && (
-        <Section title="Seller performance">
+        <Section title={t("fmp.sellerPerf")}>
           <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto] gap-x-3 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
-            <span>Seller</span>
-            <span className="text-right cursor-help" title="LinkedIn messages sent">LI</span>
-            <span className="text-right cursor-help" title="Emails sent">Email</span>
-            <span className="text-right cursor-help" title="Calls made">Calls</span>
-            <span className="text-right cursor-help" title="Calls connected">Conn.</span>
-            <span className="text-right cursor-help" title="Positive replies">Pos.</span>
-            <span className="text-right cursor-help" title="Meetings booked (leads qualified)">Meet</span>
-            <span className="text-right cursor-help" title="Meetings per 100 contacted">Meet/100</span>
+            <span>{t("fmp.seller")}</span>
+            <span className="text-right cursor-help" title={t("fmp.hint.li")}>{t("fmp.col.li")}</span>
+            <span className="text-right cursor-help" title={t("fmp.hint.email")}>{t("auth.email")}</span>
+            <span className="text-right cursor-help" title={t("fmp.k.callsMade")}>{t("fmp.k.callsMade")}</span>
+            <span className="text-right cursor-help" title={t("fmp.hint.conn")}>{t("fmp.col.conn")}</span>
+            <span className="text-right cursor-help" title={t("fmp.hint.pos")}>{t("fmp.col.pos")}</span>
+            <span className="text-right cursor-help" title={t("fmp.hint.meet")}>{t("fmp.col.meet")}</span>
+            <span className="text-right cursor-help" title={t("fmp.hint.meet100")}>{t("fmp.col.meet100")}</span>
           </div>
           <div className="space-y-0.5">
             {m.sellers.map(s => (
@@ -543,7 +543,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
               </div>
             ))}
           </div>
-          <p className="text-[10.5px] mt-2 pt-2 border-t leading-relaxed" style={{ color: C.textDim, borderColor: C.border }}>LI = LinkedIn messages · Conn. = connected calls · Pos. = positive replies · Meet = booked meetings (leads qualified) · Meet/100 = meetings per 100 contacted, to compare sellers regardless of volume.</p>
+          <p className="text-[10.5px] mt-2 pt-2 border-t leading-relaxed" style={{ color: C.textDim, borderColor: C.border }}>{t("fmp.legend")}</p>
         </Section>
       )}
 
@@ -555,8 +555,8 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         style={{ borderColor: C.border2, backgroundColor: C.card, boxShadow: C.shadow }}>
         <span className="flex items-center gap-2">
           <span className="h-px w-5" style={{ backgroundColor: gold }} />
-          <span className="text-[10px] font-bold uppercase" style={{ color: gold, letterSpacing: "0.16em" }}>Operational detail</span>
-          <span className="text-[11px]" style={{ color: C.textDim }}>Step-by-step · Leads activity · Issues</span>
+          <span className="text-[10px] font-bold uppercase" style={{ color: gold, letterSpacing: "0.16em" }}>{t("fmp.opDetail")}</span>
+          <span className="text-[11px]" style={{ color: C.textDim }}>{t("fmp.opDetailSub")}</span>
         </span>
         <ChevronDown size={16} style={{ color: C.textMuted, transform: showOps ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
       </button>
@@ -564,15 +564,15 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       <div className="space-y-5">
 
       {/* ── STEP-BY-STEP ── */}
-      <Section title="Step-by-step" action={
+      <Section title={t("fmp.stepByStep")} action={
         <div className="flex items-center gap-2.5 text-[10px]" style={{ color: C.textDim }}>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "var(--fg1)" }} />sent</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.textDim }} />skipped</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "var(--fg4)" }} />pending</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "var(--fg1)" }} />{t("fmp.sentLow")}</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.textDim }} />{t("fmp.skippedLow")}</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "var(--fg4)" }} />{t("fmp.pendingLow")}</span>
         </div>
       }>
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
-          <span>Step</span><span className="text-right w-10">Sent</span><span className="text-right w-14">Reply</span><span className="text-right w-10">Fail</span><span className="text-right w-10">Skip</span><span className="text-right w-12">Pend.</span>
+          <span>{t("fmp.col.step")}</span><span className="text-right w-10">{t("fmp.col.sent")}</span><span className="text-right w-14">{t("fmp.col.reply")}</span><span className="text-right w-10">{t("fmp.col.fail")}</span><span className="text-right w-10">{t("fmp.col.skip")}</span><span className="text-right w-12">{t("fmp.col.pend")}</span>
         </div>
         <div className="space-y-0.5">
           {m.steps.map((s, i) => {
@@ -592,7 +592,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                     {/* Segmented bar — shows the step's real composition
                         (sent / skipped / pending) so you see at a glance where
                         leads pile up, instead of a decorative full-width bar. */}
-                    <div className="flex-1 h-1.5 rounded ml-1 flex overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${C.border} 70%, transparent)` }} title={`${s.sent} sent · ${s.skipped} skipped · ${s.pending} pending`}>
+                    <div className="flex-1 h-1.5 rounded ml-1 flex overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${C.border} 70%, transparent)` }} title={t("fmp.stepBarTitle", { sent: s.sent, skipped: s.skipped, pending: s.pending })}>
                       {total > 0 && <>
                         <div className="h-1.5" style={{ width: `${(s.sent / total) * 100}%`, backgroundColor: "var(--fg1)" }} />
                         <div className="h-1.5" style={{ width: `${(s.skipped / total) * 100}%`, backgroundColor: C.textDim }} />
@@ -610,11 +610,11 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                 </button>
                 {expanded && (
                   <div className="ml-5 mb-2 mt-1 rounded-lg border divide-y" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                    <StepBucket label="Sent" leads={s.leads.sent} color={C.green} />
-                    <StepBucket label="Failed" leads={s.leads.failed} color={C.red} showDetail />
-                    <StepBucket label="Skipped" leads={s.leads.skipped} color={C.textMuted} showDetail />
-                    <StepBucket label="Pending" leads={s.leads.pending} color="#0A66C2" showDetail />
-                    {total === 0 && <p className="px-3 py-1.5 text-[11px]" style={{ color: C.textDim }}>Nothing yet on this step.</p>}
+                    <StepBucket label={t("kb.sent")} leads={s.leads.sent} color={C.green} />
+                    <StepBucket label={t("kb.failed")} leads={s.leads.failed} color={C.red} showDetail />
+                    <StepBucket label={t("imp.skipped")} leads={s.leads.skipped} color={C.textMuted} showDetail />
+                    <StepBucket label={t("opp.pending")} leads={s.leads.pending} color="#0A66C2" showDetail />
+                    {total === 0 && <p className="px-3 py-1.5 text-[11px]" style={{ color: C.textDim }}>{t("fmp.nothingOnStep")}</p>}
                   </div>
                 )}
               </div>
@@ -627,12 +627,12 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       <LeadsActivityTable rows={m.leadsActivity} />
 
       {/* ── ISSUES ── */}
-      <Section title="Issues" action={<span className="text-[11px] font-semibold" style={{ color: (m.steps.reduce((a, s) => a + s.failed, 0) || m.email?.bounced) ? C.red : C.textDim }}>{m.steps.reduce((a, s) => a + s.failed, 0)} failed · {m.email?.bounced ?? 0} bounced</span>}>
+      <Section title={t("fmp.issues")} action={<span className="text-[11px] font-semibold" style={{ color: (m.steps.reduce((a, s) => a + s.failed, 0) || m.email?.bounced) ? C.red : C.textDim }}>{m.steps.reduce((a, s) => a + s.failed, 0)} failed · {m.email?.bounced ?? 0} bounced</span>}>
         <div className="flex flex-wrap items-start gap-6">
           <div className="min-w-[220px]">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>Failure reasons</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("fmp.failureReasons")}</p>
             {m.failureReasons.length === 0 ? (
-              <p className="text-xs" style={{ color: C.textDim }}>No failed steps — all clean. 🎉</p>
+              <p className="text-xs" style={{ color: C.textDim }}>{t("fmp.allClean")}</p>
             ) : (
               <div className="space-y-1">
                 {m.failureReasons.map(f => (
@@ -645,9 +645,9 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <MiniChip icon={AlertTriangle} label="failed steps" n={m.steps.reduce((a, s) => a + s.failed, 0)} color={C.red} active={open === "failed" && openFrom === "issues"} onClick={() => has("failed") && toggle("failed", "issues")} clickable={has("failed")} />
-            <MiniChip icon={Mail} label="bounced" n={m.email?.bounced ?? 0} color={C.red} active={open === "bounced" && openFrom === "issues"} onClick={() => has("bounced") && toggle("bounced", "issues")} clickable={has("bounced")} />
-            <MiniChip icon={Hourglass} label="awaiting accept" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "issues"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "issues")} clickable={has("pendingAccept")} />
+            <MiniChip icon={AlertTriangle} label={t("fmp.failedSteps")} n={m.steps.reduce((a, s) => a + s.failed, 0)} color={C.red} active={open === "failed" && openFrom === "issues"} onClick={() => has("failed") && toggle("failed", "issues")} clickable={has("failed")} />
+            <MiniChip icon={Mail} label={t("fmp.bounced")} n={m.email?.bounced ?? 0} color={C.red} active={open === "bounced" && openFrom === "issues"} onClick={() => has("bounced") && toggle("bounced", "issues")} clickable={has("bounced")} />
+            <MiniChip icon={Hourglass} label={t("fmp.awaitingAccept")} n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "issues"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "issues")} clickable={has("pendingAccept")} />
           </div>
         </div>
         {/* drill list — only when opened from Issues, so it appears RIGHT HERE */}
@@ -665,6 +665,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
 
 type SortKey = "name" | "messaged" | "currentStep" | "daysInFlow" | "lastActivity";
 function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
+  const { t } = useLocale();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "accepted" | "replied" | "pending" | "bounced">("all");
   const [openLead, setOpenLead] = useState<string | null>(null);
@@ -696,7 +697,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
     </th>
   );
   const downloadCsv = () => {
-    const head = ["Lead", "Company", "Channels", "Conn.", "Accepted", "Messages", "Replied", "Bounced", "Status", "Step", "Days in flow", "Last activity"];
+    const head = ["Lead", "Company", "Channels", t("fmp.col.conn"), "Accepted", "Messages", "Replied", "Bounced", "Status", "Step", t("fmp.csv.daysInFlow"), t("fmp.col.lastActivity")];
     const esc = (s: string) => `"${String(s ?? "").replace(/"/g, '""')}"`;
     const lines = [head.map(esc).join(",")].concat(sorted.map(r => [
       r.name, r.company ?? "", r.channels.join("|"), r.inviteSent ? "yes" : "no", r.accepted ? "yes" : "no",
@@ -708,20 +709,20 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
   };
 
   return (
-    <Section title="Leads activity" pad={false}
+    <Section title={t("fmp.leadsActivity")} pad={false}
       action={<span className="text-[10px]" style={{ color: C.textDim }}>{filtered.length} of {rows.length}</span>}>
       <div className="px-4 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: C.border }}>
         <div className="flex items-center gap-1.5 flex-wrap">
           {(["all", "accepted", "replied", "pending", "bounced"] as const).map(f => (
             <button key={f} type="button" onClick={() => setFilter(f)}
-              className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border transition-colors capitalize"
-              style={{ borderColor: filter === f ? gold : C.border, color: filter === f ? gold : C.textMuted, backgroundColor: filter === f ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent" }}>{f}</button>
+              className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border transition-colors"
+              style={{ borderColor: filter === f ? gold : C.border, color: filter === f ? gold : C.textMuted, backgroundColor: filter === f ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent" }}>{t(`fmp.filter.${f}`)}</button>
           ))}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textDim }} />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name / company…"
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={t("fmp.searchNameCompany")}
               className="text-xs rounded-lg border pl-7 pr-2.5 py-1.5 outline-none w-52" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textPrimary }} />
           </div>
           <button type="button" onClick={downloadCsv} disabled={sorted.length === 0}
@@ -736,22 +737,22 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
           <table className="w-full text-sm border-collapse">
             <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg, boxShadow: `inset 0 -1px 0 ${C.border}` }}>
               <tr className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
-                <Sortable k="name" label="Lead" />
-                <th className="text-left px-2 py-2.5">Channels</th>
-                <th className="text-left px-2 py-2.5">LinkedIn</th>
-                <Sortable k="messaged" label="Msgs" align="center" />
-                <th className="text-left px-2 py-2.5">Replied</th>
-                <Sortable k="currentStep" label="Step" align="center" />
-                <th className="text-left px-2 py-2.5">Status</th>
-                <Sortable k="lastActivity" label="Last activity" />
+                <Sortable k="name" label={t("imp.lead")} />
+                <th className="text-left px-2 py-2.5">{t("fmp.col.channels")}</th>
+                <th className="text-left px-2 py-2.5">{t("rep.export.item.linkedin")}</th>
+                <Sortable k="messaged" label={t("fmp.col.msgs")} align="center" />
+                <th className="text-left px-2 py-2.5">{t("fmp.col.replied")}</th>
+                <Sortable k="currentStep" label={t("vc.step")} align="center" />
+                <th className="text-left px-2 py-2.5">{t("fmp.col.status")}</th>
+                <Sortable k="lastActivity" label={t("fmp.col.lastActivity")} />
               </tr>
             </thead>
             <tbody>
               {sorted.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs" style={{ color: C.textDim }}>No leads match this filter.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs" style={{ color: C.textDim }}>{t("fmp.noLeadsMatch")}</td></tr>
               ) : sorted.map(r => {
                 const rc = r.replied ? (replyColor[r.replied] ?? C.textMuted) : C.textMuted;
-                const rlabel = r.replied === "followup" ? "follow-up" : r.replied;
+                const rlabel = r.replied === "followup" ? t("fmp.followUp") : r.replied;
                 const expanded = openLead === r.id;
                 return (
                   <Fragment key={r.id}>
@@ -765,9 +766,9 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                       </td>
                       <td className="px-2 py-2 text-[11px] font-semibold">
                         {r.accepted
-                          ? <span style={{ color: C.green }}>Accepted</span>
+                          ? <span style={{ color: C.green }}>{t("fmp.accepted")}</span>
                           : r.inviteSent
-                            ? <span style={{ color: "#0A66C2" }}>Invited</span>
+                            ? <span style={{ color: "#0A66C2" }}>{t("fmp.invited")}</span>
                             : <span style={{ color: C.textDim }}>—</span>}
                       </td>
                       <td className="text-center px-2 py-2 tabular-nums" style={{ color: r.messaged ? C.textBody : C.textDim }}>{r.messaged || "—"}</td>
@@ -781,7 +782,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                               </button>
                             : <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize" style={{ color: rc, backgroundColor: `color-mix(in srgb, ${rc} 12%, transparent)` }}>{rlabel}</span>)
                           : <span style={{ color: C.textDim }}>—</span>}
-                        {r.bounced && <span className="text-[11px] font-semibold ml-1" style={{ color: C.red }}>bounced</span>}
+                        {r.bounced && <span className="text-[11px] font-semibold ml-1" style={{ color: C.red }}>{t("fmp.bounced")}</span>}
                       </td>
                       <td className="text-center px-2 py-2 tabular-nums text-xs" style={{ color: r.currentStep != null ? C.textBody : C.textDim }}>{r.currentStep != null ? (r.currentStep === 0 ? "CR" : r.currentStep) : "—"}</td>
                       <td className="px-2 py-2 text-xs capitalize" style={{ color: C.textMuted }}>{r.status}</td>
@@ -818,26 +819,28 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
 // stored values (post-mapping in the call-outcome route) — nothing invented.
 // Several prompt options collapse to one classification (e.g. bad_timing +
 // callback → follow_up), so we show the literal value, not the prompt label.
-const OUTCOME_LABELS: Record<string, string> = {
-  positive: "Positive", meeting_booked: "Meeting booked", follow_up: "Follow-up",
-  needs_info: "Needs info", negative: "Negative", voicemail: "Voicemail",
-  wrong_number: "Wrong number", other_person: "Other person", no_answer: "No answer",
-  unclassified: "No outcome logged",
-};
-const prettyOutcome = (raw: string) => OUTCOME_LABELS[raw] ?? raw.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
+// A stored classification maps 1:1 to a dictionary key. Anything unmapped
+// still falls back to a prettified version of the raw value.
+const OUTCOME_KEYS = new Set([
+  "positive", "meeting_booked", "follow_up", "needs_info", "negative",
+  "voicemail", "wrong_number", "other_person", "no_answer", "unclassified",
+]);
+const prettyOutcome = (raw: string, t: (k: string) => string) =>
+  OUTCOME_KEYS.has(raw) ? t(`outcome.${raw}`) : raw.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
 
 // Call outcomes — grouped summary (fast read) with progressive disclosure to
 // the real outcomes that compose each group (count + % of the group). Only
 // groups/outcomes actually present render; grouping is the validated
 // callOutcomeGroup from the data layer.
 function CallOutcomes({ groups, outcomesByGroup }: { groups: Record<string, number>; outcomesByGroup: Record<string, { label: string; count: number }[]> }) {
+  const { t } = useLocale();
   const [openG, setOpenG] = useState<string | null>(null);
   const GROUPS = ([
-    { key: "positive", label: "Positive", c: C.green },
-    { key: "followup", label: "Follow-up", c: "#D97706" },
-    { key: "negative", label: "Negative", c: C.red },
-    { key: "unreachable", label: "Unreachable", c: C.textMuted },
-    { key: "other", label: "Other", c: C.textDim },
+    { key: "positive",    labelKey: "fmp.grp.positive",    c: C.green },
+    { key: "followup",    labelKey: "fmp.grp.followUp",    c: "#D97706" },
+    { key: "negative",    labelKey: "fmp.grp.negative",    c: C.red },
+    { key: "unreachable", labelKey: "fmp.grp.unreachable", c: C.textMuted },
+    { key: "other",       labelKey: "fmp.grp.other",       c: C.textDim },
   ].map(g => ({ ...g, n: groups[g.key] ?? 0 }))).filter(g => g.n > 0);
   const total = GROUPS.reduce((a, g) => a + g.n, 0) || 1;
   const active = openG ? GROUPS.find(g => g.key === openG) : null;
@@ -845,7 +848,7 @@ function CallOutcomes({ groups, outcomesByGroup }: { groups: Record<string, numb
   return (
     <>
       <div className="flex h-2.5 rounded-full overflow-hidden mb-2.5" style={{ backgroundColor: C.border }}>
-        {GROUPS.map(g => <div key={g.key} title={`${g.label}: ${g.n}`} style={{ width: `${(g.n / total) * 100}%`, backgroundColor: g.c }} />)}
+        {GROUPS.map(g => <div key={g.key} title={`${t(g.labelKey)}: ${g.n}`} style={{ width: `${(g.n / total) * 100}%`, backgroundColor: g.c }} />)}
       </div>
       <div className="flex flex-wrap gap-x-1.5 gap-y-1.5">
         {GROUPS.map(g => {
@@ -856,7 +859,7 @@ function CallOutcomes({ groups, outcomesByGroup }: { groups: Record<string, numb
               className="inline-flex items-center gap-1.5 text-[11.5px] rounded-md px-1.5 py-0.5 transition-colors disabled:cursor-default"
               style={{ color: C.textBody, backgroundColor: isOpen ? `color-mix(in srgb, ${g.c} 12%, transparent)` : "transparent", cursor: canExpand ? "pointer" : "default" }}>
               <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: g.c }} />
-              <b style={{ fontFamily: OUTFIT }}>{g.n}</b> {g.label}
+              <b style={{ fontFamily: OUTFIT }}>{g.n}</b> {t(g.labelKey)}
               {canExpand && <ChevronRight size={11} style={{ color: C.textDim, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />}
             </button>
           );
@@ -864,10 +867,10 @@ function CallOutcomes({ groups, outcomesByGroup }: { groups: Record<string, numb
       </div>
       {active && (
         <div className="mt-2.5 rounded-lg border p-2.5 space-y-1" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: active.c }}>{active.label} · real outcomes</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: active.c }}>{t("fmp.realOutcomes", { group: t(active.labelKey) })}</p>
           {detail.map(o => (
             <div key={o.label} className="flex items-center justify-between gap-3 text-[12px]">
-              <span style={{ color: C.textBody }}>{prettyOutcome(o.label)}</span>
+              <span style={{ color: C.textBody }}>{prettyOutcome(o.label, t)}</span>
               <span className="tabular-nums" style={{ color: C.textMuted }}>
                 <b style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{o.count}</b> · {fmtPct((o.count / active.n) * 100)}
               </span>

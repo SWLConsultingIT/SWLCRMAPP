@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { intlTag } from "@/lib/i18n-locale";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import PrintTrigger from "../../../reports/print/PrintTrigger";
@@ -30,11 +32,11 @@ async function getBranding(companyBioId: string | null): Promise<Branding> {
   };
 }
 
-const STATUS: Record<string, { label: string; color: string }> = {
-  pending:  { label: "Pending",  color: "#D97706" },
-  reviewed: { label: "Reviewed", color: "#2563EB" },
-  approved: { label: "Approved", color: "#16A34A" },
-  rejected: { label: "Rejected", color: "#DC2626" },
+const STATUS: Record<string, { labelKey: string; color: string }> = {
+  pending:  { labelKey: "icpp.st.pending",  color: "#D97706" },
+  reviewed: { labelKey: "icpp.st.reviewed", color: "#2563EB" },
+  approved: { labelKey: "icpp.st.approved", color: "#16A34A" },
+  rejected: { labelKey: "icpp.st.rejected", color: "#DC2626" },
 };
 
 // Split notes/rubric text and wrap tier keywords in colored badges (print-safe).
@@ -95,8 +97,10 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
 
   const brand = await getBranding(icp.company_bio_id ?? scope.companyBioId);
   const st = STATUS[icp.status as string] ?? STATUS.pending;
-  const generatedAt = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-  const createdAt = icp.created_at ? new Date(icp.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : null;
+  const t = await getT();
+  const tag = intlTag(await getServerLocale());
+  const generatedAt = new Date().toLocaleDateString(tag, { month: "long", day: "numeric", year: "numeric" });
+  const createdAt = icp.created_at ? new Date(icp.created_at).toLocaleDateString(tag, { month: "long", day: "numeric", year: "numeric" }) : null;
 
   return (
     <>
@@ -123,12 +127,12 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
               <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>
                 GrowthAI <span style={{ color: brand.brandColor }}>— Lead Miner™</span>
               </p>
-              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>by SWL Consulting · Ideal Customer Profile</p>
+              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>{t("icpp.byline")}</p>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>Prepared for</p>
+              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("icpp.preparedFor")}</p>
               <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", margin: "2px 0 0" }}>{brand.companyName}</p>
               <p style={{ fontSize: 10, color: "#9CA3AF", margin: "2px 0 0" }}>{generatedAt}</p>
             </div>
@@ -143,12 +147,12 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>{icp.profile_name}</h1>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, color: st.color, backgroundColor: `color-mix(in srgb, ${st.color} 12%, white)` }}>{st.label}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, color: st.color, backgroundColor: `color-mix(in srgb, ${st.color} 12%, white)` }}>{t(st.labelKey)}</span>
           </div>
           {(createdAt || icp.created_by_email) && (
             <p style={{ fontSize: 11, color: "#9CA3AF", margin: "6px 0 0" }}>
-              {createdAt && <>Created {createdAt}</>}
-              {icp.created_by_email && <> · by {icp.created_by_email}</>}
+              {createdAt && <>{t("icpp.created", { date: createdAt })}</>}
+              {icp.created_by_email && <> · {t("icpp.by")} {icp.created_by_email}</>}
             </p>
           )}
         </div>
@@ -156,21 +160,21 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
         {/* Overview grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           {Array.isArray(icp.target_industries) && icp.target_industries.length > 0 && (
-            <Section label="Industries" accent="#2563EB"><Chips items={icp.target_industries} color="#2563EB" /></Section>
+            <Section label={t("icpx.industries")} accent="#2563EB"><Chips items={icp.target_industries} color="#2563EB" /></Section>
           )}
           {Array.isArray(icp.target_roles) && icp.target_roles.length > 0 && (
-            <Section label="Target Roles" accent="#0D9488"><Chips items={icp.target_roles} color="#0D9488" /></Section>
+            <Section label={t("icpx.targetRoles")} accent="#0D9488"><Chips items={icp.target_roles} color="#0D9488" /></Section>
           )}
           {(() => {
             const sizeLabel = Array.isArray(icp.company_size_buckets) && icp.company_size_buckets.length > 0
-              ? icp.company_size_buckets.map((b: string) => `${b} employees`).join(", ")
+              ? icp.company_size_buckets.map((b: string) => t("icpp.employees", { band: b })).join(", ")
               : (icp.company_size || "").trim() || null;
             return sizeLabel && (
-              <Section label="Company Size" accent="#7C3AED"><p style={{ margin: 0, fontSize: 13, color: "#374151" }}>{sizeLabel}</p></Section>
+              <Section label={t("icpx.companySize")} accent="#7C3AED"><p style={{ margin: 0, fontSize: 13, color: "#374151" }}>{sizeLabel}</p></Section>
             );
           })()}
           {Array.isArray(icp.geography) && icp.geography.length > 0 && (
-            <Section label="Geography" accent="#EA580C"><Chips items={icp.geography} color="#EA580C" /></Section>
+            <Section label={t("icpx.geography")} accent="#EA580C"><Chips items={icp.geography} color="#EA580C" /></Section>
           )}
         </div>
 
@@ -178,12 +182,12 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
         {(icp.pain_points || icp.solutions_offered) && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
             {icp.pain_points && (
-              <Section label="Pain Points" accent="#DC2626">
+              <Section label={t("icpx.painPoints")} accent="#DC2626">
                 <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, color: "#374151", whiteSpace: "pre-line" }}>{icp.pain_points}</p>
               </Section>
             )}
             {icp.solutions_offered && (
-              <Section label="Solutions Offered" accent="#16A34A">
+              <Section label={t("icpx.solutionsOffered")} accent="#16A34A">
                 <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, color: "#374151", whiteSpace: "pre-line" }}>{icp.solutions_offered}</p>
               </Section>
             )}
@@ -193,7 +197,7 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
         {/* Classification rubric */}
         {icp.notes && (
           <div style={{ marginBottom: 16 }}>
-            <Section label="Classification Rubric" accent="#7C3AED">
+            <Section label={t("icpx.rubric")} accent="#7C3AED">
               <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.7, color: "#374151", whiteSpace: "pre-line" }}>{renderRubric(icp.notes)}</p>
             </Section>
           </div>
@@ -201,7 +205,7 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
 
         {/* Footer */}
         <div style={{ marginTop: 28, paddingTop: 14, borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9CA3AF" }}>
-          <span>Generated by GrowthAI · SWL Consulting</span>
+          <span>{t("icpp.generatedBy")}</span>
           <span>{generatedAt}</span>
         </div>
       </div>

@@ -16,6 +16,7 @@ import { LinkedInIcon, EmailIcon, PhoneIcon, WhatsAppIcon } from "@/components/S
 import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
 import { PlaceholdersHint } from "@/components/ChannelMessageConfig";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
+import { useLocale } from "@/lib/i18n";
 
 const gold = C.gold;
 
@@ -50,26 +51,39 @@ type InstantlyAccount = {
   active: boolean;
 };
 
-const channelConfig: Record<string, { label: string; color: string; svgIcon: React.FC<{ size?: number }>; actions: string[] }> = {
+const channelConfig: Record<string, { labelKey: string; color: string; svgIcon: React.FC<{ size?: number }>; actions: string[] }> = {
   linkedin: {
-    label: "LinkedIn", color: "#0A66C2", svgIcon: LinkedInIcon,
+    labelKey: "chan.linkedin", color: "#0A66C2", svgIcon: LinkedInIcon,
     actions: ["Send Request", "Send DM"],
   },
   email: {
-    label: "Email", color: "#7C3AED", svgIcon: EmailIcon,
+    labelKey: "chan.email", color: "#7C3AED", svgIcon: EmailIcon,
     actions: ["Send Email"],
   },
   call: {
-    label: "Call", color: "#F97316", svgIcon: PhoneIcon,
+    labelKey: "chan.call", color: "#F97316", svgIcon: PhoneIcon,
     actions: ["Call"],
   },
   whatsapp: {
-    label: "WhatsApp", color: "#25D366", svgIcon: WhatsAppIcon,
+    labelKey: "chan.whatsapp", color: "#25D366", svgIcon: WhatsAppIcon,
     actions: ["Send Message"],
   },
 };
 
+// `action` is a stored value: it lands in `sequence_steps`, and the save path,
+// the message-key arithmetic and the approve route all compare it with `===`.
+// So the value stays English and this maps it to what the operator reads.
+const ACTION_KEYS: Record<string, string> = {
+  "Send Request": "fed.act.sendRequest",
+  "Send DM": "fed.act.sendDm",
+  "Send Email": "fed.act.sendEmail",
+  "Call": "fed.act.call",
+  "Send Message": "fed.act.sendMessage",
+  "Send": "fed.act.send",
+};
+
 export default function FlowEditorPage() {
+  const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const params = useParams();
@@ -349,26 +363,28 @@ export default function FlowEditorPage() {
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        throw new Error(err.error ?? "Save failed");
+        throw new Error(err.error ?? t("fed.err.save"));
       }
       // Report what the save actually did. A flow is one campaign per lead, so
       // "saved" alone hid the only thing worth knowing: how many leads the new
       // wording reaches, and that messages already sent were left alone.
       const res = await r.json().catch(() => ({} as Record<string, number>));
       const parts: string[] = [];
-      if (res.updatedMessages) parts.push(`${res.updatedMessages} pending message${res.updatedMessages === 1 ? "" : "s"} rewritten across ${res.liveCampaigns} lead${res.liveCampaigns === 1 ? "" : "s"}`);
-      if (res.createdMessages) parts.push(`${res.createdMessages} queued for the new step${res.createdMessages === 1 ? "" : "s"}`);
-      if (res.cancelledMessages) parts.push(`${res.cancelledMessages} cancelled for removed steps`);
-      if (res.leftSent) parts.push(`${res.leftSent} already sent — left untouched`);
+      if (res.updatedMessages) parts.push(res.updatedMessages === 1
+        ? t("fed.rewrittenOne", { leads: res.liveCampaigns })
+        : t("fed.rewritten", { n: res.updatedMessages, leads: res.liveCampaigns }));
+      if (res.createdMessages) parts.push(t("fed.queuedNew", { n: res.createdMessages }));
+      if (res.cancelledMessages) parts.push(t("fed.cancelledRemoved", { n: res.cancelledMessages }));
+      if (res.leftSent) parts.push(t("fed.leftSent", { n: res.leftSent }));
       toast.show({
         kind: "success",
-        title: "Flow updated",
-        description: parts.length > 0 ? parts.join(" · ") : "Sequence and settings saved.",
+        title: t("fed.flowUpdated"),
+        description: parts.length > 0 ? parts.join(" · ") : t("fed.ok.saved"),
       });
       router.push(`/campaigns/${campaignId}`);
       router.refresh();
     } catch (e: any) {
-      setError(e?.message ?? "Save failed");
+      setError(e?.message ?? t("fed.err.save"));
       setSaving(false);
     }
   }
@@ -388,23 +404,23 @@ export default function FlowEditorPage() {
         <div>
           <Link href={`/campaigns/${campaignId}`} className="flex items-center gap-1.5 text-xs font-medium mb-3 transition-colors hover:opacity-70 cursor-pointer"
             style={{ color: C.textMuted }}>
-            <ArrowLeft size={14} /> Back to Outreach Flow
+            <ArrowLeft size={14} /> {t("fed.backToFlow")}
           </Link>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: gold }}>Flow Editor</p>
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Edit Sequence</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: gold }}>{t("fed.flowEditor")}</p>
+          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{t("fed.editSequence")}</h1>
         </div>
         <div className="flex items-center gap-3 pt-8 shrink-0">
           <Link href="/campaigns"
             className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-70 cursor-pointer"
             style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
-            Cancel
+            {t("acc.cancel")}
           </Link>
           <SaveAsTemplateButton campaignId={campaignId} defaultName={flowName} />
           <button onClick={handleSave} disabled={saving || !flowName.trim()}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold cursor-pointer disabled:opacity-40"
             style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? t("fed.saving") : t("fed.saveChanges")}
           </button>
         </div>
       </div>
@@ -415,7 +431,7 @@ export default function FlowEditorPage() {
       {saved && (
         <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-4 text-sm font-medium fade-in"
           style={{ backgroundColor: C.greenLight, color: C.green }}>
-          <CheckCircle size={15} /> Changes saved successfully.
+          <CheckCircle size={15} /> {t("fed.savedOk")}
         </div>
       )}
       {error && (
@@ -433,36 +449,36 @@ export default function FlowEditorPage() {
 
           {/* Flow Name */}
           <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Flow Name</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>{t("fed.flowName")}</label>
             <input value={flowName} onChange={e => setFlowName(e.target.value)}
               className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none"
               style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-              placeholder="E.g.: Crop Nutrition Outbound" />
+              placeholder={t("fed.flowNamePh")} />
           </div>
 
           {/* Manager + Email */}
           <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Accounts</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("fed.accounts")}</label>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Flow Manager</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("fed.flowManager")}</label>
                 <div className="relative">
                   <select value={flowManagerId ?? ""} onChange={e => setFlowManagerId(e.target.value || null)}
                     className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
                     style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                    <option value="">Unassigned</option>
+                    <option value="">{t("icpx.unassigned")}</option>
                     {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   <User size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Email Account</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("fed.emailAccount")}</label>
                 <div className="relative">
                   <select value={emailAccount} onChange={e => setEmailAccount(e.target.value)}
                     className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
                     style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                    <option value="">Auto-assign</option>
+                    <option value="">{t("fed.autoAssign")}</option>
                     {emailAccounts.map(a => <option key={a.id} value={a.email}>{a.email}{a.name ? ` (${a.name})` : ""}</option>)}
                   </select>
                   <Mail size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
@@ -473,12 +489,12 @@ export default function FlowEditorPage() {
 
           {/* LinkedIn Profiles */}
           <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>LinkedIn Profiles</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>{t("fed.liProfiles")}</label>
             {linkedinProfiles.length === 0 ? (
               <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
                 style={{ backgroundColor: "#0A66C206", border: "1px dashed #0A66C230" }}>
                 <Share2 size={12} style={{ color: "#0A66C2", opacity: 0.5 }} />
-                <span className="text-xs" style={{ color: C.textDim }}>Auto-assign — all available profiles</span>
+                <span className="text-xs" style={{ color: C.textDim }}>{t("fed.autoAssignAll")}</span>
               </div>
             ) : (
               <div className="space-y-1.5 mb-2">
@@ -492,7 +508,7 @@ export default function FlowEditorPage() {
                           style={{ backgroundColor: "#0A66C215", color: "#0A66C2" }}>
                           {s?.name?.[0] ?? "?"}
                         </div>
-                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? "Unknown"}</span>
+                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? t("fed.unknown")}</span>
                       </div>
                       <button onClick={() => setLinkedinProfiles(prev => prev.filter(p => p !== id))}
                         className="p-1 rounded cursor-pointer hover:opacity-60">
@@ -516,12 +532,12 @@ export default function FlowEditorPage() {
 
           {/* Call Assignment */}
           <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>Call Assignment</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>{t("fed.callAssignment")}</label>
             {callAssignees.length === 0 ? (
               <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
                 style={{ backgroundColor: "#F9731606", border: "1px dashed #F9731630" }}>
                 <Phone size={12} style={{ color: "#F97316", opacity: 0.5 }} />
-                <span className="text-xs" style={{ color: C.textDim }}>Auto-assign to Flow Manager</span>
+                <span className="text-xs" style={{ color: C.textDim }}>{t("fed.autoAssignMgr")}</span>
               </div>
             ) : (
               <div className="space-y-1.5 mb-2">
@@ -535,7 +551,7 @@ export default function FlowEditorPage() {
                           style={{ backgroundColor: "#F9731615", color: "#F97316" }}>
                           {s?.name?.[0] ?? "?"}
                         </div>
-                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? "Unknown"}</span>
+                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? t("fed.unknown")}</span>
                       </div>
                       <button onClick={() => setCallAssignees(prev => prev.filter(p => p !== id))}
                         className="p-1 rounded cursor-pointer hover:opacity-60">
@@ -589,25 +605,25 @@ export default function FlowEditorPage() {
           <div className="rounded-xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Sequence Steps</label>
-            <p className="text-xs mt-0.5" style={{ color: C.textDim }}>{steps.length} steps · {steps.reduce((sum, s) => sum + s.wait_days, 0)} days total</p>
+            <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("fed.sequenceSteps")}</label>
+            <p className="text-xs mt-0.5" style={{ color: C.textDim }}>{t("fed.stepsDaysTotal", { steps: steps.length, days: steps.reduce((sum, s) => sum + s.wait_days, 0) })}</p>
           </div>
           <button onClick={addStep}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-opacity hover:opacity-80"
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
-            <Plus size={13} /> Add Step
+            <Plus size={13} /> {t("fed.addStep")}
           </button>
         </div>
 
         {/* Allowed channels badge row */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Lead allows:</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{t("fed.leadAllows")}</span>
           {Object.entries(channelConfig).map(([key, c]) => {
             const ok = allowedChannels.has(key);
             return (
               <span key={key} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                 style={{ backgroundColor: ok ? `${c.color}12` : C.surface, color: ok ? c.color : C.textDim, opacity: ok ? 1 : 0.5 }}>
-                {ok ? <CheckCircle size={9} /> : <AlertCircle size={9} />} {c.label}
+                {ok ? <CheckCircle size={9} /> : <AlertCircle size={9} />} {t(c.labelKey)}
               </span>
             );
           })}
@@ -651,17 +667,17 @@ export default function FlowEditorPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: gold }}>
-                        Step {i + 1} — Day {cumulativeDays}
+                        {t("fed.stepDay", { n: i + 1, day: cumulativeDays })}
                       </span>
                     </div>
                     <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>
-                      {conf.label} — {step.action}
+                      {t("fed.channelAction", { channel: t(conf.labelKey), action: ACTION_KEYS[step.action] ? t(ACTION_KEYS[step.action]) : step.action })}
                     </p>
                   </div>
 
                   {/* Quick info */}
                   <span className="text-xs shrink-0 px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-                    {step.wait_days === 0 ? "Immediate" : `+${step.wait_days}d`}
+                    {step.wait_days === 0 ? t("fed.immediate") : `+${step.wait_days}d`}
                   </span>
 
                   {/* Delete */}
@@ -677,7 +693,7 @@ export default function FlowEditorPage() {
                     <div className="grid grid-cols-3 gap-3">
                       {/* Channel */}
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Channel</label>
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("opp.col.channel")}</label>
                         <select value={step.channel} onChange={e => {
                           const newCh = e.target.value;
                           if (!allowedChannels.has(newCh)) return;
@@ -698,7 +714,7 @@ export default function FlowEditorPage() {
                           style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                           {Object.entries(channelConfig).map(([key, c]) => (
                             <option key={key} value={key} disabled={!allowedChannels.has(key)}>
-                              {c.label}{!allowedChannels.has(key) ? " (not allowed)" : ""}
+                              {t(c.labelKey)}{!allowedChannels.has(key) ? t("fed.notAllowed") : ""}
                             </option>
                           ))}
                         </select>
@@ -706,7 +722,7 @@ export default function FlowEditorPage() {
 
                       {/* Action */}
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Action</label>
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("fed.action")}</label>
                         <select value={step.action} onChange={e => {
                           const newAction = e.target.value;
                           updateStep(i, { action: newAction });
@@ -723,19 +739,19 @@ export default function FlowEditorPage() {
                         }}
                           className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
                           style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-                          {conf.actions.map(a => <option key={a} value={a}>{a}</option>)}
+                          {conf.actions.map(a => <option key={a} value={a}>{ACTION_KEYS[a] ? t(ACTION_KEYS[a]) : a}</option>)}
                         </select>
                       </div>
 
                       {/* Wait days */}
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Wait Time</label>
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("fed.waitTime")}</label>
                         <div className="flex items-center gap-2">
                           <input type="number" min={0} max={30} value={step.wait_days}
                             onChange={e => updateStep(i, { wait_days: parseInt(e.target.value) || 0 })}
                             className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
                             style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
-                          <span className="text-xs shrink-0" style={{ color: C.textMuted }}>days</span>
+                          <span className="text-xs shrink-0" style={{ color: C.textMuted }}>{t("tpl.days")}</span>
                         </div>
                       </div>
                     </div>
@@ -763,17 +779,17 @@ export default function FlowEditorPage() {
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: `${conf.color}15` }}>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                          {step.action === "Send Request" ? "Connection Note" : "Message Template"}
+                          {step.action === "Send Request" ? t("nfl.connectionNote") : t("fed.messageTemplate")}
                         </label>
                         {msg?.content ? (
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: C.greenLight, color: C.green }}>
-                            Has content
+                            {t("fed.hasContent")}
                           </span>
                         ) : (
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                            AI will generate
+                            {t("fed.aiWillGenerate")}
                           </span>
                         )}
                       </div>
@@ -781,7 +797,7 @@ export default function FlowEditorPage() {
                         <input
                           value={msg?.subject ?? ""}
                           onChange={e => updateMessage(msgKey, "subject", e.target.value)}
-                          placeholder="Email subject line (optional — AI will generate if empty)"
+                          placeholder={t("fed.subjectPh")}
                           className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none mb-2"
                           style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}
                         />
@@ -789,9 +805,7 @@ export default function FlowEditorPage() {
                       <textarea
                         value={msg?.content ?? ""}
                         onChange={e => updateMessage(msgKey, "content", e.target.value)}
-                        placeholder={step.action === "Send Request"
-                          ? "Connection note (max 300 chars)... Leave empty for AI-generated note."
-                          : `Message for this step... Leave empty and the AI agent will generate a personalized message based on the lead's profile.`}
+                        placeholder={step.action === "Send Request" ? t("fed.notePh") : t("fed.msgPh")}
                         rows={4}
                         className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none resize-none"
                         style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}
@@ -821,7 +835,7 @@ export default function FlowEditorPage() {
               className="flex items-center gap-2 w-full justify-center py-6 rounded-lg border-2 border-dashed transition-colors cursor-pointer hover:border-gray-400"
               style={{ borderColor: C.border, color: C.textMuted }}>
               <Plus size={16} />
-              <span className="text-sm font-medium">Add your first step</span>
+              <span className="text-sm font-medium">{t("fed.addFirstStep")}</span>
             </button>
           )}
         </div>

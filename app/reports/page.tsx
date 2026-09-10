@@ -11,6 +11,7 @@ import { getUserScope } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import PageHero from "@/components/PageHero";
 import ReportPicker from "./ReportPicker";
+import { getT } from "@/lib/i18n-server";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -44,18 +45,19 @@ export default async function ReportsDownloadPage() {
     return null;
   }
   const options = await loadFilterOptions();
+  const t = await getT();
 
   return (
     <div className="p-4 sm:p-6 w-full space-y-6">
       <Link href="/" className="inline-flex items-center gap-1 text-xs hover:underline" style={{ color: C.textMuted }}>
-        <ArrowLeft size={12} /> Volver al dashboard
+        <ArrowLeft size={12} /> {t("rep.page.back")}
       </Link>
 
       <PageHero
         icon={FileDown}
-        section="Reportes"
-        title="Descargar reporte"
-        description="Elegí qué incluir y el período. El PDF respeta tu tenant — solo se descarga la información de tu cuenta."
+        section={t("rep.page.section")}
+        title={t("rep.page.title")}
+        description={t("rep.page.lede")}
         accentColor={gold}
       />
 

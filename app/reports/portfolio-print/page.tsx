@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getServerLocale } from "@/lib/i18n-server";
 import { getPortfolioComparison, type PortfolioCompany } from "@/lib/portfolio";
 import PrintTrigger from "../print/PrintTrigger";
+import { intlTag, type Locale } from "@/lib/i18n-locale";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,10 @@ export default async function PortfolioPrintPage({
   const scope = await getUserScope();
   if (scope.tier !== "super_admin") redirect("/");
   const sp = await searchParams;
-  const rawLoc = await getServerLocale();
-  const es = rawLoc !== "en";
+  // Keyed by locale rather than an `es ? … : …` ternary — that ternary read
+  // "anything that is not English is Spanish", so an Italian user was handed
+  // the Spanish PDF.
+  const locale = await getServerLocale();
   const pdaysStr = Array.isArray(sp.pdays) ? sp.pdays[0] : sp.pdays;
   const days = pdaysStr === "all" ? 0 : [30, 90].includes(Number(pdaysStr)) ? Number(pdaysStr) : 7;
   const csv = (Array.isArray(sp.companies) ? sp.companies[0] : sp.companies) ?? "";
@@ -37,29 +40,50 @@ export default async function PortfolioPrintPage({
   const all = await getPortfolioComparison(days);
   const companies = (want.size ? all.filter(c => want.has(c.bioId)) : all.filter(c => c.contacted || c.calls || c.replies));
   const cols = companies.length || 1;
-  const numLoc = es ? "es-AR" : "en-US";
+  const numLoc = intlTag(locale);
 
-  const T = es ? {
-    brand: "GrowthAI · Status de cartera", title: "Portfolio — comparativo de empresas",
-    note: days <= 0 ? "Histórico completo" : `Últimos ${days} días vs. los ${days} previos`, metric: "Métrica",
-    act: "Actividad del período", contacted: "Leads contactados", messages: "Mensajes enviados",
-    calls: "Llamadas", replies: "Respuestas", positives: "Positivas", meetings: "Reuniones", winsPeriod: "Wins (período)", respRate: "Tasa de respuesta",
-    sumTitle: "Resumen ejecutivo",
-    pipe: "Pipeline · estado actual (no varía con el período)", totalLeads: "Leads totales", activeLeads: "En flujo activo",
-    activeFlows: "Flows activos", opportunities: "Oportunidades (positivas)", wins: "Wins",
-    sellers: "Sellers · actividad del período", seller: "Seller", company: "Empresa", leads: "Leads", unassigned: "Sin asignar",
-    foot: "GrowthAI — Status de actividad comercial · uso interno", gen: "Generado", live: "datos en vivo", comp: cols === 1 ? "empresa" : "empresas",
-  } : {
-    brand: "GrowthAI · Portfolio status", title: "Portfolio — company comparison",
-    note: days <= 0 ? "All-time" : `Last ${days} days vs. prior ${days}`, metric: "Metric",
-    act: "Activity this period", contacted: "Contacted leads", messages: "Messages sent",
-    calls: "Calls", replies: "Replies", positives: "Positive", meetings: "Meetings", winsPeriod: "Wins (period)", respRate: "Response rate",
-    sumTitle: "Executive summary",
-    pipe: "Pipeline · current state (not affected by period)", totalLeads: "Total leads", activeLeads: "In active flow",
-    activeFlows: "Active flows", opportunities: "Opportunities (positive)", wins: "Wins",
-    sellers: "Sellers · activity this period", seller: "Seller", company: "Company", leads: "Leads", unassigned: "Unassigned",
-    foot: "GrowthAI — Commercial activity status · internal", gen: "Generated", live: "live data", comp: cols === 1 ? "company" : "companies",
+  // `Record<Locale, …>` on purpose: adding a language to LOCALES then becomes
+  // a compile error here instead of a silently English (or Spanish) PDF.
+  const COPY: Record<Locale, Record<string, string>> = {
+    es: {
+      brand: "GrowthAI · Status de cartera", title: "Portfolio — comparativo de empresas",
+      note: days <= 0 ? "Histórico completo" : `Últimos ${days} días vs. los ${days} previos`, metric: "Métrica",
+      act: "Actividad del período", contacted: "Leads contactados", messages: "Mensajes enviados",
+      calls: "Llamadas", replies: "Respuestas", positives: "Positivas", meetings: "Reuniones", winsPeriod: "Wins (período)", respRate: "Tasa de respuesta",
+      sumTitle: "Resumen ejecutivo",
+      pipe: "Pipeline · estado actual (no varía con el período)", totalLeads: "Leads totales", activeLeads: "En flujo activo",
+      activeFlows: "Flows activos", opportunities: "Oportunidades (positivas)", wins: "Wins",
+      sellers: "Sellers · actividad del período", seller: "Seller", company: "Empresa", leads: "Leads", unassigned: "Sin asignar",
+      foot: "GrowthAI — Status de actividad comercial · uso interno", gen: "Generado", live: "datos en vivo", comp: cols === 1 ? "empresa" : "empresas",
+      sLeads: "leads contactados", sCalls: "llamadas", sPos: "positivas", sMeet: "reuniones", sWins: "wins",
+    },
+    en: {
+      brand: "GrowthAI · Portfolio status", title: "Portfolio — company comparison",
+      note: days <= 0 ? "All-time" : `Last ${days} days vs. prior ${days}`, metric: "Metric",
+      act: "Activity this period", contacted: "Contacted leads", messages: "Messages sent",
+      calls: "Calls", replies: "Replies", positives: "Positive", meetings: "Meetings", winsPeriod: "Wins (period)", respRate: "Response rate",
+      sumTitle: "Executive summary",
+      pipe: "Pipeline · current state (not affected by period)", totalLeads: "Total leads", activeLeads: "In active flow",
+      activeFlows: "Active flows", opportunities: "Opportunities (positive)", wins: "Wins",
+      sellers: "Sellers · activity this period", seller: "Seller", company: "Company", leads: "Leads", unassigned: "Unassigned",
+      foot: "GrowthAI — Commercial activity status · internal", gen: "Generated", live: "live data", comp: cols === 1 ? "company" : "companies",
+      sLeads: "contacted leads", sCalls: "calls", sPos: "positive", sMeet: "meetings", sWins: "wins",
+    },
+    it: {
+      brand: "GrowthAI · Stato del portfolio", title: "Portfolio — confronto tra aziende",
+      note: days <= 0 ? "Storico completo" : `Ultimi ${days} giorni vs. i ${days} precedenti`, metric: "Metrica",
+      act: "Attività del periodo", contacted: "Lead contattati", messages: "Messaggi inviati",
+      calls: "Chiamate", replies: "Risposte", positives: "Positive", meetings: "Incontri", winsPeriod: "Vinti (periodo)", respRate: "Tasso di risposta",
+      sumTitle: "Sintesi per la direzione",
+      pipe: "Pipeline · stato attuale (non cambia con il periodo)", totalLeads: "Lead totali", activeLeads: "In flow attivo",
+      activeFlows: "Flow attivi", opportunities: "Opportunità (positive)", wins: "Vinti",
+      sellers: "Venditori · attività del periodo", seller: "Venditore", company: "Azienda", leads: "Lead", unassigned: "Non assegnato",
+      foot: "GrowthAI — Stato dell'attività commerciale · uso interno", gen: "Generato", live: "dati in tempo reale", comp: cols === 1 ? "azienda" : "aziende",
+      sLeads: "lead contattati", sCalls: "chiamate", sPos: "positive", sMeet: "incontri", sWins: "vinti",
+    },
   };
+  const T = COPY[locale];
+
   const today = new Date().toLocaleDateString(numLoc, { day: "2-digit", month: "long", year: "numeric" });
   const rate = (c: PortfolioCompany) => (c.contacted ? Math.round((c.replies / c.contacted) * 100) : 0);
 
@@ -87,12 +111,18 @@ export default async function PortfolioPrintPage({
   const agg = (k: keyof PortfolioCompany) => companies.reduce((s, c) => s + (c[k] as number), 0);
   const fmt = (v: number) => v.toLocaleString(numLoc);
   const pc = (cur: number, prev: number) => prev === 0 ? "—" : `${cur >= prev ? "+" : ""}${Math.round(((cur - prev) / prev) * 100)}%`;
-  const sumText = es
-    ? `${fmt(agg("contacted"))} leads contactados (${pc(agg("contacted"), agg("contactedPrev"))}) · ${fmt(agg("calls"))} llamadas (${pc(agg("calls"), agg("callsPrev"))}) · ${fmt(agg("positives"))} positivas · ${fmt(agg("meetings"))} reuniones · ${fmt(agg("winsPeriod"))} wins.`
-    : `${fmt(agg("contacted"))} contacted leads (${pc(agg("contacted"), agg("contactedPrev"))}) · ${fmt(agg("calls"))} calls (${pc(agg("calls"), agg("callsPrev"))}) · ${fmt(agg("positives"))} positive · ${fmt(agg("meetings"))} meetings · ${fmt(agg("winsPeriod"))} wins.`;
+  // Built from the same locale-keyed nouns as the table, so the one-line
+  // summary can never disagree with the columns above it.
+  const sumText = [
+    `${fmt(agg("contacted"))} ${T.sLeads} (${pc(agg("contacted"), agg("contactedPrev"))})`,
+    `${fmt(agg("calls"))} ${T.sCalls} (${pc(agg("calls"), agg("callsPrev"))})`,
+    `${fmt(agg("positives"))} ${T.sPos}`,
+    `${fmt(agg("meetings"))} ${T.sMeet}`,
+    `${fmt(agg("winsPeriod"))} ${T.sWins}.`,
+  ].join(" · ");
 
   return (
-    <html lang="es">
+    <html lang={locale}>
       <head>
         <meta charSet="utf-8" />
         <style>{`

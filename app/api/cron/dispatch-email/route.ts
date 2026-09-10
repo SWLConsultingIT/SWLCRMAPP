@@ -6,6 +6,8 @@ import { resolveFlowCampaignId } from "@/lib/instantly-flow-campaign";
 import { signStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
+import { verifyCampaignSenderPool } from "@/lib/instantly-campaign-pool";
+import { senderPoolLogPayload } from "@/lib/sender-pool";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -172,6 +174,11 @@ function isDuplicateLeadError(reason: string): boolean {
 // 20/tick @ 15 min intervals = up to 80/hour, well inside any Instantly plan.
 const BATCH_SIZE = 20;
 
+// How long a sender-pool block parks a message. Long enough that a broken pool
+// isn't re-checked every 15-min tick, short enough that fixing the campaign in
+// Instantly heals the queue without anyone touching the database.
+const SENDER_POOL_COOLDOWN_MS = 15 * 60 * 1000;
+
 type EmailResult =
   | { kind: "sent"; msgId: string; leadId: string; instantlyCampaignId: string; providerLeadId: string | null; nextEligibleAt: string | null }
   | { kind: "failed"; msgId: string; leadId: string; reason: string }
@@ -180,7 +187,10 @@ type EmailResult =
   | { kind: "lost_race"; msgId: string; leadId: string }
   // Paused campaign: the message stays queued and goes out on resume.
   // Distinct from "skipped", which is permanent.
-  | { kind: "held"; msgId: string; leadId: string; reason: string };
+  | { kind: "held"; msgId: string; leadId: string; reason: string }
+  // Sender-pool guard refused the send. Like "held" the message survives, but it
+  // carries a cooldown so a misconfigured pool doesn't get retried every tick.
+  | { kind: "blocked"; msgId: string; leadId: string; reason: string };
 
 async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
@@ -281,6 +291,29 @@ async function requeueRateLimited(
     },
   }).eq("id", msgId);
   return { kind: "rate_limited", msgId, leadId, reason };
+}
+
+// Sender-pool refusal. The message goes back to 'queued' — never 'failed' —
+// because nothing is wrong with the message: the campaign it would have gone out
+// through is pointing at mailboxes the tenant does not own. Fix the pool in
+// Instantly and the queue drains by itself on the next eligible tick.
+async function blockSenderPool(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+): Promise<EmailResult> {
+  const { data: existing } = await svc.from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+  await svc.from("campaign_messages").update({
+    status: "queued",
+    dispatching_since: null,
+    error_details: `sender pool blocked: ${reason}`,
+    metadata: {
+      ...prevMeta,
+      sender_pool_blocked_at: new Date().toISOString(),
+      sender_pool_block_reason: reason,
+    },
+  }).eq("id", msgId);
+  return { kind: "blocked", msgId, leadId, reason };
 }
 
 async function dispatchOneEmail(
@@ -391,6 +424,40 @@ async function dispatchOneEmail(
     return await skipAndAdvance(svc, candidate.id, candidate.lead_id, `email status: ${emailStatus}`, candidate, seqStepsEarly);
   }
 
+  // Suppressions (2026-09-10). `lead_suppressions` has existed since migration
+  // 031 and FOUR code paths write to it — the reply reviewer, expire-invites,
+  // the response handler, this webhook — but until now NOTHING read it. An
+  // unsubscribe therefore did not actually stop anything, which is why the old
+  // Instantly webhook faked it by stamping primary_email_status='bounced': that
+  // column was the only one with teeth, at the cost of labelling a perfectly
+  // valid address invalid.
+  //
+  // Reading it here makes the existing model load-bearing instead of adding a
+  // second one. Scoped by lead_id, so it is tenant-safe by construction (the
+  // table has no company_bio_id; migration 031 scopes it through leads), and it
+  // holds across campaigns — an unsubscribed lead stays unsubscribed when they
+  // are enrolled in a different flow tomorrow.
+  //
+  // Channel-scoped on purpose: an email opt-out must not silence the LinkedIn or
+  // call steps, so we advance the sequence exactly like a bad address does.
+  const { data: suppressions } = await svc
+    .from("lead_suppressions")
+    .select("reason, expires_at")
+    .eq("lead_id", candidate.lead_id)
+    .eq("channel", "email")
+    .eq("active", true);
+  const liveSuppression = (suppressions ?? []).find((s: any) => {
+    const exp = s?.expires_at ? new Date(s.expires_at).getTime() : null;
+    return exp === null || exp > Date.now();
+  });
+  if (liveSuppression) {
+    return await skipAndAdvance(
+      svc, candidate.id, candidate.lead_id,
+      `email suppressed: ${(liveSuppression as any).reason ?? "suppressed"}`,
+      candidate, seqStepsEarly,
+    );
+  }
+
   let seller: { id: string; name: string | null; company_bio_id: string | null } | null = null;
   if (campaign.seller_id) {
     const { data: s } = await svc.from("sellers").select("id, name, company_bio_id").eq("id", campaign.seller_id).maybeSingle();
@@ -414,12 +481,35 @@ async function dispatchOneEmail(
   // Resolve the per-FLOW Instantly campaign (created + activated on first use),
   // instead of dumping every flow into one tenant campaign. Isolates bounce
   // auto-pauses per flow — see lib/instantly-flow-campaign.ts.
-  const { data: bioRow } = await svc.from("company_bios").select("company_name").eq("id", tenantBioId).maybeSingle();
+  const { data: bioRow } = await svc.from("company_bios").select("company_name, email_accounts").eq("id", tenantBioId).maybeSingle();
   const tenantLabel = ((bioRow as any)?.company_name as string | undefined) ?? "CRM";
+  const declaredPool = (bioRow as any)?.email_accounts ?? null;
   const flowName = ((campaign as any).name as string | undefined) ?? "Flow";
-  const { campaignId: instantlyCampaignId, error: flowErr } = await resolveFlowCampaignId(config, tenantBioId, flowName, tenantLabel);
+  const { campaignId: instantlyCampaignId, error: flowErr } = await resolveFlowCampaignId(config, tenantBioId, flowName, tenantLabel, declaredPool);
   if (!instantlyCampaignId) {
     return await failMessage(svc, candidate.id, candidate.lead_id, flowErr ?? "could not resolve per-flow Instantly campaign");
+  }
+
+  // ── SENDER-POOL GUARD (2026-09-10) ───────────────────────────────────────
+  // SWL, Arqy and Grupo IEB now share one physical Instantly workspace, so the
+  // old backstop — separate organizations making a cross-brand send physically
+  // impossible — is gone. The campaign's email_list is all that stands between
+  // Arqy outreach and an SWL mailbox, and until now no code read it.
+  //
+  // Cheap by construction: verifyCampaignSenderPool caches per campaign for 10
+  // minutes and coalesces the 20 parallel callers in a tick into one request,
+  // so this is ~1 extra GET per campaign per window, not one per email.
+  const poolCheck = await verifyCampaignSenderPool({
+    apiKey: config.apiKey,
+    campaignId: instantlyCampaignId,
+    declared: declaredPool,
+  });
+  if (poolCheck.verdict.status === "block") {
+    console.error(`[sender-pool] ${JSON.stringify(senderPoolLogPayload({
+      verdict: poolCheck.verdict, tenantBioId, tenantName: tenantLabel,
+      campaignId: instantlyCampaignId, flowName, stage: "dispatch",
+    }))}`);
+    return await blockSenderPool(svc, candidate.id, candidate.lead_id, poolCheck.verdict.reason);
   }
 
   const meta = (candidate.metadata as Record<string, unknown> | null) ?? {};
@@ -579,6 +669,10 @@ async function handle(req: NextRequest) {
     if (eligibleAt && new Date(eligibleAt).getTime() > nowMs) return false;
     const lastRL = r?.metadata?.last_rate_limit_at;
     if (lastRL && nowMs - new Date(lastRL).getTime() <= RATE_LIMIT_COOLDOWN_MS) return false;
+    // Sender-pool blocks park the row briefly instead of failing it, so a
+    // misconfigured campaign is re-checked periodically rather than every tick.
+    const lastBlock = r?.metadata?.sender_pool_blocked_at;
+    if (lastBlock && nowMs - new Date(lastBlock).getTime() <= SENDER_POOL_COOLDOWN_MS) return false;
     return true;
   }).slice(0, BATCH_SIZE) as QueuedEmail[];
 
@@ -595,6 +689,8 @@ async function handle(req: NextRequest) {
   const skipped = results.filter((r) => r.kind === "skipped").length;
   const rateLimited = results.filter((r) => r.kind === "rate_limited").length;
   const lostRace = results.filter((r) => r.kind === "lost_race").length;
+  const blocked = results.filter((r) => r.kind === "blocked").length;
+  const held = results.filter((r) => r.kind === "held").length;
 
   return NextResponse.json({
     ok: true,
@@ -604,6 +700,8 @@ async function handle(req: NextRequest) {
     skipped,
     rate_limited: rateLimited,
     lost_race: lostRace,
+    sender_pool_blocked: blocked,
+    held,
     results: results.map((r) => ({ kind: r.kind, msgId: r.msgId, leadId: r.leadId })),
   });
 }

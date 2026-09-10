@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { ThumbsUp, ThumbsDown, Clock, PhoneOff, Loader2, Sparkles, X, Voicemail } from "lucide-react";
 import { C } from "@/lib/design";
@@ -20,15 +21,17 @@ type Props = {
   aiSummary: string | null;
 };
 
-const meta: Record<Classification, { label: string; color: string; bg: string; border: string; icon: typeof ThumbsUp }> = {
-  positive:     { label: "Interested",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)", border: "color-mix(in srgb, #16A34A 32%, transparent)", icon: ThumbsUp },
-  negative:     { label: "Not interested", color: C.red,     bg: C.redLight, border: `${C.red}30`, icon: ThumbsDown },
-  follow_up:    { label: "Bad timing",     color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)", border: "color-mix(in srgb, #D97706 30%, transparent)", icon: Clock },
-  voicemail:    { label: "Voicemail",      color: "#0EA5E9", bg: "color-mix(in srgb, #0284C7 14%, transparent)", border: "#BAE6FD", icon: Voicemail },
-  wrong_number: { label: "Wrong number",   color: C.textMuted, bg: C.surface, border: C.border, icon: PhoneOff },
+// Module scope: `labelKey`, resolved by the component.
+const meta: Record<Classification, { labelKey: string; color: string; bg: string; border: string; icon: typeof ThumbsUp }> = {
+  positive:     { labelKey: "clf.interested",    color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)", border: "color-mix(in srgb, #16A34A 32%, transparent)", icon: ThumbsUp },
+  negative:     { labelKey: "clf.notInterested", color: C.red,     bg: C.redLight, border: `${C.red}30`, icon: ThumbsDown },
+  follow_up:    { labelKey: "clf.badTiming",     color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)", border: "color-mix(in srgb, #D97706 30%, transparent)", icon: Clock },
+  voicemail:    { labelKey: "clf.voicemail",     color: "#0EA5E9", bg: "color-mix(in srgb, #0284C7 14%, transparent)", border: "#BAE6FD", icon: Voicemail },
+  wrong_number: { labelKey: "clf.wrongNumber",   color: C.textMuted, bg: C.surface, border: C.border, icon: PhoneOff },
 };
 
 export default function CallClassifier({ callId, current, aiConfidence, aiSummary }: Props) {
+  const { t } = useLocale();
   const router = useRouter();
   const [loading, setLoading] = useState<Classification | "clear" | null>(null);
   const [state, setState] = useState(current);
@@ -63,12 +66,12 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
         <div className="flex items-center gap-2">
           <Icon size={14} style={{ color: m.color }} />
           <span className="text-xs font-bold" style={{ color: m.color }}>
-            {isAI ? "AI classified as " : "Marked as "} {m.label}
+            {isAI ? t("clf.aiClassified") : t("clf.markedAs")} {t(m.labelKey)}
           </span>
           {isAI && (
             <span className="text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
               style={{ backgroundColor: "rgba(255,255,255,0.7)", color: m.color }}>
-              <Sparkles size={9} /> {Math.round((aiConfidence ?? 0) * 100)}% confident
+              <Sparkles size={9} /> {t("clf.confident", { n: Math.round((aiConfidence ?? 0) * 100) })}
             </span>
           )}
           {aiSummary && (
@@ -82,9 +85,9 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
           disabled={loading !== null}
           className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded transition-colors hover:bg-white/50 disabled:opacity-50"
           style={{ color: m.color }}
-          title="Undo classification"
+          title={t("clf.undo")}
         >
-          {loading === "clear" ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />} Undo
+          {loading === "clear" ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />} {t("clf.undoShort")}
         </button>
       </div>
     );
@@ -112,7 +115,7 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
             }}
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : <Icon size={12} />}
-            {m.label}
+            {t(m.labelKey)}
           </button>
         );
       })}

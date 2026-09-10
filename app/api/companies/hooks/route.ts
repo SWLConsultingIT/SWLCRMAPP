@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerLocale } from "@/lib/i18n-server";
+import { writeAllContentIn, type Locale } from "@/lib/i18n-locale";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
@@ -62,6 +64,13 @@ function buildPrompt(l: LeadEnrichment): string {
   return lines.join("\n");
 }
 
+function systemFor(locale: Locale) {
+  // The seller says these out loud on a call, so they have to be in a language
+  // the seller speaks. Their interface language is the only signal this route
+  // has — the lead's own language isn't on the record here.
+  return `${SYSTEM}\n\n${writeAllContentIn(locale)}`;
+}
+
 const SYSTEM = `You are a senior B2B sales rep distilling research into 3 to 5 short,
 specific call hooks. A "hook" is a one-liner the seller can drop in the first
 30 seconds of a call to prove they did their homework and earn the right to ask
@@ -116,7 +125,7 @@ export async function POST(req: NextRequest) {
     const msg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 600,
-      system: SYSTEM,
+      system: systemFor(await getServerLocale()),
       messages: [{ role: "user", content: `Research dump:\n\n${research}\n\nProduce the JSON now.` }],
     });
     const text = msg.content

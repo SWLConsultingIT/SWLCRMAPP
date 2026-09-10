@@ -10,6 +10,9 @@ import LostLeadActions from "@/components/LostLeadActions";
 import RegenerateLossAnalysis from "@/components/RegenerateLossAnalysis";
 import CopyTemplateButton from "@/components/CopyTemplateButton";
 import LostReasonPanel from "@/components/LostReasonPanel";
+import { useLocale } from "@/lib/i18n";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { intlTag, writeAllContentIn, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-locale";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, Send,
   MessageSquare, XCircle, AlertTriangle, Target, Megaphone,
@@ -22,17 +25,17 @@ export const dynamic = "force-dynamic";
 
 const gold = "var(--brand, #c9a83a)";
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
 };
 
-const classColors: Record<string, { color: string; bg: string; label: string }> = {
-  positive:       { color: C.green,   bg: C.greenLight, label: "Positive" },
-  meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting Intent" },
-  negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
-  question:       { color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",    label: "Question" },
+const classColors: Record<string, { color: string; bg: string; labelKey: string }> = {
+  positive:       { color: C.green,   bg: C.greenLight, labelKey: "lost.cls.positive" },
+  meeting_intent: { color: C.green,   bg: C.greenLight, labelKey: "lost.cls.meeting" },
+  negative:       { color: C.red,     bg: C.redLight,   labelKey: "lost.cls.negative" },
+  question:       { color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",    labelKey: "lost.cls.question" },
 };
 
 function scoreBadge(score: number | null, priority: boolean) {
@@ -63,6 +66,7 @@ async function generateAndCacheAnalysis(
   campaigns: any[],
   replies: any[],
   calls: any[],
+  locale: Locale,
 ): Promise<LossAnalysis | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
@@ -78,6 +82,7 @@ async function generateAndCacheAnalysis(
     .join("\n");
 
   const prompt = `You are a senior B2B sales strategist. A prospect has been marked as lost. Give a focused, actionable recovery plan.
+${writeAllContentIn(locale)} That includes every JSON string value below — the reasoning, the signals, the timing, the angle and the outbound message itself, which the seller will send as written.
 
 PROSPECT
 - ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
@@ -115,10 +120,12 @@ Output STRICT JSON (no markdown, no code fences) with this exact shape:
     const text = res.content[0].type === "text" ? res.content[0].text : "";
     const parsed = JSON.parse(text) as LossAnalysis;
 
-    // Cache it (service key bypasses RLS)
+    // Cache it (service key bypasses RLS). The language is stamped alongside:
+    // one column holds one analysis, so a reader on another locale has to
+    // regenerate rather than be served prose they can't read.
     const svc = getSupabaseService();
     await svc.from("leads")
-      .update({ ai_loss_analysis: parsed, ai_loss_analysis_at: new Date().toISOString() })
+      .update({ ai_loss_analysis: { ...parsed, locale }, ai_loss_analysis_at: new Date().toISOString() })
       .eq("id", leadId);
 
     return parsed;
@@ -127,7 +134,9 @@ Output STRICT JSON (no markdown, no code fences) with this exact shape:
   }
 }
 
-async function getLostLeadData(leadId: string) {
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+async function getLostLeadData(leadId: string, t: Tr) {
   const supabase = await getSupabaseServer();
   const { data: rawLead } = await supabase
     .from("leads")
@@ -195,7 +204,7 @@ async function getLostLeadData(leadId: string) {
   const timeline: { type: string; date: string | null; channel: string; content: string | null; classification?: string; step?: number; meta?: string; status?: string }[] = [];
 
   for (const c of campaigns ?? []) {
-    timeline.push({ type: "campaign_start", date: c.created_at, channel: c.channel, content: `Campaign "${c.name}" started`, meta: `${Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0} steps · ${(c.sellers as any)?.name ?? "Unassigned"}` });
+    timeline.push({ type: "campaign_start", date: c.created_at, channel: c.channel, content: t("lost.campaignStartedNamed", { name: c.name }), meta: t("lost.stepsAndSeller", { steps: Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0, seller: (c.sellers as any)?.name ?? t("lost.unassigned") }) });
 
     const msgs = messagesByCampaign[c.id] ?? [];
     const currentStep = c.current_step ?? 0;
@@ -312,16 +321,22 @@ async function getLostLeadData(leadId: string) {
 }
 
 export default async function LostLeadPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
-  const data = await getLostLeadData(id);
+  const data = await getLostLeadData(id, t);
   if (!data) notFound();
 
   const { lead, profile, campaigns, replies, calls, timeline, lossReason, stats, lostReasonText } = data;
 
-  // Use cached analysis if present; otherwise generate and cache (blocks first render once)
-  let aiAnalysis: LossAnalysis | null = (lead.ai_loss_analysis as LossAnalysis) ?? null;
+  // Use the cached analysis when it is present AND in this reader's language.
+  // Rows cached before the analysis was localized carry no `locale`, so they
+  // count as English.
+  const locale = await getServerLocale();
+  const cached = (lead.ai_loss_analysis as (LossAnalysis & { locale?: Locale }) | null) ?? null;
+  let aiAnalysis: LossAnalysis | null =
+    cached && (cached.locale ?? DEFAULT_LOCALE) === locale ? cached : null;
   if (!aiAnalysis) {
-    aiAnalysis = await generateAndCacheAnalysis(lead.id, lead, campaigns, replies, calls);
+    aiAnalysis = await generateAndCacheAnalysis(lead.id, lead, campaigns, replies, calls, locale);
   }
   const analyzedAt = lead.ai_loss_analysis_at ? new Date(lead.ai_loss_analysis_at) : null;
   const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.company || "Unknown";
@@ -332,7 +347,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
       {/* Breadcrumb back to /results — that's where Lost / Won / Renurture
           live post 2026-05-28 restructure. Linking to /leads sent the
           seller to an unrelated index (boss complaint 2026-05-29). */}
-      <Breadcrumb crumbs={[{ label: "Results", href: "/results" }, { label: "Lost", href: "/results" }, { label: name }]} />
+      <Breadcrumb crumbs={[{ label: t("lost.results"), href: "/results" }, { label: t("lost.lost"), href: "/results" }, { label: name }]} />
 
       {/* ═══ HEADER CARD ═══ */}
       <div
@@ -390,15 +405,15 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
             <div className="shrink-0 text-right">
               {lossReason === "negative" ? (
                 <div className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold" style={{ backgroundColor: C.redLight, color: C.red }}>
-                  <XCircle size={16} /> Negative Reply
+                  <XCircle size={16} /> {t("cd.negativeReply")}
                 </div>
               ) : (
                 <div className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-                  <AlertTriangle size={16} /> No Reply
+                  <AlertTriangle size={16} /> {t("lost.noReply")}
                 </div>
               )}
               <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                Lead created {formatDate(lead.created_at)} · {stats.daysSinceCreated}d ago
+                {t("lost.createdAgo", { date: formatDate(lead.created_at), n: stats.daysSinceCreated })}
               </p>
             </div>
           </div>
@@ -414,11 +429,11 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
       {/* ═══ STATS ROW ═══ */}
       <div className="grid grid-cols-5 gap-3 mb-6">
         {[
-          { label: "Campaigns", value: stats.totalCampaigns, color: gold },
-          { label: "Steps Done", value: `${stats.stepsCompleted}/${stats.totalSteps}`, color: C.blue },
-          { label: "Channels", value: stats.channels.length, color: "#7C3AED" },
-          { label: "Replies", value: stats.totalReplies, color: lossReason === "negative" ? C.red : C.textDim },
-          { label: "Days Active", value: stats.daysSinceCreated, color: C.textBody },
+          { label: t("lost.campaigns"), value: stats.totalCampaigns, color: gold },
+          { label: t("lost.stepsDone"), value: `${stats.stepsCompleted}/${stats.totalSteps}`, color: C.blue },
+          { label: t("lost.channels"), value: stats.channels.length, color: "#7C3AED" },
+          { label: t("lost.replies"), value: stats.totalReplies, color: lossReason === "negative" ? C.red : C.textDim },
+          { label: t("lost.daysActive"), value: stats.daysSinceCreated, color: C.textBody },
         ].map(s => (
           <div key={s.label} className="rounded-2xl border p-3.5 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <p className="text-lg font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
@@ -436,7 +451,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
             <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Target size={12} style={{ color: gold }} />
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Lead Miner Profile</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>{t("lost.leadMinerProfile")}</span>
               </div>
               <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{profile.profile_name}</p>
               <p className="text-xs mt-1" style={{ color: C.textDim }}>
@@ -449,10 +464,10 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-1.5 mb-3">
               <Megaphone size={12} style={{ color: gold }} />
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Campaigns Attempted</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>{t("lost.campaignsAttempted")}</span>
             </div>
             {campaigns.length === 0 ? (
-              <p className="text-xs" style={{ color: C.textDim }}>No campaigns</p>
+              <p className="text-xs" style={{ color: C.textDim }}>{t("lost.noCampaigns")}</p>
             ) : (
               <div className="space-y-2">
                 {campaigns.map(c => {
@@ -467,17 +482,17 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{c.name}</span>
                         <span className="flex items-center gap-1 text-[10px]" style={{ color: chMeta.color }}>
-                          <ChIcon size={10} /> {chMeta.label}
+                          <ChIcon size={10} /> {t(chMeta.labelKey)}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: C.textMuted }} />
                         </div>
-                        <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{c.current_step ?? 0}/{steps.length} steps</span>
+                        <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{t("lost.stepsOf", { i: c.current_step ?? 0, n: steps.length })}</span>
                       </div>
                       <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                        {c.status} · {(c.sellers as any)?.name ?? "Unassigned"} · Started {formatDate(c.created_at)}
+                        {t("lost.statusSellerStarted", { status: c.status, seller: (c.sellers as any)?.name ?? t("lost.unassigned"), date: formatDate(c.created_at) })}
                       </p>
                     </Link>
                   );
@@ -490,11 +505,11 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${C.red}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-1.5 mb-3">
               <TrendingDown size={12} style={{ color: C.red }} />
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.red }}>Loss Analysis</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.red }}>{t("lost.lossAnalysis")}</span>
             </div>
             {lossReason === "negative" ? (
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>Lead replied negatively</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>{t("lost.repliedNegatively")}</p>
                 <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
                   After {stats.stepsCompleted} touchpoints across {stats.channels.length} channel{stats.channels.length > 1 ? "s" : ""} ({stats.channels.join(", ")}),
                   the lead responded with a negative reply. The full sequence was {stats.stepsCompleted === stats.totalSteps ? "completed" : `${stats.stepsCompleted}/${stats.totalSteps} steps in`} before receiving the response.
@@ -502,7 +517,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
               </div>
             ) : (
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>No response received</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>{t("lost.noResponse")}</p>
                 <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
                   The complete sequence of {stats.totalSteps} steps across {stats.channels.length} channel{stats.channels.length > 1 ? "s" : ""} ({stats.channels.join(", ")}) was executed over {stats.daysSinceCreated} days with no reply from the lead.
                 </p>
@@ -513,8 +528,8 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
               <AIRecoveryPanel analysis={aiAnalysis} leadId={lead.id} firstName={lead.first_name} analyzedAt={analyzedAt} />
             ) : (
               <div className="mt-3 rounded-lg px-3 py-2.5 border border-dashed" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>AI Recovery Plan</p>
-                <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>Add ANTHROPIC_API_KEY to .env.local to enable AI analysis.</p>
+                <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>{t("lost.recoveryPlan")}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{t("lost.needKey")}</p>
               </div>
             )}
           </div>
@@ -524,13 +539,13 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
         <div className="col-span-3">
           <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Outreach Timeline</h2>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Complete history of interactions with this lead</p>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("lost.timeline")}</h2>
+              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("lost.timelineDesc")}</p>
             </div>
 
             <div className="p-5">
               {timeline.length === 0 ? (
-                <p className="text-sm text-center py-6" style={{ color: C.textDim }}>No interactions recorded</p>
+                <p className="text-sm text-center py-6" style={{ color: C.textDim }}>{t("lost.noInteractions")}</p>
               ) : (
                 <div className="relative">
                   {/* Vertical line */}
@@ -563,26 +578,28 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                             <div className="flex items-center gap-2 mb-0.5">
                               {isMsg && (
                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `${chMeta.color}12`, color: chMeta.color }}>
-                                  {item.step === 0 ? `Connection Request · ${chMeta.label}` : `Step ${item.step} · ${chMeta.label}`}
+                                  {item.step === 0
+                                    ? t("lost.crVia", { channel: t(chMeta.labelKey) })
+                                    : t("lost.stepVia", { n: item.step ?? 0, channel: t(chMeta.labelKey) })}
                                 </span>
                               )}
                               {isMsg && item.status === "skipped" && (
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-                                  Skipped (already connected)
+                                  {t("cd.skippedConnected")}
                                 </span>
                               )}
                               {isMsg && item.status === "sent" && (
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                                  Sent
+                                  {t("kb.sent")}
                                 </span>
                               )}
                               {isReply && cls && (
                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>
-                                  {cls.label}
+                                  {t(cls.labelKey)}
                                 </span>
                               )}
-                              {isCampStart && <span className="text-[10px] font-bold" style={{ color: gold }}>Campaign Started</span>}
-                              {isCampEnd && <span className="text-[10px] font-bold" style={{ color: C.textMuted }}>Campaign Ended</span>}
+                              {isCampStart && <span className="text-[10px] font-bold" style={{ color: gold }}>{t("lost.campaignStarted")}</span>}
+                              {isCampEnd && <span className="text-[10px] font-bold" style={{ color: C.textMuted }}>{t("lost.campaignEnded")}</span>}
                               {item.date && <span className="text-[9px] ml-auto" style={{ color: C.textDim }}>{formatDate(item.date)}</span>}
                             </div>
 
@@ -605,7 +622,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                             )}
 
                             {isMsg && !item.content && (
-                              <p className="text-[10px] italic mt-1" style={{ color: C.textDim }}>Message sent via {chMeta.label}</p>
+                              <p className="text-[10px] italic mt-1" style={{ color: C.textDim }}>{t("lost.sentVia", { channel: t(chMeta.labelKey) })}</p>
                             )}
                           </div>
                         </div>
@@ -622,13 +639,13 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
       {/* Actions */}
       <div className="flex items-center justify-between rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
         <Link href="/results" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
-          <ArrowLeft size={12} /> Back to Results
+          <ArrowLeft size={12} /> {t("lost.backToResults")}
         </Link>
         <div className="flex items-center gap-2">
           <Link href={`/leads/${lead.id}`}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80 border"
             style={{ backgroundColor: C.card, color: C.textBody, borderColor: C.border }}>
-            <User size={12} /> View Full Profile
+            <User size={12} /> {t("lost.viewProfile")}
           </Link>
           <LostLeadActions leadId={lead.id} />
         </div>
@@ -640,15 +657,16 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
 // ─── AI Recovery Panel ──────────────────────────────────────────────────────
 const viabilityColor = { high: "#16A34A", medium: "#D97706", low: C.red };
 const viabilityBg = { high: "color-mix(in srgb, #16A34A 16%, transparent)", medium: "color-mix(in srgb, #D97706 13%, transparent)", low: C.redLight };
-const verdictMeta: Record<LossAnalysis["verdict"], { label: string; color: string; bg: string }> = {
-  recoverable: { label: "Recoverable",  color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
-  dormant:     { label: "Dormant",      color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  lost:        { label: "Lost",         color: C.red,     bg: C.redLight },
+// Keys, not labels: module scope. The panel resolves them.
+const verdictMeta: Record<LossAnalysis["verdict"], { labelKey: string; color: string; bg: string }> = {
+  recoverable: { labelKey: "lost.recoverable", color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  dormant:     { labelKey: "lost.dormant",     color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  lost:        { labelKey: "lost.lost",        color: C.red,     bg: C.redLight },
 };
-const channelIcon: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+const channelIcon: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
 };
 
 function AIRecoveryPanel({
@@ -659,6 +677,7 @@ function AIRecoveryPanel({
   firstName: string | null;
   analyzedAt: Date | null;
 }) {
+  const { t, locale } = useLocale();
   const verdict = verdictMeta[analysis.verdict] ?? verdictMeta.lost;
   const v = analysis.reengage_viability;
   const vColor = viabilityColor[v] ?? C.textMuted;
@@ -674,12 +693,12 @@ function AIRecoveryPanel({
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b" style={{ borderColor: "#7C3AED20", backgroundColor: "color-mix(in srgb, #7C3AED 16%, transparent)" }}>
         <div className="flex items-center gap-1.5">
           <Sparkles size={11} style={{ color: "#7C3AED" }} />
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>AI Recovery Plan</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>{t("lost.recoveryPlan")}</span>
         </div>
         <div className="flex items-center gap-2">
           {analyzedAt && (
             <span className="text-[9px]" style={{ color: "#7C3AED99" }}>
-              {analyzedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+              {analyzedAt.toLocaleDateString(intlTag(locale), { day: "2-digit", month: "short" })}
             </span>
           )}
           <RegenerateLossAnalysis leadId={leadId} />
@@ -690,26 +709,26 @@ function AIRecoveryPanel({
         {/* Verdict + confidence */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: verdict.bg, color: verdict.color }}>
-            {verdict.label}
+            {t(verdict.labelKey)}
           </span>
           <span className="text-[10px] font-medium" style={{ color: "#6B7280" }}>
-            <Gauge size={9} className="inline mr-0.5" /> {analysis.confidence}% confidence
+            <Gauge size={9} className="inline mr-0.5" /> {t("lost.confidence", { n: analysis.confidence })}
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded ml-auto" style={{ backgroundColor: vBg, color: vColor }}>
-            Re-engage: {v}
+            {t("lost.reengage", { level: t(`lost.viability.${v}`) })}
           </span>
         </div>
 
         {/* Why lost */}
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#7C3AED" }}>Why lost</p>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#7C3AED" }}>{t("lost.whyLost")}</p>
           <p className="text-[11px] leading-relaxed" style={{ color: "#4C1D95" }}>{analysis.why_lost}</p>
         </div>
 
         {/* Signals */}
         {analysis.signals?.length > 0 && (
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#7C3AED" }}>Signals</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#7C3AED" }}>{t("lost.signals")}</p>
             <div className="space-y-1">
               {analysis.signals.map((s, i) => (
                 <div key={i} className="flex gap-2 text-[11px]" style={{ color: "#5B21B6" }}>
@@ -724,17 +743,17 @@ function AIRecoveryPanel({
         {/* Next touchpoint */}
         {tp && (
           <div className="rounded-lg border p-2.5" style={{ borderColor: "color-mix(in srgb, #7C3AED 30%, transparent)", backgroundColor: "#FAFAFF" }}>
-            <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED" }}>Next Touchpoint</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED" }}>{t("lost.nextTouchpoint")}</p>
             <div className="flex items-center gap-2 mb-1.5">
               <div className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
                 style={{ backgroundColor: `${ChMeta.color}15`, color: ChMeta.color }}>
-                <ChIcon size={9} /> {ChMeta.label}
+                <ChIcon size={9} /> {t(ChMeta.labelKey)}
               </div>
               <span className="text-[10px] font-medium flex items-center gap-0.5" style={{ color: "#6B7280" }}>
                 <Clock size={9} /> {tp.timing}
               </span>
             </div>
-            <p className="text-[11px] leading-relaxed" style={{ color: "#5B21B6" }}><strong>Angle:</strong> {tp.angle}</p>
+            <p className="text-[11px] leading-relaxed" style={{ color: "#5B21B6" }}><strong>{t("lost.angle")}</strong> {tp.angle}</p>
           </div>
         )}
 
@@ -742,7 +761,7 @@ function AIRecoveryPanel({
         {analysis.message_template && (
           <div className="rounded-lg border overflow-hidden" style={{ borderColor: "color-mix(in srgb, #7C3AED 30%, transparent)" }}>
             <div className="flex items-center justify-between px-2.5 py-1.5" style={{ backgroundColor: "#7C3AED0A" }}>
-              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>Ready-to-send message</p>
+              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>{t("lost.readyMessage")}</p>
               <CopyTemplateButton text={filledTemplate} />
             </div>
             <p className="text-[11px] leading-relaxed px-2.5 py-2 whitespace-pre-wrap" style={{ color: "#4C1D95", backgroundColor: "#FAFAFF" }}>
@@ -754,7 +773,7 @@ function AIRecoveryPanel({
         {/* Watch for */}
         {analysis.watch_for && (
           <div className="flex gap-2 text-[11px] pt-1 border-t" style={{ borderColor: "color-mix(in srgb, #7C3AED 30%, transparent)", color: "#5B21B6" }}>
-            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider pt-1" style={{ color: "#7C3AED" }}>Watch for:</span>
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider pt-1" style={{ color: "#7C3AED" }}>{t("lost.watchFor")}</span>
             <span className="pt-0.5">{analysis.watch_for}</span>
           </div>
         )}

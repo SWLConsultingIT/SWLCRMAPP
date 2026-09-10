@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Send, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 export default function InboxComposer({
   leadId,
@@ -39,6 +40,7 @@ export default function InboxComposer({
    *  used when channel === "email". */
   defaultSubject?: string | null;
 }) {
+  const { t } = useLocale();
   const [text, setText] = useState("");
   const [subject, setSubject] = useState("");
   const [lang, setLang] = useState("auto");
@@ -57,7 +59,7 @@ export default function InboxComposer({
   useEffect(() => { setSelectedChannel(channel ?? null); }, [channel]);
   const effectiveChannel = selectedChannel ?? channel ?? null;
   const channelLabel =
-    effectiveChannel === "email" ? "Email" : effectiveChannel === "linkedin" ? "LinkedIn" : null;
+    effectiveChannel === "email" ? t("chan.email") : effectiveChannel === "linkedin" ? t("chan.linkedin") : null;
   const isEmail = effectiveChannel === "email";
   const pickable = (availableChannels ?? []).filter((c) => c === "linkedin" || c === "email");
   const showChannelPicker = pickable.length > 1;
@@ -78,10 +80,10 @@ export default function InboxComposer({
         }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { setError(data?.error || "No se pudo generar el borrador"); return; }
+      if (!r.ok) { setError(data?.error || t("composer.err.draft")); return; }
       if (data?.draft) setText(data.draft);
     } catch {
-      setError("No se pudo generar el borrador");
+      setError(t("composer.err.draft"));
     } finally {
       setSuggesting(false);
     }
@@ -120,14 +122,14 @@ export default function InboxComposer({
         }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { setError(data?.error || "No se pudo enviar"); return; }
+      if (!r.ok) { setError(data?.error || t("composer.err.send")); return; }
       setText("");
       // Soft delivery warning (email path can't always confirm) — the message
       // WAS sent, but surface the caution so the seller can double-check.
       if (data?.warning) setError(data.warning);
       onSent?.();
     } catch {
-      setError("No se pudo enviar");
+      setError(t("composer.err.send"));
     } finally {
       setSending(false);
     }
@@ -146,13 +148,13 @@ export default function InboxComposer({
       >
         <Sparkles size={14} style={{ color: "var(--brand, #c9a83a)" }} />
         <span className="text-sm">
-          Responder{channelLabel ? ` por ${channelLabel}` : ""}…
+          {t("composer.replyCta", { suffix: channelLabel ? ` ${t("composer.viaChannel", { channel: channelLabel })}` : "" })}
         </span>
         <span
           className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
           style={{ color: "#fff", backgroundColor: "var(--brand, #c9a83a)" }}
         >
-          <Send size={12} /> Escribir
+          <Send size={12} /> {t("composer.write")}
         </span>
       </button>
     );
@@ -165,11 +167,11 @@ export default function InboxComposer({
     >
       {isEmail && (
         <div className="flex items-center gap-2 px-1 pb-1.5 mb-1.5 border-b" style={{ borderColor: C.border }}>
-          <span className="text-[10px] uppercase tracking-wide font-semibold shrink-0" style={{ color: C.textDim }}>Subject</span>
+          <span className="text-[10px] uppercase tracking-wide font-semibold shrink-0" style={{ color: C.textDim }}>{t("composer.subject")}</span>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Re: …"
+            placeholder={t("composer.rePh")}
             disabled={sending}
             className="flex-1 bg-transparent text-sm outline-none"
             style={{ color: C.textPrimary }}
@@ -181,10 +183,10 @@ export default function InboxComposer({
         onChange={(e) => setText(e.target.value)}
         placeholder={
           isEmail
-            ? "Cuerpo del email…"
+            ? t("composer.emailBodyPh")
             : channelLabel
-            ? `Responder por ${channelLabel}…`
-            : "Escribí tu respuesta…"
+            ? t("composer.replyVia", { channel: channelLabel })
+            : t("composer.placeholder")
         }
         rows={compact ? 3 : 6}
         disabled={sending}
@@ -207,7 +209,7 @@ export default function InboxComposer({
             style={{ color: "var(--brand, #c9a83a)", backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)` }}
           >
             {suggesting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            Sugerir respuesta
+            {t("composer.suggest")}
           </button>
           {/* Language picker — forces the draft language. "auto" detects from the
               conversation (default). Switching while a draft exists regenerates it. */}
@@ -219,7 +221,7 @@ export default function InboxComposer({
               setLang(v);
               if (text.trim()) void suggest(v); // regenerate the existing draft in the new language
             }}
-            title="Idioma de la respuesta"
+            title={t("composer.replyLanguage")}
             className="text-xs font-medium px-1.5 py-1.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
             style={{ color: C.textBody, backgroundColor: C.surface, border: `1px solid ${C.border}` }}
           >
@@ -235,7 +237,7 @@ export default function InboxComposer({
         </div>
         <div className="flex items-center gap-2">
           {showChannelPicker ? (
-            <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: C.border }} title="Elegí por qué canal responder">
+            <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: C.border }} title={t("composer.pickChannel")}>
               {pickable.map((ch) => {
                 const active = effectiveChannel === ch;
                 return (
@@ -247,7 +249,7 @@ export default function InboxComposer({
                     className="text-[10px] uppercase tracking-wide font-semibold px-2 py-1 transition disabled:opacity-50"
                     style={{ color: active ? "#fff" : C.textDim, backgroundColor: active ? "var(--brand, #c9a83a)" : C.surface }}
                   >
-                    {ch === "email" ? "Email" : "LinkedIn"}
+                    {ch === "email" ? t("chan.email") : t("chan.linkedin")}
                   </button>
                 );
               })}

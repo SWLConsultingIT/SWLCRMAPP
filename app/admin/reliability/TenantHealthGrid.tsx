@@ -13,6 +13,7 @@
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { CheckCircle2, AlertTriangle, Snowflake, Building2 } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 export type TenantHealth = {
   bioId: string;
@@ -45,10 +46,12 @@ export function computeTenantHealth(input: {
   return { ...input, health };
 }
 
-function severity(health: number): { color: string; label: string } {
-  if (health >= 85) return { color: C.green, label: "OK" };
-  if (health >= 60) return { color: "#D97706", label: "Atención" };
-  return { color: C.red, label: "Crítico" };
+// Returns a dictionary key, not a label: this runs at module scope, and the
+// row callback below already binds `t` to a tenant.
+function severity(health: number): { color: string; labelKey: string } {
+  if (health >= 85) return { color: C.green, labelKey: "rel.flows.cards.health.ok" };
+  if (health >= 60) return { color: "#D97706", labelKey: "rel.general.verdict.warning" };
+  return { color: C.red, labelKey: "rel.general.verdict.critical" };
 }
 
 export default function TenantHealthGrid({
@@ -58,10 +61,11 @@ export default function TenantHealthGrid({
   tenants: TenantHealth[];
   activeTenantId: string | null;
 }) {
+  const { t: tr } = useLocale();
   if (tenants.length === 0) {
     return (
       <div className="rounded-xl border p-5 text-sm text-center" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textMuted }}>
-        Sin actividad reciente en ningún tenant.
+        {tr("rel.grid.noActivity")}
       </div>
     );
   }
@@ -82,11 +86,11 @@ export default function TenantHealthGrid({
         <div className="flex items-center gap-2 mb-1">
           <Building2 size={13} style={{ color: !activeTenantId ? C.linkedin : C.textMuted }} />
           <span className="text-[12px] font-bold" style={{ color: !activeTenantId ? C.linkedin : C.textPrimary }}>
-            All tenants
+            {tr("rel.grid.allTenants")}
           </span>
         </div>
         <p className="text-[10.5px]" style={{ color: C.textMuted }}>
-          {tenants.length} con actividad · click cualquier card para filtrar
+          {tr("rel.grid.withActivity", { n: tenants.length })}
         </p>
       </Link>
 
@@ -118,7 +122,7 @@ export default function TenantHealthGrid({
                   {t.health}
                 </p>
                 <p className="text-[8.5px] font-bold uppercase tracking-wider mt-0.5" style={{ color: sev.color }}>
-                  {sev.label}
+                  {tr(sev.labelKey)}
                 </p>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
 import PrintTrigger from "./PrintTrigger";
 import PrintActions from "./PrintActions";
+import { getT } from "@/lib/i18n-server";
 
 type Branding = {
   companyName: string;
@@ -184,6 +185,7 @@ export default async function ReportsPrintPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getT();
   const sp = await searchParams;
   const get = (k: string) => {
     const v = sp[k];
@@ -228,12 +230,12 @@ export default async function ReportsPrintPage({
               <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>
                 GrowthAI <span style={{ color: brand.brandColor }}>— Sales Engine</span>
               </p>
-              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>by SWL Consulting · Performance Report</p>
+              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>{t("rp.byConsulting")}</p>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>Prepared for</p>
+              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("fld.preparedFor")}</p>
               <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", margin: "2px 0 0" }}>{brand.companyName}</p>
               <p style={{ fontSize: 10, color: "#9CA3AF", margin: "2px 0 0" }}>{data.generatedAt}</p>
             </div>
@@ -253,7 +255,7 @@ export default async function ReportsPrintPage({
             { label: "Messages Sent",   value: data.totalMessages,    color: "#0A66C2" },
             { label: "Replied",         value: data.repliedCount,     color: "#2563EB" },
             { label: "Positive",        value: data.positiveCount,    color: "#16A34A" },
-            { label: "Active Campaigns",value: data.activeCampaigns,  color: "#7C3AED" },
+            { label: t("rp.activeCampaigns"),value: data.activeCampaigns,  color: "#7C3AED" },
           ].map(k => (
             <div key={k.label} style={{ border: "1px solid #E5E7EB", borderRadius: 10, padding: "12px 10px", borderTop: `3px solid ${k.color}` }}>
               <p style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#6B7280", margin: "0 0 4px" }}>{k.label}</p>
@@ -267,9 +269,9 @@ export default async function ReportsPrintPage({
         {include.has("headline") && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
           {[
-            { label: "Response Rate",  value: `${data.responseRate}%`,   sub: `${data.repliedCount} of ${data.contactedLeads} responded`,  color: "#2563EB" },
-            { label: "Conversion Rate",value: `${data.conversionRate}%`, sub: `${data.positiveCount} positive of ${data.contactedLeads}`,   color: "#16A34A" },
-            { label: "Monthly Forecast",value: `${data.forecastMonthly}`,sub: `${data.dailyRate} positives/day × 30d`, color: "var(--brand, #c9a83a)" },
+            { label: t("rp.responseRate"),  value: `${data.responseRate}%`,   sub: `${data.repliedCount} of ${data.contactedLeads} responded`,  color: "#2563EB" },
+            { label: t("rp.conversionRate"),value: `${data.conversionRate}%`, sub: `${data.positiveCount} positive of ${data.contactedLeads}`,   color: "#16A34A" },
+            { label: t("rp.monthlyForecast"),value: `${data.forecastMonthly}`,sub: `${data.dailyRate} positives/day × 30d`, color: "var(--brand, #c9a83a)" },
           ].map(r => (
             <div key={r.label} style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "14px 16px" }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>{r.label}</p>
@@ -283,7 +285,7 @@ export default async function ReportsPrintPage({
         {/* ── Campaign Comparison ── */}
         {include.has("campaigns") && (
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Campaign Comparison</p>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("rp.campaignComparison")}</p>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ backgroundColor: C.surface }}>
@@ -338,7 +340,7 @@ export default async function ReportsPrintPage({
           {/* Channel Analysis */}
           <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
             <div style={{ backgroundColor: C.surface, padding: "10px 14px", borderBottom: "1px solid #E5E7EB" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Channel Analysis</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>{t("rp.channelAnalysis")}</p>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
@@ -387,7 +389,7 @@ export default async function ReportsPrintPage({
                 );
               })}
               {Object.keys(data.replyBreakdown).length === 0 && (
-                <p style={{ color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>No replies yet</p>
+                <p style={{ color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>{t("rp.noReplies")}</p>
               )}
             </div>
           </div>
@@ -397,11 +399,11 @@ export default async function ReportsPrintPage({
         {/* ── Seller Performance ── */}
         {include.has("sellers") && data.sellerPerformance.length > 0 && (
           <div style={{ marginBottom: 24 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Seller Performance</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("rp.sellerPerformance")}</p>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ backgroundColor: C.surface }}>
-                  {["Seller", "Active Campaigns", "Contacted", "Replied", "Won", "Response %", "Conversion %"].map(h => (
+                  {["Seller", t("rp.activeCampaigns"), "Contacted", "Replied", "Won", "Response %", "Conversion %"].map(h => (
                     <th key={h} style={{ padding: "8px 12px", textAlign: h === "Seller" ? "left" : "center", fontSize: 10, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", border: "1px solid #E5E7EB" }}>{h}</th>
                   ))}
                 </tr>
@@ -415,7 +417,7 @@ export default async function ReportsPrintPage({
                           {s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
                         </div>
                         <span style={{ fontWeight: 600, color: "#111827" }}>{s.name}</span>
-                        {i === 0 && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, backgroundColor: "var(--brand, #c9a83a)20", color: "var(--brand, #c9a83a)" }}>TOP</span>}
+                        {i === 0 && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, backgroundColor: "var(--brand, #c9a83a)20", color: "var(--brand, #c9a83a)" }}>{t("rp.top")}</span>}
                       </div>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "#16A34A", border: "1px solid #E5E7EB" }}>{s.active}</td>

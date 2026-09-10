@@ -26,6 +26,7 @@ import {
   gold, n, S, Band, Opening, Drill, Note, Eyebrow, WorthALook, DeltaTag, type Delta,
 } from "./ui";
 import * as T from "./tabs-data";
+import { useLocale } from "@/lib/i18n";
 
 function trend(now: number, prev: number): Delta {
   if (prev === 0) return null;
@@ -41,6 +42,7 @@ const SWATCH = ["#C9A83A", "#5B9BD5", "#5FAF7E", "#C0553F"];
 function Picker({ sel, toggle, clear, all }: {
   sel: Set<string>; toggle: (n: string) => void; clear: () => void; all: () => void;
 }) {
+  const { t: tr } = useLocale();
   const maxVol = Math.max(...T.tenants.map(t => t.contacted));
   // The swatch must be assigned in the SAME order the head-to-head uses
   // (list order, not click order), or a client is gold in the picker and
@@ -49,11 +51,11 @@ function Picker({ sel, toggle, clear, all }: {
   return (
     <div>
       <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-        <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textMuted }}>Compare clients</span>
+        <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textMuted }}>{tr("cons.port.compareClients")}</span>
         <span style={{ fontSize: 11, color: C.textDim }}>
-          {sel.size === 0 ? "showing all four active clients — pick two or more to put them head to head"
-            : sel.size === 1 ? "pick one more to open the comparison"
-            : `${sel.size} selected`}
+          {sel.size === 0 ? tr("cons.port.pickHint", { n: T.tenants.length })
+            : sel.size === 1 ? tr("cons.port.pickOneMore")
+            : tr("cons.port.selected", { n: sel.size })}
         </span>
         <div className="flex-1" />
         {sel.size > 0 ? (
@@ -61,7 +63,7 @@ function Picker({ sel, toggle, clear, all }: {
             <X size={11} /> Clear
           </button>
         ) : (
-          <button onClick={all} className="font-medium" style={{ fontSize: 11.5, color: gold }}>Compare all four</button>
+          <button onClick={all} className="font-medium" style={{ fontSize: 11.5, color: gold }}>{tr("cons.port.compareAllN", { n: T.tenants.length })}</button>
         )}
       </div>
 
@@ -92,14 +94,14 @@ function Picker({ sel, toggle, clear, all }: {
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="tabular-nums font-semibold" style={{ fontSize: 18, letterSpacing: "-0.02em", color: on ? C.textPrimary : C.textMuted }}>{t.rate}%</span>
-                <span style={{ fontSize: 10, color: C.textDim }}>reply rate</span>
+                <span style={{ fontSize: 10, color: C.textDim }}>{tr("cons.port.replyRateLow")}</span>
               </div>
               <div className="mt-1.5 h-1 rounded-full" style={{ backgroundColor: C.surface }}>
                 <div className="h-full rounded-full"
                   style={{ width: `${Math.max((t.contacted / maxVol) * 100, 2)}%`, backgroundColor: on ? (swatch ?? gold) : C.border2 }} />
               </div>
               <div className="tabular-nums mt-1" style={{ fontSize: 10, color: C.textDim }}>
-                {n(t.contacted)} contacted · {t.calls === 0 ? "no calls" : `${t.calls} calls`}
+                {n(t.contacted)} {tr("cons.port.contacted")} · {t.calls === 0 ? tr("cons.port.noCalls") : tr("cons.port.callsN", { n: t.calls })}
               </div>
             </button>
           );
@@ -114,17 +116,19 @@ function Picker({ sel, toggle, clear, all }: {
    Only appears with two or more picked, because a comparison of one is a
    row you already have below. */
 
-const AXES: { label: string; get: (t: T.Tenant) => number; fmt: (v: number) => string }[] = [
-  { label: "Reply rate", get: t => t.rate, fmt: v => `${v}%` },
-  { label: "Leads contacted", get: t => t.contacted, fmt: n },
-  { label: "Messages sent", get: t => t.messages, fmt: n },
-  { label: "Calls", get: t => t.calls, fmt: n },
-  { label: "Leads replied", get: t => t.replies, fmt: n },
-  { label: "Positive replies", get: t => t.positive, fmt: n },
-  { label: "Active flows", get: t => t.activeFlows, fmt: n },
+// labelKey, not label: AXES is module scope and has no translator.
+const AXES: { labelKey: string; get: (t: T.Tenant) => number; fmt: (v: number) => string }[] = [
+  { labelKey: "cons.port.replyRate", get: t => t.rate, fmt: v => `${v}%` },
+  { labelKey: "cons.port.leadsContacted", get: t => t.contacted, fmt: n },
+  { labelKey: "cons.port.messagesSent", get: t => t.messages, fmt: n },
+  { labelKey: "cons.port.calls", get: t => t.calls, fmt: n },
+  { labelKey: "cons.port.leadsReplied", get: t => t.replies, fmt: n },
+  { labelKey: "cons.port.positiveReplies", get: t => t.positive, fmt: n },
+  { labelKey: "cons.port.activeFlows", get: t => t.activeFlows, fmt: n },
 ];
 
 function Compare({ picked }: { picked: T.Tenant[] }) {
+  const { t: tr } = useLocale();
   return (
     <div>
       <div className="flex items-center flex-wrap mb-5" style={{ gap: 18 }}>
@@ -143,10 +147,10 @@ function Compare({ picked }: { picked: T.Tenant[] }) {
           const max = Math.max(...vals, 1);
           const lead = Math.max(...vals);
           return (
-            <div key={A.label}>
+            <div key={A.labelKey}>
               <div className="flex items-baseline gap-2 mb-1.5">
-                <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textMuted }}>{A.label}</span>
-                {lead === 0 && <span style={{ fontSize: 10.5, color: C.textDim }}>none for any of these</span>}
+                <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textMuted }}>{tr(A.labelKey)}</span>
+                {lead === 0 && <span style={{ fontSize: 10.5, color: C.textDim }}>{tr("cons.port.noneForThese")}</span>}
               </div>
               <div className="flex flex-col" style={{ gap: 5 }}>
                 {picked.map((t, i) => {
@@ -183,6 +187,7 @@ function Compare({ picked }: { picked: T.Tenant[] }) {
 /* ── the list ───────────────────────────────────────────────────────────── */
 
 function Row({ t, best, maxVol, dim }: { t: T.Tenant; best: number; maxVol: number; dim: boolean }) {
+  const { t: tr } = useLocale();
   return (
     <div className="flex items-center gap-4 py-4" style={{ borderTop: `1px solid ${C.border}`, opacity: dim ? .4 : 1 }}>
       <div className="w-[176px] shrink-0 min-w-0">
@@ -195,14 +200,14 @@ function Row({ t, best, maxVol, dim }: { t: T.Tenant; best: number; maxVol: numb
       <div className="w-[150px] shrink-0">
         <div className="flex items-baseline gap-1.5">
           <span className="tabular-nums font-semibold" style={{ fontSize: 13, color: C.textBody }}>{n(t.contacted)}</span>
-          <span style={{ fontSize: 10.5, color: C.textDim }}>contacted</span>
+          <span style={{ fontSize: 10.5, color: C.textDim }}>{tr("cons.port.contacted")}</span>
           <DeltaTag d={trend(t.contacted, t.contactedPrev)} size={10} />
         </div>
         <div className="mt-1 h-1.5 rounded-full" style={{ backgroundColor: C.surface }}>
           <div className="h-full rounded-full" style={{ width: `${Math.max((t.contacted / maxVol) * 100, 1.5)}%`, backgroundColor: `color-mix(in srgb, ${gold} 42%, transparent)` }} />
         </div>
         <div className="tabular-nums mt-1" style={{ fontSize: 10, color: C.textDim }}>
-          {n(t.messages)} messages · {t.calls === 0 ? "no calls" : `${t.calls} calls`}
+          {n(t.messages)} {tr("cons.port.messages")} · {t.calls === 0 ? tr("cons.port.noCalls") : tr("cons.port.callsN", { n: t.calls })}
         </div>
       </div>
 
@@ -219,13 +224,14 @@ function Row({ t, best, maxVol, dim }: { t: T.Tenant; best: number; maxVol: numb
 
       <div className="w-[62px] shrink-0 text-right">
         <div className="font-semibold tabular-nums" style={{ fontSize: 14, color: t.positive > 0 ? C.green : C.textDim }}>{t.positive}</div>
-        <div style={{ fontSize: 10, color: C.textDim }}>positive</div>
+        <div style={{ fontSize: 10, color: C.textDim }}>{tr("cons.port.positive")}</div>
       </div>
     </div>
   );
 }
 
 export default function Portfolio({ label }: { label: string }) {
+  const { t } = useLocale();
   const [sel, setSel] = useState<Set<string>>(new Set());
   const toggle = (nm: string) => setSel(s => {
     const next = new Set(s);
@@ -239,19 +245,19 @@ export default function Portfolio({ label }: { label: string }) {
 
   return (
     <>
-      <Opening question="How is each client doing?" sub={`in ${label}`} aside={<Drill label="Weekly PDF" />}>
+      <Opening question={t("cons.port.q1")} sub={t("cons.ov.in", { label })} aside={<Drill label={t("cons.port.weeklyPdf")} />}>
         <div className="flex items-baseline gap-2 mb-4 flex-wrap">
           <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textPrimary }}>{p.tenants}</span>
-          <span style={{ fontSize: 12, color: C.textMuted }}>clients sent this period</span>
+          <span style={{ fontSize: 12, color: C.textMuted }}>{t("cons.port.clientsSent")}</span>
           <span style={{ fontSize: 12, color: C.textDim }}>·</span>
           <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textBody }}>{n(p.contacted)}</span>
-          <span style={{ fontSize: 12, color: C.textMuted }}>contacted</span>
+          <span style={{ fontSize: 12, color: C.textMuted }}>{t("cons.port.contacted")}</span>
           <span style={{ fontSize: 12, color: C.textDim }}>·</span>
           <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textBody }}>{p.replies}</span>
-          <span style={{ fontSize: 12, color: C.textMuted }}>replied</span>
+          <span style={{ fontSize: 12, color: C.textMuted }}>{t("cons.port.replied")}</span>
           <div className="flex-1" />
           <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-0.5 rounded-full border"
-            style={{ fontSize: 9.5, borderColor: C.border, color: C.textMuted }}>SUPER-ADMIN</span>
+            style={{ fontSize: 9.5, borderColor: C.border, color: C.textMuted }}>{t("cons.port.superAdmin")}</span>
         </div>
 
         <div className="mb-7">
@@ -261,7 +267,7 @@ export default function Portfolio({ label }: { label: string }) {
         {picked.length >= 2 && (
           <div className="rounded-2xl px-6 py-6 mb-8"
             style={{ backgroundColor: C.card, border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}>
-            <Eyebrow note={`${picked.length} clients on the same axes`}>Head to head</Eyebrow>
+            <Eyebrow note={t("cons.port.sameAxes", { n: picked.length })}>{t("cons.port.headToHead")}</Eyebrow>
             <Compare picked={picked} />
           </div>
         )}
@@ -275,7 +281,7 @@ export default function Portfolio({ label }: { label: string }) {
 
         <div className="mt-6 pt-4" style={{ borderTop: `1px dashed ${C.border}` }}>
           <div className="flex items-baseline gap-2 mb-3">
-            <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textDim }}>Sent nothing this period</span>
+            <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textDim }}>{t("cons.port.sentNothing")}</span>
             <span className="tabular-nums" style={{ fontSize: 11, color: C.textMuted }}>{p.dormant} clients</span>
           </div>
           <div className="flex flex-wrap" style={{ gap: "8px 32px" }}>
@@ -296,10 +302,10 @@ export default function Portfolio({ label }: { label: string }) {
         <WorthALook title={T.portfolioWorthALook.title} facts={T.portfolioWorthALook.facts} />
       </section>
 
-      <Band question="Does this still deserve its own tab?">
+      <Band question={t("cons.port.q2")}>
         <div className="grid grid-cols-1 lg:grid-cols-12" style={{ gap: 48 }}>
           <div className="lg:col-span-7">
-            <Eyebrow>The judgement</Eyebrow>
+            <Eyebrow>{t("cons.port.judgement")}</Eyebrow>
             <p style={{ fontSize: 13, color: C.textBody, lineHeight: 1.65, maxWidth: 620 }}>{T.portfolioVerdict}</p>
             <p className="mt-3" style={{ fontSize: 13, color: C.textBody, lineHeight: 1.65, maxWidth: 620 }}>
               The change that matters most is the default window. At 7 days two clients have activity and SWL is 99.8% of it,
@@ -308,7 +314,7 @@ export default function Portfolio({ label }: { label: string }) {
             </p>
           </div>
           <div className="lg:col-span-5 lg:pl-11" style={{ borderLeft: `1px solid ${C.border}` }}>
-            <Eyebrow>Removed</Eyebrow>
+            <Eyebrow>{t("cons.removed")}</Eyebrow>
             <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>{T.portfolioRemoved}</p>
             <p className="mt-3" style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
               Per-seller rows are gone too. A cross-client screen compares clients; who inside a client made the calls is

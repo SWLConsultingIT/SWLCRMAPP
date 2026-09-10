@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import AddToFlowModal from "@/components/icp/AddToFlowModal";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
+import { useLocale } from "@/lib/i18n";
+import { intlTag, type Locale } from "@/lib/i18n-locale";
 
 const gold = C.gold;
 const goldLight = C.goldGlow;
@@ -65,18 +67,20 @@ type IcpProfile = {
   created_by_email: string | null;
 };
 
-function formatRelative(iso: string | null | undefined): string | null {
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+function formatRelative(iso: string | null | undefined, tr: Tr, locale: Locale): string | null {
   if (!iso) return null;
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return null;
   const diffMs = Date.now() - then;
   const day = 86_400_000;
   const days = Math.floor(diffMs / day);
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (days < 1) return tr("icpx.rel.today");
+  if (days === 1) return tr("icpx.rel.yesterday");
+  if (days < 7) return tr("icpx.rel.days", { n: days });
+  if (days < 30) return tr("icpx.rel.weeks", { n: Math.floor(days / 7) });
+  return new Date(iso).toLocaleDateString(intlTag(locale), { month: "short", day: "numeric" });
 }
 
 function isRecentUpload(iso: string | null | undefined): boolean {
@@ -90,9 +94,9 @@ function isRecentUpload(iso: string | null | undefined): boolean {
 const COMPANY_SIZE_BUCKETS = ["1-10", "11-50", "51-200", "201-500", "500+"];
 
 // Render helper: prefer the new multi-buckets, fall back to legacy free text.
-function companySizeLabel(p: { company_size_buckets?: string[] | null; company_size?: string | null }): string | null {
+function companySizeLabel(p: { company_size_buckets?: string[] | null; company_size?: string | null }, tr: Tr): string | null {
   if (p.company_size_buckets && p.company_size_buckets.length > 0) {
-    return p.company_size_buckets.map(b => `${b} employees`).join(", ");
+    return p.company_size_buckets.map(b => `${b} ${tr("icpx.employees")}`).join(", ");
   }
   return p.company_size?.trim() || null;
 }
@@ -109,14 +113,16 @@ const emptyForm = {
   leads_requested: null as number | null,
 };
 
-const statusConfig: Record<string, { label: string; color: string; bg: string; message: string }> = {
-  pending:  { label: "Pending Review", color: C.yellow, bg: C.yellowLight, message: "Our team is reviewing your profile." },
-  reviewed: { label: "Reviewed",       color: C.blue,   bg: C.blueLight,   message: "Your profile has been reviewed." },
-  approved: { label: "Approved",       color: C.green,  bg: C.greenLight,  message: "Profile approved. We're generating your leads." },
+// Keys, not labels: module scope. Every consumer resolves them.
+const statusConfig: Record<string, { labelKey: string; color: string; bg: string; messageKey: string }> = {
+  pending:  { labelKey: "icpx.pendingReview", color: C.yellow, bg: C.yellowLight, messageKey: "icpx.msg.pending" },
+  reviewed: { labelKey: "icpx.reviewed",      color: C.blue,   bg: C.blueLight,   messageKey: "icpx.msg.reviewed" },
+  approved: { labelKey: "icpx.approved",      color: C.green,  bg: C.greenLight,  messageKey: "icpx.msg.approved" },
 };
 
 
 function TagInput({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
+  const { t } = useLocale();
   const [input, setInput] = useState("");
   function add() {
     const s = input.trim();
@@ -155,6 +161,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
   onCancel: () => void;
   isNew: boolean;
 }) {
+  const { t } = useLocale();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,7 +176,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
 
   async function handleGenerate() {
     if (!genPrompt.trim()) {
-      setGenError("Describe who you want to reach (a short brief).");
+      setGenError(t("icpx.err.brief"));
       return;
     }
     setGenerating(true);
@@ -182,7 +189,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
         body: JSON.stringify({ prompt: genPrompt }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Generation failed");
+      if (!res.ok) throw new Error(data?.error ?? t("icpx.err.genFailed"));
       const d = data.draft;
       // Merge the draft into the form, keeping anything the user already typed.
       setForm(f => ({
@@ -198,15 +205,15 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
       }));
       setGenDone(true);
     } catch (e: any) {
-      setGenError(e.message ?? "Generation failed");
+      setGenError(e.message ?? t("icpx.err.genFailed"));
     }
     setGenerating(false);
   }
 
   function fieldError(value: string | string[]): string | null {
     if (!tried) return null;
-    if (Array.isArray(value)) return value.length === 0 ? "Required" : null;
-    return !value.trim() ? "Required" : null;
+    if (Array.isArray(value)) return value.length === 0 ? t("icpx.required") : null;
+    return !value.trim() ? t("icpx.required") : null;
   }
 
   async function handleSubmit() {
@@ -218,7 +225,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
     try {
       await onSave(form);
     } catch (e: any) {
-      setError(e.message ?? "Failed to save");
+      setError(e.message ?? t("icpx.err.saveFailed"));
     }
     setSaving(false);
   }
@@ -227,7 +234,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
     <div className="rounded-2xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b" style={{ borderColor: C.border }}>
         <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-          {isNew ? "New LeadMiner Ticket" : "Edit Profile"}
+          {isNew ? t("icpx.newTicket") : t("icpx.editProfile")}
         </h2>
         <button onClick={onCancel} style={{ color: C.textMuted }}><X size={18} /></button>
       </div>
@@ -237,8 +244,8 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
             <button type="button" onClick={() => setGenOpen(o => !o)}
               className="w-full flex items-center justify-between px-4 py-3 text-left">
               <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: C.aiAccent }}>
-                <Sparkles size={15} /> Generate with AI
-                <span className="text-[11px] font-normal" style={{ color: C.textDim }}>— describe who you want to reach and we draft the whole profile</span>
+                <Sparkles size={15} /> {t("icpx.genWithAi")}
+                <span className="text-[11px] font-normal" style={{ color: C.textDim }}>{t("icpx.aiLede")}</span>
               </span>
               <ChevronRight size={16} style={{ color: C.textDim, transform: genOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
             </button>
@@ -247,16 +254,12 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
                 <textarea rows={3} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                   style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                   value={genPrompt} onChange={e => setGenPrompt(e.target.value)}
-                  placeholder="Describe your ideal customer: who they are, where, and what problem they have. E.g.: construction companies in Argentina and Chile still running projects on Excel, that would buy project-management software" />
+                  placeholder={t("icpx.aiPlaceholder")} />
                 {/* Example briefs — click to fill. Teaches the shape of a good
                     brief (who · where · trigger) far better than a URL did. */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-semibold" style={{ color: C.textDim }}>Examples:</span>
-                  {[
-                    "B2B SaaS companies, 50–200 staff, in LATAM scaling their outbound sales team",
-                    "Manufacturing SMEs in Spain still running operations on spreadsheets",
-                    "Marketing agencies in the US that want to automate client reporting",
-                  ].map((ex, i) => (
+                  <span className="text-[11px] font-semibold" style={{ color: C.textDim }}>{t("icpx.examples")}</span>
+                  {["icpx.ex1", "icpx.ex2", "icpx.ex3"].map(k => t(k)).map((ex, i) => (
                     <button key={i} type="button" onClick={() => setGenPrompt(ex)}
                       className="text-[11px] px-2.5 py-1 rounded-full border transition-colors hover:bg-black/[0.03]"
                       style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
@@ -269,14 +272,14 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
                     className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-opacity disabled:opacity-40"
                     style={{ backgroundColor: C.aiAccent, color: "#04070d" }}>
                     {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    {generating ? "Generating…" : "Generate draft"}
+                    {generating ? t("icpx.generating") : t("icpx.generateDraft")}
                   </button>
-                  <span className="text-[11px]" style={{ color: C.textDim }}>Uses your Company Bio for context. Review &amp; edit before submitting.</span>
+                  <span className="text-[11px]" style={{ color: C.textDim }}>{t("icpx.usesBio")}</span>
                 </div>
                 {genError && <p className="text-xs font-medium" style={{ color: C.red }}>{genError}</p>}
                 {genDone && !genError && (
                   <p className="text-xs font-medium flex items-center gap-1" style={{ color: C.green }}>
-                    <CheckCircle size={12} /> Draft applied below — tweak anything, then submit.
+                    <CheckCircle size={12} /> {t("icpx.draftApplied")}
                   </p>
                 )}
               </div>
@@ -285,33 +288,33 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
         )}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium" style={{ color: C.textBody }}>Profile Name *</label>
+            <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.profileName")}</label>
             {fieldError(form.profile_name) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.profile_name)}</span>}
           </div>
           <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
             style={{ borderColor: fieldError(form.profile_name) ? C.red : C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.profile_name} onChange={e => setForm(f => ({ ...f, profile_name: e.target.value }))}
-            placeholder="E.g.: CFO of Argentine SME" />
+            placeholder={t("icpx.profileNamePh")} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Target Industries *</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.targetIndustries")}</label>
               {fieldError(form.target_industries) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.target_industries)}</span>}
             </div>
-            <TagInput values={form.target_industries} onChange={v => setForm(f => ({ ...f, target_industries: v }))} placeholder="Type and press Enter…" />
+            <TagInput values={form.target_industries} onChange={v => setForm(f => ({ ...f, target_industries: v }))} placeholder={t("icpx.typeEnter")} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Target Roles *</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.targetRoles")}</label>
               {fieldError(form.target_roles) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.target_roles)}</span>}
             </div>
-            <TagInput values={form.target_roles} onChange={v => setForm(f => ({ ...f, target_roles: v }))} placeholder="CEO, CFO, Sales Manager…" />
+            <TagInput values={form.target_roles} onChange={v => setForm(f => ({ ...f, target_roles: v }))} placeholder={t("icpx.rolesPh")} />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>
-              Company Size <span style={{ color: C.textDim }}>(select all that apply)</span>
+              {t("icpx.companySize")} <span style={{ color: C.textDim }}>{t("icpx.selectAll")}</span>
             </label>
             <div className="flex flex-wrap gap-1.5">
               {COMPANY_SIZE_BUCKETS.map(s => {
@@ -336,51 +339,51 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
                 );
               })}
             </div>
-            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>employees</p>
+            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>{t("icpx.employees")}</p>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Geography *</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.geography")}</label>
               {fieldError(form.geography) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.geography)}</span>}
             </div>
-            <TagInput values={form.geography} onChange={v => setForm(f => ({ ...f, geography: v }))} placeholder="Argentina, Spain, LATAM…" />
+            <TagInput values={form.geography} onChange={v => setForm(f => ({ ...f, geography: v }))} placeholder={t("icpx.geographyPh")} />
           </div>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium" style={{ color: C.textBody }}>Pain Points You Solve *</label>
+            <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.painPoints")}</label>
             {fieldError(form.pain_points) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.pain_points)}</span>}
           </div>
           <textarea rows={3} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
             style={{ borderColor: fieldError(form.pain_points) ? C.red : C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.pain_points} onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))}
-            placeholder="What problem do these prospects have that your company can solve" />
+            placeholder={t("icpx.painPointsPh")} />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium" style={{ color: C.textBody }}>Solutions You Offer *</label>
+            <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.solutions")}</label>
             {fieldError(form.solutions_offered) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.solutions_offered)}</span>}
           </div>
           <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
             style={{ borderColor: fieldError(form.solutions_offered) ? C.red : C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.solutions_offered} onChange={e => setForm(f => ({ ...f, solutions_offered: e.target.value }))}
-            placeholder="What specific service/product best fits this profile" />
+            placeholder={t("icpx.solutionsPh")} />
         </div>
 
         <div>
-          <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Additional Notes</label>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("icpx.additionalNotes")}</label>
           <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            placeholder="Describe what you're specifically looking for in these leads. Include any personalized info, specific traits, behaviors, or qualifiers that would make a lead ideal for this campaign (e.g., 'recently raised funding', 'hiring for sales roles', 'using competitor X')." />
+            placeholder={t("icpx.notesPh")} />
         </div>
 
         {/* Leads Requested */}
         <div className="rounded-2xl border p-4" style={{ borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 4%, var(--c-card)) 0%, var(--c-card) 100%)`, boxShadow: `0 0 16px color-mix(in srgb, ${gold} 8%, transparent)` }}>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>
-            How many leads do you need?
+            {t("icpx.howMany")}
           </label>
           <div className="flex items-center gap-2 flex-wrap">
             {[25, 50, 100, 200, 500].map(n => {
@@ -400,10 +403,10 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
               );
             })}
             <div className="flex items-center gap-2 ml-1">
-              <span className="text-xs font-medium" style={{ color: C.textDim }}>or</span>
+              <span className="text-xs font-medium" style={{ color: C.textDim }}>{t("icpx.or")}</span>
               <input
                 type="number" min={1} max={5000}
-                placeholder="Custom"
+                placeholder={t("icpx.custom")}
                 value={form.leads_requested !== null && ![25, 50, 100, 200, 500].includes(form.leads_requested) ? form.leads_requested : ""}
                 onChange={e => {
                   const v = e.target.value === "" ? null : parseInt(e.target.value);
@@ -416,7 +419,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
           </div>
           {form.leads_requested !== null && (
             <p className="text-xs mt-2.5 font-medium" style={{ color: C.textMuted }}>
-              Requesting <span style={{ color: gold, fontWeight: 700 }}>{form.leads_requested} leads</span> for this profile
+              {t("icpx.requestingPre")} <span style={{ color: gold, fontWeight: 700 }}>{t("icpx.leadsUnit", { n: form.leads_requested })}</span> {t("icpx.requestingPost")}
             </p>
           )}
         </div>
@@ -432,11 +435,11 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
             className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-40"
             style={{ backgroundColor: gold, color: "#04070d" }}>
             {saving ? <Loader2 size={15} className="animate-spin" /> : isNew ? <Plus size={15} /> : <CheckCircle size={15} />}
-            {saving ? "Saving…" : isNew ? "Submit for Review" : "Save Changes"}
+            {saving ? t("icpx.saving") : isNew ? t("icpx.submitForReview") : t("icpx.saveChanges")}
           </button>
           <button onClick={onCancel} className="rounded-lg px-5 py-2.5 text-sm font-medium"
             style={{ color: C.textMuted, backgroundColor: C.surface }}>
-            Cancel
+            {t("acc.cancel")}
           </button>
         </div>
       </div>
@@ -451,6 +454,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
   onDelete: () => void;
   onClose: () => void;
 }) {
+  const { t, locale } = useLocale();
   const st = statusConfig[profile.status] ?? statusConfig.pending;
   const [confirmDelete, setConfirmDelete] = useState(false);
   type LeadRow = {
@@ -501,7 +505,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("[icp leads csv]", e);
-      alert("No se pudo generar el CSV. Probá de nuevo.");
+      alert(t("icp.err.csv"));
     } finally {
       setCsvBusy(false);
     }
@@ -606,7 +610,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-5" style={{ color: C.textMuted }}>
         <button onClick={onClose} className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Lead Miner
+          <ArrowLeft size={12} /> {t("icpx.leadMiner")}
         </button>
         <span>/</span>
         <span style={{ color: C.textBody }}>{profile.profile_name}</span>
@@ -622,55 +626,55 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             <h2 className="text-xl font-bold" style={{ color: C.textPrimary }}>{profile.profile_name}</h2>
             <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold"
               style={{ backgroundColor: st.bg, color: st.color }}>
-              <Clock size={11} /> {st.label}
+              <Clock size={11} /> {t(st.labelKey)}
             </span>
             {isRecentUpload(profile.executed_at) && (
               <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                 style={{ backgroundColor: gold, color: "#04070d" }}>
-                NEW
+                {t("icpx.new")}
               </span>
             )}
             {(profile.leads_uploaded ?? 0) > 0 && (
               <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
                 style={{ backgroundColor: C.greenLight, color: C.green }}>
-                <Users size={11} /> {profile.leads_uploaded} {profile.leads_uploaded === 1 ? "lead uploaded" : "leads uploaded"}
+                <Users size={11} /> {profile.leads_uploaded === 1 ? t("icpx.leadUploadedOne") : t("icpx.leadsUploadedN", { n: profile.leads_uploaded ?? 0 })}
               </span>
             )}
           </div>
           <p className="text-xs flex items-center gap-3 flex-wrap" style={{ color: C.textMuted }}>
-            <span>Created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+            <span>{t("icpx.created", { date: new Date(profile.created_at).toLocaleDateString(intlTag(locale), { month: "long", day: "numeric", year: "numeric" }) })}</span>
             {profile.created_by_email && (
               <span className="inline-flex items-center gap-1">
-                <Users size={11} /> by {profile.created_by_email}
+                <Users size={11} /> {t("icpx.by")} {profile.created_by_email}
               </span>
             )}
             {profile.executed_at && (
               <span style={{ color: C.green }}>
-                · Leads uploaded {new Date(profile.executed_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                · {t("icpx.leadsUploadedOn", { date: new Date(profile.executed_at).toLocaleDateString(intlTag(locale), { month: "long", day: "numeric", year: "numeric" }) })}
               </span>
             )}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => printIcpPdf(profile.id, profile.profile_name)}
-            title="Download as branded PDF"
+            title={t("icpx.downloadPdf")}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: C.card, color: C.textBody, border: `1px solid ${C.border}` }}>
-            <Download size={12} /> Download
+            <Download size={12} /> {t("icpx.download")}
           </button>
           {leads.length > 0 && (
             <button onClick={downloadLeadsCsv} disabled={csvBusy}
-              title="Download this ICP's leads as a CSV (columns adapt to this ICP's data)"
+              title={t("icpx.csvTitle")}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-60"
               style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-              {csvBusy ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Leads CSV
+              {csvBusy ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} {t("icpx.leadsCsv")}
             </button>
           )}
           {leads.length === 0 && (
             <button onClick={onEdit}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
               style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-              <Pencil size={12} /> Edit
+              <Pencil size={12} /> {t("acc.edit")}
             </button>
           )}
         </div>
@@ -681,7 +685,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Overview — category cards with icons */}
       <div className="px-6 py-5 grid grid-cols-2 gap-3">
         {profile.target_industries?.length > 0 && (
-          <OverviewCard icon={Building2} label="Industries" accent={C.blue}>
+          <OverviewCard icon={Building2} label={t("icpx.industries")} accent={C.blue}>
             <div className="flex flex-wrap gap-1.5">
               {profile.target_industries.map(i => (
                 <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
@@ -691,7 +695,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </OverviewCard>
         )}
         {profile.target_roles?.length > 0 && (
-          <OverviewCard icon={Briefcase} label="Target Roles" accent={C.accent}>
+          <OverviewCard icon={Briefcase} label={t("icpx.targetRoles")} accent={C.accent}>
             <div className="flex flex-wrap gap-1.5">
               {profile.target_roles.map(r => (
                 <span key={r} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
@@ -700,15 +704,15 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             </div>
           </OverviewCard>
         )}
-        {companySizeLabel(profile) && (
-          <OverviewCard icon={Users} label="Company Size" accent={"#7C3AED"}>
+        {companySizeLabel(profile, t) && (
+          <OverviewCard icon={Users} label={t("icpx.companySize")} accent={"#7C3AED"}>
             <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
-              {companySizeLabel(profile)}
+              {companySizeLabel(profile, t)}
             </p>
           </OverviewCard>
         )}
         {profile.geography?.length > 0 && (
-          <OverviewCard icon={MapPin} label="Geography" accent={C.orange}>
+          <OverviewCard icon={MapPin} label={t("icpx.geography")} accent={C.orange}>
             <div className="flex flex-wrap gap-1.5">
               {profile.geography.map(g => (
                 <span key={g} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
@@ -723,14 +727,14 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {(profile.pain_points || profile.solutions_offered) && (
         <div className="px-6 pb-5 grid grid-cols-2 gap-4">
           {profile.pain_points && (
-            <AccentBlock icon={AlertCircle} title="Pain Points" accent={C.red}>
+            <AccentBlock icon={AlertCircle} title={t("icpx.painPoints")} accent={C.red}>
               <p className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
                 {profile.pain_points}
               </p>
             </AccentBlock>
           )}
           {profile.solutions_offered && (
-            <AccentBlock icon={Lightbulb} title="Solutions Offered" accent={C.green}>
+            <AccentBlock icon={Lightbulb} title={t("icpx.solutionsOffered")} accent={C.green}>
               <p className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
                 {profile.solutions_offered}
               </p>
@@ -742,7 +746,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Classification Rubric (Notes) — parsed + tier badges highlighted */}
       {profile.notes && (
         <div className="px-6 pb-5">
-          <AccentBlock icon={BookOpen} title="Classification Rubric" accent={"#7C3AED"}>
+          <AccentBlock icon={BookOpen} title={t("icpx.rubric")} accent={"#7C3AED"}>
             <NotesRenderer text={profile.notes} />
           </AccentBlock>
         </div>
@@ -774,7 +778,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               <Users size={13} />
             </span>
             <span className="relative text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              Leads
+              {t("ld.leads")}
             </span>
             {!loadingLeads && (
               <span className="relative text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full"
@@ -791,33 +795,33 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           )}
           {leadsOpen && !loadingLeads && leads.length === 0 && (
             <div className="px-5 py-6 text-center">
-              <p className="text-sm" style={{ color: C.textDim }}>No leads uploaded yet for this ticket.</p>
+              <p className="text-sm" style={{ color: C.textDim }}>{t("icpx.noLeadsYet")}</p>
             </div>
           )}
           {leadsOpen && !loadingLeads && leads.length > 0 && (() => {
             // Full lifecycle breakdown (boss 2026-08-19): where each lead sits.
             const BUCKET_META: { key: BucketKey; label: string; color: string }[] = [
-              { key: "unassigned", label: "Unassigned", color: gold },
-              { key: "inFlow",     label: "In a flow",  color: C.blue },
-              { key: "won",        label: "Won",        color: C.green },
-              { key: "lost",       label: "Lost",       color: C.red },
-              { key: "renurture",  label: "Renurture",  color: "#7C3AED" },
-              { key: "completed",  label: "Completed",  color: C.textMuted },
+              { key: "unassigned", label: t("icpx.unassigned"), color: gold },
+              { key: "inFlow",     label: t("icpx.inFlow"),     color: C.blue },
+              { key: "won",        label: t("icpx.won"),        color: C.green },
+              { key: "lost",       label: t("icpx.lost"),       color: C.red },
+              { key: "renurture",  label: t("icpx.renurture"),  color: "#7C3AED" },
+              { key: "completed",  label: t("icpx.completed"),  color: C.textMuted },
             ];
             const campView = (s: string) =>
-              s === "active" ? { label: "Active", color: C.green }
-              : s === "paused" ? { label: "Paused", color: C.orange }
-              : s === "completed" ? { label: "Completed", color: C.textMuted }
-              : s === "closed_lost" ? { label: "Lost", color: C.red }
-              : s === "closed_won" ? { label: "Won", color: C.green }
+              s === "active" ? { label: t("icpx.camp.active"), color: C.green }
+              : s === "paused" ? { label: t("icpx.camp.paused"), color: C.orange }
+              : s === "completed" ? { label: t("icpx.completed"), color: C.textMuted }
+              : s === "closed_lost" ? { label: t("icpx.lost"), color: C.red }
+              : s === "closed_won" ? { label: t("icpx.won"), color: C.green }
               : { label: s || "—", color: C.textMuted };
             const emptyMsg: Record<BucketKey, string> = {
-              unassigned: "No unassigned leads — every lead here has already entered a flow.",
-              inFlow: "No leads in an active flow right now.",
-              won: "No won leads yet.",
-              lost: "No lost leads.",
-              renurture: "No leads in renurture.",
-              completed: "No completed leads (a flow that ended with no outcome marked).",
+              unassigned: t("icpx.noUnassigned"),
+              inFlow: t("icpx.noInFlow"),
+              won: t("icpx.noWon"),
+              lost: t("icpx.noLost"),
+              renurture: t("icpx.noRenurture"),
+              completed: t("icpx.noCompleted"),
             };
             const visible = buckets[leadsTab] ?? [];
             const visibleIds = visible.map(l => l.id);
@@ -865,7 +869,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                         border: `1px solid ${allVisibleSelected ? `color-mix(in srgb, ${gold} 45%, transparent)` : C.border}`,
                       }}>
                       {allVisibleSelected ? <CheckSquare size={12} /> : <Square size={12} />}
-                      {allVisibleSelected ? "Clear" : `Select all ${visible.length}`}
+                      {allVisibleSelected ? t("icpx.clear") : t("icpx.selectAllN", { n: visible.length })}
                     </button>
                   )}
                 </div>
@@ -883,7 +887,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                       {emptyMsg[leadsTab]}
                     </div>
                   ) : visible.map(lead => {
-                    const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.company || "Unknown";
+                    const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.company || t("icpx.unknown");
                     const camp = lead.campaign;
                     const isSelected = selectedIds.has(lead.id);
                     const selectable = selectableTab;
@@ -899,7 +903,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                         {selectable && (
                           <span
                             className="shrink-0 rounded p-0.5"
-                            aria-label={isSelected ? "Selected" : "Not selected"}>
+                            aria-label={isSelected ? t("icpx.selected") : t("icpx.notSelected")}>
                             {isSelected
                               ? <CheckSquare size={16} style={{ color: gold }} />
                               : <Square size={16} style={{ color: C.textDim }} />}
@@ -928,7 +932,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                             onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80 shrink-0"
                             style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, transparent)` }}>
-                            Mark result <ChevronRight size={10} />
+                            {t("icpx.markResult")} <ChevronRight size={10} />
                           </Link>
                         ) : camp ? (() => {
                           const cv = campView(camp.status);
@@ -959,16 +963,16 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           <button onClick={() => setConfirmDelete(true)}
             className="flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
             style={{ color: C.red }}>
-            <Trash2 size={12} /> Delete profile
+            <Trash2 size={12} /> {t("icpx.deleteProfile")}
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: C.red }}>Are you sure?</span>
+            <span className="text-xs" style={{ color: C.red }}>{t("icpx.areYouSure")}</span>
             <button onClick={onDelete} className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: C.red, color: "#fff" }}>
-              Yes, delete
+              {t("icpx.yesDelete")}
             </button>
             <button onClick={() => setConfirmDelete(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium"
-              style={{ color: C.textMuted, backgroundColor: C.surface }}>No</button>
+              style={{ color: C.textMuted, backgroundColor: C.surface }}>{t("icpx.no")}</button>
           </div>
         )}
       </div>
@@ -995,12 +999,12 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-bold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {selectedIds.size} {selectedIds.size === 1 ? "lead selected" : "leads selected"}
+                {selectedIds.size === 1 ? t("icpx.leadSelectedOne") : t("icpx.leadsSelectedN", { n: selectedIds.size })}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
                 {isLost
-                  ? "Reopen them (Renurture) to make them eligible for a flow again."
-                  : "Push them into a new flow or attach to one already running."}
+                  ? t("icpx.hintLost")
+                  : t("icpx.hintFlow")}
               </p>
             </div>
             <button
@@ -1008,7 +1012,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               onClick={clearSelection}
               className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
               style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
-              Clear
+              {t("cd.clear")}
             </button>
             {isLost ? (
               <button
@@ -1021,7 +1025,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                   color: "#fff",
                   boxShadow: "0 4px 14px color-mix(in srgb, #7C3AED 40%, transparent)",
                 }}>
-                {renurturing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Renurture
+                {renurturing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} {t("icpx.renurture")}
               </button>
             ) : (
               <>
@@ -1030,7 +1034,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                   onClick={() => setShowAddModal(true)}
                   className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
                   style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
-                  <Megaphone size={13} /> Add to existing flow
+                  <Megaphone size={13} /> {t("icpx.addToExisting")}
                 </button>
                 <button
                   type="button"
@@ -1041,7 +1045,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                     color: "#1A1505",
                     boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
                   }}>
-                  <Send size={13} /> Create New Flow
+                  <Send size={13} /> {t("nfl.createNewFlow")}
                 </button>
               </>
             )}
@@ -1056,7 +1060,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           leadIds={Array.from(selectedIds)}
           leadNames={leads
             .filter(l => selectedIds.has(l.id))
-            .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || l.company || "Unknown")}
+            .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || l.company || t("icpx.unknown"))}
           onClose={() => setShowAddModal(false)}
           onAdded={(summary) => {
             setShowAddModal(false);
@@ -1064,9 +1068,9 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             refetchLeads();
             if (summary) {
               const parts: string[] = [];
-              if (summary.added > 0) parts.push(`${summary.added} added to the flow`);
-              if (summary.skipped > 0) parts.push(`${summary.skipped} skipped (already in a flow or closed)`);
-              setActionMsg(parts.join(" · ") || "Done.");
+              if (summary.added > 0) parts.push(t("icpx.addedToFlow", { n: summary.added }));
+              if (summary.skipped > 0) parts.push(t("icpx.skippedAlready", { n: summary.skipped }));
+              setActionMsg(parts.join(" · ") || t("icpx.done"));
               setTimeout(() => setActionMsg(null), 6000);
             }
           }}
@@ -1079,6 +1083,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 
 // ─── Main Page ───────────────────────────────────────────
 export default function LeadGenPage() {
+  const { t, locale } = useLocale();
   const [profiles, setProfiles] = useState<IcpProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1127,7 +1132,7 @@ export default function LeadGenPage() {
     const bioId = await getScopedBioId();
 
     if (!bioId) {
-      throw new Error("No Company Bio found. Please create one first at /company-bios before submitting a ticket.");
+      throw new Error(t("icpx.err.noBio"));
     }
 
     // Stamp the creator so the ICP shows who/which account made it.
@@ -1139,7 +1144,7 @@ export default function LeadGenPage() {
 
     if (error) throw error;
     setShowForm(false);
-    setSavedMsg("Profile submitted for review.");
+    setSavedMsg(t("icpx.ok.submitted"));
     setTimeout(() => setSavedMsg(null), 4000);
     await loadProfiles();
   }
@@ -1149,7 +1154,7 @@ export default function LeadGenPage() {
     const { error } = await supabase.from("icp_profiles").update(form).eq("id", id);
     if (error) throw error;
     setEditingId(null);
-    setSavedMsg("Profile updated.");
+    setSavedMsg(t("icpx.ok.updated"));
     setTimeout(() => setSavedMsg(null), 4000);
     await loadProfiles();
   }
@@ -1180,19 +1185,19 @@ export default function LeadGenPage() {
           won) sourced from /api/icp/lifecycle. */}
       {!selectedId && !showForm && !editingId && (
         <AuroraHero
-          eyebrow="Growth Engine"
-          title="Lead Miner"
-          subtitle="Your Ideal Customer Profiles (ICPs) — each one defines who your campaigns target and feeds the outreach."
+          eyebrow={t("icpx.eyebrow")}
+          title={t("icpx.leadMiner")}
+          subtitle={t("icpx.lede")}
           actions={profiles.length > 0 ? (
             <button onClick={() => setShowForm(true)} className="aurora-btn">
-              <Plus size={15} /> New ICP
+              <Plus size={15} /> {t("icpx.newIcp")}
             </button>
           ) : undefined}
           kpis={lifecycle ? [
-            { label: "ICPs", value: profiles.length, tone: "gold" },
-            { label: "Total leads", value: lifecycle.totals.total },
-            { label: "In flow", value: lifecycle.totals.inFlow },
-            { label: "Won", value: lifecycle.totals.won, tone: "green" },
+            { label: t("icpx.icps"), value: profiles.length, tone: "gold" },
+            { label: t("icpx.totalLeads"), value: lifecycle.totals.total },
+            { label: t("icpx.kpiInFlow"), value: lifecycle.totals.inFlow },
+            { label: t("icpx.won"), value: lifecycle.totals.won, tone: "green" },
           ] : undefined}
         />
       )}
@@ -1252,25 +1257,25 @@ export default function LeadGenPage() {
               <Target size={28} style={{ color: gold }} />
             </div>
 
-            <h2 className="text-lg font-bold mb-2" style={{ color: C.textPrimary }}>LeadMiner</h2>
+            <h2 className="text-lg font-bold mb-2" style={{ color: C.textPrimary }}>{t("icpx.leadMiner")}</h2>
             <p className="text-sm leading-relaxed mb-1" style={{ color: C.textBody }}>
-              No prospect profiles yet.
+              {t("icpx.emptyNoProfiles")}
             </p>
             <p className="text-xs mb-6" style={{ color: C.textMuted }}>
-              Create a profile to define who you want to reach. AI will use this to personalize outreach.
+              {t("icpx.emptyHint")}
             </p>
 
             <button onClick={() => setShowForm(true)}
               className="gold-btn inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-bold hover:-translate-y-0.5"
               style={{ color: "#241B04", background: "linear-gradient(180deg, color-mix(in srgb, var(--fg4) 85%, white), var(--fg4))", border: "1px solid var(--fg2)", boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)` }}>
-              <Plus size={16} /> Create First Profile
+              <Plus size={16} /> {t("icpx.createFirst")}
             </button>
 
             <div className="mt-8 pt-6 border-t grid grid-cols-3 gap-4" style={{ borderColor: C.border }}>
               {[
-                { icon: "1", label: "Define your ideal prospect" },
-                { icon: "2", label: "SWL reviews & approves" },
-                { icon: "3", label: "Campaigns target the right people" },
+                { icon: "1", label: t("icpx.step1") },
+                { icon: "2", label: t("icpx.step2") },
+                { icon: "3", label: t("icpx.step3") },
               ].map(step => (
                 <div key={step.icon} className="text-center">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1.5 text-xs font-bold"
@@ -1294,25 +1299,25 @@ export default function LeadGenPage() {
             const hasLeads = leadCount > 0;
 
             // Status chip — the ICP's own review status (self-serve-friendly).
-            const st = p.status === "approved" ? { label: "Approved", color: C.green }
-              : p.status === "reviewed" ? { label: "Reviewed", color: C.blue }
-              : p.status === "rejected" ? { label: "Rejected", color: C.red }
-              : { label: "Pending review", color: "var(--fg1)" };
+            const st = p.status === "approved" ? { label: t("icpx.approved"), color: C.green }
+              : p.status === "reviewed" ? { label: t("icpx.reviewed"), color: C.blue }
+              : p.status === "rejected" ? { label: t("icpx.rejected"), color: C.red }
+              : { label: t("icpx.pendingReview"), color: "var(--fg1)" };
 
             // Lifecycle segments (gold ramp + red/green semantics), only the
             // non-empty ones, so a populated card reads as a mini-dashboard.
             const segs = life ? ([
-              { k: "inFlow",     n: life.inFlow,     label: "in flow",    color: "var(--fg2)" },
-              { k: "completed",  n: life.completed,  label: "completed",  color: "var(--fg4)" },
-              { k: "renurture",  n: life.renurture,  label: "renurture",  color: "var(--fg3)" },
-              { k: "won",        n: life.won,        label: "won",        color: C.green },
-              { k: "lost",       n: life.lost,       label: "lost",       color: C.red },
-              { k: "unassigned", n: life.unassigned, label: "unassigned", color: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)" },
+              { k: "inFlow",     n: life.inFlow,     label: t("icpx.inFlowLower"),     color: "var(--fg2)" },
+              { k: "completed",  n: life.completed,  label: t("icpx.completedLower"),  color: "var(--fg4)" },
+              { k: "renurture",  n: life.renurture,  label: t("icpx.renurtureLower"),  color: "var(--fg3)" },
+              { k: "won",        n: life.won,        label: t("icpx.wonLower"),        color: C.green },
+              { k: "lost",       n: life.lost,       label: t("icpx.lostLower"),       color: C.red },
+              { k: "unassigned", n: life.unassigned, label: t("icpx.unassignedLower"), color: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)" },
             ].filter(s => s.n > 0)) : [];
 
             // Simple 3-step stepper for ICPs with no leads yet.
             const stepIdx = p.status === "approved" ? 2 : (p.status === "reviewed" ? 1 : 1);
-            const steps = [{ label: "Submitted" }, { label: "In review" }, { label: "Leads ready" }];
+            const steps = [{ label: t("icpx.submitted") }, { label: t("icpx.inReview") }, { label: t("icpx.leadsReady") }];
 
             return (
               <button key={p.id} onClick={() => setSelectedId(p.id)}
@@ -1328,7 +1333,7 @@ export default function LeadGenPage() {
                       <h3 className="font-bold text-[15px]" style={{ color: C.textPrimary }}>{p.profile_name}</h3>
                       {isRecentUpload(p.executed_at) && (
                         <span className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: "var(--fg3)", color: "#241B04" }}>NEW</span>
+                          style={{ backgroundColor: "var(--fg3)", color: "#241B04" }}>{t("icpx.new")}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2.5 text-[11.5px] mt-1 flex-wrap" style={{ color: C.textMuted }}>
@@ -1336,10 +1341,10 @@ export default function LeadGenPage() {
                         <span className="inline-flex items-center gap-1"><Briefcase size={10} /> <span style={{ color: C.textBody }}>{tags.slice(0, 3).join(", ")}</span>{tags.length > 3 ? ` +${tags.length - 3}` : ""}</span>
                       )}
                       {p.geography?.length > 0 && <span className="inline-flex items-center gap-1">· <MapPin size={10} /> {p.geography.slice(0, 2).join(", ")}</span>}
-                      {companySizeLabel(p) && <span className="inline-flex items-center gap-1">· <Users size={10} /> {companySizeLabel(p)}</span>}
+                      {companySizeLabel(p, t) && <span className="inline-flex items-center gap-1">· <Users size={10} /> {companySizeLabel(p, t)}</span>}
                     </div>
                   </div>
-                  {hasLeads && <span className="text-[12px] font-bold tabular-nums shrink-0" style={{ color: "var(--fg1)" }}>{leadCount} leads</span>}
+                  {hasLeads && <span className="text-[12px] font-bold tabular-nums shrink-0" style={{ color: "var(--fg1)" }}>{t("icpx.leadsUnit", { n: leadCount })}</span>}
                   <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-full shrink-0"
                     style={{ color: st.color, backgroundColor: `color-mix(in srgb, ${st.color} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${st.color} 30%, transparent)` }}>{st.label}</span>
                   <ChevronRight size={16} style={{ color: C.textDim }} className="shrink-0" />
@@ -1348,7 +1353,7 @@ export default function LeadGenPage() {
                 {p.status === "rejected" ? (
                   <div className="flex items-center gap-2 rounded-lg px-3 py-2 mt-4" style={{ backgroundColor: C.redLight }}>
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: C.red }} />
-                    <span className="text-xs font-medium" style={{ color: C.red }}>Not approved — revise and resubmit.</span>
+                    <span className="text-xs font-medium" style={{ color: C.red }}>{t("icpx.notApproved")}</span>
                   </div>
                 ) : hasLeads && segs.length > 0 ? (
                   <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
@@ -1362,7 +1367,7 @@ export default function LeadGenPage() {
                           <span className="tabular-nums">{s.n}</span> <span style={{ color: C.textMuted, fontWeight: 500 }}>{s.label}</span>
                         </span>
                       ))}
-                      {p.executed_at && <span className="text-[11px] ml-auto" style={{ color: C.textMuted }}>Uploaded {formatRelative(p.executed_at)}</span>}
+                      {p.executed_at && <span className="text-[11px] ml-auto" style={{ color: C.textMuted }}>{t("icpx.uploadedRel", { rel: formatRelative(p.executed_at, t, locale) ?? "" })}</span>}
                     </div>
                   </div>
                 ) : (

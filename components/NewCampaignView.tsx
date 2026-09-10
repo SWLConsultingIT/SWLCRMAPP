@@ -8,6 +8,7 @@ import {
   Share2, Mail, Check, Phone,
 } from "lucide-react";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -38,12 +39,13 @@ type LeadGroup = {
 };
 
 function scoreBadge(score: number | null) {
-  if (score && score >= 80) return { label: "HOT", color: C.hot, bg: C.hotBg };
-  if (score && score >= 50) return { label: "WARM", color: C.warm, bg: C.warmBg };
-  return { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
+  if (score && score >= 80) return { labelKey: "score.hot", color: C.hot, bg: C.hotBg };
+  if (score && score >= 50) return { labelKey: "score.warm", color: C.warm, bg: C.warmBg };
+  return { labelKey: "score.nurture", color: C.nurture, bg: C.nurtureBg };
 }
 
 export default function NewCampaignView({ groups, totalUncampaigned }: { groups: LeadGroup[]; totalUncampaigned: number }) {
+  const { t } = useLocale();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const PREVIEW_COUNT = 6;
@@ -104,14 +106,14 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
       {/* ── Hero banner — 3-step guide ── */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ borderColor: C.border, background: `linear-gradient(135deg, #1A1A2E 0%, #2D2B55 100%)` }}>
         <div className="px-8 py-7">
-          <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>Create New Flow</h2>
-          <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.6)" }}>Pick the leads, then walk through a 4-step flow builder — sequence, settings, messages, review.</p>
+          <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>{t("ncv.createNewFlow")}</h2>
+          <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.6)" }}>{t("ncv.lede")}</p>
 
           <div className="flex items-center gap-4">
             {[
-              { step: "1", label: "Select Leads", desc: "Pick leads from any ICP group below", icon: Users, color: "#0A66C2" },
-              { step: "2", label: "Configure Flow", desc: "Choose channels, messages & timing", icon: Zap, color: gold },
-              { step: "3", label: "Launch", desc: "Review and activate your campaign", icon: Megaphone, color: C.green },
+              { step: "1", labelKey: "ncv.selectLeads", desc: t("ncv.selectLeadsSub"), icon: Users, color: "#0A66C2" },
+              { step: "2", labelKey: "ncv.configureFlow", desc: t("ncv.configureFlowSub"), icon: Zap, color: gold },
+              { step: "3", labelKey: "ncv.launch", desc: t("ncv.launchSub"), icon: Megaphone, color: C.green },
             ].map((s, i, arr) => (
               <div key={s.step} className="flex items-center gap-4 flex-1">
                 <div className="flex items-center gap-3 flex-1">
@@ -121,7 +123,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                   <div>
                     <p className="text-xs font-bold" style={{ color: "#fff" }}>
                       <span className="text-[10px] font-bold mr-1.5 px-1.5 py-0.5 rounded" style={{ backgroundColor: `${s.color}30`, color: s.color }}>Step {s.step}</span>
-                      {s.label}
+                      {t(s.labelKey)}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>{s.desc}</p>
                   </div>
@@ -152,14 +154,14 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
           >
             <CheckCircle size={22} style={{ color: C.green }} />
           </div>
-          <p className="text-base font-semibold mb-1" style={{ color: C.textPrimary }}>All leads are in active flows</p>
-          <p className="text-sm mb-5" style={{ color: C.textDim }}>Upload new leads via Lead Miner to start a new flow.</p>
+          <p className="text-base font-semibold mb-1" style={{ color: C.textPrimary }}>{t("ncv.allInFlows")}</p>
+          <p className="text-sm mb-5" style={{ color: C.textDim }}>{t("ncv.allInFlowsHint")}</p>
           <Link
             href="/icp"
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}
           >
-            <Target size={14} /> Go to Lead Miner
+            <Target size={14} /> {t("kbd.goLeadMiner")}
           </Link>
         </div>
       ) : (
@@ -276,18 +278,18 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                                         className="text-xs font-semibold hover:underline truncate" style={{ color: C.textPrimary }}>{name}</Link>
                                       {isNew && (
                                         <span className="text-[8px] font-bold px-1 py-0.5 rounded shrink-0 uppercase tracking-wider"
-                                          style={{ backgroundColor: gold, color: "#04070d" }}>NEW</span>
+                                          style={{ backgroundColor: gold, color: "#04070d" }}>{t("icpx.new")}</span>
                                       )}
                                       {badge && (
-                                        <span className="text-[8px] font-bold px-1 py-0.5 rounded shrink-0" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+                                        <span className="text-[8px] font-bold px-1 py-0.5 rounded shrink-0" style={{ backgroundColor: badge.bg, color: badge.color }}>{t(badge.labelKey)}</span>
                                       )}
                                     </div>
                                     <p className="text-[10px] truncate" style={{ color: C.textMuted }}>{hasPerson ? (lead.company_name ?? "—") : "Company-only (no contact yet)"}</p>
                                     <div className="flex items-center gap-2 mt-1.5">
-                                      {lead.primary_linkedin_url && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#0A66C2" }}><Share2 size={8} /> LinkedIn</span>}
-                                      {lead.primary_work_email && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#7C3AED" }}><Mail size={8} /> Email</span>}
-                                      {lead.primary_phone && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#F97316" }}><Phone size={8} /> Phone</span>}
-                                      {!lead.primary_linkedin_url && !lead.primary_work_email && !lead.primary_phone && <span className="text-[9px]" style={{ color: C.textDim }}>No channels</span>}
+                                      {lead.primary_linkedin_url && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#0A66C2" }}><Share2 size={8} /> {t("rep.export.item.linkedin")}</span>}
+                                      {lead.primary_work_email && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#7C3AED" }}><Mail size={8} /> {t("auth.email")}</span>}
+                                      {lead.primary_phone && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#F97316" }}><Phone size={8} /> {t("fld.phone")}</span>}
+                                      {!lead.primary_linkedin_url && !lead.primary_work_email && !lead.primary_phone && <span className="text-[9px]" style={{ color: C.textDim }}>{t("ncv.noChannels")}</span>}
                                     </div>
                                   </div>
                                 </div>
@@ -332,7 +334,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
             <Megaphone size={15} /> Create Outreach Flow
           </Link>
           <button onClick={() => setSelected(new Set())} className="text-xs font-medium underline" style={{ color: "rgba(255,255,255,0.5)" }}>
-            Clear
+            {t("cd.clear")}
           </button>
         </div>
       )}

@@ -630,7 +630,7 @@ export async function POST(req: NextRequest) {
           const r = await fetch(`${origin}/api/campaigns/tailor`, {
             method: "POST",
             headers: { "Content-Type": "application/json", cookie: cookieHeader },
-            body: JSON.stringify({ campaignId: cid, previewOutputs }),
+            body: JSON.stringify({ campaignId: cid, previewOutputs, language: prompts.language ?? null }),
           });
           if (r.ok) {
             const body = await r.json().catch(() => ({})) as { tailored?: number };

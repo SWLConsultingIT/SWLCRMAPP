@@ -5,6 +5,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import { Send, Plus, Hash, User, X, Loader2, MessageSquare, Smile, Trash2 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useLocale } from "@/lib/i18n";
 
 // System @mention pings embed a "→ /leads/<uuid>?tab=notes" deep link as plain
 // text. Render those (and any /leads/<id> path) as a clickable link so the
@@ -65,6 +66,7 @@ function ago(iso: string) {
 }
 
 export default function ChatPanel({ initialThreadId }: { initialThreadId?: string | null }) {
+  const { t } = useLocale();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(initialThreadId ?? null);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -147,33 +149,33 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
       {/* Thread list */}
       <div className="w-72 border-r flex flex-col shrink-0" style={{ borderColor: C.border }}>
         <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>Chat</p>
+          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("chat.title")}</p>
           <button onClick={() => setComposing(true)} className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg"
             style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 14%, transparent)`, color: C.gold }}>
-            <Plus size={12} /> New
+            <Plus size={12} /> {t("chat.new")}
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {threads.length === 0 ? (
-            <p className="text-xs text-center py-8 px-4" style={{ color: C.textDim }}>No conversations yet. Hit “New” to start one.</p>
-          ) : threads.map(t => (
-            <button key={t.id} onClick={() => setActiveId(t.id)}
+            <p className="text-xs text-center py-8 px-4" style={{ color: C.textDim }}>{t("chat.noConversations")}</p>
+          ) : threads.map(th => (
+            <button key={th.id} onClick={() => setActiveId(th.id)}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-b transition-colors hover:bg-black/[0.03]"
-              style={{ borderColor: C.border, backgroundColor: activeId === t.id ? "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)" : "transparent" }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${t.kind === "channel" ? "#7C3AED" : C.gold} 16%, transparent)`, color: t.kind === "channel" ? "#7C3AED" : C.gold }}>
-                {t.kind === "channel" ? <Hash size={14} /> : <User size={14} />}
+              style={{ borderColor: C.border, backgroundColor: activeId === th.id ? "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)" : "transparent" }}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${th.kind === "channel" ? "#7C3AED" : C.gold} 16%, transparent)`, color: th.kind === "channel" ? "#7C3AED" : C.gold }}>
+                {th.kind === "channel" ? <Hash size={14} /> : <User size={14} />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{t.title}</p>
-                    <CompanyTag company={t.otherCompany} />
+                    <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{th.title}</p>
+                    <CompanyTag company={th.otherCompany} />
                   </div>
-                  {t.lastMessage && <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{ago(t.lastMessage.created_at)}</span>}
+                  {th.lastMessage && <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{ago(th.lastMessage.created_at)}</span>}
                 </div>
-                <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{t.lastMessage?.body ?? "No messages yet"}</p>
+                <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{th.lastMessage?.body ?? t("chat.noMessages")}</p>
               </div>
-              {t.unread > 0 && <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ backgroundColor: C.red, color: "#fff" }}>{t.unread}</span>}
+              {th.unread > 0 && <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ backgroundColor: C.red, color: "#fff" }}>{th.unread}</span>}
             </button>
           ))}
         </div>
@@ -184,7 +186,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
         {!active ? (
           <div className="flex-1 flex flex-col items-center justify-center" style={{ color: C.textDim }}>
             <MessageSquare size={28} className="mb-2" />
-            <p className="text-sm">Pick a conversation</p>
+            <p className="text-sm">{t("chat.pickConversation")}</p>
           </div>
         ) : (
           <>
@@ -193,7 +195,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
               <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{active.title}</p>
               <CompanyTag company={active.otherCompany} />
               <span className="text-[11px]" style={{ color: C.textDim }}>· {active.members.length} {active.members.length === 1 ? "member" : "members"}</span>
-              <button onClick={() => delThread(active.id)} disabled={deleting} title="Delete conversation"
+              <button onClick={() => delThread(active.id)} disabled={deleting} title={t("chat.deleteConversation")}
                 className="ml-auto p-1.5 rounded-lg transition-colors hover:bg-black/[0.04] disabled:opacity-50" style={{ color: C.textMuted }}>
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
               </button>
@@ -226,13 +228,13 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
                   </div>
                 </>
               )}
-              <button onClick={() => setShowEmoji(v => !v)} title="Emoji"
+              <button onClick={() => setShowEmoji(v => !v)} title={t("chat.emoji")}
                 className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-black/[0.04]"
                 style={{ color: showEmoji ? C.gold : C.textMuted }}>
                 <Smile size={18} />
               </button>
               <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="Write a message…" className="flex-1 text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+                placeholder={t("chat.writePh")} className="flex-1 text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
               <button onClick={send} disabled={sending || !input.trim()} className="w-9 h-9 rounded-lg flex items-center justify-center disabled:opacity-40 shrink-0" style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d" }}>
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               </button>
@@ -247,6 +249,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
 }
 
 function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: (threadId: string) => void }) {
+  const { t } = useLocale();
   const [roster, setRoster] = useState<Member[]>([]);
   const [kind, setKind] = useState<"dm" | "channel">("dm");
   const [selected, setSelected] = useState<string[]>([]);
@@ -262,21 +265,21 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   }
 
   async function create() {
-    if (selected.length === 0) { setErr("Pick at least one teammate"); return; }
+    if (selected.length === 0) { setErr(t("chat.pickTeammate")); return; }
     setBusy(true); setErr(null);
     try {
       const r = await fetch("/api/chat/threads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, userIds: selected, title: kind === "channel" ? title : undefined }) });
       const d = await r.json();
-      if (!r.ok) { setErr(d.error ?? "Failed"); return; }
+      if (!r.ok) { setErr(d.error ?? t("chat.err.failed")); return; }
       onCreated(d.threadId);
-    } catch { setErr("Network error"); } finally { setBusy(false); }
+    } catch { setErr(t("chat.err.network")); } finally { setBusy(false); }
   }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div className="w-full max-w-sm rounded-2xl border max-h-[85vh] flex flex-col" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>New conversation</h2>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("chat.newConversation")}</h2>
           <button onClick={onClose}><X size={16} style={{ color: C.textMuted }} /></button>
         </div>
         <div className="px-5 py-4 space-y-3 overflow-y-auto">
@@ -285,12 +288,12 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <button key={k} onClick={() => { setKind(k); setSelected([]); }}
                 className="text-xs font-semibold px-3 py-2 rounded-lg border flex items-center justify-center gap-1.5"
                 style={{ borderColor: kind === k ? C.gold : C.border, backgroundColor: kind === k ? `color-mix(in srgb, ${C.gold} 10%, transparent)` : C.bg, color: kind === k ? C.gold : C.textBody }}>
-                {k === "dm" ? <User size={12} /> : <Hash size={12} />} {k === "dm" ? "Direct message" : "Channel"}
+                {k === "dm" ? <User size={12} /> : <Hash size={12} />} {k === "dm" ? t("chat.directMessage") : t("opp.col.channel")}
               </button>
             ))}
           </div>
           {kind === "channel" && (
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Channel name (e.g. ventas)" className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t("chat.channelPh")} className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
           )}
           <div className="rounded-lg border max-h-52 overflow-y-auto" style={{ borderColor: C.border }}>
             {roster.map(m => (
@@ -303,9 +306,9 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           {err && <p className="text-xs" style={{ color: C.red }}>{err}</p>}
         </div>
         <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: C.border }}>
-          <button onClick={onClose} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>Cancel</button>
+          <button onClick={onClose} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>{t("chat.cancel")}</button>
           <button onClick={create} disabled={busy || selected.length === 0} className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg disabled:opacity-50" style={{ backgroundColor: C.gold, color: "#04070d" }}>
-            {busy && <Loader2 size={12} className="animate-spin" />} Start
+            {busy && <Loader2 size={12} className="animate-spin" />} {t("chat.start")}
           </button>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import { Phone, Clock, Users, PhoneCall, MessageSquare, ThumbsUp, AlertTriangle } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -54,14 +55,16 @@ function getStatus(lastSeenAt: string | null, isLive: boolean): StatusKind {
   return "offline";
 }
 
-const STATUS_CONFIG: Record<StatusKind, { label: string; dotColor: string; textColor: string }> = {
-  live:    { label: "In app now", dotColor: "#22C55E", textColor: "#22C55E" },
-  recent:  { label: "Active",     dotColor: "#C9A83A", textColor: "#C9A83A" },
-  idle:    { label: "Idle",       dotColor: "#6B7280", textColor: "#9CA3AF" },
-  offline: { label: "Offline",    dotColor: "#EF4444", textColor: "#EF4444" },
+// Keys, not labels: module scope. The row resolves them.
+const STATUS_CONFIG: Record<StatusKind, { labelKey: string; dotColor: string; textColor: string }> = {
+  live:    { labelKey: "pulse.inAppNow", dotColor: "#22C55E", textColor: "#22C55E" },
+  recent:  { labelKey: "pulse.active",   dotColor: "#C9A83A", textColor: "#C9A83A" },
+  idle:    { labelKey: "pulse.idle",     dotColor: "#6B7280", textColor: "#9CA3AF" },
+  offline: { labelKey: "pulse.offline",  dotColor: "#EF4444", textColor: "#EF4444" },
 };
 
 export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5 }: { sellers: SellerInput[]; periodLabel?: string; dailyTarget?: number }) {
+  const { t } = useLocale();
   const [presenceIds, setPresenceIds] = useState<Set<string>>(new Set());
   const [meId, setMeId]              = useState<string | null>(null);
 
@@ -147,7 +150,7 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
                 <span className="text-[11px]" style={{ color: "#8B9EB7" }}>· goal {dailyTarget}+ calls · replied · positives · queue</span>
               </>
             ) : (
-              <span className="text-[11px]" style={{ color: "#8B9EB7" }}>Last login · last call · calls today · calls this period · replied · positives · queue</span>
+              <span className="text-[11px]" style={{ color: "#8B9EB7" }}>{t("pulse.legend")}</span>
             )}
           </div>
         </div>
@@ -167,13 +170,13 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
           >
             <th className="px-4 py-2 text-left font-semibold">Seller</th>
             <th className="px-3 py-2 text-left font-semibold">Status</th>
-            <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last seen</th>
-            <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last call</th>
+            <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">{t("pulse.col.lastSeen")}</th>
+            <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">{t("pulse.col.lastCall")}</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Today</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>Calls</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Replied</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.replied")}</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Positive</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">In queue</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.inQueue")}</th>
           </tr>
         </thead>
         <tbody>
@@ -210,7 +213,7 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="text-[12.5px] font-semibold truncate leading-tight" style={{ color: C.textPrimary }}>
                           {row.name}
-                          {row.isMe && <span className="ml-1.5 text-[9.5px] font-normal" style={{ color: C.textDim }}>(you)</span>}
+                          {row.isMe && <span className="ml-1.5 text-[9.5px] font-normal" style={{ color: C.textDim }}>{t("pulse.you")}</span>}
                         </p>
                         {row.linkedinStatus === "banned" && (
                           <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
@@ -240,7 +243,7 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
                       }}
                     />
                     <span className="text-[11px] font-medium" style={{ color: cfg.textColor }}>
-                      {cfg.label}
+                      {t(cfg.labelKey)}
                     </span>
                   </div>
                 </td>

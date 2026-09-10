@@ -6,6 +6,7 @@
 // stats. No AI cost — pure SELECT counts.
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, FileText, Newspaper, TrendingUp, Cpu, Globe, Target, Phone } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -23,17 +24,19 @@ type Signals = {
 
 type Props = { leadIds: string[] };
 
-const ROWS: Array<{ key: keyof Signals; label: string; icon: React.ComponentType<{ size?: number }> }> = [
-  { key: "recent_linkedin_post", label: "Recent LinkedIn post", icon: FileText },
-  { key: "recent_website_news", label: "Recent company news", icon: Newspaper },
-  { key: "industry_trends", label: "Industry trends", icon: TrendingUp },
-  { key: "organization_technologies", label: "Tech stack", icon: Cpu },
-  { key: "website_summary", label: "Website summary", icon: Globe },
-  { key: "company_mission", label: "Company mission", icon: Target },
-  { key: "call_talking_points", label: "Pre-call talking points", icon: Phone },
+// Module scope: `key` addresses the count, `labelKey` is what the row prints.
+const ROWS: Array<{ key: keyof Signals; labelKey: string; icon: React.ComponentType<{ size?: number }> }> = [
+  { key: "recent_linkedin_post", labelKey: "sig.row.liPost", icon: FileText },
+  { key: "recent_website_news", labelKey: "sig.row.news", icon: Newspaper },
+  { key: "industry_trends", labelKey: "sig.row.trends", icon: TrendingUp },
+  { key: "organization_technologies", labelKey: "sig.row.techStack", icon: Cpu },
+  { key: "website_summary", labelKey: "sig.row.website", icon: Globe },
+  { key: "company_mission", labelKey: "sig.row.mission", icon: Target },
+  { key: "call_talking_points", labelKey: "sig.row.talking", icon: Phone },
 ];
 
 export default function SignalCoverageBanner({ leadIds }: Props) {
+  const { t } = useLocale();
   const [stats, setStats] = useState<{ total: number; signals: Signals } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,9 +62,9 @@ export default function SignalCoverageBanner({ leadIds }: Props) {
       <div className="rounded-2xl border px-5 py-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={14} style={{ color: gold }} />
-          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Signal coverage</h3>
+          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("sig.title")}</h3>
         </div>
-        <p className="text-xs" style={{ color: C.textMuted }}>Loading…</p>
+        <p className="text-xs" style={{ color: C.textMuted }}>{t("sig.loading")}</p>
       </div>
     );
   }
@@ -70,7 +73,7 @@ export default function SignalCoverageBanner({ leadIds }: Props) {
   if (total === 0) {
     return (
       <div className="rounded-2xl border px-5 py-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-xs" style={{ color: C.textMuted }}>No leads selected for this batch.</p>
+        <p className="text-xs" style={{ color: C.textMuted }}>{t("sig.noLeads")}</p>
       </div>
     );
   }
@@ -84,14 +87,14 @@ export default function SignalCoverageBanner({ leadIds }: Props) {
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
           <Sparkles size={14} style={{ color: gold }} />
-          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Signal coverage</h3>
+          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("sig.title")}</h3>
           <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
-            {total} leads
+            {t("sig.leadsCount", { n: total })}
           </span>
         </div>
         <p className="text-[11px]" style={{ color: C.textMuted }}>
-          What enrichment the per-lead AI has to work with
+          {t("sig.whatAiHas")}
         </p>
       </div>
 
@@ -103,7 +106,7 @@ export default function SignalCoverageBanner({ leadIds }: Props) {
           return (
             <div key={row.key} className="flex items-center gap-3">
               <Icon size={12} />
-              <span className="text-[12px] flex-1 truncate" style={{ color: C.textBody }}>{row.label}</span>
+              <span className="text-[12px] flex-1 truncate" style={{ color: C.textBody }}>{t(row.labelKey)}</span>
               <span className="text-[11px] tabular-nums" style={{ color: C.textMuted }}>
                 {count}/{total}
               </span>

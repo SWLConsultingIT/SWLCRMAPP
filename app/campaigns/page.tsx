@@ -343,26 +343,26 @@ export default async function CampaignsPage() {
           aurora behind frosted glass, KPI chips (flows running · sent today ·
           replies+positive · reply rate). */}
       <AuroraHero
-        eyebrow="Growth Engine"
-        title="Outreach Flow"
-        subtitle="Multi-step outreach sequences across LinkedIn, email and calls — organized by ICP."
+        eyebrow={t("flows.eyebrow")}
+        title={t("flows.heroTitle")}
+        subtitle={t("flows.heroSubtitle")}
         kpis={[
-          { label: "Flows running", value: String(stats.active), tone: "gold" },
-          { label: "Sent today", value: String(stats.messagesSentToday) },
+          { label: t("flows.kpi.running"), value: String(stats.active), tone: "gold" },
+          { label: t("flows.kpi.sentToday"), value: String(stats.messagesSentToday) },
           {
-            label: "Replies today",
+            label: t("flows.kpi.repliesToday"),
             value: (
               <>
                 {stats.repliesToday}
                 {stats.positiveRepliesToday > 0 && (
                   <span className="ml-1.5 text-[13px] font-bold" style={{ color: "var(--ah-gr)" }}>
-                    +{stats.positiveRepliesToday} pos
+                    +{stats.positiveRepliesToday} {t("flows.kpi.pos")}
                   </span>
                 )}
               </>
             ),
           },
-          { label: "Reply rate", value: `${stats.responseRate}%` },
+          { label: t("flows.kpi.replyRate"), value: `${stats.responseRate}%` },
         ]}
       />
 

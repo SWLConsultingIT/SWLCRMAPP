@@ -415,8 +415,7 @@ function FilterSelect({ label, value, onChange, options, allLabel }: {
 // ── Main client ───────────────────────────────────────────────────────
 
 export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = [], renurturingLeads, isSwl = false }: Props) {
-  const { t, locale } = useLocale();
-  const L = (en: string, es: string) => (locale === "es" ? es : en);
+  const { t } = useLocale();
   // Deep-linked tab via `?tab=won|lost|renurture|pipeline` — the surfaces that
   // redirect here (dashboard KPIs, /opportunities, Mark-as-Won) land on the
   // right tab. `won` on an SWL tenant maps to its "pipeline" positives view (and
@@ -579,14 +578,14 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
     // SWL: the Pipeline kanban IS the positives view (by stage) — it replaces the
     // flat "Won" tab so we don't show the same 10 leads twice. Other tenants keep Won.
     ...(isSwl
-      ? [{ key: "pipeline" as const, label: L("Positive Results", "Resultados positivos"), count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
+      ? [{ key: "pipeline" as const, label: t("results.tab.pipeline"), count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
       : [{ key: "won" as const, label: t("results.tab.won"), count: wonLeads.length, color: C.green, icon: Trophy }]),
     { key: "lost"      as const, label: t("results.tab.lost"),      count: lostLeads.length,        color: C.red,   icon: X },
     { key: "discarded" as const, label: t("results.tab.discarded"), count: discardedLeads.length,   color: C.textMuted, icon: Ban },
     { key: "renurture" as const, label: t("results.tab.renurture"), count: renurturingLeads.length, color: gold,    icon: RefreshCw },
   ];
 
-  const searchPlaceholder = tab === "pipeline" ? L("Search pipeline…", "Buscar en el pipeline…") : tab === "won" ? t("results.search.won") : tab === "lost" ? t("results.search.lost") : t("results.search.renurture");
+  const searchPlaceholder = tab === "pipeline" ? t("results.search.pipeline") : tab === "won" ? t("results.search.won") : tab === "lost" ? t("results.search.lost") : t("results.search.renurture");
 
   return (
     <div className="w-full">
@@ -649,23 +648,23 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
           <div className="mb-3 flex items-start gap-2">
             <LayoutGrid size={14} className="mt-0.5 shrink-0" style={{ color: C.blue }} />
             <p className="text-[12.5px] leading-snug" style={{ color: C.textMuted }}>
-              <span className="font-semibold" style={{ color: C.textBody }}>{L("Positive results", "Resultados positivos")}</span>{" "}
-              {L("— every lead that replied positively or booked a call. Drag each one through the stages, then", "— cada lead que respondió positivo o agendó una llamada. Arrastralo por las etapas y después")}{" "}
-              <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span>{" "}{L("from its detail. Filter by ICP, flow or seller.", "desde su detalle. Filtrá por ICP, flow o seller.")}
+              <span className="font-semibold" style={{ color: C.textBody }}>{t("results.pipeline.leadIn")}</span>{" "}
+              {t("results.pipeline.lede1")}{" "}
+              <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span>{" "}{t("results.pipeline.lede2")}
             </p>
           </div>
           {/* Single funnel + filters (boss 2026-09-08): ONE board for all positive
               results, narrowed by ICP ("ticket") / flow / seller — replaces the
               one-kanban-per-ICP stack. */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <FilterSelect label={L("ICP", "ICP")} value={pIcp} onChange={setPIcp} options={pipelineIcpOpts} allLabel={L("All ICPs", "Todos los ICP")} />
-            <FilterSelect label={L("Flow", "Flow")} value={pFlow} onChange={setPFlow} options={pipelineFlowOpts} allLabel={L("All flows", "Todos los flows")} />
-            <FilterSelect label={L("Seller", "Seller")} value={pSeller} onChange={setPSeller} options={pipelineSellerOpts} allLabel={L("All sellers", "Todos los sellers")} />
+            <FilterSelect label={t("results.filter.icp")} value={pIcp} onChange={setPIcp} options={pipelineIcpOpts} allLabel={t("results.filter.allIcps")} />
+            <FilterSelect label={t("results.filter.flow")} value={pFlow} onChange={setPFlow} options={pipelineFlowOpts} allLabel={t("results.filter.allFlows")} />
+            <FilterSelect label={t("results.filter.seller")} value={pSeller} onChange={setPSeller} options={pipelineSellerOpts} allLabel={t("results.filter.allSellers")} />
             {pipelineFiltered && (
               <button onClick={() => { setPIcp("all"); setPFlow("all"); setPSeller("all"); }}
                 className="inline-flex items-center gap-1 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-black/[0.04]"
                 style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
-                <X size={12} /> {L("Clear filters", "Limpiar filtros")}
+                <X size={12} /> {t("results.filter.clear")}
               </button>
             )}
             <span className="text-[11px] tabular-nums ml-auto" style={{ color: C.textDim }}>
@@ -674,8 +673,8 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
           </div>
           {pipelineLeads.length === 0 ? (
             <EmptyState icon={LayoutGrid}
-              title={pipelineFiltered ? L("No results for these filters", "Sin resultados para estos filtros") : L("No positive results yet", "Sin resultados positivos todavía")}
-              description={pipelineFiltered ? L("Try clearing a filter.", "Probá quitar algún filtro.") : L("Positive replies and booked calls will appear here.", "Las respuestas positivas y llamadas agendadas aparecen acá.")} />
+              title={pipelineFiltered ? t("results.pipeline.emptyFiltered") : t("results.pipeline.empty")}
+              description={pipelineFiltered ? t("results.pipeline.emptyFilteredDesc") : t("results.pipeline.emptyDesc")} />
           ) : (
             <ResultsPipeline leads={pipelineLeads} search={search} />
           )}
@@ -689,7 +688,7 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
               icon={Trophy}
               title={t("results.empty.won.title")}
               description={t("results.empty.won.desc")}
-              primaryCta={{ label: L("Go to Lead Miner", "Ir a Lead Miner"), href: "/icp" }}
+              primaryCta={{ label: t("results.cta.leadMiner"), href: "/icp" }}
             />
           ) : wonGroups.map(g => (
             <Section key={g.icp} group={g} t={t} renderRow={lead => <WonRow key={lead.id} lead={lead} t={t} />} />
@@ -717,7 +716,7 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
 
         {tab === "discarded" && (
           discardedGroups.length === 0 ? (
-            <EmptyState icon={Ban} title={L("Nothing discarded", "Nada descartado")} description={L("Leads you disqualify (bad fit, out of ICP) land here — separate from Lost, where the client said no.", "Los leads que descartás (mal fit, fuera de ICP) aparecen acá — aparte de Lost, donde el cliente dijo que no.")} />
+            <EmptyState icon={Ban} title={t("results.discarded.empty")} description={t("results.discarded.emptyDesc")} />
           ) : discardedGroups.map(g => (
             <Section key={g.icp} group={g} t={t} renderRow={lead => (
               <LostRow key={lead.id} lead={lead} t={t} selected={false} onToggle={() => {}} />

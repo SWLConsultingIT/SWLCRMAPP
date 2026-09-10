@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Keyboard } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 // Global keyboard-shortcuts cheatsheet. Mounted once at app shell level.
 // Trigger: ⌘+/ (or ?). Modal overlay listing every shortcut the app
@@ -10,50 +11,51 @@ import { C } from "@/lib/design";
 // have to dig docs or trial-and-error.
 
 type Section = {
-  title: string;
-  shortcuts: { keys: string[]; label: string }[];
+  titleKey: string;
+  shortcuts: { keys: string[]; labelKey: string }[];
 };
 
 const SECTIONS: Section[] = [
   {
-    title: "Navigation",
+    titleKey: "kbd.sec.navigation",
     shortcuts: [
-      { keys: ["G", "D"], label: "Go to Dashboard" },
-      { keys: ["G", "B"], label: "Go to Company Bio" },
-      { keys: ["G", "I"], label: "Go to Inbox" },
-      { keys: ["G", "M"], label: "Go to Lead Miner" },
-      { keys: ["G", "O"], label: "Go to Outreach Flow" },
-      { keys: ["G", "L"], label: "Go to Leads" },
-      { keys: ["G", "R"], label: "Go to Results" },
-      { keys: ["G", "A"], label: "Go to Accounts" },
-      { keys: ["G", "S"], label: "Go to Settings" },
+      { keys: ["G", "D"], labelKey: "kbd.goDashboard" },
+      { keys: ["G", "B"], labelKey: "kbd.goCompanyBio" },
+      { keys: ["G", "I"], labelKey: "kbd.goInbox" },
+      { keys: ["G", "M"], labelKey: "kbd.goLeadMiner" },
+      { keys: ["G", "O"], labelKey: "kbd.goOutreach" },
+      { keys: ["G", "L"], labelKey: "kbd.goLeads" },
+      { keys: ["G", "R"], labelKey: "kbd.goResults" },
+      { keys: ["G", "A"], labelKey: "kbd.goAccounts" },
+      { keys: ["G", "S"], labelKey: "kbd.goSettings" },
     ],
   },
   {
-    title: "Inbox",
+    titleKey: "kbd.sec.inbox",
     shortcuts: [
-      { keys: ["J"], label: "Next reply" },
-      { keys: ["K"], label: "Previous reply" },
-      { keys: ["A"], label: "Mark current reply as reviewed" },
+      { keys: ["J"], labelKey: "kbd.nextReply" },
+      { keys: ["K"], labelKey: "kbd.prevReply" },
+      { keys: ["A"], labelKey: "kbd.markReviewed" },
     ],
   },
   {
-    title: "Global",
+    titleKey: "kbd.sec.global",
     shortcuts: [
-      { keys: ["⌘", "K"], label: "Open command palette (search anything)" },
-      { keys: ["⌘", "/"], label: "Show this cheatsheet" },
-      { keys: ["Esc"], label: "Close modals / dialogs" },
+      { keys: ["⌘", "K"], labelKey: "kbd.openPalette" },
+      { keys: ["⌘", "/"], labelKey: "kbd.showCheatsheet" },
+      { keys: ["Esc"], labelKey: "kbd.closeModals" },
     ],
   },
   {
-    title: "Lead list",
+    titleKey: "kbd.leadList",
     shortcuts: [
-      { keys: ["Click + Shift+Click"], label: "Select a range of leads" },
+      { keys: ["Click + Shift+Click"], labelKey: "kbd.selectRange" },
     ],
   },
 ];
 
 export default function KeyboardCheatsheet() {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -85,7 +87,7 @@ export default function KeyboardCheatsheet() {
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"
-      aria-label="Keyboard shortcuts"
+      aria-label={t("kbd.title")}
     >
       <div
         className="rounded-2xl border shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
@@ -102,7 +104,7 @@ export default function KeyboardCheatsheet() {
               Keyboard Shortcuts
             </h2>
           </div>
-          <button onClick={() => setOpen(false)} aria-label="Close" className="rounded p-1 hover:bg-black/[0.04] transition-colors" style={{ color: C.textMuted }}>
+          <button onClick={() => setOpen(false)} aria-label={t("pool.close")} className="rounded p-1 hover:bg-black/[0.04] transition-colors" style={{ color: C.textMuted }}>
             <X size={14} />
           </button>
         </div>
@@ -110,14 +112,14 @@ export default function KeyboardCheatsheet() {
         {/* Sections */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 p-5">
           {SECTIONS.map(section => (
-            <div key={section.title}>
+            <div key={section.titleKey}>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2.5" style={{ color: C.textMuted }}>
-                {section.title}
+                {t(section.titleKey)}
               </p>
               <div className="space-y-1.5">
                 {section.shortcuts.map((s, i) => (
                   <div key={i} className="flex items-center justify-between gap-3">
-                    <span className="text-xs" style={{ color: C.textBody }}>{s.label}</span>
+                    <span className="text-xs" style={{ color: C.textBody }}>{t(s.labelKey)}</span>
                     <span className="flex items-center gap-1 shrink-0">
                       {s.keys.map((k, j) => (
                         <kbd

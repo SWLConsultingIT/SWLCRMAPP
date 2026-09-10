@@ -5,6 +5,8 @@ import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
+import { normalizeLocale, writeAllContentIn, type Locale } from "@/lib/i18n-locale";
+import { t } from "@/lib/i18n-server";
 
 // Deep-dive research — the long-form companion to the 30-second Pre-Call Brief.
 // Where the brief is glanceable cards before a dial, this is a multi-section
@@ -26,10 +28,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
   const body = await req.json().catch(() => ({}));
-  const locale: string = (body as any).locale ?? "en";
-  const langInstruction = locale === "es"
-    ? "Write ALL content in Spanish (río-platense if Argentina, neutral otherwise). Section headings must also be in Spanish."
-    : "Write ALL content in English.";
+  const locale = normalizeLocale((body as { locale?: unknown }).locale);
+  const langInstruction = writeAllContentIn(locale);
 
   const { id } = await params;
   const svc = getSupabaseService();
@@ -102,7 +102,7 @@ async function generate({ lead, icpContext, bio, liBlock, apiKey, langInstructio
   liBlock: string | null;
   apiKey: string;
   langInstruction: string;
-  locale: string;
+  locale: Locale;
 }): Promise<Section[] | null> {
   const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "the lead";
   const enrichment = (lead.enrichment as Record<string, unknown> | null) ?? {};
@@ -122,9 +122,13 @@ async function generate({ lead, icpContext, bio, liBlock, apiKey, langInstructio
     lead.recent_linkedin_post ? `- Their recent post: ${String(lead.recent_linkedin_post).slice(0, 300)}` : "",
   ].filter(Boolean).join("\n");
 
-  const headings = locale === "es"
-    ? { dive: "Análisis de la empresa", now: "Por qué ahora", strategy: "Estrategia de cuenta", sequence: "Secuencia sugerida", watchouts: "Puntos de atención" }
-    : { dive: "Company deep-dive", now: "Why now", strategy: "Account strategy", sequence: "Suggested sequence", watchouts: "Watch-outs" };
+  const headings = {
+    dive:      t(locale, "summary.heading.dive"),
+    now:       t(locale, "summary.heading.now"),
+    strategy:  t(locale, "summary.heading.strategy"),
+    sequence:  t(locale, "summary.heading.sequence"),
+    watchouts: t(locale, "summary.heading.watchouts"),
+  };
 
   const prompt = `You are a senior B2B account researcher writing a deep-dive prep dossier for a SELLER who is about to work this prospect. ~5 minutes of prep, not a 30-second summary.
 

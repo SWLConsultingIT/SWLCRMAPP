@@ -8,6 +8,8 @@ import { LocaleProvider } from "@/lib/i18n";
 import { BrandProvider } from "@/lib/brand";
 import { AuthProvider } from "@/lib/auth-context";
 import AircallPhoneProvider from "@/components/AircallPhoneProvider";
+import { getServerLocale } from "@/lib/i18n-server";
+import { DEFAULT_LOCALE } from "@/lib/i18n-locale";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["500", "600", "700", "800"] });
@@ -71,10 +73,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // pulls from DB → flips to dark, producing a visible flash on every reload.
   const themeCookie = cookieStore.get("swl-theme")?.value;
   const isDark = themeCookie === "dark";
+  // `lang` was hardcoded to "es" for every page, which told screen readers and
+  // translation tooling that an English or Italian UI was Spanish. Public
+  // routes have no session to read, so they keep the default.
+  const lang = isPublicRoute ? DEFAULT_LOCALE : await getServerLocale().catch(() => DEFAULT_LOCALE);
 
   return (
     <html
-      lang="es"
+      lang={lang}
       className={`${inter.variable} ${outfit.variable} h-full`}
       data-theme={isDark ? "dark" : undefined}
       suppressHydrationWarning

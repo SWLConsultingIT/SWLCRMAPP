@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import { ArrowLeft, CheckCircle2, AlertTriangle, AlertCircle, Send, MessageSquare, PauseCircle, AlertOctagon, Share2, Mail, Phone, FileWarning, Key, Wifi, Ban, HelpCircle, Workflow, Link as LinkIcon, MailX } from "lucide-react";
 import type { CampaignDetail } from "@/lib/reliability-summary";
 
@@ -36,11 +37,12 @@ function channelIcon(channel: string): React.ReactNode {
 }
 
 export default function CampaignDetailSection({ detail }: { detail: CampaignDetail }) {
+  const { t } = useLocale();
   const tone = detail.health === "critical"
-    ? { fg: "#DC2626", bg: "color-mix(in srgb, #DC2626 8%, transparent)", border: "color-mix(in srgb, #DC2626 32%, transparent)", icon: AlertTriangle, label: "Crítico" }
+    ? { fg: "#DC2626", bg: "color-mix(in srgb, #DC2626 8%, transparent)", border: "color-mix(in srgb, #DC2626 32%, transparent)", icon: AlertTriangle, label: t("rel.general.verdict.critical") }
     : detail.health === "warning"
-      ? { fg: "#D97706", bg: "color-mix(in srgb, #D97706 8%, transparent)", border: "color-mix(in srgb, #D97706 32%, transparent)", icon: AlertCircle, label: "Atención" }
-      : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 8%, transparent)`, border: `color-mix(in srgb, ${C.green} 32%, transparent)`, icon: CheckCircle2, label: "Saludable" };
+      ? { fg: "#D97706", bg: "color-mix(in srgb, #D97706 8%, transparent)", border: "color-mix(in srgb, #D97706 32%, transparent)", icon: AlertCircle, label: t("rel.general.verdict.warning") }
+      : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 8%, transparent)`, border: `color-mix(in srgb, ${C.green} 32%, transparent)`, icon: CheckCircle2, label: t("rel.general.verdict.healthy") };
   const VerdictIcon = tone.icon;
 
   return (
@@ -100,8 +102,8 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
       {detail.steps.length > 0 && (
         <section className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
           <header className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-            <h3 className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Status por step</h3>
-            <p className="text-[11px]" style={{ color: C.textMuted }}>Cuántos mensajes hay en cada estado en cada paso de la secuencia.</p>
+            <h3 className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rel.camp.stepStatus")}</h3>
+            <p className="text-[11px]" style={{ color: C.textMuted }}>{t("rel.camp.stepStatusHint")}</p>
           </header>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px]">
@@ -144,8 +146,8 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
       {detail.stuckBreakdown.length > 0 && (
         <section className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
           <header className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-            <h3 className="text-base font-bold leading-tight" style={{ color: "#D97706", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>¿Dónde están los trabados?</h3>
-            <p className="text-[11px]" style={{ color: C.textMuted }}>Cada categoría con sample de leads afectados — todos pertenecen a esta campaña.</p>
+            <h3 className="text-base font-bold leading-tight" style={{ color: "#D97706", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rel.camp.stuckWhere")}</h3>
+            <p className="text-[11px]" style={{ color: C.textMuted }}>{t("rel.camp.stuckWhereHint")}</p>
           </header>
           <div className="p-6 space-y-2">
             {detail.stuckBreakdown.map((b, i) => (
@@ -192,7 +194,7 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
       {detail.failureReasons.length > 0 && (
         <section className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
           <header className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-            <h3 className="text-base font-bold leading-tight" style={{ color: "#DC2626", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>¿Por qué fallaron?</h3>
+            <h3 className="text-base font-bold leading-tight" style={{ color: "#DC2626", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rel.camp.whyFailed")}</h3>
           </header>
           <div className="p-6 space-y-2">
             {detail.failureReasons.map((r, i) => (

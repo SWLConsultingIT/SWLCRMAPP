@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { StickyNote, Loader } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 export default function AddNoteForm({ leadId }: { leadId: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ export default function AddNoteForm({ leadId }: { leadId: string }) {
         router.refresh();
       } else {
         const { error: msg } = await res.json();
-        setError(msg ?? "Error al guardar la nota");
+        setError(msg ?? t("note.err.save"));
       }
     } catch {
       setError("Error de red");
@@ -48,7 +50,7 @@ export default function AddNoteForm({ leadId }: { leadId: string }) {
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="Escribe una nota interna..."
+          placeholder={t("note.placeholder")}
           rows={3}
           className="w-full rounded-lg border px-3 py-2 text-sm resize-none outline-none transition-colors"
           style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}

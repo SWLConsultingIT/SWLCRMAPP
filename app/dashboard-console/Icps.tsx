@@ -24,6 +24,7 @@ import {
 import { CH_KEYS } from "@/lib/console-data";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
+import { useLocale } from "@/lib/i18n";
 
 const K = CH_KEYS;
 
@@ -58,6 +59,7 @@ function Touches({ t, reach, max }: { t: CT.Touch; reach: CT.Touch; max: number 
 
 function Rank() {
   const T = useT();
+  const { t } = useLocale();
   const rows = T.icps;
   const best = Math.max(...rows.map(r => r.rate));
   const team = T.icpsTotals.rate;
@@ -68,10 +70,10 @@ function Rank() {
     <div>
       <div className="flex items-baseline gap-2 mb-4 flex-wrap">
         <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textPrimary }}>{n(T.icpsTotals.contacted)}</span>
-        <span style={{ fontSize: 12, color: C.textMuted }}>leads contacted across eight ICPs</span>
+        <span style={{ fontSize: 12, color: C.textMuted }}>{t("cons.icps.contactedAcrossN", { n: T.icps.length })}</span>
         <span style={{ fontSize: 12, color: C.textDim }}>·</span>
         <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textBody }}>{T.icpsTotals.replies}</span>
-        <span style={{ fontSize: 12, color: C.textMuted }}>replied</span>
+        <span style={{ fontSize: 12, color: C.textMuted }}>{t("cons.icps.replied")}</span>
         <span style={{ fontSize: 12, color: C.textDim }}>·</span>
         <span className="font-semibold tabular-nums" style={{ fontSize: 12.5, color: gold }}>{team}% team</span>
       </div>
@@ -85,13 +87,13 @@ function Rank() {
             <div key={k} className="flex-1 min-w-0 flex items-center justify-end gap-1">
               <span className="rounded-sm shrink-0" style={{ width: 7, height: 7, backgroundColor: CH_COLOR[k] }} />
               <span className="font-semibold uppercase tracking-wider truncate" style={{ fontSize: 9, color: C.textMuted }}>
-                {k === "li_cr" ? "Invite" : k === "li_dm" ? "DM" : k === "email" ? "Email" : "Calls"}
+                {t(k === "li_cr" ? "cons.abbr.invite" : k === "li_dm" ? "cons.abbr.dm" : k === "email" ? "cons.abbr.email" : "cons.abbr.calls")}
               </span>
             </div>
           ))}
         </div>
         <div className="flex-1" />
-        <span className="w-[48px] shrink-0 text-right font-semibold uppercase tracking-wider" style={{ fontSize: 9, color: C.textMuted }}>Reply</span>
+        <span className="w-[48px] shrink-0 text-right font-semibold uppercase tracking-wider" style={{ fontSize: 9, color: C.textMuted }}>{t("cons.icps.reply")}</span>
       </div>
 
       <div className="flex flex-col">
@@ -140,17 +142,18 @@ function Rank() {
 
 function Totals() {
   const T = useT();
-  const t = T.icpsTotals.touch;
-  const grand = K.reduce((a, k) => a + t[k], 0);
+  const { t } = useLocale();
+  const touch = T.icpsTotals.touch;
+  const grand = K.reduce((a, k) => a + touch[k], 0);
   return (
     <div className="flex flex-wrap" style={{ gap: 28 }}>
       {K.map(k => (
         <div key={k} className="flex items-center gap-2.5">
           <ChannelMark ch={k} size={30} />
           <div>
-            <div className="font-semibold tabular-nums" style={{ fontSize: 17, color: C.textPrimary }}>{n(t[k])}</div>
+            <div className="font-semibold tabular-nums" style={{ fontSize: 17, color: C.textPrimary }}>{n(touch[k])}</div>
             <div style={{ fontSize: 10.5, color: C.textMuted }}>
-              {CH_LABEL[k]} · {Math.round((t[k] / grand) * 100)}%
+              {CH_LABEL[k]} · {Math.round((touch[k] / grand) * 100)}%
             </div>
           </div>
         </div>
@@ -158,7 +161,7 @@ function Totals() {
       <div className="flex items-center gap-2.5 pl-6" style={{ borderLeft: `1px solid ${C.border}` }}>
         <div>
           <div className="font-semibold tabular-nums" style={{ fontSize: 17, color: gold }}>{n(grand)}</div>
-          <div style={{ fontSize: 10.5, color: C.textMuted }}>contact points in total</div>
+          <div style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.icps.touchTotal")}</div>
         </div>
       </div>
     </div>
@@ -171,6 +174,7 @@ const MIN_BASE = 20;
 
 function Matrix() {
   const T = useT();
+  const { t } = useLocale();
   const cells = T.icps.flatMap(i => K.map(c => ({ base: i.reach[c], hit: i.replied[c] }))).filter(c => c.base >= MIN_BASE);
   const max = Math.max(...cells.map(c => (c.hit / c.base) * 100), 1);
 
@@ -197,7 +201,7 @@ function Matrix() {
                   return (
                     <div key={c} className="flex-1 rounded-lg flex items-center justify-center"
                       style={{ height: 46, border: `1px dashed ${C.border}` }}>
-                      <span style={{ fontSize: 11, color: C.textDim }}>not used</span>
+                      <span style={{ fontSize: 11, color: C.textDim }}>{t("cons.icps.notUsed")}</span>
                     </div>
                   );
                 }
@@ -231,13 +235,14 @@ function Matrix() {
 
 export default function Icps({ label }: { label: string }) {
   const T = useT();
+  const { t } = useLocale();
   return (
     <>
-      <Opening question="Which kind of company answers us?" sub={`in ${label}`} aside={<Drill label="ICP list" />}>
+      <Opening question={t("cons.icps.q1")} sub={t("cons.ov.in", { label })} aside={<Drill label={t("cons.icps.list")} />}>
         <Rank />
       </Opening>
 
-      <Band question="What did we spend to find out?" sub="contact points across all eight ICPs">
+      <Band question={t("cons.icps.q2")} sub={t("cons.icps.touchAcross", { n: T.icps.length })}>
         <Totals />
       </Band>
 
@@ -245,18 +250,18 @@ export default function Icps({ label }: { label: string }) {
         <WorthALook title={T.icpWorthALook.title} facts={T.icpWorthALook.facts} />
       </section>
 
-      <Band question="And which channel worked for whom?" aside={<Drill label="Channels" />}>
+      <Band question={t("cons.icps.q3")} aside={<Drill label={t("cons.icps.channels")} />}>
         <Matrix />
       </Band>
 
-      <Band question="What this tab no longer shows">
-        <Eyebrow>Removed</Eyebrow>
+      <Band question={t("cons.noLongerShows")}>
+        <Eyebrow>{t("cons.removed")}</Eyebrow>
         <ul className="flex flex-col" style={{ gap: 9, maxWidth: 780 }}>
           {[
-            ["Total touches as one figure", "the per-channel counts are back above, but summing them into one number adds an invitation to a call as if they cost the same."],
-            ["Conv% (positive rate)", "one positive in the whole period, in one ICP — a column that is 0 in seven of eight rows sorts by its tiebreak, not by itself."],
+            [t("cons.icps.rm1"), t("cons.icps.rm1d")],
+            [t("cons.icps.rm2"), t("cons.icps.rm2d")],
             ["14-day sparkline", "a 14-day trend inside a 30-day view answers a window nobody selected."],
-            ["Rate bars rescaled to the table leader", "0.4% and 9.5% are 24× apart and the old bars made them look adjacent."],
+            [t("cons.icps.rm3"), t("cons.icps.rm3d")],
           ].map(([k, v]) => (
             <li key={k} className="flex items-baseline gap-2.5">
               <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, backgroundColor: C.textDim, transform: "translateY(-2px)" }} />

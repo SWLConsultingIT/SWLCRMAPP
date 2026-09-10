@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { C } from "@/lib/design";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
+import { useLocale } from "@/lib/i18n";
 
 // 3-step wizard for creating a template:
 //   1. SOURCE     — pick how to start (PDF upload / import / scratch)
@@ -59,18 +60,19 @@ type Step = {
 type TonePreset = "conservative" | "balanced" | "direct" | "spicy" | "custom";
 type RewriteMode = "verbatim" | "personalize" | "rewrite_with_source";
 
-const TONE_PRESETS: Array<{ id: TonePreset; label: string; desc: string }> = [
-  { id: "conservative", label: "Conservative", desc: "Formal, safe, no hype. For legal / healthcare / banking targets." },
-  { id: "balanced",     label: "Balanced",     desc: "Conversational professional. One hook, one CTA. Default." },
-  { id: "direct",       label: "Direct",       desc: "Blunt opener, sharp CTA. For technical buyers + operators." },
-  { id: "spicy",        label: "Spicy",        desc: "Contrarian. Higher reply rate + higher unsubscribe risk." },
-  { id: "custom",       label: "Custom",       desc: "Paste your own style guide / examples." },
+// Keys, not labels: module scope.
+const TONE_PRESETS: Array<{ id: TonePreset; labelKey: string; descKey: string }> = [
+  { id: "conservative", labelKey: "tpl.tone.conservative", descKey: "tpl.tone.conservativeDesc" },
+  { id: "balanced",     labelKey: "tpl.tone.balanced",     descKey: "tpl.tone.balancedDesc" },
+  { id: "direct",       labelKey: "tpl.tone.direct",       descKey: "tpl.tone.directDesc" },
+  { id: "spicy",        labelKey: "tpl.tone.spicy",        descKey: "tpl.tone.spicyDesc" },
+  { id: "custom",       labelKey: "tpl.tone.custom",       descKey: "tpl.tone.customDesc" },
 ];
 
-const REWRITE_MODES: Array<{ id: RewriteMode; label: string; desc: string }> = [
-  { id: "verbatim",            label: "Verbatim",                desc: "Use template body as-is. Only {{first_name}} / {{seller_name}} get substituted." },
-  { id: "personalize",         label: "Personalize per lead",    desc: "Light per-lead rewrite. Default." },
-  { id: "rewrite_with_source", label: "Rewrite from source PDF", desc: "Claude reads the PDFs per lead and rewrites anchored to source. Most flexible." },
+const REWRITE_MODES: Array<{ id: RewriteMode; labelKey: string; descKey: string }> = [
+  { id: "verbatim",            labelKey: "tpl.mode.verbatim",                descKey: "tpl.mode.verbatimDesc" },
+  { id: "personalize",         labelKey: "tpl.mode.personalize",    descKey: "tpl.mode.personalizeDesc" },
+  { id: "rewrite_with_source", labelKey: "tpl.mode.rewrite", descKey: "tpl.mode.rewriteDesc" },
 ];
 
 type PendingAttachment = {
@@ -115,6 +117,7 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function NewTemplatePage() {
+  const { t } = useLocale();
   const router = useRouter();
 
   // ── Wizard ──────────────────────────────────────────────────────────────
@@ -439,7 +442,7 @@ export default function NewTemplatePage() {
           <ArrowLeft size={14} />
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>New Template</h1>
+          <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>{t("tpl.newTemplate")}</h1>
           <p className="text-xs" style={{ color: C.textMuted }}>
             Define a reusable sequence + messages. Save once, apply to any future campaign.
           </p>
@@ -535,6 +538,7 @@ function SetupBar(props: {
   voiceAnchor: string | null; setVoiceAnchor: (v: string | null) => void;
   voiceOptions: Array<{ id: string; name: string }>;
 }) {
+  const { t } = useLocale();
   const { icpProfileId, setIcpProfileId, icpOptions, tonePreset, setTonePreset, toneCustom, setToneCustom, voiceAnchor, setVoiceAnchor, voiceOptions } = props;
   const currentTone = TONE_PRESETS.find(t => t.id === tonePreset);
   return (
@@ -559,33 +563,33 @@ function SetupBar(props: {
             backgroundColor: icpProfileId ? C.bg : accentSoft(8),
             color: C.textPrimary,
           }}>
-          <option value="">— Choose an ICP —</option>
+          <option value="">{t("tpl.chooseIcp")}</option>
           {icpOptions.map(o => (
             <option key={o.id} value={o.id}>{o.profile_name}</option>
           ))}
         </select>
         {icpOptions.length === 0 && (
           <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>
-            No ICPs yet. <a href="/icp" className="font-semibold underline" style={{ color: ACCENT }}>Create an ICP first</a> — templates are scoped to a target.
+            No ICPs yet. <a href="/icp" className="font-semibold underline" style={{ color: ACCENT }}>{t("tpl.createIcpFirst")}</a> — templates are scoped to a target.
           </p>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: C.textMuted }}>Tone</p>
+          <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: C.textMuted }}>{t("tpl.tone")}</p>
           <div className="flex flex-wrap gap-1.5">
             {TONE_PRESETS.map(p => {
               const active = p.id === tonePreset;
               return (
                 <button key={p.id} type="button" onClick={() => setTonePreset(p.id)}
-                  title={p.desc}
+                  title={t(p.descKey)}
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors"
                   style={{
                     backgroundColor: active ? accentSoft(15) : C.bg,
                     borderColor: active ? accentSoft(40) : C.border,
                     color: active ? ACCENT : C.textBody,
                   }}>
-                  {p.label}
+                  {t(p.labelKey)}
                 </button>
               );
             })}
@@ -595,13 +599,13 @@ function SetupBar(props: {
         <div className="h-10 w-px hidden md:block" style={{ backgroundColor: C.border }} />
 
         <div className="min-w-[180px]">
-          <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: C.textMuted }}>Voice anchor <span className="opacity-60 normal-case font-normal">(optional)</span></p>
+          <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: C.textMuted }}>{t("tpl.voiceAnchor")} <span className="opacity-60 normal-case font-normal">{t("tpl.optional")}</span></p>
           <select
             value={voiceAnchor ?? ""}
             onChange={e => setVoiceAnchor(e.target.value || null)}
             className="text-xs rounded border px-2 py-1 outline-none w-full"
             style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}>
-            <option value="">No anchor — use tenant tone</option>
+            <option value="">{t("tpl.noAnchor")}</option>
             {voiceOptions.map(o => (
               <option key={o.id} value={o.id}>{o.name}</option>
             ))}
@@ -610,7 +614,7 @@ function SetupBar(props: {
       </div>
 
       {currentTone && (
-        <p className="text-[11px] mt-2.5" style={{ color: C.textMuted }}>{currentTone.desc}</p>
+        <p className="text-[11px] mt-2.5" style={{ color: C.textMuted }}>{t(currentTone.descKey)}</p>
       )}
 
       {tonePreset === "custom" && (
@@ -630,10 +634,11 @@ function SetupBar(props: {
 
 // ─── Wizard progress strip ───────────────────────────────────────────────
 function WizardProgress({ current }: { current: WizardStep }) {
+  const { t } = useLocale();
   const stepDefs: { key: WizardStep; label: string }[] = [
-    { key: "source",   label: "Source" },
-    { key: "sequence", label: "Sequence" },
-    { key: "identity", label: "Save" },
+    { key: "source",   label: t("tpl.source") },
+    { key: "sequence", label: t("tpl.sequence") },
+    { key: "identity", label: t("tpl.save") },
   ];
   const idx = stepDefs.findIndex(s => s.key === current);
   return (
@@ -685,6 +690,7 @@ function SourceStep(props: {
   importingId: string | null;
   importFromTemplate: (id: string) => Promise<void>;
 }) {
+  const { t } = useLocale();
   const {
     locked,
     source, setSource,
@@ -715,25 +721,25 @@ function SourceStep(props: {
   if (!source) {
     return (
       <div>
-        <h2 className="text-sm font-bold mb-3" style={{ color: C.textPrimary }}>Where does this template come from?</h2>
+        <h2 className="text-sm font-bold mb-3" style={{ color: C.textPrimary }}>{t("tpl.whereFrom")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <SourceCard
             icon={<Sparkles size={20} style={{ color: ACCENT }} />}
-            title="From a PDF"
-            desc="Drop your playbook, sales deck, or case studies. AI extracts the cadence and drafts every message."
+            title={t("tpl.fromPdf")}
+            desc={t("tpl.fromPdfDesc")}
             badge="Recommended"
             onClick={() => setSource("pdf")}
           />
           <SourceCard
             icon={<Copy size={20} style={{ color: "#0A66C2" }} />}
-            title="Copy an existing template"
-            desc="Start from one that already works for you and tweak from there."
+            title={t("tpl.copyExisting")}
+            desc={t("tpl.copyExistingDesc")}
             onClick={() => setSource("import")}
           />
           <SourceCard
             icon={<FilePlus2 size={20} style={{ color: C.textBody }} />}
-            title="From scratch"
-            desc="Blank sequence with sensible defaults. You write everything yourself."
+            title={t("tpl.fromScratch")}
+            desc={t("tpl.fromScratchDesc")}
             onClick={pickScratch}
           />
         </div>
@@ -861,13 +867,13 @@ function SourceStep(props: {
         {importLoading && (
           <div className="py-10 text-center">
             <Loader2 size={20} className="mx-auto animate-spin mb-2" style={{ color: C.textMuted }} />
-            <p className="text-xs" style={{ color: C.textMuted }}>Loading templates…</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("tpl.loadingTemplates")}</p>
           </div>
         )}
         {!importLoading && importables && importables.length === 0 && (
           <div className="py-10 text-center">
-            <p className="text-sm" style={{ color: C.textDim }}>No templates yet to copy from.</p>
-            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>Try the PDF or scratch options instead.</p>
+            <p className="text-sm" style={{ color: C.textDim }}>{t("tpl.noneToCopy")}</p>
+            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>{t("tpl.tryPdfOrScratch")}</p>
           </div>
         )}
         {!importLoading && importables && importables.length > 0 && (
@@ -948,6 +954,7 @@ function SequenceStep(props: {
   onBack: () => void;
   onNext: () => void;
 }) {
+  const { t } = useLocale();
   const { steps, hasConnectionRequest, addConnectionRequest, updateStep, addStep, removeStep, onBack, onNext } = props;
   const bodyStepCount = steps.filter(s => !s.isConnectionRequest).length;
   const allBodiesFilled = steps.every(s => s.body.trim().length > 0);
@@ -964,7 +971,7 @@ function SequenceStep(props: {
           <Share2 size={13} className="mt-0.5 shrink-0" style={{ color: "#0A66C2" }} />
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold mb-1" style={{ color: "#0A66C2" }}>
-              LinkedIn Connection Request <span className="font-normal opacity-60">(sent before first LinkedIn message)</span>
+              LinkedIn Connection Request <span className="font-normal opacity-60">{t("tpl.beforeFirstLi")}</span>
             </p>
             <textarea
               value={inviteStep?.body ?? ""}
@@ -976,7 +983,7 @@ function SequenceStep(props: {
                   addConnectionRequest();
                 }
               }}
-              placeholder="Hi {{first_name}}, noticed your team is scaling — would love to connect. (≤200 chars)"
+              placeholder={t("tpl.crPlaceholder")}
               maxLength={200}
               rows={4}
               className="w-full rounded border px-3 py-2 text-sm outline-none resize-vertical leading-relaxed"
@@ -1000,7 +1007,7 @@ function SequenceStep(props: {
 
       <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
         <div>
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sequence</h2>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("tpl.sequence")}</h2>
           <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
             {bodyStepCount} {bodyStepCount === 1 ? "step" : "steps"}
           </p>
@@ -1033,7 +1040,7 @@ function SequenceStep(props: {
           //   - With invite  → fires the moment Unipile reports the accept,
           //                    so daysAfter is meaningless (event-triggered).
           //   - Without invite → fires day 0 of the campaign.
-          // Either way the user shouldn't see a "days" input for step 1.
+          // Either way the user shouldn't see a t("tpl.days") input for step 1.
           const bodyStepIdx = hasConnectionRequest ? i - 1 : i;
           const isFirstBodyStep = bodyStepIdx === 0;
           return (
@@ -1063,7 +1070,7 @@ function SequenceStep(props: {
                       </span>
                     ) : (
                       <>
-                        <span className="text-[11px]" style={{ color: C.textMuted }}>after</span>
+                        <span className="text-[11px]" style={{ color: C.textMuted }}>{t("tpl.after")}</span>
                         <input
                           type="number"
                           value={s.daysAfter}
@@ -1071,7 +1078,7 @@ function SequenceStep(props: {
                           className="w-14 text-xs rounded border px-2 py-1 outline-none tabular-nums"
                           style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
                         />
-                        <span className="text-[11px]" style={{ color: C.textMuted }}>days</span>
+                        <span className="text-[11px]" style={{ color: C.textMuted }}>{t("tpl.days")}</span>
                       </>
                     )}
                   </>
@@ -1088,7 +1095,7 @@ function SequenceStep(props: {
                 <input
                   value={s.subject ?? ""}
                   onChange={e => updateStep(i, { subject: e.target.value })}
-                  placeholder="Email subject (optional)"
+                  placeholder={t("tpl.emailSubject")}
                   className="w-full mb-2 rounded border px-2 py-1.5 text-xs outline-none"
                   style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
                 />
@@ -1141,7 +1148,7 @@ function SequenceStep(props: {
                   <div className="mt-2">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] uppercase tracking-wider font-semibold"
-                        style={{ color: ACCENT }}>Variant B (A/B test)</span>
+                        style={{ color: ACCENT }}>{t("tpl.variantB")}</span>
                       <button type="button"
                         onClick={() => updateStep(i, { variants: undefined })}
                         className="text-[10px]" style={{ color: C.textMuted }}>
@@ -1151,7 +1158,7 @@ function SequenceStep(props: {
                     <textarea
                       value={s.variants[0] ?? ""}
                       onChange={e => updateStep(i, { variants: [e.target.value] })}
-                      placeholder="Variant B — same step, different angle. Dispatcher splits 50/50."
+                      placeholder={t("tpl.variantBDesc")}
                       rows={8}
                       className="w-full rounded border px-3 py-2.5 text-sm outline-none resize-vertical leading-relaxed"
                       style={{ borderColor: accentSoft(40), backgroundColor: C.card, color: C.textPrimary, minHeight: 160, fontFamily: "inherit" }}
@@ -1203,18 +1210,20 @@ function IdentityStep(props: {
   onBack: () => void;
   onSave: () => void;
 }) {
+  const { t } = useLocale();
   const {
     name, setName, description, setDescription, tagsInput, setTagsInput, steps,
     tonePreset, rewriteMode, setRewriteMode, voiceAnchor, voiceOptions,
     error, setError, saving, onBack, onSave,
   } = props;
-  const toneLabel = TONE_PRESETS.find(t => t.id === tonePreset)?.label ?? tonePreset;
+  const tonePresetRow = TONE_PRESETS.find(x => x.id === tonePreset);
+  const toneLabel = tonePresetRow ? t(tonePresetRow.labelKey) : tonePreset;
   const voiceLabel = voiceAnchor ? (voiceOptions.find(v => v.id === voiceAnchor)?.name ?? "—") : null;
   const variantsCount = steps.filter(s => Array.isArray(s.variants) && s.variants.length > 0).length;
   return (
     <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-        <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Name + tags</h2>
+        <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("tpl.nameTags")}</h2>
         <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
           How will you find this template later? Pick a clear name and tag it for filtering.
         </p>
@@ -1228,7 +1237,7 @@ function IdentityStep(props: {
           <input
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="e.g., Healthcare Asset Finance — CEO Outreach"
+            placeholder={t("tpl.namePlaceholder")}
             className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
             style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
             autoFocus
@@ -1241,7 +1250,7 @@ function IdentityStep(props: {
           <input
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="When should this template be used?"
+            placeholder={t("tpl.whenUsed")}
             className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
             style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
           />
@@ -1253,7 +1262,7 @@ function IdentityStep(props: {
           <input
             value={tagsInput}
             onChange={e => setTagsInput(e.target.value)}
-            placeholder="healthcare, asset-finance, c-level"
+            placeholder={t("tpl.tagsPlaceholder")}
             className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
             style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
           />
@@ -1270,26 +1279,26 @@ function IdentityStep(props: {
               const active = p.id === rewriteMode;
               return (
                 <button key={p.id} type="button" onClick={() => setRewriteMode(p.id)}
-                  title={p.desc}
+                  title={t(p.descKey)}
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors"
                   style={{
                     backgroundColor: active ? accentSoft(15) : C.bg,
                     borderColor: active ? accentSoft(40) : C.border,
                     color: active ? ACCENT : C.textBody,
                   }}>
-                  {p.label}
+                  {t(p.labelKey)}
                 </button>
               );
             })}
           </div>
           <p className="text-[11px] mt-2" style={{ color: C.textMuted }}>
-            {REWRITE_MODES.find(m => m.id === rewriteMode)?.desc}
+            {(() => { const r = REWRITE_MODES.find(m => m.id === rewriteMode); return r ? t(r.descKey) : null; })()}
           </p>
         </div>
 
         {/* Quick recap so the user can confirm what they're about to save */}
         <div className="rounded-lg border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-          <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: C.textMuted }}>Recap</p>
+          <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: C.textMuted }}>{t("tpl.recap")}</p>
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {steps.map((s, i) => {
               const meta = channelMeta[s.channel];
@@ -1311,7 +1320,7 @@ function IdentityStep(props: {
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
               style={{ borderColor: accentSoft(40), backgroundColor: accentSoft(10), color: ACCENT }}>
-              Rewrite · {REWRITE_MODES.find(m => m.id === rewriteMode)?.label}
+              Rewrite · {(() => { const r = REWRITE_MODES.find(m => m.id === rewriteMode); return r ? t(r.labelKey) : null; })()}
             </span>
             {voiceLabel && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"

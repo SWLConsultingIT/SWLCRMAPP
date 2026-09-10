@@ -13,6 +13,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useAuthUser } from "@/lib/auth-context";
 import PushToggle from "@/components/PushToggle";
 import { Bell, AtSign, Tag, MessageSquare, FileText, CalendarClock, Inbox as InboxIcon, CheckCheck, CircleDot } from "lucide-react";
+import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 type Notif = {
   id: string;
@@ -116,7 +117,7 @@ export default function NotificationsCenter() {
     if (n.link) router.push(n.link);
   }
 
-  const intlLocale = locale === "es" ? "es-AR" : "en-US";
+  const intlLocale = intlTag(locale);
   const fmt = (iso: string) => new Date(iso).toLocaleString(intlLocale, { hour: "2-digit", minute: "2-digit" });
   const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(intlLocale, { day: "2-digit", month: "short" });
 

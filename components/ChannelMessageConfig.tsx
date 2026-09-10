@@ -103,11 +103,11 @@ type Props = {
 
 // ── Helpers ──
 
-const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2,         color: C.linkedin, label: "LinkedIn" },
-  email:    { icon: Mail,           color: C.email,    label: "Email" },
-  call:     { icon: Phone,          color: C.phone,    label: "Call" },
-  whatsapp: { icon: MessageCircle,  color: "#25D366",  label: "WhatsApp" },
+const channelMeta: Record<string, { icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2,         color: C.linkedin, labelKey: "chan.linkedin" },
+  email:    { icon: Mail,           color: C.email,    labelKey: "chan.email" },
+  call:     { icon: Phone,          color: C.phone,    labelKey: "chan.call" },
+  whatsapp: { icon: MessageCircle,  color: "#25D366",  labelKey: "chan.whatsapp" },
 };
 
 // LinkedIn invite notes cap at 200 chars POST placeholder interpolation.
@@ -129,7 +129,10 @@ function clampToCharBudget(text: string, budget: number): string {
   return (lastSpace > 30 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd() + "…";
 }
 
-function classifySteps(sequence: { channel: string; daysAfter: number }[]): { type: string; channel: string; label: string; hasSubject: boolean }[] {
+// `label` is written into `channelMessages.steps[].label` and travels to the
+// campaign request, so it stays English — the storage contract, not copy.
+// `labelKey` (+ `labelN` where the name carries an ordinal) is what renders.
+function classifySteps(sequence: { channel: string; daysAfter: number }[]): { type: string; channel: string; label: string; labelKey: string; labelN?: number; hasSubject: boolean }[] {
   const counters: Record<string, number> = {};
   let introduced = false;
 
@@ -140,86 +143,30 @@ function classifySteps(sequence: { channel: string; daysAfter: number }[]): { ty
     if (s.channel === "linkedin") {
       // Connection request is handled separately — all LinkedIn steps here are DMs
       if (nth === 1) {
-        if (!introduced) { introduced = true; return { type: "LINKEDIN_INTRO_DM", channel: s.channel, label: "First DM (Post-Connection)", hasSubject: false }; }
-        return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: "LinkedIn Follow-up 1", hasSubject: false };
+        if (!introduced) { introduced = true; return { type: "LINKEDIN_INTRO_DM", channel: s.channel, label: "First DM (Post-Connection)", labelKey: "cmc.st.liIntroDm", hasSubject: false }; }
+        return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: "LinkedIn Follow-up 1", labelKey: "cmc.st.liFollowupOne", hasSubject: false };
       }
-      return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: `LinkedIn Follow-up ${introduced ? nth - 1 : nth}`, hasSubject: false };
+      return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: `LinkedIn Follow-up ${introduced ? nth - 1 : nth}`, labelKey: "cmc.st.liFollowupN", labelN: introduced ? nth - 1 : nth, hasSubject: false };
     } else if (s.channel === "email") {
-      if (!introduced) { introduced = true; return { type: "EMAIL_INTRO", channel: s.channel, label: "Introduction Email", hasSubject: true }; }
-      if (nth === 1) return { type: "EMAIL_FOLLOWUP_CROSS", channel: s.channel, label: "Email follow-up (after other channel)", hasSubject: true };
-      return { type: "EMAIL_FOLLOWUP", channel: s.channel, label: `Email Follow-up ${nth > 1 ? nth - 1 : 1}`, hasSubject: true };
+      if (!introduced) { introduced = true; return { type: "EMAIL_INTRO", channel: s.channel, label: "Introduction Email", labelKey: "cmc.st.emailIntro", hasSubject: true }; }
+      if (nth === 1) return { type: "EMAIL_FOLLOWUP_CROSS", channel: s.channel, label: "Email follow-up (after other channel)", labelKey: "cmc.st.emailCross", hasSubject: true };
+      return { type: "EMAIL_FOLLOWUP", channel: s.channel, label: `Email Follow-up ${nth > 1 ? nth - 1 : 1}`, labelKey: "cmc.st.emailFollowupN", labelN: nth > 1 ? nth - 1 : 1, hasSubject: true };
     } else if (s.channel === "call") {
-      if (nth === 1) return { type: "CALL_FIRST", channel: s.channel, label: "First Call Script", hasSubject: false };
-      return { type: "CALL_FOLLOWUP", channel: s.channel, label: "Follow-up Call Script", hasSubject: false };
+      if (nth === 1) return { type: "CALL_FIRST", channel: s.channel, label: "First Call Script", labelKey: "cmc.st.callFirst", hasSubject: false };
+      return { type: "CALL_FOLLOWUP", channel: s.channel, label: "Follow-up Call Script", labelKey: "cmc.st.callFollowup", hasSubject: false };
     }
-    return { type: "UNKNOWN", channel: s.channel, label: "Message", hasSubject: false };
+    return { type: "UNKNOWN", channel: s.channel, label: "Message", labelKey: "cmc.st.message", hasSubject: false };
   });
 }
 
 // Step descriptions — what each step is FOR (intent guidance, not template prescription).
 // In the new prompt-per-step UX the user writes their own intent below; these are
 // the contextual hint that sits above their textarea.
-const typeDescriptionsByLocale: Record<"es" | "en", Record<string, string>> = {
-  es: {
-    LINKEDIN_INTRO_DM: "Primer mensaje real después de que aceptan la conexión. Decile a la AI qué querés transmitir.",
-    LINKEDIN_FOLLOWUP: "Seguimiento sobre el mensaje anterior. ¿Qué ángulo nuevo querés traer? (data, caso, tendencia)",
-    EMAIL_INTRO: "Primer email. Tendrá subject + body. ¿Qué pain conectar y qué CTA querés al final?",
-    EMAIL_FOLLOWUP_CROSS: "Primer email después de tocarlos por otro canal. ¿Qué ángulo nuevo?",
-    EMAIL_FOLLOWUP: "Email de seguimiento corto. ¿Qué pieza nueva de valor querés traer?",
-    CALL_FIRST: "Script de llamada. ¿Qué tono, qué preguntas, qué pitch?",
-    CALL_FOLLOWUP: "Script de seguimiento por teléfono. ¿Qué nuevo ángulo y cómo cerrar?",
-  },
-  en: {
-    LINKEDIN_INTRO_DM: "First real message after they accept the connection. Tell the AI what you want this message to convey.",
-    LINKEDIN_FOLLOWUP: "Follow-up to the previous message. What new angle should it bring? (data point, case, trend)",
-    EMAIL_INTRO: "First email — will have subject + body. What pain to connect to, and what CTA at the end?",
-    EMAIL_FOLLOWUP_CROSS: "First email after reaching out on another channel. What new angle?",
-    EMAIL_FOLLOWUP: "Short follow-up email. What new value piece should it bring?",
-    CALL_FIRST: "Call script. What tone, what questions, what pitch?",
-    CALL_FOLLOWUP: "Follow-up call script. What new angle and how to close?",
-  },
-};
 
 // Prompt-style placeholders. These show the user HOW to write their intent.
-const typePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
-  es: {
-    LINKEDIN_INTRO_DM: "ej: Agradecé la conexión, mencioná que ayudamos a empresas de [industria] a [resultado], y proponé una charla de 15 min para ver si tiene sentido.",
-    LINKEDIN_FOLLOWUP: "ej: Volvé al mensaje anterior con un dato concreto (ej: '6h/semana de tiempo recuperado' en una empresa similar), preguntá si les resuena.",
-    EMAIL_INTRO: "ej: Subject corto y específico. Cuerpo: hook con un dato sobre su empresa, qué hacemos en una línea, conectá su pain con nuestra solución, una prueba social, CTA de 15 min.",
-    EMAIL_FOLLOWUP_CROSS: "ej: Referenciá el ping de LinkedIn, traé un ángulo distinto (caso de cliente similar), CTA suave.",
-    EMAIL_FOLLOWUP: "ej: Una pieza nueva de valor (artículo, dato, comparativa), volvé al CTA.",
-    CALL_FIRST: "ej: Apertura cálida con su nombre y por qué llamás. Pregunta abierta sobre [tema]. Pitch en 2 líneas. Cierre proponiendo 15 min.",
-    CALL_FOLLOWUP: "ej: Referenciá el contacto previo, traé un dato nuevo, cerrá pidiendo 15 min específicos esta semana.",
-  },
-  en: {
-    LINKEDIN_INTRO_DM: "e.g. Thank them for connecting, mention we help [industry] companies achieve [outcome], propose a 15-min chat to see if it's relevant.",
-    LINKEDIN_FOLLOWUP: "e.g. Refer back to the previous message with a concrete data point (e.g. '6h/week reclaimed at a similar company'), ask if it resonates.",
-    EMAIL_INTRO: "e.g. Short, specific subject. Body: hook with a data point about their company, what we do in one line, connect their pain to our solution, one social proof, soft 15-min CTA.",
-    EMAIL_FOLLOWUP_CROSS: "e.g. Reference the LinkedIn ping, bring a different angle (similar customer case), soft CTA.",
-    EMAIL_FOLLOWUP: "e.g. One new piece of value (article, data point, comparison), bring the CTA back.",
-    CALL_FIRST: "e.g. Warm opener with their name and why you're calling. Open question about [topic]. 2-line pitch. Close proposing 15 minutes.",
-    CALL_FOLLOWUP: "e.g. Reference the previous contact, bring a new data point, close by asking for a specific 15-min slot this week.",
-  },
-};
 
 // Tenant-agnostic placeholder examples. We avoid mentioning a specific company
 // name (e.g. "SWL Consulting") so the wizard reads correctly for any client tenant.
-const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
-  es: {
-    connectionRequest: "Hola [nombre], soy [vendedor] de [empresa]. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas.",
-    subject: "Línea de asunto (max 60 caracteres)...",
-    fallback: "Escribí tu mensaje...",
-    replyPositive: "¡Excelente! Me alegra tu interés. Te propongo coordinar una llamada de 15 min...",
-    replyNegative: "Entiendo perfectamente. Gracias por tu tiempo. Si en el futuro...",
-  },
-  en: {
-    connectionRequest: "Hi [name], I'm [seller] from [company]. I saw your work on [topic] and I'd love to connect to share ideas.",
-    subject: "Subject line (max 60 chars)...",
-    fallback: "Write your message...",
-    replyPositive: "Great! Glad you're interested. How about we book a quick 15-minute call...",
-    replyNegative: "Totally understand. Thanks for your time. If in the future...",
-  },
-};
 
 // ── Main Component ──
 
@@ -259,15 +206,16 @@ function LaneIntent({ value, onChange, placeholder, rows = 2 }: {
   placeholder: string;
   rows?: number;
 }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-lg px-3.5 py-3" style={{ backgroundColor: C.bg, border: `1px dashed ${C.border2}` }}>
       <div className="flex items-baseline gap-2 flex-wrap mb-2">
         <LaneNum n={1} />
         <span className="text-[12.5px] font-semibold" style={{ color: C.textMuted }}>
-          Intent — what you&apos;re asking the AI for
+          {t("cmc.lane.intent")}
         </span>
         <span className="text-[11px] ml-auto text-right" style={{ color: C.textDim }}>
-          Not sent · saved with the flow
+          {t("cmc.lane.notSent")}
         </span>
       </div>
       <textarea
@@ -290,11 +238,12 @@ function LaneJoin({ hasIntent, hasBody, loading, onClick }: {
   loading: boolean;
   onClick: () => void;
 }) {
+  const { t } = useLocale();
   const hint = !hasIntent
-    ? "With no intent the AI writes generic — or type the message by hand below"
+    ? t("cmc.lane.hintNoIntent")
     : !hasBody
-      ? "Uses your intent + each lead's own data"
-      : "Rewrites the message below — your edits are lost";
+      ? t("cmc.lane.hintNoBody")
+      : t("cmc.lane.hintRewrite");
   const soft = !hasIntent;
   return (
     <div className="relative flex flex-col items-center py-3.5">
@@ -324,7 +273,7 @@ function LaneJoin({ hasIntent, hasBody, loading, onClick }: {
             }}
       >
         {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-        {loading ? "Drafting…" : hasBody ? "Draft again" : "Draft with AI"}
+        {loading ? t("cmc.lane.drafting") : hasBody ? t("cmc.lane.draftAgain") : t("cmc.lane.draftWithAi")}
       </button>
       <p className="relative text-[11px] mt-2.5 px-2 text-center" style={{ color: C.textDim, backgroundColor: C.card }}>
         {hint}
@@ -334,6 +283,7 @@ function LaneJoin({ hasIntent, hasBody, loading, onClick }: {
 }
 
 function LaneMessage({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  const { t } = useLocale();
   return (
     <div
       className="rounded-lg px-4 py-3.5"
@@ -346,7 +296,7 @@ function LaneMessage({ children, hint }: { children: React.ReactNode; hint?: str
     >
       <div className="flex items-baseline gap-2 flex-wrap mb-2.5">
         <LaneNum n={2} />
-        <span className="text-[13.5px] font-bold" style={{ color: C.textPrimary }}>Message</span>
+        <span className="text-[13.5px] font-bold" style={{ color: C.textPrimary }}>{t("cmc.lane.message")}</span>
         <span
           className="text-[9px] font-bold uppercase tracking-[0.11em] px-[7px] py-[2.5px] rounded-full"
           style={{
@@ -405,13 +355,14 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
   leads: SampleLead[];
   sellerName: string;
 }) {
+  const { t } = useLocale();
   const [idx, setIdx] = useState(0);
   const lead = leads[Math.min(idx, Math.max(leads.length - 1, 0))];
   const meta = channelMeta[channel] || channelMeta.linkedin;
   const Icon = meta.icon;
 
   const label = (l: SampleLead) =>
-    [l.primary_first_name, l.company_name].filter(Boolean).join(" · ") || "Lead";
+    [l.primary_first_name, l.company_name].filter(Boolean).join(" · ") || t("cmc.prev.lead");
 
   const segs = lead ? segmentsFor(template, lead, sellerName) : [];
   const holes = segs.filter(s => s.kind === "blank");
@@ -421,7 +372,7 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
     <div className="mt-3 rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.bg }}>
       <div className="px-3 py-2 flex items-center gap-2 flex-wrap border-b" style={{ borderColor: C.border }}>
         <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>
-          How the lead receives it
+          {t("cmc.prev.title")}
         </span>
         {leads.length > 1 && (
           <select
@@ -437,11 +388,11 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
 
       {!lead ? (
         <p className="px-3.5 py-3 text-[12px]" style={{ color: C.textDim }}>
-          No readable lead in this selection yet, so there is nothing to render against.
+          {t("cmc.prev.noLead")}
         </p>
       ) : !template.trim() ? (
         <p className="px-3.5 py-3 text-[12px] italic" style={{ color: C.textDim }}>
-          Write the message above and it appears here exactly as {lead.primary_first_name || "the lead"} will read it.
+          {t("cmc.prev.writeAbove", { name: lead.primary_first_name || t("cmc.prev.theLead") })}
         </p>
       ) : (
         <div className="p-3">
@@ -455,13 +406,13 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
               }}
             >
               <Icon size={13} />
-              <span>{isConnectionRequest ? "LinkedIn invitation" : meta.label}</span>
+              <span>{isConnectionRequest ? t("cmc.prev.liInvite") : t(meta.labelKey)}</span>
               <span className="ml-auto text-[9px] uppercase tracking-[0.1em] opacity-75">
-                {isConnectionRequest ? "request" : "message"}
+                {isConnectionRequest ? t("cmc.prev.kindRequest") : t("cmc.prev.kindMessage")}
               </span>
             </div>
             <div className="px-3 pt-2.5 text-[11.5px]" style={{ color: C.textMuted }}>
-              {sellerName || "Seller"} <span style={{ color: C.textDim }}>→</span> {label(lead)}
+              {sellerName || t("cmc.prev.seller")} <span style={{ color: C.textDim }}>→</span> {label(lead)}
             </div>
             {subject?.trim() && (
               <div className="px-3 pt-2 text-[13px] font-bold" style={{ color: C.textPrimary }}>{subject}</div>
@@ -478,12 +429,12 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
                 ) : sg.kind === "ai" ? (
                   <span key={i} className="rounded px-1 font-semibold text-[12px]"
                     style={{ backgroundColor: C.goldSoft, color: C.gold, border: `1px dashed color-mix(in srgb, ${gold} 45%, transparent)` }}>
-                    AI writes this per lead
+                    {t("cmc.prev.aiPerLead")}
                   </span>
                 ) : (
                   <span key={i} className="rounded px-1 font-bold"
                     style={{ backgroundColor: `color-mix(in srgb, ${C.red} 10%, transparent)`, color: C.red }}>
-                    {sg.text}{sg.kind === "blank" ? " (empty for this lead)" : ""}
+                    {sg.text}{sg.kind === "blank" ? t("cmc.prev.emptyFor") : ""}
                   </span>
                 ),
               )}
@@ -492,15 +443,15 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
 
           {leaks.length > 0 ? (
             <p className="mt-2 text-[11px] font-semibold" style={{ color: C.red }}>
-              {leaks.map(l => l.text).join(", ")} is not a placeholder we render — the dispatcher will refuse the row instead of sending it.
+              {t("cmc.prev.leaks", { list: leaks.map(l => l.text).join(", ") })}
             </p>
           ) : holes.length > 0 ? (
             <p className="mt-2 text-[11px]" style={{ color: C.red }}>
-              This lead has no {holes.map(h => h.text).join(", ")}. Switch lead above to see who else is missing it.
+              {t("cmc.prev.holes", { list: holes.map(h => h.text).join(", ") })}
             </p>
           ) : (
             <p className="mt-2 text-[10.5px]" style={{ color: C.textDim }}>
-              Gold = the lead&apos;s own data. Nothing unresolved.
+              {t("cmc.prev.allGood")}
             </p>
           )}
         </div>
@@ -550,6 +501,7 @@ export function PlaceholdersHint({
    *  author has no way to know that from the token name alone. */
   coverage?: PlaceholderCoverage;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -599,39 +551,38 @@ export function PlaceholdersHint({
           {suspicious.length > 0 ? (
             <>
               <p className="text-[12px] font-bold" style={{ color: "#DC2626" }}>
-                Foreign placeholder syntax detected — the dispatcher won&apos;t render these
+                {t("cmc.var.foreignTitle")}
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
-                Found: <span className="font-mono">{suspicious.slice(0, 6).map(s => s.token).join(", ")}{suspicious.length > 6 ? ` +${suspicious.length - 6} more` : ""}</span>.
-                Use <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> etc. — not <span className="font-mono">[First Name]</span> or <span className="font-mono">%FIRST_NAME%</span>.
+                {t("cmc.var.foundLabel")} <span className="font-mono">{suspicious.slice(0, 6).map(s => s.token).join(", ")}{suspicious.length > 6 ? t("cmc.var.andMore", { n: suspicious.length - 6 }) : ""}</span>.
+                Use <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> {t("cmc.var.useNot")} <span className="font-mono">[First Name]</span> {t("icpx.or")} <span className="font-mono">%FIRST_NAME%</span>.
               </p>
             </>
           ) : strayTailored.length > 0 ? (
             <>
               <p className="text-[12px] font-bold" style={{ color: "#DC2626" }}>
-                AI slots in a generic flow — these steps won&apos;t send
+                {t("cmc.var.strayTitle")}
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
-                Found <span className="font-mono">{strayTailored.join(", ")}</span>. Nothing fills them
-                unless the flow type is <strong>Tailored</strong> — remove them, or go back to Step 1 and switch the flow type.
+                {t("cmc.var.strayFoundPre")} <span className="font-mono">{strayTailored.join(", ")}</span>{t("cmc.var.strayFoundPost")} <strong>{t("cmc.var.strayTailoredWord")}</strong> {t("cmc.var.strayFoundEnd")}
               </p>
             </>
           ) : bad.length > 0 ? (
             <>
               <p className="text-[12px] font-bold" style={{ color: "#DC2626" }}>
-                Unsupported placeholders in your messages — fix before launch
+                {t("cmc.var.unsupportedTitle")}
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
-                These tokens won&apos;t render and the dispatcher will refuse to send: <span className="font-mono">{bad.join(", ")}</span>
+                {t("cmc.var.unsupportedDesc")} <span className="font-mono">{bad.join(", ")}</span>
               </p>
             </>
           ) : (
             <>
               <p className="text-[12px] font-bold" style={{ color: C.textPrimary }}>
-                Supported placeholders {open ? "" : "(click to expand)"}
+                {t("cmc.var.supported")} {open ? "" : t("cmc.var.clickToExpand")}
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
-                Use any of these in the message body or subject — they&apos;ll be replaced per-lead at send time.
+                {t("cmc.var.supportedDesc")}
               </p>
             </>
           )}
@@ -645,9 +596,9 @@ export function PlaceholdersHint({
             }}
             className="shrink-0 text-[10.5px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-85"
             style={{ backgroundColor: gold, color: "#1A1A2E" }}
-            title={`Rewrite ${autoFixable} token${autoFixable === 1 ? "" : "s"} to the correct {{placeholder}}`}
+            title={autoFixable === 1 ? t("cmc.var.autoFixTitleOne") : t("cmc.var.autoFixTitle", { n: autoFixable })}
           >
-            Fix automatically ({autoFixable})
+            {t("cmc.var.autoFix", { n: autoFixable })}
           </button>
         )}
         {open ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
@@ -658,9 +609,7 @@ export function PlaceholdersHint({
           style={{ borderTop: `1px solid ${C.border}` }}>
           {coverage && coverage.encrypted > 0 && (
             <p className="col-span-full text-[10px] -mt-1 mb-1" style={{ color: C.textDim }}>
-              Percentages cover the {coverage.total - coverage.encrypted} leads with readable columns.
-              The other {coverage.encrypted} are client-uploaded and encrypted — the dispatcher reads
-              their values at send time, so they are not counted here rather than counted as missing.
+              {t("cmc.var.coverageNote", { n: coverage.total - coverage.encrypted, enc: coverage.encrypted })}
             </p>
           )}
           {groups.map(g => {
@@ -671,21 +620,21 @@ export function PlaceholdersHint({
             // future-proof against new slot names.
             const isTailored = isTailoredGroup(g.tokens);
             return (
-            <div key={g.label} className="rounded-lg p-2.5"
+            <div key={g.labelKey} className="rounded-lg p-2.5"
               style={{
                 backgroundColor: isTailored ? `color-mix(in srgb, ${gold} 6%, transparent)` : C.bg,
                 border: `1px solid ${isTailored ? `color-mix(in srgb, ${gold} 35%, transparent)` : C.border}`,
               }}>
               <div className="flex items-center gap-1.5 mb-0.5">
-                <p className="text-[11px] font-bold" style={{ color: isTailored ? gold : C.textPrimary }}>{g.label}</p>
+                <p className="text-[11px] font-bold" style={{ color: isTailored ? gold : C.textPrimary }}>{t(g.labelKey)}</p>
                 {isTailored && (
                   <span className="text-[8.5px] font-bold uppercase tracking-wider px-1 py-0.5 rounded"
                     style={{ backgroundColor: gold, color: "#1A1A2E" }}>
-                    AI · per lead
+                    {t("cmc.var.aiPerLead")}
                   </span>
                 )}
               </div>
-              <p className="text-[10px] mb-1.5" style={{ color: C.textMuted }}>{g.description}</p>
+              <p className="text-[10px] mb-1.5" style={{ color: C.textMuted }}>{t(g.descKey)}</p>
               {(() => {
                 // Measured, never estimated: no counts → no bar.
                 if (!g.coverageColumn || !coverage || coverage.total === 0) return null;
@@ -716,8 +665,8 @@ export function PlaceholdersHint({
                       color: copied === tok || isTailored ? gold : C.textBody,
                       backgroundColor: copied === tok ? `color-mix(in srgb, ${gold} 15%, transparent)` : (isTailored ? `color-mix(in srgb, ${gold} 4%, var(--c-card))` : C.card),
                     }}
-                    title={isTailored ? "Click to copy. AI fills this per lead at campaign approve (one Haiku call per lead × first-touch step)." : "Click to copy"}>
-                    {copied === tok ? "Copied!" : tok}
+                    title={isTailored ? t("cmc.var.copyTailored") : t("cmc.var.copy")}>
+                    {copied === tok ? t("cmc.var.copied") : tok}
                   </button>
                 ))}
               </div>
@@ -731,11 +680,23 @@ export function PlaceholdersHint({
 }
 
 export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, flowType = "generic", signals, sampleLeads, sellerName, placeholderCoverage, onAttachmentsChange, onReorderStep }: Props) {
-  const { locale, t } = useLocale();
-  const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
-  const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
-  const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
-  const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
+  const { t } = useLocale();
+  // These read like the old per-locale maps but resolve through the shared
+  // dictionaries, so a third language needs no change here. Keyed access is
+  // kept because ~30 call sites below index them by step type.
+  const byKey = (prefix: string) =>
+    new Proxy({} as Record<string, string>, {
+      get: (_target, key: string) => {
+        const full = `${prefix}.${key}`;
+        const v = t(full);
+        // t() echoes the key when there is no entry; step types we have no
+        // hint for should read as absent, not as "wiz.desc.SOMETHING".
+        return v === full ? "" : v;
+      },
+    });
+  const typePlaceholders = byKey("wiz.ph");
+  const inlinePlaceholders = byKey("wiz.inline");
+  const typeDescriptions = byKey("wiz.desc");
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   // Helper that turns whatever the API returns (string, nested object,
@@ -791,10 +752,10 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   // hasCR) gets a placeholder — never rendered, never written to.
   const classified = sequence.map((s, i) => {
     if (hasCR && i === 0) {
-      return { type: "CR_SLOT", channel: s.channel, label: "Connection Request", hasSubject: false };
+      return { type: "CR_SLOT", channel: s.channel, label: "Connection Request", labelKey: "cmc.st.connReq", hasSubject: false };
     }
     const j = hasCR ? i - 1 : i;
-    return classifiedFU[j] ?? { type: "UNKNOWN", channel: s.channel, label: "Message", hasSubject: false };
+    return classifiedFU[j] ?? { type: "UNKNOWN", channel: s.channel, label: "Message", labelKey: "cmc.st.message", hasSubject: false };
   });
 
   // Ensure steps array matches sequence positionally (storage contract).
@@ -810,7 +771,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   if (hasCR && sequence.some(s => s.channel === "linkedin")) {
     slots.push({
       key: "cr",
-      label: "00 Invitation",
+      label: t("cmc.idx.invitation"),
       color: channelMeta.linkedin.color,
       filled: !!(channelMessages.connectionRequest ?? "").trim(),
     });
@@ -820,7 +781,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     const meta = channelMeta[cls.channel] || channelMeta.linkedin;
     slots.push({
       key: i,
-      label: `${String(hasCR ? i : i + 1).padStart(2, "0")} ${meta.label}`,
+      label: `${String(hasCR ? i : i + 1).padStart(2, "0")} ${t(meta.labelKey)}`,
       color: meta.color,
       filled: !!(channelMessages.steps?.[i]?.body ?? "").trim(),
     });
@@ -837,7 +798,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   // Measured against the real sample leads; with no leads to measure we fall
   // back to the template length rather than inventing a number.
   const previewLeads = sampleLeads ?? [];
-  const previewSeller = sellerName?.trim() || "Seller";
+  const previewSeller = sellerName?.trim() || t("cmc.prev.seller");
   function renderedRange(template: string, cap?: number) {
     if (!template) return { min: 0, max: 0, over: false, measured: false };
     if (previewLeads.length === 0) {
@@ -926,7 +887,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("AI generation error:", err);
-      setAiError(`Network error reaching AI: ${msg}`);
+      setAiError(t("cmc.gen.networkReach", { msg }));
     }
     setAiLoading(null);
   }
@@ -946,7 +907,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
     setAiLoading("all");
     setAiError(null);
-    setGenProgress({ current: 0, total: totalSteps, label: "Starting…" });
+    setGenProgress({ current: 0, total: totalSteps, label: t("cmc.gen.starting") });
 
     let failedLabel: string | null = null;
     let failedReason: string | null = null;
@@ -969,7 +930,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       let connRequest = cmSnapshot.connectionRequest || "";
       if (hasLinkedin) {
         stepIndex++;
-        setGenProgress({ current: stepIndex, total: totalSteps, label: "Connection request" });
+        setGenProgress({ current: stepIndex, total: totalSteps, label: t("cmc.gen.connReq") });
         try {
           const crRes = await fetch("/api/campaigns/generate-field", {
             method: "POST",
@@ -978,15 +939,15 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           });
           const crData = await crRes.json().catch(() => ({}));
           if (!crRes.ok) {
-            failedLabel = "Connection request";
+            failedLabel = t("cmc.gen.connReq");
             failedReason = readableErr(crData, crRes.status);
           } else {
             if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
             onChange({ ...cmSnapshot, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
         } catch (e: any) {
-          failedLabel = "Connection request";
-          failedReason = e?.message ?? "network error";
+          failedLabel = t("cmc.gen.connReq");
+          failedReason = e?.message ?? t("cmc.gen.networkErr");
         }
       }
 
@@ -998,7 +959,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         if (failedLabel) break;
         if (hasCR && i === 0) continue;
         stepIndex++;
-        setGenProgress({ current: stepIndex, total: totalSteps, label: classified[i].label });
+        setGenProgress({ current: stepIndex, total: totalSteps, label: stepTitle(classified[i]) });
         const ft = stepToFieldType(classified[i].type);
         const stepUserPrompt = channelMessages.steps?.[i]?.user_prompt ?? "";
         try {
@@ -1009,15 +970,15 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            failedLabel = classified[i].label;
+            failedLabel = stepTitle(classified[i]);
             failedReason = readableErr(data, res.status);
           } else if (data.content) {
             allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
             onChange({ ...cmSnapshot, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
         } catch (e: any) {
-          failedLabel = classified[i].label;
-          failedReason = e?.message ?? "network error";
+          failedLabel = stepTitle(classified[i]);
+          failedReason = e?.message ?? t("cmc.gen.networkErr");
         }
       }
 
@@ -1025,7 +986,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       for (const replyType of replyTypes) {
         if (failedLabel) break;
         stepIndex++;
-        const human = replyType === "replyPositive" ? "Positive auto-reply" : "Negative auto-reply";
+        const human = replyType === "replyPositive" ? t("cmc.gen.posReply") : t("cmc.gen.negReply");
         setGenProgress({ current: stepIndex, total: totalSteps, label: human });
         const promptField = replyType === "replyPositive" ? "positivePrompt" : "negativePrompt";
         const replyPrompt = (cmSnapshot.autoReplies && (cmSnapshot.autoReplies as Record<string, string | undefined>)[promptField]) ?? "";
@@ -1046,16 +1007,16 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           }
         } catch (e: any) {
           failedLabel = human;
-          failedReason = e?.message ?? "network error";
+          failedReason = e?.message ?? t("cmc.gen.networkErr");
         }
       }
     } catch (err) {
       console.error("Generate all error:", err);
-      failedReason = (err as any)?.message ?? "unexpected error";
+      failedReason = (err as any)?.message ?? t("cmc.gen.unexpectedErr");
     }
 
     if (failedLabel) {
-      const msg = failedReason ? `Failed at "${failedLabel}": ${failedReason}` : `Generation stopped at "${failedLabel}"`;
+      const msg = failedReason ? t("cmc.gen.failedAt", { label: failedLabel, reason: failedReason }) : t("cmc.gen.stoppedAt", { label: failedLabel });
       console.error(msg);
       setAiError(msg);
     }
@@ -1072,6 +1033,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       "CALL_FIRST", "CALL_FOLLOWUP",
     ]);
     return valid.has(type) ? type : "LINKEDIN_FOLLOWUP";
+  }
+
+  // Ordinal step names ("Email Follow-up 2") need the number as a var.
+  function stepTitle(cls: { labelKey: string; labelN?: number }): string {
+    return cls.labelN === undefined ? t(cls.labelKey) : t(cls.labelKey, { n: cls.labelN });
   }
 
   // Cumulative days
@@ -1098,8 +1064,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           <div className="mt-3 px-3 py-2 rounded-lg border flex items-start gap-2 text-[11px]"
             style={{ backgroundColor: "color-mix(in srgb, #DC2626 8%, transparent)", borderColor: "color-mix(in srgb, #DC2626 30%, transparent)", color: "#DC2626" }}>
             <AlertTriangle size={12} style={{ marginTop: 1, flexShrink: 0 }} />
-            <span className="flex-1 break-words"><strong>AI generator error:</strong> {aiError}</span>
-            <button onClick={() => setAiError(null)} className="text-[10px] opacity-70 hover:opacity-100">dismiss</button>
+            <span className="flex-1 break-words"><strong>{t("cmc.gen.errorLabel")}</strong> {aiError}</span>
+            <button onClick={() => setAiError(null)} className="text-[10px] opacity-70 hover:opacity-100">{t("cmc.gen.dismiss")}</button>
           </div>
         )}
         {/* Progress bar — surfaces what AI is generating right now so the
@@ -1131,7 +1097,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       >
         <div style={{ borderRight: `1px solid ${C.border}` }}>
           <p className="px-3.5 pt-3.5 pb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>
-            Steps
+            {t("cmc.idx.steps")}
           </p>
           <nav className="px-2 pb-2 flex flex-col gap-1">
             {slots.map(sl => {
@@ -1153,7 +1119,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     className="ml-auto text-[10px] font-bold shrink-0"
                     style={{ color: sl.filled ? C.green : "#D97706" }}
                   >
-                    {sl.filled ? "ready" : "empty"}
+                    {sl.filled ? t("cmc.idx.ready") : t("cmc.idx.empty")}
                   </span>
                 </button>
               );
@@ -1172,11 +1138,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             >
               {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
               {aiLoading === "all"
-                ? (genProgress ? `Step ${genProgress.current} of ${genProgress.total}` : t("wiz.gen.previewing"))
-                : "Draft all with AI"}
+                ? (genProgress ? t("cmc.idx.stepOfN", { i: genProgress.current, n: genProgress.total }) : t("wiz.gen.previewing"))
+                : t("cmc.idx.draftAll")}
             </button>
             <p className="text-[10.5px] mt-2" style={{ color: C.textDim }}>
-              You can edit any of them afterwards.
+              {t("cmc.idx.editAfter")}
             </p>
           </div>
         </div>
@@ -1197,9 +1163,9 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             <span className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>
               {t("wiz.connReq.title")}
             </span>
-            <span className="text-[11px] shrink-0" style={{ color: C.textMuted }}>· Max 200</span>
+            <span className="text-[11px] shrink-0" style={{ color: C.textMuted }}>{t("cmc.maxChars")}</span>
             <div className="ml-auto flex items-center gap-1.5">
-              <button onClick={() => toggleExpand("conn")} title={expanded.has("conn") ? "Collapse" : "Expand"}
+              <button onClick={() => toggleExpand("conn")} title={expanded.has("conn") ? t("cmc.collapse") : t("cmc.expand")}
                 className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
                 style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
                 {expanded.has("conn") ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
@@ -1210,10 +1176,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             <LaneIntent
               value={channelMessages.connectionRequestPrompt ?? ""}
               onChange={v => onChange({ ...channelMessages, connectionRequestPrompt: v })}
-              placeholder={locale === "es"
-                ? "ej: Mencionar que vimos su perfil, presentación corta y por qué queremos conectar."
-                : "e.g. Mention we saw their profile, short intro, and why we want to connect."
-              }
+              placeholder={t("wiz.connReq.intentPh")}
             />
             <LaneJoin
               hasIntent={!!(channelMessages.connectionRequestPrompt ?? "").trim()}
@@ -1306,11 +1269,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                   style={flowType === "tailored"
                     ? { borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`, background: `color-mix(in srgb, ${gold} 4%, ${meta.color}06)` }
                     : { borderColor: C.border, background: `${meta.color}06` }}>
-                  <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>Step {displayNum}</span>
+                  <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>{t("cmc.stepNum", { n: displayNum })}</span>
                   <span className="text-[11px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
-                    {cls.label}
+                    {stepTitle(cls)}
                   </span>
-                  <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.textDim }}>· Day {dayPerStep[i]}</span>
+                  <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.textDim }}>{t("cmc.dayDot", { n: dayPerStep[i] })}</span>
                   {/* Tailored status chip — shows the seller, at a glance,
                       whether THIS step body has per-lead AI slots in it.
                       Gold pill when present (the wizard generation auto-
@@ -1325,8 +1288,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       return (
                         <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1"
                           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}
-                          title={`Per-lead slots in body: ${slots.join(", ")}`}>
-                          ✨ Per-lead AI
+                          title={t("cmc.perLeadSlots", { list: slots.join(", ") })}>
+                          {t("cmc.perLeadAi")}
                         </span>
                       );
                     }
@@ -1334,8 +1297,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       return (
                         <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1"
                           style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}
-                          title="Tailored mode is on but this step has no {{tailored:hook}} / {{tailored:fit}}. Re-draft with AI to insert them or it'll ship as a generic step.">
-                          ⚠ Generic body
+                          title={t("cmc.genericWarn")}>
+                          {t("cmc.genericBody")}
                         </span>
                       );
                     }
@@ -1348,7 +1311,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                           type="button"
                           onClick={() => onReorderStep(i, i - 1)}
                           disabled={i <= firstRenderableIdx}
-                          title="Move step up"
+                          title={t("cmc.moveUp")}
                           className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ backgroundColor: C.bg, color: C.textMuted, borderRight: `1px solid ${C.border}` }}
                         >
@@ -1358,7 +1321,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                           type="button"
                           onClick={() => onReorderStep(i, i + 1)}
                           disabled={i === lastRenderableIdx}
-                          title="Move step down"
+                          title={t("cmc.moveDown")}
                           className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ backgroundColor: C.bg, color: C.textMuted }}
                         >
@@ -1366,7 +1329,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                         </button>
                       </div>
                     )}
-                    <button onClick={() => toggleExpand(`step-${i}`)} title={expanded.has(`step-${i}`) ? "Collapse" : "Expand"}
+                    <button onClick={() => toggleExpand(`step-${i}`)} title={expanded.has(`step-${i}`) ? t("cmc.collapse") : t("cmc.expand")}
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
                       style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
                       {expanded.has(`step-${i}`) ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
@@ -1437,14 +1400,14 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       return (
                         <div className="flex items-center gap-3 mt-2.5 pt-2.5 text-[10.5px] border-t" style={{ borderColor: C.border }}>
                           <span style={{ color: C.textDim }}>
-                            Template <b style={{ color: C.textMuted }}>{(step?.body || "").length}</b>
+                            {t("cmc.template")} <b style={{ color: C.textMuted }}>{(step?.body || "").length}</b>
                           </span>
                           {r.measured && (
                             <span style={{ color: C.textDim }}>
-                              Rendered <b style={{ color: C.textMuted }}>{r.min === r.max ? r.max : `${r.min}–${r.max}`}</b>
+                              {t("cmc.rendered")} <b style={{ color: C.textMuted }}>{r.min === r.max ? r.max : `${r.min}–${r.max}`}</b>
                             </span>
                           )}
-                          <span className="ml-auto" style={{ color: C.textDim }}>Under 400 characters performs +22%</span>
+                          <span className="ml-auto" style={{ color: C.textDim }}>{t("cmc.under400")}</span>
                         </div>
                       );
                     })()}
@@ -1462,8 +1425,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       <div className="mt-1.5 flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[10.5px]"
                         style={{ background: `color-mix(in srgb, ${gold} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 25%, transparent)`, color: gold }}>
                         <Sparkles size={10} />
-                        <span><strong>Per-lead:</strong> {present.map(s => <code key={s} className="px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)` }}>{`{{${s}}}`}</code>).reduce((acc, el, idx) => idx === 0 ? [el] : [...acc, " · ", el], [] as React.ReactNode[])}</span>
-                        <span className="ml-auto" style={{ color: C.textMuted }}>The rest of the text is identical for every lead · per-lead result lives in Step 4</span>
+                        <span><strong>{t("cmc.perLeadLabel")}</strong> {present.map(s => <code key={s} className="px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)` }}>{`{{${s}}}`}</code>).reduce((acc, el, idx) => idx === 0 ? [el] : [...acc, " · ", el], [] as React.ReactNode[])}</span>
+                        <span className="ml-auto" style={{ color: C.textMuted }}>{t("cmc.restIdentical")}</span>
                       </div>
                     );
                   })()}
@@ -1563,13 +1526,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 <p className="text-xs font-semibold" style={{ color: C.green }}>{t("wiz.replies.posTitle")}</p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => toggleExpand("replyPositive")} title={expanded.has("replyPositive") ? "Collapse" : "Expand"}
+                <button onClick={() => toggleExpand("replyPositive")} title={expanded.has("replyPositive") ? t("cmc.collapse") : t("cmc.expand")}
                   className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-black/5"
                   style={{ color: C.textMuted }}>
                   {expanded.has("replyPositive") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
                 </button>
                 <button onClick={() => generateField("replyPositive")} disabled={!!aiLoading}
-                  title="Draft this reply with AI from the lead's positive answer + your tone of voice"
+                  title={t("cmc.draftPosTitle")}
                   className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
                   style={{
                     background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
@@ -1578,7 +1541,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     letterSpacing: "0.06em",
                   }}>
                   {aiLoading === "replyPositive:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                  {aiLoading === "replyPositive:" ? "Drafting" : "AI Draft"}
+                  {aiLoading === "replyPositive:" ? t("cmc.draftingShort") : t("cmc.aiDraft")}
                 </button>
               </div>
             </div>
@@ -1625,13 +1588,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 <p className="text-xs font-semibold" style={{ color: C.red }}>{t("wiz.replies.negTitle")}</p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => toggleExpand("replyNegative")} title={expanded.has("replyNegative") ? "Collapse" : "Expand"}
+                <button onClick={() => toggleExpand("replyNegative")} title={expanded.has("replyNegative") ? t("cmc.collapse") : t("cmc.expand")}
                   className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-black/5"
                   style={{ color: C.textMuted }}>
                   {expanded.has("replyNegative") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
                 </button>
                 <button onClick={() => generateField("replyNegative")} disabled={!!aiLoading}
-                  title="Draft this reply with AI from the lead's negative answer + your tone of voice"
+                  title={t("cmc.draftNegTitle")}
                   className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
                   style={{
                     background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
@@ -1640,7 +1603,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     letterSpacing: "0.06em",
                   }}>
                   {aiLoading === "replyNegative:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                  {aiLoading === "replyNegative:" ? "Drafting" : "AI Draft"}
+                  {aiLoading === "replyNegative:" ? t("cmc.draftingShort") : t("cmc.aiDraft")}
                 </button>
               </div>
             </div>

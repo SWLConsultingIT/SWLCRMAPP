@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
+import { getServerLocale } from "@/lib/i18n-server";
+import { writeAllContentIn, type Locale } from "@/lib/i18n-locale";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await requireUser();
@@ -37,17 +39,23 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       .order("started_at", { ascending: true }),
   ]);
 
-  const analysis = await generate({ lead, campaigns: campaigns ?? [], replies: replies ?? [], calls: calls ?? [], apiKey });
+  // Same language contract as the page that renders this (/leads/lost/[id]):
+  // the plan is written in the reader's language and the cached row is stamped
+  // with it, so a reader on another locale regenerates instead of being served
+  // prose they can't use — including the outbound message, which goes out as
+  // written.
+  const locale = await getServerLocale();
+  const analysis = await generate({ lead, campaigns: campaigns ?? [], replies: replies ?? [], calls: calls ?? [], apiKey, locale });
   if (!analysis) return NextResponse.json({ error: "AI call failed" }, { status: 500 });
 
   await svc.from("leads")
-    .update({ ai_loss_analysis: analysis, ai_loss_analysis_at: new Date().toISOString() })
+    .update({ ai_loss_analysis: { ...analysis, locale }, ai_loss_analysis_at: new Date().toISOString() })
     .eq("id", id);
 
   return NextResponse.json({ ok: true, analysis });
 }
 
-async function generate({ lead, campaigns, replies, calls, apiKey }: any) {
+async function generate({ lead, campaigns, replies, calls, apiKey, locale }: { lead: any; campaigns: any[]; replies: any[]; calls: any[]; apiKey: string; locale: Locale }) {
   const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown";
   const negReply = replies.find((r: any) => r.classification === "negative");
   const stepsCompleted = campaigns.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0);
@@ -59,6 +67,7 @@ async function generate({ lead, campaigns, replies, calls, apiKey }: any) {
     .join("\n");
 
   const prompt = `You are a senior B2B sales strategist. A prospect has been marked as lost. Give a focused, actionable recovery plan.
+${writeAllContentIn(locale)} That includes every JSON string value below — the reasoning, the signals, the timing, the angle and the outbound message itself, which the seller will send as written.
 
 PROSPECT
 - ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}

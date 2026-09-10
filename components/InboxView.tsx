@@ -12,6 +12,7 @@ import {
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
+import { intlTag, type Locale } from "@/lib/i18n-locale";
 import InboxComposer from "./InboxComposer";
 import ReferralContactsPanel, { type ReferredContact } from "./ReferralContactsPanel";
 
@@ -40,9 +41,10 @@ type InboxReply = {
 // Fran said was too noisy — sellers were toggling instead of working.
 type Tab = "pending" | "history";
 
-const TAB_LABELS: Record<Tab, string> = {
-  pending: "Pending review",
-  history: "History",
+// Module scope, so keys. `Object.keys` still gives the tab order.
+const TAB_LABEL_KEYS: Record<Tab, string> = {
+  pending: "inbox.tab.pending",
+  history: "inbox.tab.history",
 };
 
 function channelIcon(ch: string | null) {
@@ -66,15 +68,17 @@ function classBadge(c: string | null, t: (k: string) => string): { label: string
   return { label: c, color: C.textMuted, bg: C.surface };
 }
 
-function relativeTime(iso: string) {
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+function relativeTime(iso: string, t: Tr) {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.floor(ms / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return t("inbox.justNow");
+  if (m < 60) return t("inbox.ago.min", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t("inbox.ago.hour", { n: h });
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
+  if (d < 7) return t("inbox.ago.day", { n: d });
   return new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
 }
 
@@ -154,21 +158,21 @@ function formatTimeOnly(iso: string): string {
   return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Day separator label. "Hoy" / "Ayer" / "Domingo 24 may" depending on age.
-function formatDayLabel(iso: string): string {
+// Day separator label — today / yesterday / "Sunday 24 May" depending on age.
+function formatDayLabel(iso: string, t: Tr, locale: Locale): string {
   const d = new Date(iso);
   const today = new Date();
   const yest = new Date();
   yest.setDate(yest.getDate() - 1);
   const sameDay = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  if (sameDay(d, today)) return "Hoy";
-  if (sameDay(d, yest)) return "Ayer";
+  if (sameDay(d, today)) return t("inbox.today");
+  if (sameDay(d, yest)) return t("inbox.yesterday");
   const diffMs = today.getTime() - d.getTime();
   const days = Math.floor(diffMs / 86_400_000);
   // Recent week: weekday name. Otherwise the full date.
-  if (days < 7) return d.toLocaleDateString("es-AR", { weekday: "long" });
-  return d.toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "short" });
+  if (days < 7) return d.toLocaleDateString(intlTag(locale), { weekday: "long" });
+  return d.toLocaleDateString(intlTag(locale), { weekday: "long", day: "2-digit", month: "short" });
 }
 
 // First-letter initials for the avatar bubble. Falls back to "?" if empty.
@@ -341,7 +345,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
     return 0;
   }, [dateRange]);
   const DATE_LABEL: Record<DateRange, string> = {
-    today: locale === "es" ? "Hoy" : "Today",
+    today: t("inbox.date.today"),
     "7d":  t("inbox.date.last7"),
     "30d": t("inbox.date.last30"),
     all:   t("inbox.date.allTime"),
@@ -652,7 +656,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         // selection, so the seller lands back where they were.
         if (optimisticLeadId) setClearedLeadIds(prev => { const n = new Set(prev); n.delete(optimisticLeadId); return n; });
         if (wasSelected) setSelectedId(replyId);
-        toast.show({ kind: "error", title: "Couldn't classify", description: "Try again." });
+        toast.show({ kind: "error", title: t("inbox.err.classify"), description: t("inbox.tryAgainDot") });
         return;
       }
       // Read the clicked reply's auto-reply outcome so the seller knows whether
@@ -663,11 +667,11 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         : null;
       const ars = primary?.autoReplyStatus;
       const autoReplyDesc = classification === "follow_up" ? undefined
-        : !doSendAR ? "No auto-reply — reply yourself from the composer whenever you want."
-        : ars === "sent" ? "Auto-reply sent to the lead ✓ — check the thread on the lead."
-        : ars === "deduped" ? "We already replied just now — the message wasn't duplicated."
-        : ars === "no_template" ? "No message went out — reply from the composer if you want."
-        : ars === "failed" ? "⚠ Couldn't send the auto-reply — reply manually from the composer."
+        : !doSendAR ? t("inbox.ar.none")
+        : ars === "sent" ? t("inbox.ar.sent")
+        : ars === "deduped" ? t("inbox.ar.deduped")
+        : ars === "no_template" ? t("inbox.ar.noTemplate")
+        : ars === "failed" ? t("inbox.ar.failed")
         : undefined;
       // Mirror the API's cascade response: positive/negative now pause the
       // campaign + close the lead. Tell the seller so they don't expect
@@ -675,10 +679,10 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
       toast.show({
         kind: classification === "positive" ? "success" : classification === "negative" ? "warning" : "info",
         title: classification === "follow_up"
-          ? "Marcado follow-up — la campaña sigue corriendo"
+          ? t("inbox.marked.follow_up")
           : classification === "positive"
-            ? "Marcado positive — campaña pausada, lead qualified"
-            : "Marcado negative — campaña pausada, lead closed_lost",
+            ? t("inbox.marked.positive")
+            : t("inbox.marked.negative"),
         description: autoReplyDesc,
       });
       // Re-fetch the thread so the auto-reply we just sent shows up immediately
@@ -760,10 +764,10 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
       toast.show({
         kind: failed ? "warning" : "success",
         title: failed
-          ? `${ok} ${locale === "es" ? "actualizadas" : "updated"}, ${failed} ${locale === "es" ? "fallaron" : "failed"}`
-          : action === "negative" ? `${ok} ${locale === "es" ? "marcadas negative — campañas cerradas" : "marked negative — campaigns closed"}`
-          : action === "positive" ? `${ok} ${locale === "es" ? "marcadas positive" : "marked positive"}`
-          : `${ok} ${locale === "es" ? "marcadas como revisadas" : "marked reviewed"}`,
+          ? t("inbox.bulk.toast.partial", { ok, failed })
+          : action === "negative" ? t("inbox.bulk.toast.negative", { ok })
+          : action === "positive" ? t("inbox.bulk.toast.positive", { ok })
+          : t("inbox.bulk.toast.reviewed", { ok }),
       });
       setSelectedIds(new Set());
       router.refresh();
@@ -787,12 +791,12 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         }).then(r => { if (!r.ok) throw new Error(String(r.status)); }),
       ));
       if (!results.some(r => r.status === "fulfilled")) {
-        toast.show({ kind: "error", title: "Couldn't update review", description: "Try again" });
+        toast.show({ kind: "error", title: t("inbox.err.review"), description: t("inbox.tryAgain") });
         return;
       }
       toast.show({
         kind: status === "approved" ? "success" : status === "rejected" ? "warning" : "info",
-        title: status === "approved" ? "Marked as reviewed" : status === "rejected" ? "Marked as rejected" : "Sent back to inbox",
+        title: status === "approved" ? t("inbox.markedReviewed") : status === "rejected" ? t("inbox.markedRejected") : t("inbox.sentBack"),
       });
       // Same treatment as quickClassify: hide the row and move on, instead of
       // leaving the same conversation on screen waiting for the refresh.
@@ -811,7 +815,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
     <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: `color-mix(in srgb, var(--brand, #c9a83a) 28%, ${C.border})`, boxShadow: `0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 16%, transparent), 0 10px 30px -12px rgba(0,0,0,0.4)` }}>
       {/* Tabs */}
       <div className="flex items-center gap-1 px-2 sm:px-3 pt-2 border-b overflow-x-auto" style={{ borderColor: C.border }}>
-        {(Object.keys(TAB_LABELS) as Tab[]).map(k => {
+        {(Object.keys(TAB_LABEL_KEYS) as Tab[]).map(k => {
           const active = tab === k;
           const n = counts[k];
           return (
@@ -849,27 +853,27 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         // One dropdown instead of a row of per-seller chips (boss 2026-08-27:
         // "muchos botones"). Same client-side lens over already-scoped data.
         <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: C.border }}>
-          <span className="text-[9px] font-bold uppercase tracking-wider shrink-0" style={{ color: C.textDim }}>{locale === "es" ? "Seller" : "Seller"}</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider shrink-0" style={{ color: C.textDim }}>{t("inbox.filter.sellerLabel")}</span>
           <select
             value={sellerFilter}
             onChange={(e) => setSellerFilter(e.target.value)}
             className="text-[12px] font-semibold rounded-lg px-2.5 py-1.5 outline-none cursor-pointer max-w-[220px]"
             style={{ backgroundColor: C.card, border: `1px solid ${C.border2}`, color: C.textBody }}
           >
-            <option value="all">{locale === "es" ? "Todos los sellers" : "All sellers"}</option>
-            {mySellerNames.length > 0 && <option value="mine">{locale === "es" ? "Mis leads" : "My leads"}</option>}
+            <option value="all">{t("inbox.filter.allSellers")}</option>
+            {mySellerNames.length > 0 && <option value="mine">{t("inbox.filter.myLeads")}</option>}
             {sellerOptions.map(name => (
               <option key={name} value={name}>{name}</option>
             ))}
             {pendingSellerCounts.has(UNASSIGNED_SELLER) && (
-              <option value={UNASSIGNED_SELLER}>{locale === "es" ? "Sin asignar" : "Unassigned"}</option>
+              <option value={UNASSIGNED_SELLER}>{t("inbox.filter.unassigned")}</option>
             )}
           </select>
         </div>
       ) : (
         <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: C.border }}>
           <User size={12} style={{ color: C.textDim }} />
-          <span className="text-[11px] font-semibold" style={{ color: C.textMuted }}>{locale === "es" ? "Tus leads" : "Your leads"}</span>
+          <span className="text-[11px] font-semibold" style={{ color: C.textMuted }}>{t("inbox.filter.yourLeads")}</span>
         </div>
       )}
 
@@ -920,7 +924,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     title={t("inbox.filter.clearAll")}
                   >
                     <Radio size={12} />
-                    {locale === "es" ? "Filtros" : "Filters"}
+                    {t("inbox.filter.filters")}
                     {activeFilters > 0 && (
                       <span className="inline-flex items-center justify-center text-[9px] font-bold rounded-full w-4 h-4" style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d" }}>
                         {activeFilters}
@@ -1002,7 +1006,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                   <input type="checkbox"
                     checked={filtered.every(r => selectedIds.has(r.id))}
                     onChange={() => { const all = filtered.every(r => selectedIds.has(r.id)); setSelectedIds(all ? new Set() : new Set(filtered.map(r => r.id))); }} />
-                  {selectedIds.size > 0 ? `${selectedIds.size} ${locale === "es" ? "seleccionadas" : "selected"}` : (locale === "es" ? "Seleccionar todo" : "Select all")}
+                  {selectedIds.size > 0 ? t("inbox.select.count", { n: selectedIds.size }) : t("inbox.select.all")}
                 </label>
                 {selectedIds.size > 0 && (
                   <div className="flex items-center gap-1.5 ml-auto">
@@ -1053,7 +1057,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                         <div
                           className={`absolute top-2.5 left-0.5 z-20 transition-opacity ${selectedIds.has(r.id) ? "opacity-100" : "opacity-0 group-hover/ix:opacity-100"}`}
                           onClick={(e) => { e.stopPropagation(); toggleSelect(r.id); }}
-                          title={locale === "es" ? "Seleccionar" : "Select"}
+                          title={t("inbox.select.one")}
                         >
                           <input type="checkbox" readOnly checked={selectedIds.has(r.id)} className="cursor-pointer" />
                         </div>
@@ -1092,19 +1096,19 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                               </p>
                               <span className="flex items-center gap-1 shrink-0 transition-opacity group-hover/ix:opacity-0">
                                 {r.requiresHumanReview && (
-                                  <span title={locale === "es" ? "Necesita revisión" : "Needs review"} style={{ color: "#D97706" }}>
+                                  <span title={t("inbox.needsReview")} style={{ color: "#D97706" }}>
                                     <AlertCircle size={11} />
                                   </span>
                                 )}
                                 <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>
-                                  {relativeTime(r.receivedAt)}
+                                  {relativeTime(r.receivedAt, t)}
                                 </span>
                               </span>
                             </div>
                             <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: C.textBody }}>
                               {r.classification === "connection_accepted"
-                                ? "🤝 Aceptó la solicitud de conexión"
-                                : (r.replyText && r.replyText.trim() ? r.replyText : "(sin texto)")}
+                                ? t("inbox.event.acceptedRequest")
+                                : (r.replyText && r.replyText.trim() ? r.replyText : t("inbox.msg.noText"))}
                             </p>
                             {/* Meta row — the channel is already the left icon
                                 tile, so drop the redundant channel chip (boss
@@ -1241,35 +1245,35 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                   <div className="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-xs" style={{ color: C.textMuted }}>
                     <span>{selected.company ?? "—"}</span>
                     {selected.campaignName && <span>· {selected.campaignName}</span>}
-                    <span>· {relativeTime(selected.receivedAt)}</span>
+                    <span>· {relativeTime(selected.receivedAt, t)}</span>
                     {stage && (
                       <>
                         <span style={{ color: C.textDim }}>·</span>
                         {stage.status === "completed" ? (
                           <span className="inline-flex items-center gap-1 font-semibold"
                             style={{ color: stage.stopReason?.includes("positive") ? C.green : C.red }}>
-                            {stage.stopReason?.includes("positive") ? "● Cerrada · ganado"
-                              : stage.stopReason?.includes("negative") ? "● Cerrada · perdido"
-                              : "● Cerrada"}
+                            {stage.stopReason?.includes("positive") ? t("inbox.stage.closedWon")
+                              : stage.stopReason?.includes("negative") ? t("inbox.stage.closedLost")
+                              : t("inbox.stage.closed")}
                           </span>
                         ) : stage.status === "paused" ? (
-                          <span className="font-semibold" style={{ color: "#D97706" }}>● Pausada</span>
+                          <span className="font-semibold" style={{ color: "#D97706" }}>{t("inbox.stage.paused")}</span>
                         ) : stage.haltedByReply ? (
-                          <span className="font-semibold" style={{ color: "#D97706" }}>● Frenada — respondió</span>
+                          <span className="font-semibold" style={{ color: "#D97706" }}>{t("inbox.halted")}</span>
                         ) : (
                           <span className="inline-flex items-center gap-1 font-semibold" style={{ color: C.green }}>
                             <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: C.green }} />
-                            Activa
+                            {t("inbox.stage.active")}
                           </span>
                         )}
                         {stage.currentStep != null && stage.totalSteps != null && stage.totalSteps > 0 && (
-                          <span>· Paso {stage.currentStep}/{stage.totalSteps}</span>
+                          <span>· {t("inbox.stage.step", { n: stage.currentStep, total: stage.totalSteps })}</span>
                         )}
                         {stage.nextStepLabel && stage.status !== "completed" && (
                           <span>
                             → <span className="font-medium" style={{ color: channelColor(stage.nextStepChannel) }}>{stage.nextStepLabel}</span>
                             {stage.haltedByReply ? (
-                              <span style={{ color: "#D97706" }}> (en espera)</span>
+                              <span style={{ color: "#D97706" }}> {t("inbox.stage.onHold")}</span>
                             ) : stage.nextStepDueAt && (() => {
                               const ms = new Date(stage.nextStepDueAt).getTime() - Date.now();
                               const days = Math.ceil(ms / 86_400_000);
@@ -1291,8 +1295,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     onClick={() => setMaximized(m => { const next = !m; if (next) setListCollapsed(true); return next; })}
                     className="w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-opacity hover:opacity-85"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
-                    title={maximized ? "Restaurar tamaño" : "Expandir para leer mejor"}
-                    aria-label={maximized ? "Restaurar tamaño" : "Expandir"}
+                    title={maximized ? t("inbox.restoreSize") : t("inbox.expand")}
+                    aria-label={maximized ? t("inbox.restoreSize") : t("inbox.expand")}
                   >
                     {maximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                   </button>
@@ -1300,8 +1304,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     href={`/leads/${selected.leadId}`}
                     className="w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-opacity hover:opacity-85"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
-                    title="Open lead"
-                    aria-label="Open lead"
+                    title={t("inbox.openLead")}
+                    aria-label={t("inbox.openLead")}
                   >
                     <ExternalLink size={14} />
                   </Link>
@@ -1375,13 +1379,13 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     </div>
                     <p className="text-sm font-semibold" style={{ color: C.textBody }}>
                       {selected.classification === "connection_accepted"
-                        ? "Aceptó la conexión"
-                        : "Sin mensajes todavía"}
+                        ? t("inbox.event.accepted")
+                        : t("inbox.thread.noMessages")}
                     </p>
                     <p className="text-xs mt-1 max-w-[280px]" style={{ color: C.textMuted }}>
                       {selected.classification === "connection_accepted"
-                        ? "El primer mensaje del flow va a aparecer acá cuando se mande."
-                        : (selected.replyText ?? "Cuando el lead responda o vos le mandes algo, va a aparecer acá.")}
+                        ? t("inbox.thread.firstWillAppear")
+                        : (selected.replyText ?? t("inbox.thread.replyWillAppear"))}
                     </p>
                   </div>
                 ) : (
@@ -1399,13 +1403,11 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                       return (
                         <div className="flex flex-col items-center justify-center text-center py-12">
                           <p className="text-sm font-semibold" style={{ color: C.textBody }}>
-                            {locale === "es"
-                              ? `No hay mensajes de ${channelLabel(threadChannel === "all" ? null : threadChannel, t)} en este hilo.`
-                              : `No ${channelLabel(threadChannel === "all" ? null : threadChannel, t)} messages in this thread.`}
+                            {t("inbox.thread.emptyChannel", { channel: channelLabel(threadChannel === "all" ? null : threadChannel, t) })}
                           </p>
                           <button onClick={() => setThreadChannel("all")}
                             className="text-[11px] mt-2 font-semibold hover:underline" style={{ color: "var(--brand, #c9a83a)" }}>
-                            {locale === "es" ? "Ver todos los canales" : "View all channels"}
+                            {t("inbox.thread.viewAllChannels")}
                           </button>
                         </div>
                       );
@@ -1426,18 +1428,18 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                       // A manual seller reply also lives at step -1, so check
                       // kind first: only a real bot auto-reply gets "Auto-reply".
                       const stepLabel = entry.kind === "manual_seller_reply"
-                        ? "Seller reply"
+                        ? t("inbox.sellerReply")
                         : (entry.kind === "auto_reply" || entry.stepNumber === -1)
-                          ? "Auto-reply"
+                          ? t("inbox.autoReply")
                           : (entry.source === "unipile" && isOut)
-                            ? "Seller reply"
+                            ? t("inbox.sellerReply")
                             : null;
                       const time = formatTimeOnly(entry.at);
                       const dayDate = new Date(entry.at);
                       const dayKey = `${dayDate.getFullYear()}-${dayDate.getMonth()}-${dayDate.getDate()}`;
                       const showDayHeader = dayKey !== lastDayKey;
                       lastDayKey = dayKey;
-                      const dayLabel = formatDayLabel(entry.at);
+                      const dayLabel = formatDayLabel(entry.at, t, locale);
                       const isLast = idx === visibleThread.length - 1;
                       const isEmail = entry.channel === "email";
                       return (
@@ -1483,9 +1485,9 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>
-                                    {isOut ? (selected.sellerName ?? "Tu equipo") : selected.leadName}
+                                    {isOut ? (selected.sellerName ?? t("inbox.yourTeam")) : selected.leadName}
                                     <span className="ml-2 text-[10px] font-normal" style={{ color: C.textMuted }}>
-                                      → {isOut ? selected.leadName : (selected.sellerName ?? "Tu equipo")}
+                                      → {isOut ? selected.leadName : (selected.sellerName ?? t("inbox.yourTeam"))}
                                     </span>
                                   </p>
                                   <p className="text-[10px]" style={{ color: C.textMuted }}>
@@ -1514,7 +1516,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                 {entry.body && entry.body.trim() ? (
                                   <p className="text-[15px] whitespace-pre-wrap leading-[1.65]" style={{ color: C.textPrimary }}>{entry.body}</p>
                                 ) : entry.attachments && entry.attachments.length > 0 ? null : (
-                                  <p className="text-sm italic" style={{ color: C.textMuted }}>(sin contenido)</p>
+                                  <p className="text-sm italic" style={{ color: C.textMuted }}>{t("inbox.msg.noContent")}</p>
                                 )}
                                 {entry.attachments && entry.attachments.length > 0 && (
                                   <div className="flex flex-wrap gap-2 mt-3">
@@ -1531,7 +1533,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                           className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs hover:opacity-85"
                                           style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}>
                                           <ExternalLink size={11} />
-                                          <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
+                                          <span className="truncate max-w-[180px]">{a.name ?? t("inbox.attachment")}</span>
                                           {a.size != null && (
                                             <span className="text-[10px]" style={{ color: C.textDim }}>{(a.size / 1024).toFixed(0)} KB</span>
                                           )}
@@ -1546,14 +1548,14 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                 <div className="px-4 py-2 border-t flex items-center justify-end gap-1.5 text-[10px]"
                                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textDim }}>
                                   {entry.seen ? (
-                                    <span className="inline-flex items-center gap-1" style={{ color: channelColor("email") }} title={entry.seenAt ? `Visto ${formatTimeOnly(entry.seenAt)}` : "Visto"}>
+                                    <span className="inline-flex items-center gap-1" style={{ color: channelColor("email") }} title={entry.seenAt ? t("inbox.receipt.seenAt", { time: formatTimeOnly(entry.seenAt) }) : t("inbox.receipt.seen")}>
                                       <span className="font-bold tracking-tighter">✓✓</span>
-                                      <span>Visto{entry.seenAt ? ` ${formatTimeOnly(entry.seenAt)}` : ""}</span>
+                                      <span>{entry.seenAt ? t("inbox.receipt.seenAt", { time: formatTimeOnly(entry.seenAt) }) : t("inbox.receipt.seen")}</span>
                                     </span>
                                   ) : (
                                     <span className="inline-flex items-center gap-1" title={t("inbox.delivered")}>
                                       <span className="font-bold tracking-tighter">✓✓</span>
-                                      <span>Entregado</span>
+                                      <span>{t("inbox.delivered")}</span>
                                     </span>
                                   )}
                                 </div>
@@ -1591,7 +1593,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                 {entry.body && entry.body.trim() ? (
                                   <p className="text-[15px] whitespace-pre-wrap leading-[1.6]" style={{ color: C.textPrimary }}>{entry.body}</p>
                                 ) : entry.attachments && entry.attachments.length > 0 ? null : (
-                                  <p className="text-sm" style={{ color: C.textMuted }}>(sin contenido)</p>
+                                  <p className="text-sm" style={{ color: C.textMuted }}>{t("inbox.msg.noContent")}</p>
                                 )}
                                 {entry.attachments && entry.attachments.length > 0 && (
                                   <div className="flex flex-wrap gap-2">
@@ -1616,7 +1618,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                           style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}
                                         >
                                           <ExternalLink size={11} />
-                                          <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
+                                          <span className="truncate max-w-[180px]">{a.name ?? t("inbox.attachment")}</span>
                                           {a.size != null && (
                                             <span className="text-[10px]" style={{ color: C.textDim }}>
                                               {(a.size / 1024).toFixed(0)} KB
@@ -1658,14 +1660,14 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                   <>
                                     <span>·</span>
                                     {entry.seen ? (
-                                      <span className="inline-flex items-center gap-1" style={{ color: C.linkedin }} title={entry.seenAt ? `Visto ${formatTimeOnly(entry.seenAt)}` : "Visto"}>
+                                      <span className="inline-flex items-center gap-1" style={{ color: C.linkedin }} title={entry.seenAt ? t("inbox.receipt.seenAt", { time: formatTimeOnly(entry.seenAt) }) : t("inbox.receipt.seen")}>
                                         <span className="font-bold tracking-tighter">✓✓</span>
-                                        <span>Visto{entry.seenAt ? ` ${formatTimeOnly(entry.seenAt)}` : ""}</span>
+                                        <span>{entry.seenAt ? t("inbox.receipt.seenAt", { time: formatTimeOnly(entry.seenAt) }) : t("inbox.receipt.seen")}</span>
                                       </span>
                                     ) : (
                                       <span className="inline-flex items-center gap-1" title={t("inbox.delivered")}>
                                         <span className="font-bold tracking-tighter">✓✓</span>
-                                        <span>Entregado</span>
+                                        <span>{t("inbox.delivered")}</span>
                                       </span>
                                     )}
                                   </>
@@ -1753,8 +1755,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
                       style={{ color: selected.reviewStatus === "rejected" ? C.red : C.green, backgroundColor: `color-mix(in srgb, ${selected.reviewStatus === "rejected" ? C.red : C.green} 12%, transparent)` }}>
                       {selected.reviewStatus === "rejected"
-                        ? <><XIcon size={12} /> {locale === "es" ? "Rechazada" : "Rejected"}</>
-                        : <><Check size={12} /> {locale === "es" ? "Revisada" : "Reviewed"}</>}
+                        ? <><XIcon size={12} /> {t("inbox.status.rejected")}</>
+                        : <><Check size={12} /> {t("inbox.status.reviewed")}</>}
                     </span>
                     {selected.reviewStatus && selected.reviewStatus !== "pending" && (
                       <button
@@ -1777,9 +1779,9 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                 <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)` }}>
                   <InboxIcon size={20} style={{ color: "var(--brand, #c9a83a)" }} />
                 </div>
-                <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>Pick a reply to read</p>
+                <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>{t("inbox.empty.pickReply")}</p>
                 <p className="text-[11px]" style={{ color: C.textMuted }}>
-                  Click any item on the left, or use <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>K</kbd> to navigate.
+                  {t("inbox.navHintPre")} <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>K</kbd> {t("inbox.navHintPost")}
                 </p>
               </div>
             </div>
@@ -1828,7 +1830,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                         value={arPreview.text}
                         onChange={e => setArPreview(p => ({ ...p, text: e.target.value }))}
                         rows={5}
-                        placeholder="Escribí el mensaje a enviar al lead…"
+                        placeholder={t("inbox.composer.placeholder")}
                         className="w-full text-[12px] leading-relaxed rounded-lg px-3 py-2 resize-y outline-none"
                         style={{
                           backgroundColor: C.bg,

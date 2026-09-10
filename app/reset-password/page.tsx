@@ -4,8 +4,10 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, ChevronRight, CheckCircle2, ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useLocale } from "@/lib/i18n";
 
 function ResetPasswordInner() {
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -44,7 +46,7 @@ function ResetPasswordInner() {
     e.preventDefault();
     setError("");
     if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
-    if (password !== confirm) { setError("Passwords don't match"); return; }
+    if (password !== confirm) { setError(t("auth.passwordsMismatch")); return; }
     if (mode === "code") {
       if (!email.trim()) { setError("Enter your email"); return; }
       if (code.replace(/\s/g, "").length < 6) { setError("Enter the 6-digit code from your email"); return; }
@@ -113,8 +115,8 @@ function ResetPasswordInner() {
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
               <CheckCircle2 size={32} style={{ color: "#22C55E" }} />
             </div>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>Password updated</h2>
-            <p className="text-sm" style={{ color: "rgba(217,222,226,0.6)" }}>Redirecting to login…</p>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>{t("auth.passwordUpdated")}</h2>
+            <p className="text-sm" style={{ color: "rgba(217,222,226,0.6)" }}>{t("auth.redirecting")}</p>
           </div>
         ) : mode === "loading" ? (
           <div className="flex justify-center py-12">
@@ -124,7 +126,7 @@ function ResetPasswordInner() {
           <>
             <div className="mb-8">
               <h2 className="text-2xl font-bold mb-1" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)", letterSpacing: "-0.01em" }}>
-                {mode === "code" ? "Enter your code" : "New password"}
+                {mode === "code" ? "Enter your code" : t("auth.newPassword")}
               </h2>
               <p className="text-sm" style={{ color: "rgba(217,222,226,0.5)" }}>
                 {mode === "code"
@@ -137,7 +139,7 @@ function ResetPasswordInner() {
               {mode === "code" && (
                 <>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Email</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.email")}</p>
                     <input
                       type="email"
                       value={email}
@@ -152,7 +154,7 @@ function ResetPasswordInner() {
                   </div>
 
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>6-digit code</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.sixDigitCode")}</p>
                     <input
                       ref={codeInputRef}
                       type="text"
@@ -173,13 +175,13 @@ function ResetPasswordInner() {
               )}
 
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>New password</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.newPassword")}</p>
                 <div className="relative">
                   <input
                     type={showPw ? "text" : "password"}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder="At least 6 characters"
+                    placeholder={t("auth.min6")}
                     className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                     style={inputBaseStyle}
                     autoComplete="new-password"
@@ -195,12 +197,12 @@ function ResetPasswordInner() {
               </div>
 
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Confirm</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.confirm")}</p>
                 <input
                   type={showPw ? "text" : "password"}
                   value={confirm}
                   onChange={e => setConfirm(e.target.value)}
-                  placeholder="Repeat your password"
+                  placeholder={t("auth.repeatPassword")}
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={inputBaseStyle}
                   autoComplete="new-password"
@@ -226,13 +228,13 @@ function ResetPasswordInner() {
                     Saving…
                   </span>
                 ) : (
-                  <>Update password<ChevronRight size={15} /></>
+                  <>{t("auth.updatePassword")}<ChevronRight size={15} /></>
                 )}
               </button>
 
               {mode === "code" && (
                 <p className="text-xs text-center pt-2" style={{ color: "rgba(217,222,226,0.4)" }}>
-                  Didn&apos;t get the code? <a href="/forgot-password" className="hover:underline" style={{ color: "#b79832" }}>Send another</a>
+                  Didn&apos;t get the code? <a href="/forgot-password" className="hover:underline" style={{ color: "#b79832" }}>{t("auth.sendAnother")}</a>
                 </p>
               )}
             </form>

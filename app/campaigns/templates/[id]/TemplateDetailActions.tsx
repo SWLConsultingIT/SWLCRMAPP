@@ -11,6 +11,7 @@ import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 import { useToast } from "@/lib/toast";
 import { printPdf } from "@/lib/print-pdf";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -33,27 +34,28 @@ type FullTemplate = {
 type TonePreset = "conservative" | "balanced" | "direct" | "spicy" | "custom";
 type RewriteMode = "verbatim" | "personalize" | "rewrite_with_source";
 
-const TONE_PRESETS: Array<{ id: TonePreset; label: string; desc: string }> = [
-  { id: "conservative", label: "Conservative", desc: "Formal, safe, no hype." },
-  { id: "balanced",     label: "Balanced",     desc: "Conversational professional. Default." },
-  { id: "direct",       label: "Direct",       desc: "Punchy, no fluff." },
-  { id: "spicy",        label: "Spicy",        desc: "Bold opener, sharp angles." },
-  { id: "custom",       label: "Custom",       desc: "Bring your own style notes." },
+// Keys, not labels: module scope. Resolved where the pickers render.
+const TONE_PRESETS: Array<{ id: TonePreset; labelKey: string; descKey: string }> = [
+  { id: "conservative", labelKey: "tpl.tone.conservative", descKey: "tpl.tone.conservativeShort" },
+  { id: "balanced",     labelKey: "tpl.tone.balanced",     descKey: "tpl.tone.balancedShort" },
+  { id: "direct",       labelKey: "tpl.tone.direct",       descKey: "tpl.tone.directShort" },
+  { id: "spicy",        labelKey: "tpl.tone.spicy",        descKey: "tpl.tone.spicyShort" },
+  { id: "custom",       labelKey: "tpl.tone.custom",       descKey: "tpl.tone.customShort" },
 ];
 
-const REWRITE_MODES: Array<{ id: RewriteMode; label: string; desc: string }> = [
-  { id: "verbatim",            label: "Verbatim",                desc: "Use body as-is. Only {{first_name}} / {{seller_name}} substituted." },
-  { id: "personalize",         label: "Personalize per lead",    desc: "Light per-lead rewrite by Claude." },
-  { id: "rewrite_with_source", label: "Rewrite from source PDF", desc: "Per-lead rewrite anchored to the source PDFs." },
+const REWRITE_MODES: Array<{ id: RewriteMode; labelKey: string; descKey: string }> = [
+  { id: "verbatim",            labelKey: "tpl.mode.verbatim",    descKey: "tpl.mode.verbatimShort" },
+  { id: "personalize",         labelKey: "tpl.mode.personalize", descKey: "tpl.mode.personalizeShort" },
+  { id: "rewrite_with_source", labelKey: "tpl.mode.rewrite",     descKey: "tpl.mode.rewriteShort" },
 ];
 
 type EditStep = { channel: string; daysAfter: number; subject: string; body: string; attachments?: StepAttachment[] };
 
 const CHANNELS = [
-  { key: "linkedin", label: "LinkedIn", icon: Share2,        color: "#0A66C2" },
-  { key: "email",    label: "Email",    icon: Mail,          color: "#7C3AED" },
-  { key: "call",     label: "Call",     icon: Phone,         color: "#F97316" },
-  { key: "whatsapp", label: "WhatsApp", icon: MessageSquare, color: "#25D366" },
+  { key: "linkedin", labelKey: "chan.linkedin", icon: Share2,        color: "#0A66C2" },
+  { key: "email",    labelKey: "chan.email",    icon: Mail,          color: "#7C3AED" },
+  { key: "call",     labelKey: "chan.call",     icon: Phone,         color: "#F97316" },
+  { key: "whatsapp", labelKey: "chan.whatsapp", icon: MessageSquare, color: "#25D366" },
 ];
 const channelMeta = Object.fromEntries(CHANNELS.map(c => [c.key, c]));
 
@@ -63,6 +65,7 @@ export default function TemplateDetailActions({
   templateId: string; templateName: string;
   currentIcpId: string | null; icps: IcpOption[];
 }) {
+  const { t: tr } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -85,9 +88,9 @@ export default function TemplateDetailActions({
     if (busy) return; setBusy(true);
     try {
       const res = await fetch(`/api/templates/${templateId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icp_profile_id: icpId }) });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: "Couldn't move template", description: b.error ?? "Try again." }); return; }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: tr("tv.err.moveTitle"), description: b.error ?? tr("tv.err.retry") }); return; }
       setMenuOpen(false); router.refresh();
-      toast.show({ kind: "success", title: "Template moved to ICP" });
+      toast.show({ kind: "success", title: tr("tv.ok.moved") });
     } finally { setBusy(false); }
   }
 
@@ -96,8 +99,8 @@ export default function TemplateDetailActions({
     try {
       const res = await fetch(`/api/templates/${templateId}/duplicate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icp_profile_id: icpId }) });
       const b = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.show({ kind: "error", title: "Couldn't duplicate template", description: b.error ?? "Try again." }); return; }
-      toast.show({ kind: "success", title: "Template duplicated" });
+      if (!res.ok) { toast.show({ kind: "error", title: tr("tv.err.dupTitle"), description: b.error ?? tr("tv.err.retry") }); return; }
+      toast.show({ kind: "success", title: tr("tv.ok.duplicated") });
       if (b.template?.id) router.push(`/campaigns/templates/${b.template.id}`);
       else { setMenuOpen(false); router.refresh(); }
     } finally { setBusy(false); }
@@ -105,12 +108,12 @@ export default function TemplateDetailActions({
 
   async function handleDelete() {
     if (busy) return;
-    if (!confirm(`Delete template "${templateName}"? This can't be undone.`)) return;
+    if (!confirm(tr("tv.confirm.delete", { name: templateName }))) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/templates/${templateId}`, { method: "DELETE" });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: "Couldn't delete template", description: b.error ?? "Try again." }); return; }
-      toast.show({ kind: "success", title: "Template deleted" });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: tr("tv.err.deleteTitle"), description: b.error ?? tr("tv.err.retry") }); return; }
+      toast.show({ kind: "success", title: tr("tv.ok.deleted") });
       router.push("/campaigns");
     } finally { setBusy(false); }
   }
@@ -120,11 +123,11 @@ export default function TemplateDetailActions({
       <button onClick={() => setLaunchOpen(true)} disabled={busy}
         className="text-sm font-semibold px-4 py-2 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
         style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-        <Play size={13} /> Use template
+        <Play size={13} /> {tr("tda.useTemplate")}
       </button>
 
       <button onClick={() => printPdf(`/campaigns/templates/${templateId}/print`, templateName)} disabled={busy}
-        title="Download as branded PDF"
+        title={tr("tda.pdfTitle")}
         className="text-sm font-semibold px-3 py-2 rounded-lg border inline-flex items-center gap-2 disabled:opacity-50"
         style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
         <Download size={13} /> PDF
@@ -143,30 +146,30 @@ export default function TemplateDetailActions({
             <button onClick={() => { setMenuOpen(false); setEditOpen(true); }}
               className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
               style={{ color: C.textBody }}>
-              <Pencil size={12} /> Edit template
+              <Pencil size={12} /> {tr("tv.menu.edit")}
             </button>
             <button onClick={() => setSubmenu("duplicate")}
               className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
               style={{ color: C.textBody }}>
-              <Copy size={12} /> Duplicate to ICP… <ArrowRight size={10} className="ml-auto" />
+              <Copy size={12} /> {tr("tv.menu.dupToIcp")} <ArrowRight size={10} className="ml-auto" />
             </button>
             <button onClick={() => setSubmenu("move")}
               className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
               style={{ color: C.textBody }}>
-              <FolderTree size={12} /> Move to ICP… <ArrowRight size={10} className="ml-auto" />
+              <FolderTree size={12} /> {tr("tv.menu.moveToIcp")} <ArrowRight size={10} className="ml-auto" />
             </button>
             <button onClick={handleDelete}
               className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04] border-t"
               style={{ color: C.red, borderColor: C.border }}>
-              <Trash2 size={12} /> Delete
+              <Trash2 size={12} /> {tr("tv.menu.delete")}
             </button>
           </div>
         )}
         {menuOpen && submenu === "duplicate" && (
-          <IcpPicker icps={icps} onPick={handleDuplicate} title="Duplicate to which ICP?" onCancel={() => setSubmenu("main")} />
+          <IcpPicker icps={icps} onPick={handleDuplicate} title={tr("tv.picker.dupTitle")} onCancel={() => setSubmenu("main")} />
         )}
         {menuOpen && submenu === "move" && (
-          <IcpPicker icps={icps} onPick={handleAssign} title="Move to which ICP?" excludeId={currentIcpId} onCancel={() => setSubmenu("main")} />
+          <IcpPicker icps={icps} onPick={handleAssign} title={tr("tv.picker.moveTitle")} excludeId={currentIcpId} onCancel={() => setSubmenu("main")} />
         )}
       </div>
 
@@ -178,6 +181,7 @@ export default function TemplateDetailActions({
 
 /* ── Edit overlay ── */
 function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: string; icps: IcpOption[]; onClose: () => void; onSaved: () => void }) {
+  const { t: tr } = useLocale();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -284,8 +288,8 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
           rewrite_mode: rewriteMode,
         }),
       });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: "Save failed", description: b.error ?? "Try again." }); return; }
-      toast.show({ kind: "success", title: "Template saved" });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: tr("tda.err.saveTitle"), description: b.error ?? tr("tv.err.retry") }); return; }
+      toast.show({ kind: "success", title: tr("tda.ok.saved") });
       onSaved();
     } finally { setSaving(false); }
   }
@@ -300,7 +304,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
             <X size={14} />
           </button>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Editing template</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{tr("tda.editing")}</p>
             <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{name || "…"}</p>
           </div>
         </div>
@@ -308,7 +312,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
           className="text-sm font-semibold px-4 py-2 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
           {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-          Save changes
+          {tr("tda.saveChanges")}
         </button>
       </div>
 
@@ -322,14 +326,14 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
             {/* Name + description */}
             <div className="rounded-xl border p-5 space-y-3" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Name</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>{tr("tda.name")}</label>
                 <input value={name} onChange={e => setName(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 text-sm font-semibold focus:outline-none"
                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
               </div>
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Description</label>
-                <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional"
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>{tr("tda.description")}</label>
+                <input value={description} onChange={e => setDescription(e.target.value)} placeholder={tr("tda.optionalPh")}
                   className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
               </div>
@@ -340,21 +344,21 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                 rewrite_mode or move it to a different ICP. */}
             <div className="rounded-xl border p-5 space-y-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                Targeting &amp; behavior
+                {tr("tda.targeting")}
               </p>
 
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>ICP target</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>{tr("tda.icpTarget")}</label>
                 <select value={icpId ?? ""} onChange={e => setIcpId(e.target.value || null)}
                   className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}>
-                  <option value="">— None —</option>
+                  <option value="">{tr("tda.none")}</option>
                   {icps.map(i => <option key={i.id} value={i.id}>{i.profile_name}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Tone</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>{tr("tpl.tone")}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {TONE_PRESETS.map(t => (
                     <button key={t.id} onClick={() => setTonePreset(t.id)}
@@ -364,16 +368,16 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                         backgroundColor: tonePreset === t.id ? `color-mix(in srgb, ${gold} 10%, transparent)` : C.bg,
                         color: tonePreset === t.id ? gold : C.textBody,
                       }}>
-                      {t.label}
+                      {tr(t.labelKey)}
                     </button>
                   ))}
                 </div>
                 <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>
-                  {TONE_PRESETS.find(t => t.id === tonePreset)?.desc}
+                  {(() => { const p = TONE_PRESETS.find(x => x.id === tonePreset); return p ? tr(p.descKey) : null; })()}
                 </p>
                 {tonePreset === "custom" && (
                   <textarea value={toneCustom} onChange={e => setToneCustom(e.target.value)}
-                    placeholder="Paste your style guide / writing examples."
+                    placeholder={tr("tda.stylePh")}
                     rows={3} maxLength={1500}
                     className="w-full mt-2 rounded-lg border px-3 py-2 text-sm focus:outline-none resize-y"
                     style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
@@ -381,7 +385,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
               </div>
 
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Rewrite mode</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>{tr("tda.rewriteMode")}</label>
                 <div className="space-y-1.5">
                   {REWRITE_MODES.map(m => (
                     <button key={m.id} onClick={() => setRewriteMode(m.id)}
@@ -391,9 +395,9 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                         backgroundColor: rewriteMode === m.id ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.bg,
                       }}>
                       <span className="text-xs font-semibold shrink-0" style={{ color: rewriteMode === m.id ? gold : C.textBody }}>
-                        {m.label}
+                        {tr(m.labelKey)}
                       </span>
-                      <span className="text-[11px]" style={{ color: C.textMuted }}>{m.desc}</span>
+                      <span className="text-[11px]" style={{ color: C.textMuted }}>{tr(m.descKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -403,7 +407,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
             {/* Connection request */}
             {connReq !== null && (
               <StepEditor
-                label="LinkedIn invite" channel="linkedin" day={0} isInvite
+                labelKey="tda.liInvite" channel="linkedin" day={0} isInvite
                 body={connReq} onBodyChange={setConnReq} charLimit={200}
               />
             )}
@@ -412,7 +416,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                  Sequence steps ({steps.length})
+                  {tr("tda.seqSteps", { n: steps.length })}
                 </p>
               </div>
 
@@ -456,7 +460,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                                 color: active ? ch.color : C.textMuted,
                                 border: `1px solid ${active ? ch.color + "40" : "transparent"}`,
                               }}>
-                              <CIcon size={11} /> {ch.label}
+                              <CIcon size={11} /> {tr(ch.labelKey)}
                             </button>
                           );
                         })}
@@ -465,15 +469,15 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                       {/* Days after */}
                       <div className="flex items-center gap-1.5 shrink-0">
                         {idx === 0 && connReq !== null ? (
-                          <span className="text-[10px] px-2 py-1 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>Day 0</span>
+                          <span className="text-[10px] px-2 py-1 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>{tr("tda.day", { n: 0 })}</span>
                         ) : (
                           <>
-                            <span className="text-[10px]" style={{ color: C.textMuted }}>Wait</span>
+                            <span className="text-[10px]" style={{ color: C.textMuted }}>{tr("nfl.wait")}</span>
                             <input type="number" min={1} value={s.daysAfter}
                               onChange={e => updateStep(idx, { daysAfter: Math.max(1, parseInt(e.target.value || "1")) })}
                               className="w-14 rounded-lg border px-2 py-1 text-xs font-bold text-center focus:outline-none tabular-nums"
                               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
-                            <span className="text-[10px]" style={{ color: C.textMuted }}>d · Day {day}</span>
+                            <span className="text-[10px]" style={{ color: C.textMuted }}>{tr("tda.dayAfter", { n: day })}</span>
                           </>
                         )}
                       </div>
@@ -489,14 +493,14 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                     <div className="px-4 pb-4 space-y-2">
                       {s.channel === "email" && (
                         <div>
-                          <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Subject</label>
+                          <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>{tr("tda.subject")}</label>
                           <input value={s.subject} onChange={e => updateStep(idx, { subject: e.target.value })}
                             className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                             style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
                         </div>
                       )}
                       <div>
-                        <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Body</label>
+                        <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>{tr("tda.body")}</label>
                         <textarea value={s.body} onChange={e => updateStep(idx, { body: e.target.value })} rows={10}
                           className="w-full rounded-lg border px-3 py-2.5 text-sm leading-relaxed focus:outline-none resize-y"
                           style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, minHeight: 200, fontFamily: "inherit" }} />
@@ -521,7 +525,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
               <button onClick={addStep}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed text-xs font-medium transition-opacity hover:opacity-80"
                 style={{ borderColor: C.border, color: C.textMuted }}>
-                <Plus size={13} /> Add step
+                <Plus size={13} /> {tr("tda.addStep")}
               </button>
             </div>
           </div>
@@ -531,10 +535,11 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
   );
 }
 
-function StepEditor({ label, channel, day, isInvite, body, onBodyChange, charLimit }: {
-  label: string; channel: string; day: number; isInvite?: boolean;
+function StepEditor({ labelKey, channel, day, isInvite, body, onBodyChange, charLimit }: {
+  labelKey: string; channel: string; day: number; isInvite?: boolean;
   body: string; onBodyChange: (v: string) => void; charLimit?: number;
 }) {
+  const { t: tr } = useLocale();
   const meta = channelMeta[channel] ?? CHANNELS[0];
   const Icon = meta.icon;
   return (
@@ -543,8 +548,8 @@ function StepEditor({ label, channel, day, isInvite, body, onBodyChange, charLim
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
           style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>0</div>
         <Icon size={13} style={{ color: meta.color }} />
-        <span className="text-xs font-bold" style={{ color: meta.color }}>{isInvite ? "LinkedIn invite" : label}</span>
-        <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>Day {day}</span>
+        <span className="text-xs font-bold" style={{ color: meta.color }}>{tr(isInvite ? "tda.liInvite" : labelKey)}</span>
+        <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>{tr("tda.day", { n: day })}</span>
         {charLimit && (
           <span className="ml-auto text-[10px] tabular-nums" style={{ color: body.length > charLimit ? C.red : C.textDim }}>
             {body.length}/{charLimit}
@@ -561,6 +566,7 @@ function StepEditor({ label, channel, day, isInvite, body, onBodyChange, charLim
 function IcpPicker({ icps, onPick, onCancel, title, excludeId }: {
   icps: IcpOption[]; onPick: (id: string) => void; onCancel: () => void; title: string; excludeId?: string | null;
 }) {
+  const { t: tr } = useLocale();
   const items = excludeId ? icps.filter(i => i.id !== excludeId) : icps;
   return (
     <div className="absolute right-0 top-full mt-1 z-10 w-64 rounded-lg border shadow-lg overflow-hidden"
@@ -571,7 +577,7 @@ function IcpPicker({ icps, onPick, onCancel, title, excludeId }: {
       </div>
       <div className="max-h-64 overflow-y-auto">
         {items.length === 0 ? (
-          <p className="px-3 py-3 text-xs text-center" style={{ color: C.textMuted }}>No ICPs available.</p>
+          <p className="px-3 py-3 text-xs text-center" style={{ color: C.textMuted }}>{tr("tv.picker.none")}</p>
         ) : items.map(icp => (
           <button key={icp.id} onClick={() => onPick(icp.id)}
             className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-black/[0.04]"

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerLocale } from "@/lib/i18n-server";
+import { writeAllContentIn } from "@/lib/i18n-locale";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
@@ -57,13 +59,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const text = [home, ...subs].map(stripHtml).filter((t) => t.length > 100).join("\n\n").slice(0, 11000);
   if (text.length < 80) return NextResponse.json({ error: "The site returned no readable content (likely JS-only or bot-blocked)" }, { status: 422 });
 
+  const locale = await getServerLocale();
   const prompt = `From this company's website text, extract what they actually do. Company: ${lead.company_name ?? "?"}${lead.company_industry ? ` (${lead.company_industry})` : ""}.
 
 WEBSITE TEXT
 ${text}
 
 Return ONLY JSON: {"summary":"<2-3 sentences: what the company does, who they serve, how — grounded only in the text>","services":["<up to 6 core offerings/services named on the site>"]}
-Use only the text above. No markdown, no prose outside the JSON.`;
+Use only the text above. No markdown, no prose outside the JSON.
+${writeAllContentIn(locale)} The website may be in another language; translate rather than quoting it. Company, product and place names stay as they are.`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -81,7 +85,8 @@ Use only the text above. No markdown, no prose outside the JSON.`;
     const services = Array.isArray(parsed.services) ? parsed.services.filter((s: unknown) => typeof s === "string" && (s as string).trim()).slice(0, 6) : [];
     if (!summary) return NextResponse.json({ error: "Could not summarise the site" }, { status: 500 });
 
-    const scrape = { summary, services, scraped_at: new Date().toISOString(), source_url: url };
+      // Stamped with the language it was written in — one column, one summary.
+    const scrape = { summary, services, scraped_at: new Date().toISOString(), source_url: url, locale };
     await svc.from("leads").update({ company_scrape: scrape }).eq("id", id);
     return NextResponse.json({ ok: true, scrape });
   } catch (e) {

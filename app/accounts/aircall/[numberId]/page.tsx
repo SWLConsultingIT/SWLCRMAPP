@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getT } from "@/lib/i18n-server";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -39,17 +40,18 @@ function secsToMMSS(s: number | null) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-function timeAgo(iso: string | null) {
+function timeAgo(iso: string | null, t: (k: string, vars?: Record<string, string | number>) => string) {
   if (!iso) return "—";
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return t("acn.justNow");
+  if (m < 60) return t("acn.ago.min", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return t("acn.ago.hour", { n: h });
+  return t("acn.ago.day", { n: Math.floor(h / 24) });
 }
 
 export default async function AircallNumberDetail({ params }: { params: Promise<{ numberId: string }> }) {
+  const t = await getT();
   const { numberId } = await params;
   const number = await getNumber(numberId);
   if (!number) notFound();
@@ -71,7 +73,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
     <div className="p-6 w-full">
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
         <Link href="/accounts" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Accounts
+          <ArrowLeft size={12} /> {t("acn.breadcrumb")}
         </Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{number.name}</span>
@@ -83,7 +85,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
           {FLAGS[number.country] ?? "📞"}
         </div>
         <div className="flex-1">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.phone }}>Aircall Number</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.phone }}>{t("acn.aircallNumber")}</p>
           <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{number.name || number.country}</h1>
           <p className="text-sm mt-1 tabular-nums" style={{ color: C.textMuted }}>{number.digits}</p>
         </div>
@@ -97,10 +99,10 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
       {/* Stats grid */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Calls this week", value: total, sub: `${answered} answered`, color: C.phone, icon: Phone },
-          { label: "Answer rate",     value: `${answerRate}%`, sub: `${missed} missed`, color: C.green, icon: CheckCircle },
-          { label: "Talk time",       value: `${totalMins}m`, sub: `avg ${secsToMMSS(avgDuration)}`, color: gold, icon: Clock },
-          { label: "Positive",        value: positiveCount, sub: `${negativeCount} negative`, color: "#7C3AED", icon: PhoneCall },
+          { label: t("acn.callsWeek"), value: total, sub: t("acn.answered", { n: answered }), color: C.phone, icon: Phone },
+          { label: t("acn.answerRate"), value: `${answerRate}%`, sub: t("acn.missed", { n: missed }), color: C.green, icon: CheckCircle },
+          { label: t("acn.talkTime"), value: `${totalMins}m`, sub: t("acn.avg", { v: secsToMMSS(avgDuration) }), color: gold, icon: Clock },
+          { label: t("acn.positive"), value: positiveCount, sub: t("acn.negative", { n: negativeCount }), color: "#7C3AED", icon: PhoneCall },
         ].map(({ label, value, sub, color, icon: Icon }) => (
           <div key={label} className="rounded-2xl border p-4" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center justify-between mb-2">
@@ -119,13 +121,13 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
       <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
           <PhoneCall size={14} style={{ color: C.textMuted }} />
-          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Recent Calls (last 30)</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("acn.recentCalls")}</h3>
         </div>
         {monthCalls.length === 0 ? (
           <div className="py-16 text-center">
             <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-            <p className="text-sm" style={{ color: C.textMuted }}>No calls yet</p>
-            <p className="text-xs mt-1" style={{ color: C.textDim }}>Make a call to see it here.</p>
+            <p className="text-sm" style={{ color: C.textMuted }}>{t("acn.noCalls")}</p>
+            <p className="text-xs mt-1" style={{ color: C.textDim }}>{t("acn.makeACall")}</p>
           </div>
         ) : (
           <div className="max-h-[600px] overflow-y-auto">
@@ -146,7 +148,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
                           {leadName}
                         </Link>
                       ) : (
-                        <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{call.phone_number ?? "Unknown"}</span>
+                        <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{call.phone_number ?? t("acn.unknown")}</span>
                       )}
                       {call.leads?.company_name && (
                         <span className="text-xs" style={{ color: C.textMuted }}>· {call.leads.company_name}</span>
@@ -164,7 +166,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
                       <p className="text-xs line-clamp-1" style={{ color: C.textBody }}>{call.ai_summary}</p>
                     )}
                     <p className="text-[10px]" style={{ color: C.textDim }}>
-                      {call.direction} · {secsToMMSS(call.duration)} · {timeAgo(call.started_at)}
+                      {call.direction} · {secsToMMSS(call.duration)} · {timeAgo(call.started_at, t)}
                     </p>
                   </div>
                 </div>

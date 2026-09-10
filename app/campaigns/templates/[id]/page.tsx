@@ -4,6 +4,8 @@
 // + delete behave the same as the list view.
 
 import { notFound } from "next/navigation";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { intlTag } from "@/lib/i18n-locale";
 import Link from "next/link";
 import {
   ArrowLeft, Share2, Mail, Phone, MessageSquare, FileText, Sparkles,
@@ -20,34 +22,38 @@ const ACCENT = gold;
 
 type Channel = "linkedin" | "email" | "call" | "whatsapp";
 
-const channelMeta: Record<Channel, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,         color: "#F97316", label: "Call" },
-  whatsapp: { icon: MessageSquare, color: "#25D366", label: "WhatsApp" },
+// Module scope, so all three maps hold keys. The tone and rewrite names are
+// the ones the wizard already ships — same words on both screens.
+const channelMeta: Record<Channel, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,          color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,         color: "#F97316", labelKey: "chan.call" },
+  whatsapp: { icon: MessageSquare, color: "#25D366", labelKey: "chan.whatsapp" },
 };
 
-const TONE_LABEL: Record<string, string> = {
-  conservative: "Conservative",
-  balanced: "Balanced",
-  direct: "Direct",
-  spicy: "Spicy",
-  custom: "Custom",
+const TONE_KEY: Record<string, string> = {
+  conservative: "tpl.tone.conservative",
+  balanced: "tpl.tone.balanced",
+  direct: "tpl.tone.direct",
+  spicy: "tpl.tone.spicy",
+  custom: "tpl.tone.custom",
 };
 
-const REWRITE_LABEL: Record<string, string> = {
-  verbatim: "Verbatim",
-  personalize: "Personalize per lead",
-  rewrite_with_source: "Rewrite from source PDF",
+const REWRITE_KEY: Record<string, string> = {
+  verbatim: "tpl.mode.verbatim",
+  personalize: "tpl.mode.personalize",
+  rewrite_with_source: "tpl.mode.rewrite",
 };
 
-function timeAgo(iso: string | null) {
-  if (!iso) return "Never";
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+function timeAgo(iso: string | null, t: Tr) {
+  if (!iso) return t("tpd.never");
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return t("tpd.ago.min", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return t("tpd.ago.hour", { n: h });
+  return t("tpd.ago.day", { n: Math.floor(h / 24) });
 }
 
 async function loadTemplate(id: string) {
@@ -80,6 +86,8 @@ export default async function TemplateDetailPage({
   params,
 }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await getT();
+  const locale = await getServerLocale();
   const data = await loadTemplate(id);
   if (!data) notFound();
   const { tpl, icpName, voiceSellerName, icps } = data;
@@ -136,13 +144,13 @@ export default async function TemplateDetailPage({
       {/* Metadata chips */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         {icpName ? (
-          <Chip icon={<Trophy size={11} />} label={`ICP · ${icpName}`} />
+          <Chip icon={<Trophy size={11} />} label={t("tpd.icpChip", { name: icpName })} />
         ) : (
-          <Chip icon={<Trophy size={11} />} label="ICP · Needs assignment" tone="warn" />
+          <Chip icon={<Trophy size={11} />} label={t("tpd.needsIcp")} tone="warn" />
         )}
-        <Chip icon={<Sparkles size={11} />} label={`Tone · ${TONE_LABEL[tpl.tone_preset ?? "balanced"] ?? tpl.tone_preset}`} />
-        <Chip icon={<Megaphone size={11} />} label={`Rewrite · ${REWRITE_LABEL[tpl.rewrite_mode ?? "personalize"] ?? tpl.rewrite_mode}`} />
-        {voiceSellerName && <Chip icon={<Languages size={11} />} label={`Voice · ${voiceSellerName}`} />}
+        <Chip icon={<Sparkles size={11} />} label={t("tpd.toneChip", { tone: TONE_KEY[tpl.tone_preset ?? "balanced"] ? t(TONE_KEY[tpl.tone_preset ?? "balanced"]) : (tpl.tone_preset ?? "") })} />
+        <Chip icon={<Megaphone size={11} />} label={t("tpd.rewriteChip", { mode: REWRITE_KEY[tpl.rewrite_mode ?? "personalize"] ? t(REWRITE_KEY[tpl.rewrite_mode ?? "personalize"]) : (tpl.rewrite_mode ?? "") })} />
+        {voiceSellerName && <Chip icon={<Languages size={11} />} label={t("tpd.voiceChip", { seller: voiceSellerName })} />}
         {(tpl.tags ?? []).map((tag: string) => (
           <Chip key={tag} icon={<Tag size={11} />} label={`#${tag}`} tone="muted" />
         ))}
@@ -150,9 +158,9 @@ export default async function TemplateDetailPage({
 
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-3 mb-5">
-        <Stat label="Used" value={`${tpl.usage_count ?? 0}×`} />
-        <Stat label="Last applied" value={timeAgo(tpl.last_used_at)} />
-        <Stat label="Created" value={new Date(tpl.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} />
+        <Stat label={t("tpd.used")} value={`${tpl.usage_count ?? 0}×`} />
+        <Stat label={t("tpd.lastApplied")} value={timeAgo(tpl.last_used_at, t)} />
+        <Stat label={t("tpd.created")} value={new Date(tpl.created_at).toLocaleDateString(intlTag(locale), { day: "2-digit", month: "short", year: "numeric" })} />
       </div>
 
       {/* Connection Request — rendered above the Sequence as its own
@@ -182,6 +190,7 @@ export default async function TemplateDetailPage({
               channel="linkedin"
               daysAfter={0}
               body={stepMessages.connectionRequest}
+              t={t}
             />
           </div>
         </div>
@@ -195,9 +204,12 @@ export default async function TemplateDetailPage({
         style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
           <div>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sequence</h2>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("tpd.sequence")}</h2>
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-              {orderedSteps.length} step{orderedSteps.length === 1 ? "" : "s"} · {(tpl.channels ?? []).map((c: string) => channelMeta[c as Channel]?.label ?? c).join(" → ")}
+              {t(orderedSteps.length === 1 ? "tpd.stepsOne" : "tpd.stepsN", {
+                n: orderedSteps.length,
+                channels: (tpl.channels ?? []).map((c: string) => channelMeta[c as Channel] ? t(channelMeta[c as Channel].labelKey) : c).join(" → "),
+              })}
             </p>
           </div>
         </div>
@@ -217,6 +229,7 @@ export default async function TemplateDetailPage({
                 sourceExcerpt={s.source_excerpt}
                 variantB={Array.isArray(s.variants) && s.variants[0] ? s.variants[0] : undefined}
                 attachments={signedAttachmentsByStep[i] ?? []}
+                t={t}
               />
             );
           })}
@@ -228,9 +241,9 @@ export default async function TemplateDetailPage({
         <div className="rounded-2xl border overflow-hidden mb-5"
           style={{ backgroundColor: C.card, borderColor: C.border }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Source attachments</h2>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("tpd.sourceAttach")}</h2>
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-              PDFs the AI read to draft this template. Re-used when rewrite_mode = rewrite_with_source.
+              {t("tpd.sourceLede")}
             </p>
           </div>
           <div className="p-5 space-y-1.5">
@@ -238,7 +251,7 @@ export default async function TemplateDetailPage({
               <div key={i} className="flex items-center gap-2 rounded-lg border px-3 py-2"
                 style={{ borderColor: C.border, backgroundColor: C.bg }}>
                 <FileText size={13} style={{ color: ACCENT }} />
-                <span className="text-xs flex-1 truncate" style={{ color: C.textBody }}>{a.filename ?? "Attachment"}</span>
+                <span className="text-xs flex-1 truncate" style={{ color: C.textBody }}>{a.filename ?? t("tpd.attachment")}</span>
                 {a.size_bytes && (
                   <span className="text-[10px] shrink-0" style={{ color: C.textMuted }}>{(a.size_bytes / 1024).toFixed(0)} KB</span>
                 )}
@@ -257,20 +270,20 @@ export default async function TemplateDetailPage({
         <div className="rounded-2xl border overflow-hidden"
           style={{ backgroundColor: C.card, borderColor: C.border }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Auto-replies</h2>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("tpd.autoReplies")}</h2>
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-              Fired by the dispatcher when a lead's reply matches the classification.
+              {t("tpd.autoLede")}
             </p>
           </div>
           <div className="p-5 space-y-3">
             {stepMessages.autoReplies.positive && (
-              <AutoReplyBlock label="Positive reply" body={stepMessages.autoReplies.positive} color="#16A34A" />
+              <AutoReplyBlock label={t("tpd.posReply")} body={stepMessages.autoReplies.positive} color="#16A34A" />
             )}
             {stepMessages.autoReplies.question && (
-              <AutoReplyBlock label="Question reply" body={stepMessages.autoReplies.question} color="#D97706" />
+              <AutoReplyBlock label={t("tpd.qReply")} body={stepMessages.autoReplies.question} color="#D97706" />
             )}
             {stepMessages.autoReplies.negative && (
-              <AutoReplyBlock label="Negative reply" body={stepMessages.autoReplies.negative} color={C.red} />
+              <AutoReplyBlock label={t("tpd.negReply")} body={stepMessages.autoReplies.negative} color={C.red} />
             )}
           </div>
         </div>
@@ -304,12 +317,13 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 function StepCard({
-  stepNum, channel, daysAfter, subject, body, sourceExcerpt, variantB, isInvite, attachments,
+  stepNum, channel, daysAfter, subject, body, sourceExcerpt, variantB, isInvite, attachments, t,
 }: {
   stepNum: number; channel: Channel; daysAfter: number;
   subject?: string; body: string; sourceExcerpt?: string; variantB?: string;
   isInvite?: boolean;
   attachments?: Array<{ path: string; name: string; mimeType: string; sizeBytes: number; signedUrl: string }>;
+  t: Tr;
 }) {
   const meta = channelMeta[channel];
   const Icon = meta.icon;
@@ -329,20 +343,20 @@ function StepCard({
         </div>
         <Icon size={13} style={{ color: meta.color }} />
         {isInvite ? (
-          <span className="text-xs font-bold" style={{ color: "#0A66C2" }}>LinkedIn invite</span>
+          <span className="text-xs font-bold" style={{ color: "#0A66C2" }}>{t("tpd.liInvite")}</span>
         ) : (
-          <span className="text-xs font-bold" style={{ color: meta.color }}>{meta.label}</span>
+          <span className="text-xs font-bold" style={{ color: meta.color }}>{t(meta.labelKey)}</span>
         )}
         {!isInvite && (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded"
             style={{ backgroundColor: C.surface, color: C.textMuted }}>
-            <Clock size={9} /> Day {daysAfter}
+            <Clock size={9} /> {t("tpd.day", { n: daysAfter ?? 0 })}
           </span>
         )}
       </div>
       {subject && (
         <p className="text-xs font-semibold mb-1.5" style={{ color: C.textPrimary }}>
-          Subject: <span className="font-normal">{subject}</span>
+          {t("tpd.subject")} <span className="font-normal">{subject}</span>
         </p>
       )}
       <p className="text-xs whitespace-pre-wrap leading-relaxed"
@@ -353,7 +367,7 @@ function StepCard({
         <details className="mt-3 group">
           <summary className="text-[10px] cursor-pointer inline-flex items-center gap-1 select-none"
             style={{ color: C.textMuted }}>
-            <FileText size={10} /> Source from PDF
+            <FileText size={10} /> {t("tpd.sourceFromPdf")}
           </summary>
           <p className="text-[11px] mt-1.5 pl-3 italic"
             style={{ color: C.textBody, borderLeft: `2px solid color-mix(in srgb, ${ACCENT} 40%, transparent)` }}>

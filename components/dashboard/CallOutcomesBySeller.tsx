@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { ChevronRight, PhoneCall } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const OUTFIT = "var(--font-outfit), system-ui, sans-serif";
 
@@ -51,18 +52,20 @@ const valueOf = (c: Counts | SellerCallStats, key: ColKey): number => {
 };
 
 // Column definitions — bad timing = yellow (not orange), voicemail = violet (not sky blue).
-const COLS: { key: ColKey; label: string; color: string }[] = [
-  { key: "made",            label: "Total",         color: C.textPrimary },
-  { key: "answerPct",       label: "Answer %",      color: "#38BDF8"     },
-  { key: "interested",      label: "Interested",    color: "#22C55E"     },
-  { key: "badTiming",       label: "Bad timing",    color: "#EAB308"     },
-  { key: "voicemail",       label: "Voicemail",     color: "#A78BFA"     },
-  { key: "notInterested",   label: "Not interested",color: "#EF4444"     },
-  { key: "wrongNumber",     label: "Wrong #",       color: C.textMuted   },
-  { key: "unclassified",    label: "Unclassified",  color: "#EF4444"     },
-  { key: "classifiedPct",   label: "Classified %",  color: "#22C55E"     },
-  { key: "avgDurationSecs", label: "Duration",      color: C.textMuted   },
-  { key: "avgCoachScore",   label: "Coach",         color: "#C9A83A"     },
+// `key` addresses the data; `labelKey` is what the header prints. Module
+// scope, so no translator here.
+const COLS: { key: ColKey; labelKey: string; color: string }[] = [
+  { key: "made",            labelKey: "cob.total",          color: C.textPrimary },
+  { key: "answerPct",       labelKey: "cob.answerPct",      color: "#38BDF8"     },
+  { key: "interested",      labelKey: "cob.interested",     color: "#22C55E"     },
+  { key: "badTiming",       labelKey: "cob.badTiming",      color: "#EAB308"     },
+  { key: "voicemail",       labelKey: "cob.voicemail",      color: "#A78BFA"     },
+  { key: "notInterested",   labelKey: "cob.notInterested",  color: "#EF4444"     },
+  { key: "wrongNumber",     labelKey: "cob.wrongNum",       color: C.textMuted   },
+  { key: "unclassified",    labelKey: "cob.unclassified",   color: "#EF4444"     },
+  { key: "classifiedPct",   labelKey: "cob.classifiedPct",  color: "#22C55E"     },
+  { key: "avgDurationSecs", labelKey: "cob.duration",       color: C.textMuted   },
+  { key: "avgCoachScore",   labelKey: "cob.coach",          color: "#C9A83A"     },
 ];
 
 function fmtDay(iso: string): string {
@@ -74,6 +77,7 @@ function fmtDay(iso: string): string {
 function Cell({ n, color, colKey, total, s }: {
   n: number; color: string; colKey: ColKey; total?: number; s?: SellerCallStats;
 }) {
+  const { t } = useLocale();
   const isPct      = colKey === "classifiedPct" || colKey === "answerPct";
   const isDuration = colKey === "avgDurationSecs";
   const isCoach    = colKey === "avgCoachScore";
@@ -119,6 +123,7 @@ function Cell({ n, color, colKey, total, s }: {
 }
 
 function SellerRow({ s }: { s: SellerCallStats }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const days     = Object.entries(s.byDay).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   const inactive = s.active === false;
@@ -166,12 +171,12 @@ function SellerRow({ s }: { s: SellerCallStats }) {
       {/* Expanded per-day detail — 4-column grid using full row width */}
       {open && days.map(([day, counts]) => {
         const outcomes = [
-          { n: counts.interested,      label: "interested",    color: "#22C55E" },
-          { n: counts.badTiming,       label: "bad timing",    color: "#EAB308" },
-          { n: counts.voicemail,       label: "voicemail",     color: "#A78BFA" },
-          { n: counts.notInterested,   label: "not interested",color: "#EF4444" },
-          { n: counts.wrongNumber,     label: "wrong #",       color: C.textMuted },
-          { n: unclassifiedOf(counts), label: "unclassified",  color: C.textMuted },
+          { n: counts.interested,      label: t("cob.interestedLow"),    color: "#22C55E" },
+          { n: counts.badTiming,       label: t("cob.badTimingLow"),    color: "#EAB308" },
+          { n: counts.voicemail,       label: t("cob.voicemailLow"),     color: "#A78BFA" },
+          { n: counts.notInterested,   label: t("cob.notInterestedLow"),color: "#EF4444" },
+          { n: counts.wrongNumber,     label: t("cob.wrongNumLow"),       color: C.textMuted },
+          { n: unclassifiedOf(counts), label: t("cob.unclassifiedLow"),  color: C.textMuted },
         ].filter(o => o.n > 0);
 
         return (
@@ -191,7 +196,7 @@ function SellerRow({ s }: { s: SellerCallStats }) {
                 {/* Volume */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <span style={{ fontSize: 15, fontWeight: 700, color: C.textBody, fontFamily: OUTFIT, lineHeight: 1 }}>
-                    {counts.made} <span style={{ fontSize: 11, fontWeight: 400, color: C.textMuted }}>calls</span>
+                    {counts.made} <span style={{ fontSize: 11, fontWeight: 400, color: C.textMuted }}>{t("cons.camp.calls")}</span>
                   </span>
                   <span style={{ fontSize: 11.5, fontWeight: 600, color: C.textMuted, fontFamily: OUTFIT }}>
                     {answerPctOf(counts)}% answered
@@ -201,7 +206,7 @@ function SellerRow({ s }: { s: SellerCallStats }) {
                 {/* Outcomes — small dots + plain text, no colored backgrounds */}
                 <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
                   {outcomes.length === 0 ? (
-                    <span style={{ fontSize: 11, color: C.textDim, fontFamily: OUTFIT }}>no outcomes logged</span>
+                    <span style={{ fontSize: 11, color: C.textDim, fontFamily: OUTFIT }}>{t("cob.noOutcomes")}</span>
                   ) : outcomes.map(o => (
                     <span key={o.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <span style={{
@@ -237,13 +242,14 @@ function SellerRow({ s }: { s: SellerCallStats }) {
 }
 
 export default function CallOutcomesBySeller({ rows, bare = false }: { rows: SellerCallStats[]; bare?: boolean }) {
+  const { t } = useLocale();
   if (!rows || rows.length === 0) {
     return (
       <div className={bare ? "px-4 py-6" : "rounded-xl border px-4 py-6"} style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-start gap-3">
           <PhoneCall size={16} style={{ color: C.textMuted, marginTop: 2, flexShrink: 0 }} />
           <div>
-            <p style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary }}>No calls yet</p>
+            <p style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary }}>{t("cob.noCalls")}</p>
             <p style={{ fontSize: 12, marginTop: 4, color: C.textMuted }}>
               Calls you dial will appear here with outcomes (interested, bad timing, wrong number, etc.)
             </p>
@@ -259,7 +265,7 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
         <thead>
           <tr style={{ borderBottom: `1px solid ${C.border}` }}>
             <th className="text-left px-3 py-2.5" style={{ fontSize: 10, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: OUTFIT }}>
-              Seller
+              {t("pulse.col.seller")}
             </th>
             {COLS.map(c => (
               <th key={c.key} className="text-center px-2 py-2.5" style={{
@@ -267,7 +273,7 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
                 color: c.color === C.textPrimary ? C.textDim : c.color,
                 textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: OUTFIT, opacity: 0.8,
               }}>
-                {c.label}
+                {t(c.labelKey)}
               </th>
             ))}
           </tr>
@@ -321,9 +327,9 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
       <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <PhoneCall size={13} style={{ color: "#38BDF8" }} />
         <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: C.textBody }}>
-          Call outcomes by seller
+          {t("rep.print.callOutcomes")}
         </p>
-        <span style={{ fontSize: 10, color: C.textDim }}>click a seller for the day-by-day split</span>
+        <span style={{ fontSize: 10, color: C.textDim }}>{t("cob.clickSeller")}</span>
       </div>
       {tableEl}
     </div>

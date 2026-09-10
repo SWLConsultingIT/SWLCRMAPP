@@ -1694,7 +1694,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           // Lost + Renurture surfaced here so TOTAL LEADS reads as the true grand
           // total: in-flow + without-flow + lost + renurture all reconcile to it.
           // (These live in /results too; shown here for a complete count.) Simo 2026-07-29.
-          { label: locale === "es" ? "Perdidos" : "Lost",       value: lostLeads.length,         color: C.red },
+          { label: t("leadsPage.stats.lost"),                    value: lostLeads.length,         color: C.red },
           { label: "Renurture",                                 value: renurturingLeads.length,  color: "#D97706" },
         ].map((s, i, arr) => (
           <div key={s.label} className="flex items-center gap-3">
