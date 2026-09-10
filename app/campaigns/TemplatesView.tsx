@@ -67,10 +67,10 @@ type HistoricFlow = {
 // Module scope, so `labelKey` instead of a label — every reader of this map
 // is a component and has a translator of its own.
 const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "tv.ch.linkedin" },
-  email:    { icon: Mail,          color: "#7C3AED", labelKey: "tv.ch.email" },
-  call:     { icon: Phone,         color: "#F97316", labelKey: "tv.ch.call" },
-  whatsapp: { icon: MessageSquare, color: "#25D366", labelKey: "tv.ch.whatsapp" },
+  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,          color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,         color: "#F97316", labelKey: "chan.call" },
+  whatsapp: { icon: MessageSquare, color: "#25D366", labelKey: "chan.whatsapp" },
 };
 
 function ChannelChip({ ch }: { ch: string }) {

@@ -51,9 +51,9 @@ const timezoneOptions = [
 ];
 
 const allChannelOptions = [
-  { key: "linkedin", label: "LinkedIn", icon: Share2, color: C.linkedin, short: "LI", field: "primary_linkedin_url" },
-  { key: "email",    label: "Email",    icon: Mail,   color: C.email,    short: "EM", field: "primary_work_email" },
-  { key: "call",     label: "Call",     icon: Phone,  color: C.phone,    short: "CA", field: "primary_phone" },
+  { key: "linkedin", labelKey: "chan.linkedin", icon: Share2, color: C.linkedin, short: "LI", field: "primary_linkedin_url" },
+  { key: "email",    labelKey: "chan.email",    icon: Mail,   color: C.email,    short: "EM", field: "primary_work_email" },
+  { key: "call",     labelKey: "chan.call",     icon: Phone,  color: C.phone,    short: "CA", field: "primary_phone" },
 ];
 
 const sequenceTemplates = [
@@ -312,8 +312,8 @@ export default function NewLeadCampaignWizard() {
     });
 
     if (!res.ok) {
-      const { error } = await res.json().catch(() => ({ error: "Failed to launch flow" }));
-      setSubmitError(error ?? "Failed to launch flow");
+      const { error } = await res.json().catch(() => ({ error: t("nfl.err.launch") }));
+      setSubmitError(error ?? t("nfl.err.launch"));
       setSubmitting(false);
       return;
     }
@@ -346,34 +346,36 @@ export default function NewLeadCampaignWizard() {
     <div className="p-6 w-full">
       {/* Header */}
       <button onClick={() => router.back()} className="flex items-center gap-1.5 text-xs font-medium mb-3 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
-        <ArrowLeft size={13} /> Back
+        <ArrowLeft size={13} /> {t("nfl.back")}
       </button>
 
       {showRestoreBanner && (
         <div className="mb-4 rounded-xl border px-4 py-3 flex items-center gap-3"
           style={{ backgroundColor: C.yellowLight, borderColor: "#FBBF24" }}>
           <span className="text-sm flex-1" style={{ color: "#92400E" }}>
-            You have a saved draft for this lead from a previous session. Restore it?
+            {t("nfl.draftBanner")}
           </span>
           <button onClick={discardDraft}
             className="text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-white/60"
             style={{ color: "#92400E" }}>
-            Discard
+            {t("nfl.discard")}
           </button>
           <button onClick={restoreDraft}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg"
             style={{ backgroundColor: "#92400E", color: "#fff" }}>
-            Restore draft
+            {t("nfl.restoreDraft")}
           </button>
         </div>
       )}
       <div className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>{t("nfl.createNewFlow")}</p>
         <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
-          <Megaphone size={22} style={{ color: gold }} /> Flow for {leadName}
+          <Megaphone size={22} style={{ color: gold }} /> {t("nfl.flowFor", { name: leadName })}
         </h1>
         <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-          {lead.primary_title_role ? `${lead.primary_title_role} at ` : ""}{lead.company_name ?? "Unknown Company"}
+          {lead.primary_title_role
+            ? t("nfl.roleAt", { role: lead.primary_title_role, company: lead.company_name ?? t("nfl.unknownCompany") })
+            : (lead.company_name ?? t("nfl.unknownCompany"))}
           {profile ? ` — ${profile.profile_name}` : ""}
         </p>
       </div>
@@ -394,10 +396,10 @@ export default function NewLeadCampaignWizard() {
         </div>
         <div className="flex items-center gap-4 text-xs shrink-0" style={{ color: C.textMuted }}>
           {lead.primary_linkedin_url && (
-            <span className="flex items-center gap-1" style={{ color: C.linkedin }}><Share2 size={11} /> LinkedIn</span>
+            <span className="flex items-center gap-1" style={{ color: C.linkedin }}><Share2 size={11} /> {t("chan.linkedin")}</span>
           )}
           {lead.primary_work_email && (
-            <span className="flex items-center gap-1" style={{ color: C.email }}><Mail size={11} /> Email</span>
+            <span className="flex items-center gap-1" style={{ color: C.email }}><Mail size={11} /> {t("chan.email")}</span>
           )}
           {lead.primary_phone && (
             <span className="flex items-center gap-1" style={{ color: C.phone }}><Phone size={11} /> {t("nfl.phone")}</span>
@@ -430,7 +432,7 @@ export default function NewLeadCampaignWizard() {
               type="text"
               value={campaignName}
               onChange={e => setCampaignName(e.target.value)}
-              placeholder={`e.g. ${leadName || t("nfl.lead")} — LinkedIn Outreach`}
+              placeholder={t("nfl.flowNamePh", { name: leadName || t("nfl.lead") })}
               className="w-full rounded-lg px-4 py-3 text-base font-semibold focus:outline-none"
               style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
             />
@@ -444,7 +446,7 @@ export default function NewLeadCampaignWizard() {
                 <span className="font-semibold">{t("nfl.unavailableChannels")}</span>{" "}
                 {disabledChannels.map(ch => (
                   <span key={ch.key} className="inline-flex items-center gap-1 mx-1 opacity-50">
-                    <ch.icon size={10} /> {ch.label} (no data)
+                    <ch.icon size={10} /> {t(ch.labelKey)} {t("nfl.noData")}
                   </span>
                 ))}
               </p>
@@ -462,7 +464,7 @@ export default function NewLeadCampaignWizard() {
                 return (
                 <button key={tpl.nameKey}
                   disabled={!canUse}
-                  title={!canUse ? `Missing: ${missingChannels.join(", ")}` : ""}
+                  title={!canUse ? t("nfl.missingChannels", { list: missingChannels.join(", ") }) : ""}
                   onClick={() => { if (canUse) { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); } }}
                   className="rounded-lg border px-4 py-2.5 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ borderColor: C.border, backgroundColor: C.bg }}>
@@ -480,7 +482,7 @@ export default function NewLeadCampaignWizard() {
                 <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("nfl.buildSequence")}</h2>
                 <p className="text-xs mt-0.5" style={{ color: C.textDim }}>{t("nfl.buildSequenceDesc")}</p>
               </div>
-              <p className="text-xs" style={{ color: C.textMuted }}>{sequence.length} steps · ~{totalDays} days</p>
+              <p className="text-xs" style={{ color: C.textMuted }}>{t("nfl.stepsApproxDays", { steps: sequence.length, days: totalDays })}</p>
             </div>
 
             <div className="space-y-2">
@@ -498,10 +500,10 @@ export default function NewLeadCampaignWizard() {
                         return (
                           <button key={opt.key} onClick={() => !disabled && updateStep(i, "channel", opt.key)}
                             disabled={disabled}
-                            title={disabled ? `No ${opt.label} data for this lead` : ""}
+                            title={disabled ? t("nfl.noChannelData", { channel: t(opt.labelKey) }) : ""}
                             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-30 disabled:cursor-not-allowed"
                             style={s.channel === opt.key ? { backgroundColor: opt.color, color: "#fff" } : { backgroundColor: C.surface, color: C.textMuted }}>
-                            <OptIcon size={12} /> {opt.label}
+                            <OptIcon size={12} /> {t(opt.labelKey)}
                           </button>
                         );
                       })}
@@ -516,10 +518,10 @@ export default function NewLeadCampaignWizard() {
                             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg, minWidth: 65 }}
                             value={s.daysAfter} onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}>
                             {[1, 2, 3, 4, 5, 7, 10, 14, 21].map(d => (
-                              <option key={d} value={d}>{d} {d === 1 ? "day" : t("tpl.days")}</option>
+                              <option key={d} value={d}>{d} {d === 1 ? t("wiz.day") : t("tpl.days")}</option>
                             ))}
                           </select>
-                          <span className="text-xs tabular-nums" style={{ color: C.textDim }}>(Day {days[i]})</span>
+                          <span className="text-xs tabular-nums" style={{ color: C.textDim }}>{t("nfl.dayParen", { n: days[i] })}</span>
                         </div>
                       )}
                       {sequence.length > 1 && (
@@ -536,7 +538,7 @@ export default function NewLeadCampaignWizard() {
             <button onClick={addStep}
               className="flex items-center gap-2 mt-3 rounded-lg px-4 py-2.5 text-xs font-medium w-full justify-center transition-opacity hover:opacity-80 border border-dashed"
               style={{ borderColor: C.border, color: C.textMuted }}>
-              <Plus size={14} /> Add Step
+              <Plus size={14} /> {t("nfl.addStep")}
             </button>
           </div>
 
@@ -556,11 +558,11 @@ export default function NewLeadCampaignWizard() {
                       </div>
                       <div className="flex-1 flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{ch.label} — Step {i + 1}</p>
-                          <p className="text-xs" style={{ color: C.textMuted }}>{i === 0 ? "Sent immediately" : `${s.daysAfter} days after previous step`}</p>
+                          <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{t("nfl.stepN", { channel: t(ch.labelKey), n: i + 1 })}</p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>{i === 0 ? t("nfl.sentImmediately") : t("nfl.daysAfterPrev", { n: s.daysAfter })}</p>
                         </div>
                         <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
-                          style={{ backgroundColor: `${ch.color}12`, color: ch.color }}>Day {days[i]}</span>
+                          style={{ backgroundColor: `${ch.color}12`, color: ch.color }}>{t("nfl.dayBadge", { n: days[i] })}</span>
                       </div>
                     </div>
                   );
@@ -568,7 +570,7 @@ export default function NewLeadCampaignWizard() {
               </div>
             </div>
             <p className="text-xs mt-4 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
-              1 lead · {sequence.length} steps · {totalDays} days · {uniqueChannels.length} channels
+              {t("nfl.recapOneLead", { steps: sequence.length, days: totalDays, channels: uniqueChannels.length })}
             </p>
           </div>
         </div>
@@ -587,7 +589,7 @@ export default function NewLeadCampaignWizard() {
                 <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("wiz.flowSettings")}</h2>
               </div>
               <p className="text-xs mb-6" style={{ color: C.textDim }}>
-                Choose who will run this outreach flow and which accounts to use for each channel.
+                {t("nfl.settingsLede")}
               </p>
 
               {/* Seller selection */}
@@ -615,8 +617,8 @@ export default function NewLeadCampaignWizard() {
                           <div>
                             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{s.name}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              {hasLinkedin && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.linkedin }}><Share2 size={8} /> LinkedIn</span>}
-                              {hasEmail && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.email }}><Mail size={8} /> Email</span>}
+                              {hasLinkedin && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.linkedin }}><Share2 size={8} /> {t("chan.linkedin")}</span>}
+                              {hasEmail && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.email }}><Mail size={8} /> {t("chan.email")}</span>}
                               {!hasLinkedin && !hasEmail && <span className="text-[9px]" style={{ color: C.textDim }}>{t("nfl.noAccounts")}</span>}
                             </div>
                           </div>
@@ -638,16 +640,16 @@ export default function NewLeadCampaignWizard() {
                       const meta = allChannelOptions.find(c => c.key === ch);
                       if (!meta) return null;
                       const Icon = meta.icon;
-                      let accountLabel = "Not configured";
+                      let accountLabel = t("nfl.notConfigured");
                       let isConfigured = false;
                       if (ch === "linkedin" && selectedSellerObj?.unipile_account_id) {
-                        accountLabel = `Unipile — ${selectedSellerObj.name}`;
+                        accountLabel = t("nfl.acctUnipile", { seller: selectedSellerObj.name });
                         isConfigured = true;
                       } else if (ch === "email") {
-                        accountLabel = "Instantly — Shared pool";
+                        accountLabel = t("nfl.acctInstantly");
                         isConfigured = true;
                       } else if (ch === "call") {
-                        accountLabel = "Aircall — shared SWL number";
+                        accountLabel = t("nfl.acctAircall");
                         isConfigured = true;
                       }
                       return (
@@ -657,7 +659,7 @@ export default function NewLeadCampaignWizard() {
                             <Icon size={18} style={{ color: meta.color }} />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{meta.label}</p>
+                            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t(meta.labelKey)}</p>
                             <p className="text-xs" style={{ color: isConfigured ? C.textMuted : C.red }}>{accountLabel}</p>
                           </div>
                           {isConfigured ? (
@@ -671,15 +673,15 @@ export default function NewLeadCampaignWizard() {
                   </div>
                   {selectedSellerObj && (
                     <div className="mt-4 rounded-lg px-4 py-3 flex items-center gap-3" style={{ backgroundColor: C.bg }}>
-                      <span className="text-xs" style={{ color: C.textMuted }}>Daily limits for {selectedSellerObj.name}:</span>
+                      <span className="text-xs" style={{ color: C.textMuted }}>{t("nfl.dailyLimitsFor", { seller: selectedSellerObj.name })}</span>
                       {usedChannels.includes("linkedin") && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${C.linkedin}12`, color: C.linkedin }}>
-                          LinkedIn: {selectedSellerObj.linkedin_daily_limit ?? 15}/day
+                          {t("nfl.liPerDay", { n: selectedSellerObj.linkedin_daily_limit ?? 15 })}
                         </span>
                       )}
                       {usedChannels.includes("email") && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${C.email}12`, color: C.email }}>
-                          Email: {selectedSellerObj.email_daily_limit ?? "∞"}/day
+                          {t("nfl.emailPerDay", { n: selectedSellerObj.email_daily_limit ?? "∞" })}
                         </span>
                       )}
                     </div>
@@ -714,7 +716,7 @@ export default function NewLeadCampaignWizard() {
               ))}
             </select>
             <span className="text-xs flex-1 text-right" style={{ color: C.textDim }}>
-              Configure messages per channel. Use AI to generate or write manually.
+              {t("nfl.configureLede")}
             </span>
           </div>
 
@@ -782,7 +784,7 @@ export default function NewLeadCampaignWizard() {
                     return (
                       <span key={ch} className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md"
                         style={{ backgroundColor: `${conf.color}12`, color: conf.color }}>
-                        <Icon size={10} /> {conf.label}
+                        <Icon size={10} /> {t(conf.labelKey)}
                       </span>
                     );
                   })}
@@ -790,7 +792,7 @@ export default function NewLeadCampaignWizard() {
               </div>
               <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
                 <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("nfl.duration")}</p>
-                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{sequence.length} steps · {totalDays} days</p>
+                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("nfl.stepsDays", { steps: sequence.length, days: totalDays })}</p>
               </div>
             </div>
 
@@ -807,7 +809,7 @@ export default function NewLeadCampaignWizard() {
                     <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: conf.color }}>
                       <Icon size={10} color="#fff" />
                     </div>
-                    <span className="text-xs font-semibold" style={{ color: conf.color }}>{conf.label}</span>
+                    <span className="text-xs font-semibold" style={{ color: conf.color }}>{t(conf.labelKey)}</span>
                   </div>
                   {ch === "linkedin" && (msgs as any).connectionNote && (
                     <div className="mb-2">
@@ -824,7 +826,7 @@ export default function NewLeadCampaignWizard() {
                   {ch === "email" && (msgs as any).introSubject && (
                     <div className="mb-2">
                       <p className="text-xs font-medium" style={{ color: C.textMuted }}>{t("nfl.introEmail")}</p>
-                      <p className="text-xs mt-0.5" style={{ color: C.textBody }}>Subject: {(msgs as any).introSubject}</p>
+                      <p className="text-xs mt-0.5" style={{ color: C.textBody }}>{t("nfl.subject")} {(msgs as any).introSubject}</p>
                     </div>
                   )}
                   {ch === "call" && (msgs as any).script && (
@@ -852,21 +854,21 @@ export default function NewLeadCampaignWizard() {
             </div>
             <h2 className="text-xl font-bold mb-2" style={{ color: C.textPrimary }}>{t("wiz.flowSubmitted")}</h2>
             <p className="text-sm mb-1" style={{ color: C.textBody }}>
-              Your outreach flow has been submitted for review.
+              {t("nfl.submittedLede")}
             </p>
             <p className="text-sm mb-6" style={{ color: C.textMuted }}>
-              The SWL team will review your flow and you will be notified in your <strong>{t("wiz.queue")}</strong> once it is approved.
+              {t("nfl.notifiedPre")} <strong>{t("wiz.queue")}</strong> {t("nfl.notifiedPost")}
             </p>
             <div className="flex items-center justify-center gap-3">
               <button onClick={() => router.push("/leads")}
                 className="rounded-lg px-5 py-2.5 text-sm font-medium"
                 style={{ backgroundColor: C.surface, color: C.textBody }}>
-                Back to Leads
+                {t("nfl.backToLeads")}
               </button>
               <button onClick={() => router.push("/campaigns")}
                 className="rounded-lg px-5 py-2.5 text-sm font-semibold"
                 style={{ backgroundColor: gold, color: "#04070d" }}>
-                View Campaigns
+                {t("nfl.viewCampaigns")}
               </button>
             </div>
           </div>
@@ -891,28 +893,28 @@ export default function NewLeadCampaignWizard() {
         <button onClick={() => wizardStep === 0 ? router.back() : setWizardStep(s => s - 1)}
           className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-opacity"
           style={{ color: C.textBody, backgroundColor: C.surface }}>
-          <ArrowLeft size={15} /> {wizardStep === 0 ? "Cancel" : "Previous"}
+          <ArrowLeft size={15} /> {wizardStep === 0 ? t("nfl.cancel") : t("nfl.previous")}
         </button>
 
         {wizardStep < WIZARD_STEPS.length - 1 ? (
           <button
             onClick={() => {
               if (wizardStep === 0 && !campaignName.trim()) {
-                setMessagesWarning("Please enter a flow name.");
+                setMessagesWarning(t("nfl.warn.name"));
                 return;
               }
               if (wizardStep === 0 && sequence.length === 0) {
-                setMessagesWarning("Please add at least one step to the sequence.");
+                setMessagesWarning(t("nfl.warn.steps"));
                 return;
               }
               if (wizardStep === 1 && !selectedSeller) {
-                setMessagesWarning("Please select a seller before continuing.");
+                setMessagesWarning(t("nfl.warn.seller"));
                 return;
               }
               if (wizardStep === 2) {
                 const hasAnyContent = channelMessages.steps?.some((s: any) => s.body?.trim());
                 if (!hasAnyContent) {
-                  setMessagesWarning("Please write or generate at least one message before continuing.");
+                  setMessagesWarning(t("nfl.warn.messages"));
                   return;
                 }
               }
@@ -922,14 +924,14 @@ export default function NewLeadCampaignWizard() {
             disabled={false}
             className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-40"
             style={{ backgroundColor: gold, color: "#04070d" }}>
-            Next <ArrowRight size={15} />
+            {t("nfl.next")} <ArrowRight size={15} />
           </button>
         ) : (
           <button onClick={handleSubmit} disabled={submitting}
             className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
             style={{ backgroundColor: C.green, color: "#fff" }}>
             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            {submitting ? "Submitting…" : "Launch Flow"}
+            {submitting ? t("nfl.submitting") : t("nfl.launchFlow")}
           </button>
         )}
       </div>

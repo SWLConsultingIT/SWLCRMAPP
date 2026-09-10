@@ -52,10 +52,10 @@ const REWRITE_MODES: Array<{ id: RewriteMode; labelKey: string; descKey: string 
 type EditStep = { channel: string; daysAfter: number; subject: string; body: string; attachments?: StepAttachment[] };
 
 const CHANNELS = [
-  { key: "linkedin", labelKey: "tv.ch.linkedin", icon: Share2,        color: "#0A66C2" },
-  { key: "email",    labelKey: "tv.ch.email",    icon: Mail,          color: "#7C3AED" },
-  { key: "call",     labelKey: "tv.ch.call",     icon: Phone,         color: "#F97316" },
-  { key: "whatsapp", labelKey: "tv.ch.whatsapp", icon: MessageSquare, color: "#25D366" },
+  { key: "linkedin", labelKey: "chan.linkedin", icon: Share2,        color: "#0A66C2" },
+  { key: "email",    labelKey: "chan.email",    icon: Mail,          color: "#7C3AED" },
+  { key: "call",     labelKey: "chan.call",     icon: Phone,         color: "#F97316" },
+  { key: "whatsapp", labelKey: "chan.whatsapp", icon: MessageSquare, color: "#25D366" },
 ];
 const channelMeta = Object.fromEntries(CHANNELS.map(c => [c.key, c]));
 

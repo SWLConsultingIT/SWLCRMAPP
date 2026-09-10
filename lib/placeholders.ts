@@ -10,9 +10,11 @@
 // unsupported tokens through. This module fixes both halves.
 
 export type PlaceholderGroup = {
-  label: string;
-  /** What the placeholder renders to, shown as helper text in the wizard. */
-  description: string;
+  /** i18n key for the group's name. This module is data, not a component,
+   *  so it carries keys and the wizard resolves them. */
+  labelKey: string;
+  /** i18n key for what the placeholder renders to — helper text in the wizard. */
+  descKey: string;
   /** Aliases — first entry is the canonical form we recommend. */
   tokens: string[];
   /** The `leads` column that backs this group, when there is exactly one.
@@ -25,36 +27,36 @@ export type PlaceholderGroup = {
 
 export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
   {
-    label: "First name",
-    description: "Lead's first name (falls back to \"there\" if missing).",
+    labelKey: "ph.firstName",
+    descKey: "ph.firstNameDesc",
     tokens: ["{{first_name}}", "{{firstName}}", "{{name}}"],
     coverageColumn: "primary_first_name",
   },
   {
-    label: "Last name",
-    description: "Lead's last name.",
+    labelKey: "ph.lastName",
+    descKey: "ph.lastNameDesc",
     tokens: ["{{last_name}}", "{{lastName}}"],
   },
   {
-    label: "Full name",
-    description: "First + last joined with a space.",
+    labelKey: "ph.fullName",
+    descKey: "ph.fullNameDesc",
     tokens: ["{{full_name}}", "{{fullName}}"],
   },
   {
-    label: "Company",
-    description: "Lead's company name. PE templates may use `fund_name`/`firm_name` as aliases.",
+    labelKey: "ph.company",
+    descKey: "ph.companyDesc",
     tokens: ["{{company_name}}", "{{companyName}}", "{{company}}", "{{fund_name}}", "{{firm_name}}"],
     coverageColumn: "company_name",
   },
   {
-    label: "Role / Title",
-    description: "Lead's job title.",
+    labelKey: "ph.role",
+    descKey: "ph.roleDesc",
     tokens: ["{{role}}", "{{title}}", "{{position}}"],
     coverageColumn: "primary_title_role",
   },
   {
-    label: "Seller name",
-    description: "The seller assigned to this campaign — your name.",
+    labelKey: "ph.seller",
+    descKey: "ph.sellerDesc",
     tokens: ["{{seller_name}}", "{{sellerName}}", "{{sender_name}}", "{{my_name}}"],
   },
   // ── Company facts (2026-08-27) ───────────────────────────────────────
@@ -66,26 +68,26 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
   // in the AI's context (SignalPicker), where the model can write around a
   // missing value, not in literal substitution.
   {
-    label: "City",
-    description: "Company city. Filled on 91% of leads.",
+    labelKey: "ph.city",
+    descKey: "ph.cityDesc",
     tokens: ["{{company_city}}", "{{city}}"],
     coverageColumn: "company_city",
   },
   {
-    label: "Industry",
-    description: "Company industry. Filled on 86% of leads.",
+    labelKey: "ph.industry",
+    descKey: "ph.industryDesc",
     tokens: ["{{company_industry}}", "{{industry}}"],
     coverageColumn: "company_industry",
   },
   {
-    label: "Country",
-    description: "Company country. Filled on 82% of leads.",
+    labelKey: "ph.country",
+    descKey: "ph.countryDesc",
     tokens: ["{{company_country}}", "{{country}}"],
     coverageColumn: "company_country",
   },
   {
-    label: "Website",
-    description: "Company website. Filled on 94% of leads.",
+    labelKey: "ph.website",
+    descKey: "ph.websiteDesc",
     tokens: ["{{company_website}}", "{{website}}"],
     coverageColumn: "company_website",
   },
@@ -98,13 +100,13 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
   // the dispatcher reads it there's no `{{tailored:*}}` left to render.
   // Listing them here keeps the wizard / guards / autocomplete happy.
   {
-    label: "AI hook (per lead)",
-    description: "AI-generated opener specific to THIS lead — referencing their company, role, recent move, or signal. Filled at campaign approve, not at send. 12–25 words.",
+    labelKey: "ph.aiHook",
+    descKey: "ph.aiHookDesc",
     tokens: ["{{tailored:hook}}", "{{tailoredHook}}"],
   },
   {
-    label: "AI why-we-fit (per lead)",
-    description: "AI-generated sentence connecting the lead's pain to your service. References ICP pain points + your value prop, not generic. Filled at campaign approve. 15–30 words.",
+    labelKey: "ph.aiFit",
+    descKey: "ph.aiFitDesc",
     tokens: ["{{tailored:fit}}", "{{tailoredFit}}"],
   },
 ];
