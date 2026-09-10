@@ -17,7 +17,8 @@ import { useState } from "react";
 import { CalendarDays, X } from "lucide-react";
 import { C } from "@/lib/design";
 import { gold, Pick } from "./ui";
-import * as D from "./data";
+import type { OverviewData, TabsData } from "@/lib/console-data";
+import { ConsoleProvider, useD } from "./ctx";
 import { TABS, type Tab } from "./tabs-data";
 
 import Overview from "./Console";
@@ -40,6 +41,7 @@ const APPLIES: Record<Tab, Array<"campaign" | "icp" | "seller">> = {
 };
 
 function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPeriod: (p: string) => void }) {
+  const D = useD();
   const [camp, setCamp] = useState(D.filters.campaigns[0]);
   const [icp, setIcp] = useState(D.filters.icps[0]);
   const [seller, setSeller] = useState(D.filters.sellers[0]);
@@ -51,7 +53,7 @@ function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPer
   ].filter(Boolean).length;
 
   return (
-    <div className="sticky top-0 z-40 -mx-8 px-8 py-3 flex items-center gap-2.5 flex-wrap"
+    <div className="sticky top-0 z-40 py-3 flex items-center gap-2.5 flex-wrap"
       style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 92%, transparent)`, backdropFilter: "blur(12px)" }}>
       <div className="inline-flex rounded-full border overflow-hidden" style={{ borderColor: C.border }}>
         {D.period.presets.map(p => (
@@ -86,31 +88,29 @@ function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPer
   );
 }
 
-export default function Shell() {
+export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; hero?: React.ReactNode }) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const [period, setPeriod] = useState("30 days");
-  const label = period === "All time" ? "all time" : period === "Custom" ? "the selected range" : `the last ${period.toLowerCase()}`;
+  // The window is chosen on the server and arrives with the data, so the
+  // label describes what was actually measured rather than what a local
+  // dropdown thinks. Changing it navigates; it does not re-slice in place.
+  const [period, setPeriod] = useState(D.period.label);
+  const label = D.period.range;
 
   const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[tab];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: C.bg }}>
-      <div className="mx-auto px-8" style={{ maxWidth: 1300, paddingBottom: 96 }}>
+    <ConsoleProvider value={{ D, T }}>
+    <div className="p-4 sm:p-6 w-full">
+      {/* The hero spans the full width, like every other view. The ANALYSIS
+          does not: a funnel and a stock bar stretched across 1600px read as
+          empty space with numbers floating in it. Capped and centred, the
+          eye can travel a row without losing the line. */}
+      {hero}
 
-        <div className="flex items-center gap-3 pt-4 pb-1">
-          <div>
-            <div className="font-semibold uppercase tracking-[.14em]" style={{ fontSize: 10, color: gold }}>Growth Engine</div>
-            <h1 className="font-semibold tracking-tight" style={{ fontSize: 21, color: C.textPrimary, letterSpacing: "-0.02em" }}>Dashboard</h1>
-          </div>
-          <div className="flex-1" />
-          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full border"
-            style={{ fontSize: 10.5, borderColor: `color-mix(in srgb, ${C.orange} 40%, transparent)`, color: C.orange }}>
-            MOCK · static data
-          </span>
-        </div>
+      <div className="mx-auto w-full" style={{ maxWidth: 1180, paddingBottom: 64 }}>
 
         {/* tabs — names, one underline, no chapter numerals */}
-        <nav className="flex items-center gap-1 mt-3" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
+        <nav className="flex items-center gap-1 mt-5" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
           {TABS.map(t => {
             const on = t === tab;
             return (
@@ -133,10 +133,11 @@ export default function Shell() {
         <Body label={label} />
 
         <p className="mt-16 text-center" style={{ fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
-          Diagnostic Console · figures verified against the SWL tenant on 2026-09-07 · no query, no write, no change to the live dashboard<br />
-          Every figure is scoped to activity in the period, not to leads loaded in it — which is why four ICPs that the live tab drops at 30 days are present here.
+          Growth Engine · live data · {D.period.range}<br />
+          Every figure is scoped to ACTIVITY in the period, not to leads loaded in it. Calls count distinct physical calls by canonical identity; Unknown is shown beside every rate and never inside it.
         </p>
       </div>
     </div>
+    </ConsoleProvider>
   );
 }

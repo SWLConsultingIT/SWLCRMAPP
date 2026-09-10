@@ -23,11 +23,12 @@ import {
   gold, n, Band, Opening, Drill, Note, Eyebrow, WorthALook, DeltaTag,
   ChannelMark, CH_COLOR, OutcomeBar, TONE,
 } from "./ui";
-import * as T from "./tabs-data";
+import type * as CT from "@/lib/console-data";
+import { useT } from "./ctx";
 
 /* ── the card ───────────────────────────────────────────────────────────── */
 
-function Card({ c }: { c: T.ChannelCard }) {
+function Card({ c }: { c: CT.ChannelCard }) {
   const color = CH_COLOR[c.key];
   return (
     <div className="rounded-2xl p-5 flex flex-col"
@@ -90,12 +91,13 @@ function Card({ c }: { c: T.ChannelCard }) {
    that is genuinely comparable appears here. */
 
 function HeadToHead() {
+  const T = useT();
   const rows = T.channelCards.filter(c => c.comparable);
   const [a, b] = rows;
   const maxRate = Math.max(a.rate, b.rate);
   const maxVol = Math.max(a.sent, b.sent);
 
-  const LINES: { label: string; get: (c: T.ChannelCard) => number; fmt: (v: number) => string; scale: number }[] = [
+  const LINES: { label: string; get: (c: CT.ChannelCard) => number; fmt: (v: number) => string; scale: number }[] = [
     { label: "Reply rate", get: c => c.rate, fmt: v => `${v}%`, scale: maxRate },
     { label: "Messages sent", get: c => c.sent, fmt: v => n(v), scale: maxVol },
     { label: "Leads reached", get: c => c.reach, fmt: v => n(v), scale: maxVol },
@@ -146,6 +148,7 @@ function HeadToHead() {
 /* ── volume, to one scale ───────────────────────────────────────────────── */
 
 function Volume() {
+  const T = useT();
   const cards = T.channelCards;
   const max = Math.max(...cards.map(c => c.sent));
   return (
@@ -179,6 +182,7 @@ function Volume() {
 }
 
 export default function Channels({ label }: { label: string }) {
+  const T = useT();
   return (
     <>
       <Opening question="Which channel earns a reply?" sub={`in ${label}`} aside={<Drill label="Inbox" />}>

@@ -28,12 +28,14 @@ import { Fragment, useState } from "react";
 import { ChevronRight, AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
 import { gold, n, Band, Opening, Drill, Eyebrow, CH_COLOR, TONE } from "./ui";
-import * as T from "./tabs-data";
+import type * as CT from "@/lib/console-data";
+import { useT } from "./ctx";
 
 const days = (a: number[]) => a.filter(v => v > 0).length;
 
 /** Steady, bursty or absent — derived, not asserted. */
 function rhythm(sent: number[], total: number) {
+  const T = useT();
   const active = days(sent);
   const peak = Math.max(...sent, 0);
   const share = total > 0 ? peak / total : 0;
@@ -45,6 +47,7 @@ function rhythm(sent: number[], total: number) {
 /* ═══ 1 · TEAM HEALTH ═════════════════════════════════════════════════════ */
 
 function TeamHealth() {
+  const T = useT();
   const h = T.teamHealth;
   const [all, setAll] = useState(false);
   const shown = all ? T.teamAlerts : T.teamAlerts.slice(0, 3);
@@ -140,7 +143,8 @@ function Th({ children, hint, tone = "primary", edge }: {
 
 const EDGE = { borderLeft: `1px solid var(--c-border)` } as const;
 
-function Detail({ s }: { s: T.Seller }) {
+function Detail({ s }: { s: CT.Seller }) {
+  const T = useT();
   const c = T.sellerCalls.find(x => x.name === s.name)!;
   const d = T.sellerDaily[s.name];
   const mix = [
@@ -261,6 +265,7 @@ function Detail({ s }: { s: T.Seller }) {
 }
 
 function Performance({ open, setOpen }: { open: string | null; setOpen: (v: string | null) => void }) {
+  const T = useT();
   const rows = T.sellers;
   const team = T.teamHealth;
   const bestRate = Math.max(...rows.map(r => r.replyRate));
@@ -370,7 +375,7 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
 /* ═══ 3 · COMPARE ═════════════════════════════════════════════════════════ */
 
 const METRICS = [
-  { key: "replyRate", label: "Reply rate", unit: "%", team: T.teamHealth.replyRate },
+  { key: "replyRate", label: "Reply rate", unit: "%", team: null },
   { key: "replies", label: "Replies", unit: "", team: null },
   { key: "contacted", label: "Contacted", unit: "", team: null },
   { key: "sent", label: "Messages sent", unit: "", team: null },
@@ -378,6 +383,7 @@ const METRICS = [
 ] as const;
 
 function Compare() {
+  const T = useT();
   const [m, setM] = useState<(typeof METRICS)[number]["key"]>("replyRate");
   const meta = METRICS.find(x => x.key === m)!;
   const rows = [...T.sellers].sort((a, b) => (b[m] as number) - (a[m] as number));
@@ -445,6 +451,7 @@ function Compare() {
    coloured column, because it is the only operational problem here. */
 
 function Calls() {
+  const T = useT();
   const rows = [...T.sellerCalls].sort((a, b) => b.attempted - a.attempted);
   const t = T.sellerCallsTotal;
   const num = (v: number, tone?: string, bold?: boolean) => (
@@ -537,6 +544,7 @@ function Spark({ sent, calls }: { sent: number[]; calls: number[] }) {
 }
 
 function Consistency() {
+  const T = useT();
   const rows = T.sellers.map(s => {
     const d = T.sellerDaily[s.name];
     return { s, d, ds: days(d.sent), dc: days(d.calls), r: rhythm(d.sent, s.sent) };
@@ -598,6 +606,7 @@ function Consistency() {
 /* ═══ 6 · INSIGHTS ════════════════════════════════════════════════════════ */
 
 function Insights() {
+  const T = useT();
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 28 }}>
       {T.sellerInsights.map(i => (
@@ -621,6 +630,7 @@ function Insights() {
 /* ═══ page ════════════════════════════════════════════════════════════════ */
 
 export default function Sellers({ label }: { label: string }) {
+  const T = useT();
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
