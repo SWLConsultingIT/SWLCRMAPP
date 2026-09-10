@@ -21,16 +21,18 @@ import {
   gold, n, S, Band, Opening, Drill, Note, Eyebrow, WorthALook,
   ChannelMark, CH_COLOR, CH_LABEL,
 } from "./ui";
-import * as T from "./tabs-data";
+import { CH_KEYS } from "@/lib/console-data";
+import type * as CT from "@/lib/console-data";
+import { useT } from "./ctx";
 
-const K = T.CH_KEYS;
+const K = CH_KEYS;
 
 /* ── contact points ─────────────────────────────────────────────────────
    Four cells per row, each one "sent / reached". The bar under each cell is
    that channel's share of the ICP's own volume, so the shape of the row
    says how the ICP was worked without reading a single number. */
 
-function Touches({ t, reach, max }: { t: T.Touch; reach: T.Touch; max: number }) {
+function Touches({ t, reach, max }: { t: CT.Touch; reach: CT.Touch; max: number }) {
   return (
     <div className="flex" style={{ gap: 6 }}>
       {K.map(k => {
@@ -55,6 +57,7 @@ function Touches({ t, reach, max }: { t: T.Touch; reach: T.Touch; max: number })
 }
 
 function Rank() {
+  const T = useT();
   const rows = T.icps;
   const best = Math.max(...rows.map(r => r.rate));
   const team = T.icpsTotals.rate;
@@ -136,6 +139,7 @@ function Rank() {
    row against the whole before comparing rows with each other. */
 
 function Totals() {
+  const T = useT();
   const t = T.icpsTotals.touch;
   const grand = K.reduce((a, k) => a + t[k], 0);
   return (
@@ -166,6 +170,7 @@ function Totals() {
 const MIN_BASE = 20;
 
 function Matrix() {
+  const T = useT();
   const cells = T.icps.flatMap(i => K.map(c => ({ base: i.reach[c], hit: i.replied[c] }))).filter(c => c.base >= MIN_BASE);
   const max = Math.max(...cells.map(c => (c.hit / c.base) * 100), 1);
 
@@ -225,6 +230,7 @@ function Matrix() {
 }
 
 export default function Icps({ label }: { label: string }) {
+  const T = useT();
   return (
     <>
       <Opening question="Which kind of company answers us?" sub={`in ${label}`} aside={<Drill label="ICP list" />}>

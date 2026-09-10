@@ -31,7 +31,7 @@ import { C } from "@/lib/design";
 import {
   gold, n, S, Band, DeltaTag, Def, Drill,
 } from "./ui";
-import * as D from "./data";
+import { useD } from "./ctx";
 
 const ICONS = { in: Share2, dm: MessageSquare, email: Mail, call: Phone } as const;
 const ICOLOR = { in: C.linkedin, dm: C.linkedin, email: C.email, call: C.phone } as const;
@@ -52,6 +52,7 @@ const ICOLOR = { in: C.linkedin, dm: C.linkedin, email: C.email, call: C.phone }
    replied. Nothing in the data says it is lost. */
 
 function Flow() {
+  const D = useD();
   const st = D.funnel.stages;
   const W = 1180, H = 232, TOP = 30, BODY = 118;
   const max = st[0].n;
@@ -133,6 +134,7 @@ function Flow() {
    never share a scale, a bar, or a column. */
 
 function Channels() {
+  const D = useD();
   const best = Math.max(...D.replyRates.rows.map(r => r.rate));
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12" style={{ gap: 48 }}>
@@ -201,6 +203,7 @@ function Channels() {
    step is "the constraint" — the data supports none of those. */
 
 function LinkedInNote() {
+  const D = useD();
   return (
     <div className="rounded-2xl px-7 py-6"
       style={{ background: `linear-gradient(115deg, color-mix(in srgb, ${gold} 8%, ${C.card}) 0%, ${C.card} 60%)`,
@@ -260,6 +263,7 @@ function Ranked({ rows, note }: {
  *  note — because "81 replies" and "66 leads" are both true and a reader who
  *  compares one against the funnel's 66 has to be able to reconcile them. */
 function ReplyQuality() {
+  const D = useD();
   const q = D.replyQuality;
   const max = Math.max(...q.rows.map(r => r.n), 1);
   const tone = { info: C.blue, bad: C.red, neutral: C.yellow, good: C.green, muted: C.textDim } as const;
@@ -290,6 +294,7 @@ function ReplyQuality() {
 }
 
 function Trend() {
+  const D = useD();
   const { sent, replies, prior, totals } = D.activity;
   const W = 720, H = 132, P = 5;
   const maxS = Math.max(...sent, ...prior, 1), maxR = Math.max(...replies, 1);
@@ -319,6 +324,7 @@ function Trend() {
 }
 
 function Timing() {
+  const D = useD();
   const t = D.timing;
   const max = Math.max(...t.grid.flat(), 1);
   const totals = t.grid.map(r => r.reduce((a, b) => a + b, 0));
@@ -356,6 +362,7 @@ function Timing() {
  *  and the numbers check against each other. Intake is stated separately
  *  because it is a different window and does not belong in the partition. */
 function Workspace() {
+  const D = useD();
   const w = D.workspace;
   const shade = [gold, `color-mix(in srgb, ${gold} 36%, transparent)`, C.border2];
   return (
@@ -392,6 +399,7 @@ function Workspace() {
    Overview's own content. */
 
 export default function Overview({ label }: { label: string }) {
+  const D = useD();
   return (
     <>
       {/* The flow IS the opening. It already carries contacted, replied and

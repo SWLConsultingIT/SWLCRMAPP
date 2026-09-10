@@ -17,7 +17,8 @@ import { useState } from "react";
 import { CalendarDays, X } from "lucide-react";
 import { C } from "@/lib/design";
 import { gold, Pick } from "./ui";
-import * as D from "./data";
+import type { OverviewData, TabsData } from "@/lib/console-data";
+import { ConsoleProvider, useD } from "./ctx";
 import { TABS, type Tab } from "./tabs-data";
 
 import Overview from "./Console";
@@ -40,6 +41,7 @@ const APPLIES: Record<Tab, Array<"campaign" | "icp" | "seller">> = {
 };
 
 function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPeriod: (p: string) => void }) {
+  const D = useD();
   const [camp, setCamp] = useState(D.filters.campaigns[0]);
   const [icp, setIcp] = useState(D.filters.icps[0]);
   const [seller, setSeller] = useState(D.filters.sellers[0]);
@@ -86,14 +88,18 @@ function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPer
   );
 }
 
-export default function Shell() {
+export default function Shell({ D, T }: { D: OverviewData; T: TabsData }) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const [period, setPeriod] = useState("30 days");
-  const label = period === "All time" ? "all time" : period === "Custom" ? "the selected range" : `the last ${period.toLowerCase()}`;
+  // The window is chosen on the server and arrives with the data, so the
+  // label describes what was actually measured rather than what a local
+  // dropdown thinks. Changing it navigates; it does not re-slice in place.
+  const [period, setPeriod] = useState(D.period.label);
+  const label = D.period.range;
 
   const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[tab];
 
   return (
+    <ConsoleProvider value={{ D, T }}>
     <div className="min-h-screen" style={{ backgroundColor: C.bg }}>
       <div className="mx-auto px-8" style={{ maxWidth: 1300, paddingBottom: 96 }}>
 
@@ -105,7 +111,7 @@ export default function Shell() {
           <div className="flex-1" />
           <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full border"
             style={{ fontSize: 10.5, borderColor: `color-mix(in srgb, ${C.orange} 40%, transparent)`, color: C.orange }}>
-            MOCK · static data
+            {D.period.range}
           </span>
         </div>
 
@@ -133,10 +139,11 @@ export default function Shell() {
         <Body label={label} />
 
         <p className="mt-16 text-center" style={{ fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
-          Diagnostic Console · figures verified against the SWL tenant on 2026-09-07 · no query, no write, no change to the live dashboard<br />
-          Every figure is scoped to activity in the period, not to leads loaded in it — which is why four ICPs that the live tab drops at 30 days are present here.
+          Growth Engine · live data · {D.period.range}<br />
+          Every figure is scoped to ACTIVITY in the period, not to leads loaded in it. Calls count distinct physical calls by canonical identity; Unknown is shown beside every rate and never inside it.
         </p>
       </div>
     </div>
+    </ConsoleProvider>
   );
 }

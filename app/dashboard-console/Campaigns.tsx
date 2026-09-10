@@ -24,16 +24,18 @@ import {
   gold, n, S, Band, Opening, Drill, Note, Eyebrow,
   ChannelBar, CH_COLOR, CH_LABEL, ChannelMark, OutcomeBar, TONE,
 } from "./ui";
-import * as T from "./tabs-data";
+import { CH_KEYS, RATE_FLOOR } from "@/lib/console-data";
+import type * as CT from "@/lib/console-data";
+import { useT } from "./ctx";
 
-const K = T.CH_KEYS;
-const sum = (t: T.Touch) => K.reduce((a, k) => a + t[k], 0);
+const K = CH_KEYS;
+const sum = (t: CT.Touch) => K.reduce((a, k) => a + t[k], 0);
 
 /* ── the step spine ─────────────────────────────────────────────────────
    One column per step, height to scale against the biggest step in THAT
    flow. The gold cap is the leads that replied, on the same scale. */
 
-function Spine({ steps }: { steps: T.Step[] }) {
+function Spine({ steps }: { steps: CT.Step[] }) {
   if (steps.length === 0) return null;
   const max = Math.max(...steps.map(s => s.leads), 1);
   const H = 76;
@@ -113,7 +115,8 @@ function Mini({ label, rows, total }: {
   );
 }
 
-function Detail({ c }: { c: T.CampaignRow }) {
+function Detail({ c }: { c: CT.CampaignRow }) {
+  const T = useT();
   const d = T.flowDetail[c.name];
   if (!d) return null;
   const st = d.status;
@@ -243,10 +246,10 @@ function Detail({ c }: { c: T.CampaignRow }) {
 }
 
 function Flow({ c, best, open, onToggle }: {
-  c: T.CampaignRow; best: number; open: boolean; onToggle: () => void;
+  c: CT.CampaignRow; best: number; open: boolean; onToggle: () => void;
 }) {
   const total = sum(c.touch);
-  const thin = c.contacted < T.RATE_FLOOR;
+  const thin = c.contacted < RATE_FLOOR;
   return (
     <div style={{ borderTop: `1px solid ${C.border}` }}>
       <div className="flex items-center gap-3 py-3">
@@ -295,13 +298,14 @@ function Flow({ c, best, open, onToggle }: {
 }
 
 function Group({ g, best, open, toggle }: {
-  g: (typeof T.campaignGroups)[number];
+  g: CT.TabsData["campaignGroups"][number];
   best: number;
   open: Record<string, boolean>;
   toggle: (k: string) => void;
 }) {
+  const T = useT();
   const total = sum(g.touch);
-  const flowBest = Math.max(...g.flows.map(f => (f.contacted >= T.RATE_FLOOR ? f.rate : 0)), 1);
+  const flowBest = Math.max(...g.flows.map(f => (f.contacted >= RATE_FLOOR ? f.rate : 0)), 1);
   return (
     <section className="mb-9">
       {/* the ICP header — its own summary line, so the group reads before
@@ -329,6 +333,7 @@ function Group({ g, best, open, toggle }: {
 }
 
 export default function Campaigns({ label }: { label: string }) {
+  const T = useT();
   // Best group's best flow and the worst flow overall start open.
   const [open, setOpen] = useState<Record<string, boolean>>({
     [T.campaignGroups[0].flows[0].name]: true,
