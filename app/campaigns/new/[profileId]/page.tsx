@@ -31,23 +31,27 @@ const gold = C.gold;
 
 import { type StepAttachment } from "@/components/StepAttachments";
 import { readLeadSelection, clearLeadSelection, STASH_SENTINEL } from "@/lib/lead-selection";
+import { useLocale } from "@/lib/i18n";
 
 type SequenceStep = { channel: string; daysAfter: number; attachments?: StepAttachment[] };
 
 
+// Endonyms: each language named in itself. These label the language the
+// OUTBOUND copy is drafted in, not the interface, so translating them would
+// have meant "Spanish/Español/Spagnolo" for the same option.
 const languageOptions = [
   { code: "en", label: "English" },
-  { code: "es", label: "Spanish" },
-  { code: "pt", label: "Portuguese" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "it", label: "Italian" },
+  { code: "es", label: "Español" },
+  { code: "pt", label: "Português" },
+  { code: "fr", label: "Français" },
+  { code: "de", label: "Deutsch" },
+  { code: "it", label: "Italiano" },
 ];
 
 const ALL_CHANNEL_OPTIONS = [
   { key: "linkedin",  label: "LinkedIn",  icon: Share2,         color: C.linkedin, short: "LI" },
   { key: "email",     label: "Email",     icon: Mail,           color: C.email,    short: "EM" },
-  { key: "call",      label: "Call",      icon: Phone,          color: C.phone,    short: "CA" },
+  { key: "call",      label: "Call",      labelKey: "inbox.channel.call", icon: Phone,          color: C.phone,    short: "CA" },
   { key: "whatsapp",  label: "WhatsApp",  icon: MessageCircle,  color: "#25D366",  short: "WA", superAdminOnly: true },
   { key: "telegram",  label: "Telegram",  icon: Send,           color: "#229ED9",  short: "TG", superAdminOnly: true },
 ];
@@ -55,7 +59,7 @@ const ALL_CHANNEL_OPTIONS = [
 const sequenceTemplates = [
   {
     name: "LinkedIn Only",
-    desc: "3-step LinkedIn sequence",
+    nameKey: "wiz.tpl.liOnly", descKey: "wiz.tpl.liOnlyDesc",
     steps: [
       { channel: "linkedin", daysAfter: 0 },
       { channel: "linkedin", daysAfter: 3 },
@@ -64,7 +68,7 @@ const sequenceTemplates = [
   },
   {
     name: "LinkedIn + Email",
-    desc: "Alternate between LinkedIn and Email",
+    nameKey: "wiz.tpl.liEmail", descKey: "wiz.tpl.liEmailDesc",
     steps: [
       { channel: "linkedin", daysAfter: 0 },
       { channel: "email", daysAfter: 2 },
@@ -75,7 +79,7 @@ const sequenceTemplates = [
   },
   {
     name: "Email Only",
-    desc: "4-step email sequence",
+    nameKey: "wiz.tpl.emailOnly", descKey: "wiz.tpl.emailOnlyDesc",
     steps: [
       { channel: "email", daysAfter: 0 },
       { channel: "email", daysAfter: 3 },
@@ -85,7 +89,7 @@ const sequenceTemplates = [
   },
   {
     name: "Multichannel Aggressive",
-    desc: "LinkedIn + Email + Call combo",
+    nameKey: "wiz.tpl.multi", descKey: "wiz.tpl.multiDesc",
     steps: [
       { channel: "linkedin", daysAfter: 0 },
       { channel: "email", daysAfter: 2 },
@@ -98,7 +102,7 @@ const sequenceTemplates = [
   },
   {
     name: "LinkedIn + Call",
-    desc: "LinkedIn outreach with call follow-ups",
+    nameKey: "wiz.tpl.liCall", descKey: "wiz.tpl.liCallDesc",
     steps: [
       { channel: "linkedin", daysAfter: 0 },
       { channel: "call", daysAfter: 2 },
@@ -109,7 +113,8 @@ const sequenceTemplates = [
   },
 ];
 
-const WIZARD_STEPS = ["Sequence", "Settings", "Messages", "Review"];
+// Keys, not labels: module scope. The stepper resolves them.
+const WIZARD_STEPS = ["wiz.step.sequence", "wiz.step.settings", "wiz.step.messages", "wiz.step.review"];
 
 // Stable 32-bit-ish hash of a string. Used to scope the wizard's
 // sessionStorage draft by the lead-subset so two campaigns off the
@@ -124,6 +129,7 @@ function hashStr(s: string): string {
 }
 
 export default function NewCampaignWizard() {
+  const { t } = useLocale();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -132,7 +138,7 @@ export default function NewCampaignWizard() {
   // Selected lead IDs. Small selections ride in the URL (?leads=id1,id2,id3);
   // big ones come from sessionStorage because the inline URL trips Vercel's
   // 414 URI_TOO_LONG past ~385 ids. See lib/lead-selection.ts.
-  const leadsParamRaw = searchParams.get("leads");
+  const leadsParamRaw = searchParams.get(t("wiz.leads"));
   const selectedLeadIds = useMemo(
     () => readLeadSelection(profileId, leadsParamRaw),
     [profileId, leadsParamRaw],
@@ -395,7 +401,7 @@ export default function NewCampaignWizard() {
           let from = 0;
           while (true) {
             const { data, error } = await supabase
-              .from("leads")
+              .from(t("wiz.leads"))
               .select("id")
               .eq("icp_profile_id", profileId)
               .order("id", { ascending: true })
@@ -516,7 +522,7 @@ export default function NewCampaignWizard() {
         for (let i = 0; i < selectedLeadIds.length; i += 300) {
           const chunk = selectedLeadIds.slice(i, i + 300);
           const { data: part, error: partErr } = await supabase
-            .from("leads")
+            .from(t("wiz.leads"))
             .select(COVERAGE_COLS)
             .in("id", chunk);
           if (partErr) break;
@@ -525,7 +531,7 @@ export default function NewCampaignWizard() {
       } else {
         for (let from = 0; from < COVERAGE_MAX; from += COVERAGE_PAGE) {
           const { data: page, error: pageErr } = await supabase
-            .from("leads")
+            .from(t("wiz.leads"))
             .select(COVERAGE_COLS)
             .eq("icp_profile_id", profileId)
             .order("id", { ascending: true })
@@ -578,7 +584,7 @@ export default function NewCampaignWizard() {
       } else if (count === 0) {
         // Defensive: profile may have leads but we read 0 — fall back to count query.
         const { count: totalCount } = await supabase
-          .from("leads")
+          .from(t("wiz.leads"))
           .select("*", { count: "exact", head: true })
           .eq("icp_profile_id", profileId);
         count = totalCount ?? 0;
@@ -588,7 +594,7 @@ export default function NewCampaignWizard() {
       // that actually exist on leads belonging to this ICP (Pathway leads have rfa_*/ch_*;
       // another client's leads have whatever vocabulary they use).
       let sampleQuery = supabase
-        .from("leads")
+        .from(t("wiz.leads"))
         .select("id, enrichment")
         .eq("icp_profile_id", profileId)
         .not("enrichment", "is", null)
@@ -604,7 +610,7 @@ export default function NewCampaignWizard() {
       if (sample?.id) {
         setSampleLeadId(sample.id as string);
       } else {
-        let anyQuery = supabase.from("leads").select("id").eq("icp_profile_id", profileId).limit(1);
+        let anyQuery = supabase.from(t("wiz.leads")).select("id").eq("icp_profile_id", profileId).limit(1);
         if (isPartialSelection) anyQuery = anyQuery.in("id", selectedLeadIds.slice(0, 300));
         const { data: anyLead } = await anyQuery.maybeSingle();
         setSampleLeadId((anyLead?.id as string | undefined) ?? null);
@@ -1131,7 +1137,7 @@ export default function NewCampaignWizard() {
                   setFlowType(null);
                 }}
                 className="shrink-0 flex flex-col items-end gap-0.5 px-4 py-2 rounded-xl transition-opacity hover:opacity-85"
-                title="Change flow type"
+                title={t("wiz.changeFlowType")}
                 style={flowType === "tailored"
                   ? {
                       background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`,
@@ -1185,7 +1191,7 @@ export default function NewCampaignWizard() {
       {draftRestored && (
         <div className="mb-4 rounded-xl border px-4 py-2.5 flex items-center gap-3"
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 6%, transparent)`, borderColor: `color-mix(in srgb, ${gold} 25%, transparent)` }}>
-          <span className="text-xs font-semibold" style={{ color: gold }}>Draft restored</span>
+          <span className="text-xs font-semibold" style={{ color: gold }}>{t("wiz.draftRestored")}</span>
           <span className="text-xs" style={{ color: C.textMuted }}>
             We restored your work in progress. To start fresh, discard the draft.
           </span>
@@ -1245,7 +1251,7 @@ export default function NewCampaignWizard() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-                Step {wizardStep + 1} of {WIZARD_STEPS.length}
+                {t("wiz.stepOf", { n: wizardStep + 1, total: WIZARD_STEPS.length })}
               </p>
               <p className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
                 {WIZARD_STEPS[wizardStep]}
@@ -1270,7 +1276,7 @@ export default function NewCampaignWizard() {
                   ? { backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }
                   : { backgroundColor: C.card, color: C.textDim, border: `1px solid ${C.border}` }}>
                 {i < wizardStep ? <Check size={12} /> : <span>{i + 1}</span>}
-                {s}
+                {t(s)}
               </button>
               {i < WIZARD_STEPS.length - 1 && <div className="w-6 h-px" style={{ backgroundColor: i < wizardStep ? `color-mix(in srgb, ${C.green} 40%, transparent)` : C.border }} />}
             </div>
@@ -1290,14 +1296,14 @@ export default function NewCampaignWizard() {
               one card to reduce stacked-card noise. */}
           <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <label className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: C.textMuted }}>
-              Flow Name <span style={{ color: gold }}>· required</span>
+              Flow Name <span style={{ color: gold }}>{t("wiz.required")}</span>
             </label>
             <div className="flex gap-2 flex-wrap">
               <input
                 type="text"
                 value={campaignName}
                 onChange={e => setCampaignName(e.target.value)}
-                placeholder="e.g. LATAM SaaS Leaders — LinkedIn + Email"
+                placeholder={t("wiz.flowNamePh")}
                 className="flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none"
                 style={{
                   color: C.textPrimary,
@@ -1346,7 +1352,7 @@ export default function NewCampaignWizard() {
               </div>
             </div>
             <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
-              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Start from a template</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>{t("wiz.startFromTemplate")}</p>
               {icpTemplates.length > 0 && (
                 <div className="mb-3">
                   <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: gold }}>
@@ -1366,7 +1372,7 @@ export default function NewCampaignWizard() {
                     }}
                     className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
                     style={{ borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)`, color: C.textPrimary }}>
-                    <option value="">— Pick a saved template —</option>
+                    <option value="">{t("wiz.pickTemplate")}</option>
                     {icpTemplates.map(tpl => (
                       <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
                     ))}
@@ -1389,7 +1395,7 @@ export default function NewCampaignWizard() {
                       onClick={() => applyPreset(tpl)}
                       className="rounded-lg border px-3 py-2.5 text-left flex flex-col gap-2 transition-[transform,box-shadow,border-color] hover:-translate-y-px hover:shadow-sm"
                       style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      <p className="text-[12.5px] font-bold" style={{ color: C.textPrimary }}>{tpl.name}</p>
+                      <p className="text-[12.5px] font-bold" style={{ color: C.textPrimary }}>{t(tpl.nameKey)}</p>
                       <span className="flex items-center h-3" aria-hidden>
                         {tpl.steps.map((st, j) => {
                           const col = channelOptions.find(c => c.key === st.channel)?.color ?? C.border;
@@ -1411,7 +1417,7 @@ export default function NewCampaignWizard() {
               {presetUndo && (
                 <p className="flex items-center gap-2 text-[11.5px] mt-2.5" style={{ color: C.textMuted }}>
                   Applied <b style={{ color: C.textPrimary }}>{presetUndo.name}</b> — replaced {presetUndo.steps.length} step{presetUndo.steps.length === 1 ? "" : "s"}.
-                  <button type="button" onClick={undoPreset} className="font-bold underline" style={{ color: gold }}>Undo</button>
+                  <button type="button" onClick={undoPreset} className="font-bold underline" style={{ color: gold }}>{t("wiz.undo")}</button>
                 </p>
               )}
             </div>
@@ -1446,7 +1452,7 @@ export default function NewCampaignWizard() {
                 <>
                   <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
                     <div>
-                      <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>The sequence</h2>
+                      <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("wiz.theSequence")}</h2>
                       <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
                         Channel and timing per step. The day on the left is when it goes out.
                       </p>
@@ -1462,9 +1468,9 @@ export default function NewCampaignWizard() {
                             color: "#D97706",
                             border: "1px solid color-mix(in srgb, #D97706 28%, transparent)",
                           }}
-                          title="Add a day or two to every step that lands on a Saturday or Sunday"
+                          title={t("wiz.weekendHint")}
                         >
-                          <AlertTriangle size={11} /> Shift all off weekends
+                          <AlertTriangle size={11} /> {t("wiz.shiftOffWeekends")}
                         </button>
                       )}
                       <p className="text-[11px] tabular-nums" style={{ color: C.textMuted }}>
@@ -1493,7 +1499,7 @@ export default function NewCampaignWizard() {
                           {/* Day, to the left of the spine — this is what the
                               old design buried in a chip on the far right. */}
                           <div className="text-right pr-2 leading-tight">
-                            <span className="block text-[10px] font-bold" style={{ color: C.textDim }}>day</span>
+                            <span className="block text-[10px] font-bold" style={{ color: C.textDim }}>{t("wiz.day")}</span>
                             <span className="block text-[15px] font-bold tabular-nums" style={{ color: C.textMuted }}>{days[i]}</span>
                           </div>
                           {/* Node on the spine */}
@@ -1548,7 +1554,7 @@ export default function NewCampaignWizard() {
                             {/* Wait */}
                             <div className="ml-auto flex items-center gap-2 flex-wrap">
                               {i === 0 ? (
-                                <span className="text-[11.5px]" style={{ color: C.textMuted }}>Starts on day 0</span>
+                                <span className="text-[11.5px]" style={{ color: C.textMuted }}>{t("wiz.startsDayZero")}</span>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 text-[11.5px]" style={{ color: C.textMuted }}>
                                   Wait
@@ -1559,7 +1565,7 @@ export default function NewCampaignWizard() {
                                     onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}
                                   >
                                     {[...new Set([s.daysAfter, 0, 1, 2, 3, 4, 5, 7, 10, 14, 21])].sort((a, b) => a - b).map(d => (
-                                      <option key={d} value={d}>{d === 0 ? "same day" : `${d} ${d === 1 ? "day" : "days"}`}</option>
+                                      <option key={d} value={d}>{d === 0 ? t("wiz.sameDay") : `${d} ${d === 1 ? t("wiz.day") : t("wiz.days")}`}</option>
                                     ))}
                                   </select>
                                 </span>
@@ -1583,7 +1589,7 @@ export default function NewCampaignWizard() {
                                 <button
                                   type="button"
                                   onClick={() => pushToWeekday(i)}
-                                  title="Move this step to the next weekday"
+                                  title={t("wiz.moveNextWeekday")}
                                   className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full transition-colors"
                                   style={{
                                     backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)",
@@ -1591,7 +1597,7 @@ export default function NewCampaignWizard() {
                                     border: "1px solid color-mix(in srgb, #D97706 30%, transparent)",
                                   }}
                                 >
-                                  <AlertTriangle size={10} /> weekend → Monday
+                                  <AlertTriangle size={10} /> {t("wiz.weekendToMonday")}
                                 </button>
                               )}
 
@@ -1603,13 +1609,13 @@ export default function NewCampaignWizard() {
                                       <Trash2 size={14} />
                                     </button>
                                   ) : (
-                                    <span title="You have to connect before you can DM, so the invitation stays" style={{ color: C.textDim }}>
+                                    <span title={t("wiz.crLocked")} style={{ color: C.textDim }}>
                                       <Lock size={12} />
                                     </span>
                                   ))
                                 : sequence.length > 1 && (
                                     <button onClick={() => removeStep(i)} className="opacity-30 hover:opacity-100 transition-opacity"
-                                      style={{ color: C.red }} title="Remove step">
+                                      style={{ color: C.red }} title={t("wiz.removeStep")}>
                                       <Trash2 size={14} />
                                     </button>
                                   )}
@@ -1640,8 +1646,8 @@ export default function NewCampaignWizard() {
               Sticky, because it's a reference while you edit the rail. */}
           <aside className="lg:sticky lg:top-4 space-y-4 min-w-0">
             <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <p className="text-[13px] font-bold" style={{ color: C.textPrimary }}>Flow summary</p>
-              <p className="text-[11px] mt-0.5 mb-3" style={{ color: C.textDim }}>Updates as you edit</p>
+              <p className="text-[13px] font-bold" style={{ color: C.textPrimary }}>{t("wiz.flowSummary")}</p>
+              <p className="text-[11px] mt-0.5 mb-3" style={{ color: C.textDim }}>{t("wiz.updatesAsYouEdit")}</p>
               {(() => {
                 const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
                 const rows: Array<[string, string, string?]> = [
@@ -1674,7 +1680,7 @@ export default function NewCampaignWizard() {
                 if (order.length === 0) return null;
                 return (
                   <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>Channel mix</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>{t("wiz.channelMix")}</p>
                     <div className="flex h-[7px] rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
                       {order.map(c => (
                         <span key={c.key} style={{ width: `${((counts.get(c.key) ?? 0) / sequence.length) * 100}%`, backgroundColor: c.color }} />
@@ -1698,7 +1704,7 @@ export default function NewCampaignWizard() {
               channel-coverage check: it answers a different question —
               whether the leads can even be reached on the channels chosen. */}
           <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Reach of this selection</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("wiz.reachOfSelection")}</p>
             <p className="text-[11px] mb-3" style={{ color: C.textDim }}>
               {leadsCount} leads · {sequence.length} steps · {totalDays} days · {[...new Set(sequence.map(s => s.channel))].length} channels
             </p>
@@ -1788,7 +1794,7 @@ export default function NewCampaignWizard() {
                 This says what's missing while there's still something to do
                 about it. */}
             <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <p className="text-[13px] font-bold mb-3" style={{ color: C.textPrimary }}>To continue</p>
+              <p className="text-[13px] font-bold mb-3" style={{ color: C.textPrimary }}>{t("wiz.toContinue")}</p>
               <div className="flex flex-col gap-2.5">
                 {step0Checks.map(c => (
                   <div key={c.title} className="flex items-start gap-2.5 text-[12.5px]">
@@ -1821,7 +1827,7 @@ export default function NewCampaignWizard() {
             <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
               <div className="flex items-center gap-2 mb-1">
                 <Settings size={15} style={{ color: gold }} />
-                <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Flow Settings</h2>
+                <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("wiz.flowSettings")}</h2>
               </div>
               <p className="text-xs mb-6" style={{ color: C.textDim }}>
                 Choose who will run this outreach flow and which accounts to use for each channel.
@@ -1852,7 +1858,7 @@ export default function NewCampaignWizard() {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Assigned Salesperson(s)</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>{t("wiz.assignedSalespeople")}</label>
                         <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
                           {leadsCount > 0 ? `${leadsCount} leads to assign — the salesperson who owns each lead: their LinkedIn sends AND they make the calls` : "The salesperson who owns each lead — their LinkedIn sends and they make the calls. Split across people below."}
                         </p>
@@ -1880,7 +1886,7 @@ export default function NewCampaignWizard() {
                           <button onClick={addSellerQuota}
                             className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1"
                             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                            <Plus size={11} /> Add seller
+                            <Plus size={11} /> {t("wiz.addSeller")}
                           </button>
                         )}
                       </div>
@@ -1889,12 +1895,12 @@ export default function NewCampaignWizard() {
                     <div className="space-y-2">
                       {sellerQuotas.length === 0 && sellers.length === 0 && (
                         <p className="text-xs text-center py-3 rounded-lg border border-dashed" style={{ color: C.textDim, borderColor: C.border }}>
-                          No active sellers configured. Go to <b>Accounts → Sellers</b> and add one first.
+                          No active sellers configured. Go to <b>{t("wiz.accountsSellers")}</b> and add one first.
                         </p>
                       )}
                       {sellerQuotas.length === 0 && sellers.length > 0 && (
                         <p className="text-xs text-center py-3 rounded-lg border border-dashed" style={{ color: C.textDim, borderColor: C.border }}>
-                          No sellers added yet. Click <b>Add seller</b>.
+                          No sellers added yet. Click <b>{t("wiz.addSeller")}</b>.
                         </p>
                       )}
                       {sellerQuotas.map((q, idx) => {
@@ -1922,7 +1928,7 @@ export default function NewCampaignWizard() {
                                   onChange={e => handleQuotaChange(idx, e.target.value)}
                                   className="w-16 text-sm font-bold rounded-lg border px-2 py-1.5 outline-none tabular-nums text-center"
                                   style={{ borderColor: clr.text + "40", backgroundColor: C.card, color: C.textBody }} />
-                                <span className="text-xs" style={{ color: C.textMuted }}>leads</span>
+                                <span className="text-xs" style={{ color: C.textMuted }}>{t("wiz.leads")}</span>
                                 {leadsCount > 0 && (
                                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                                     style={{ backgroundColor: clr.text + "18", color: clr.text }}>
@@ -1931,7 +1937,7 @@ export default function NewCampaignWizard() {
                                 )}
                               </div>
                               {missingLinkedin && (
-                                <span className="text-[9px] font-bold shrink-0" style={{ color: C.red }}>No LinkedIn</span>
+                                <span className="text-[9px] font-bold shrink-0" style={{ color: C.red }}>{t("wiz.noLinkedIn")}</span>
                               )}
                               {sellerQuotas.length > 1 && (
                                 <button onClick={() => removeSellerQuota(idx)} className="p-1 rounded shrink-0 opacity-30 hover:opacity-100 transition-opacity"
@@ -1991,8 +1997,8 @@ export default function NewCampaignWizard() {
               {/* Channel accounts (based on selected seller + used channels) */}
               {sellerQuotas.length > 0 && (
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Channel Accounts</label>
-                  <p className="text-xs mb-4" style={{ color: C.textDim }}>These accounts will be used to send messages for each channel in your sequence.</p>
+                  <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>{t("wiz.channelAccounts")}</label>
+                  <p className="text-xs mb-4" style={{ color: C.textDim }}>{t("wiz.channelAccountsDesc")}</p>
                   <div className="space-y-3">
                     {usedChannels.map(ch => {
                       const meta = channelOptions.find(c => c.key === ch);
@@ -2034,11 +2040,11 @@ export default function NewCampaignWizard() {
                               </div>
                               {isConfigured ? (
                                 <span className="text-[10px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                                  <Check size={10} /> Ready
+                                  <Check size={10} /> {t("wiz.ready")}
                                 </span>
                               ) : (
                                 <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: C.redLight, color: C.red }}>
-                                  Missing
+                                  {t("wiz.missing")}
                                 </span>
                               )}
                             </div>
@@ -2071,7 +2077,7 @@ export default function NewCampaignWizard() {
                           </div>
                           {isConfigured ? (
                             <span className="text-[10px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                              <Check size={10} /> Ready
+                              <Check size={10} /> {t("wiz.ready")}
                             </span>
                           ) : (
                             <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: C.redLight, color: C.red }}>
@@ -2085,12 +2091,12 @@ export default function NewCampaignWizard() {
 
                   {usedChannels.includes("call") && (
                     <div className="mt-4">
-                      <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Call Step Behavior</label>
-                      <p className="text-xs mb-3" style={{ color: C.textDim }}>What happens when a lead reaches a call step in the sequence.</p>
+                      <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>{t("wiz.callBehavior")}</label>
+                      <p className="text-xs mb-3" style={{ color: C.textDim }}>{t("wiz.callBehaviorDesc")}</p>
                       <div className="grid grid-cols-2 gap-3 mb-5">
                         {([
-                          { key: "auto", title: "Auto-advance (3 days)", desc: "Seller dials manually from /queue. If they don't dial within 3 days, the call is skipped and the sequence keeps moving (LinkedIn / email follow-ups continue on schedule). Best for high-volume top-of-funnel." },
-                          { key: "manual", title: "Wait for seller (5 days)", desc: "Same idea but with a longer window — the seller has 5 days to dial before the call is skipped. Best for high-value leads where the call matters more, but you still don't want the lead to sit forever if the call never happens." },
+                          { key: "auto", title: t("wiz.autoAdvance"), desc: t("wiz.autoAdvanceFull") },
+                          { key: "manual", title: t("wiz.waitForSeller"), desc: t("wiz.waitForSellerFull") },
                         ] as const).map(opt => {
                           const isSelected = callAdvanceMode === opt.key;
                           return (
@@ -2113,8 +2119,8 @@ export default function NewCampaignWizard() {
                           );
                         })}
                       </div>
-                      <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Aircall Number</label>
-                      <p className="text-xs mb-3" style={{ color: C.textDim }}>Which outbound number will be used for call steps in this sequence.</p>
+                      <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>{t("wiz.aircallNumber")}</label>
+                      <p className="text-xs mb-3" style={{ color: C.textDim }}>{t("wiz.aircallNumberDesc")}</p>
                       {aircallNumbers.length === 0 ? (
                         <div className="rounded-lg border px-4 py-3 text-xs" style={{ backgroundColor: C.redLight, borderColor: `${C.red}30`, color: C.red }}>
                           No Aircall numbers available for this account.
@@ -2193,7 +2199,7 @@ export default function NewCampaignWizard() {
                             style={{ color: worst > 15 ? "#D97706" : C.textPrimary }}>
                             {worst || "—"}
                           </span>
-                          <span className="text-[13px] font-semibold" style={{ color: C.textMuted }}>business days</span>
+                          <span className="text-[13px] font-semibold" style={{ color: C.textMuted }}>{t("wiz.businessDays")}</span>
                         </div>
                         <p className="text-[11.5px] mt-1.5" style={{ color: C.textDim }}>
                           {assigned} leads · the slowest channel sets the pace
@@ -2211,7 +2217,7 @@ export default function NewCampaignWizard() {
                                   }} />
                               </span>
                               <span className="tabular-nums font-semibold text-right" style={{ color: C.textMuted, minWidth: 104 }}>
-                                {r.days === null ? "no cap set" : `${r.days} d · ${r.perDay}/day`}
+                                {r.days === null ? t("wiz.noCapSet") : t("wiz.perDay", { n: r.days, perDay: r.perDay })}
                               </span>
                             </div>
                           ))}
@@ -2270,17 +2276,17 @@ export default function NewCampaignWizard() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Tailored mode is on</h3>
+                    <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("wiz.tailoredOn")}</h3>
                     <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                       style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}>
                       AI per-lead
                     </span>
                   </div>
                   <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
-                    The template you write here is <strong>the same for every lead</strong>. The AI only swaps the two slots —{" "}
+                    The template you write here is <strong>{t("wiz.sameForEveryLead")}</strong>. The AI only swaps the two slots —{" "}
                     <code className="text-[11px] px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>{"{{tailored:hook}}"}</code>{" "}and{" "}
                     <code className="text-[11px] px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>{"{{tailored:fit}}"}</code>{" "}
-                    — per-lead at send time, drawing from each lead&apos;s LinkedIn posts, news, and tech stack. Click <strong>Preview all</strong> to let the AI draft the templates with the slots embedded, then jump to <strong>Step 4 (Review)</strong> to see the per-lead result lead-by-lead.
+                    {t("wiz.tailoredBlurbMid")} <strong>{t("wiz.previewAll")}</strong> {t("wiz.tailoredHint")} <strong>{t("wiz.stepFourReview")}</strong> {t("wiz.tailoredBlurbEnd")}
                   </p>
                 </div>
               </div>
@@ -2424,7 +2430,7 @@ export default function NewCampaignWizard() {
                 ok: false,
                 blocking: false,
                 title: `${paceDays} business days of sending`,
-                detail: "The daily cap is LinkedIn's, not ours. Another seller shortens it.",
+                detail: t("wiz.dailyCapNote"),
                 goto: 1,
               }] : []),
             ];
@@ -2453,7 +2459,7 @@ export default function NewCampaignWizard() {
 
                 <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
                   <div className="flex items-baseline gap-2 mb-3 flex-wrap">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Pre-flight</h2>
+                    <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("wiz.preflight")}</h2>
                     <span className="text-[11px] ml-auto" style={{ color: blockers.length ? C.red : C.textDim }}>
                       {blockers.length > 0
                         ? `${blockers.length} blocking`
@@ -2492,9 +2498,9 @@ export default function NewCampaignWizard() {
                 {/* Nowhere in this wizard did it say the flow lands pending
                     approval, or when the first message actually goes out. */}
                 <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                  <h2 className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>What happens when you submit</h2>
+                  <h2 className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>{t("wiz.whatHappens")}</h2>
                   <p className="text-[12.5px] leading-relaxed" style={{ color: C.textMuted }}>
-                    The flow is created <b style={{ color: C.textPrimary }}>pending approval</b>. On approval we create{" "}
+                    The flow is created <b style={{ color: C.textPrimary }}>{t("wiz.pendingApproval")}</b>. On approval we create{" "}
                     <b style={{ color: C.textPrimary }}>{assigned.toLocaleString("es-AR")}</b> campaigns and{" "}
                     <b style={{ color: C.textPrimary }}>{sends.toLocaleString("es-AR")}</b> messages, and the first send goes out on the
                     next dispatcher tick — within 5 minutes. Any reply from a lead stops that lead&apos;s sequence.
@@ -2521,9 +2527,9 @@ export default function NewCampaignWizard() {
             if (stepsForPreview.length === 0 && !cr) {
               return (
                 <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})` }}>
-                  <p className="text-sm font-semibold mb-1.5" style={{ color: C.textPrimary }}>No message bodies to preview yet</p>
+                  <p className="text-sm font-semibold mb-1.5" style={{ color: C.textPrimary }}>{t("wiz.noBodiesYet")}</p>
                   <p className="text-xs leading-relaxed mb-3" style={{ color: C.textBody }}>
-                    Go back to <strong>Step 3 (Messages)</strong> and click <strong>Preview all</strong> so the AI drafts the templates first. Then jump back here to validate per-lead.
+                    Go back to <strong>{t("wiz.stepThreeMessages")}</strong> {t("wiz.andClick")} <strong>{t("wiz.previewAll")}</strong> so the AI drafts the templates first. Then jump back here to validate per-lead.
                   </p>
                   <button
                     type="button"
@@ -2564,7 +2570,7 @@ export default function NewCampaignWizard() {
           {flowType === "tailored" && tailoredLeadIds.length === 0 && (
             <div className="rounded-xl border p-5 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <Loader2 size={16} className="animate-spin inline mr-2" style={{ color: C.textMuted }} />
-              <span className="text-sm" style={{ color: C.textMuted }}>Loading batch…</span>
+              <span className="text-sm" style={{ color: C.textMuted }}>{t("wiz.loadingBatch")}</span>
             </div>
           )}
         </div>
@@ -2591,29 +2597,29 @@ export default function NewCampaignWizard() {
               }}>
               <Check size={11} /> Flow submitted
             </div>
-            <h2 className="text-lg font-bold mb-1" style={{ color: C.textPrimary }}>Save this as a template?</h2>
+            <h2 className="text-lg font-bold mb-1" style={{ color: C.textPrimary }}>{t("wiz.saveAsTemplate")}</h2>
             <p className="text-sm mb-5" style={{ color: C.textMuted }}>
               Optional. Save the sequence + messages so you can launch it again next time without rebuilding from scratch. You can skip and the flow goes through anyway.
             </p>
             <div className="space-y-3 mb-5">
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Template name</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("wiz.templateName")}</label>
                 <input
                   value={tplName}
                   onChange={e => setTplName(e.target.value)}
                   maxLength={100}
-                  placeholder="e.g. LinkedIn + Email 5-step"
+                  placeholder={t("wiz.templateNamePh")}
                   className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
                   style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Description <span className="font-normal">(optional)</span></label>
+                <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("wiz.description")} <span className="font-normal">{t("wiz.optional")}</span></label>
                 <input
                   value={tplDesc}
                   onChange={e => setTplDesc(e.target.value)}
                   maxLength={200}
-                  placeholder="Short note about this template…"
+                  placeholder={t("wiz.templateNotePh")}
                   className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
                   style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
                 />
@@ -2651,7 +2657,7 @@ export default function NewCampaignWizard() {
               style={{ backgroundColor: C.greenLight }}>
               <Check size={32} style={{ color: C.green }} />
             </div>
-            <h2 className="text-xl font-bold mb-2" style={{ color: C.textPrimary }}>Flow Submitted</h2>
+            <h2 className="text-xl font-bold mb-2" style={{ color: C.textPrimary }}>{t("wiz.flowSubmitted")}</h2>
             <p className="text-sm mb-1" style={{ color: C.textBody }}>
               Your outreach flow has been submitted for review.
             </p>
@@ -2661,7 +2667,7 @@ export default function NewCampaignWizard() {
               </p>
             )}
             <p className="text-sm mb-6" style={{ color: C.textMuted }}>
-              The SWL team will review your flow and you will be notified in your <strong>Queue</strong> once it is approved.
+              The SWL team will review your flow and you will be notified in your <strong>{t("wiz.queue")}</strong> once it is approved.
             </p>
             <div className="flex items-center justify-center gap-3">
               <button onClick={() => router.push("/leads")}
@@ -2687,7 +2693,7 @@ export default function NewCampaignWizard() {
       )}
       {submitError && (
         <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: C.red, backgroundColor: C.redLight }}>
-          <p className="text-sm font-medium" style={{ color: C.red }}>Failed to create campaign</p>
+          <p className="text-sm font-medium" style={{ color: C.red }}>{t("wiz.failedToCreate")}</p>
           <p className="text-xs mt-0.5" style={{ color: C.textBody }}>{submitError}</p>
         </div>
       )}
