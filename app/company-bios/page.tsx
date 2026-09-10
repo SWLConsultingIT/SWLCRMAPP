@@ -134,13 +134,14 @@ const socialLinks = [
 ] as const;
 
 // ─── Tone selector with per-channel overrides ────────────
-const TONE_OPTIONS: { id: ToneKey; label: string; hint: string }[] = [
-  { id: "serious",       label: "Serious",       hint: "no jokes, just business" },
-  { id: "professional",  label: "Professional",  hint: "polished, neutral" },
-  { id: "friendly",      label: "Friendly",      hint: "warm, approachable" },
-  { id: "consultative",  label: "Consultative",  hint: "advisor energy" },
-  { id: "direct",        label: "Direct",        hint: "no fluff, no buzzwords" },
-  { id: "witty",         label: "Witty",         hint: "smart, with personality" },
+// Keys, not labels: module scope. TonePillRow resolves them.
+const TONE_OPTIONS: { id: ToneKey; labelKey: string; hintKey: string }[] = [
+  { id: "serious",      labelKey: "cb.tone.serious",      hintKey: "cb.tone.seriousDesc" },
+  { id: "professional", labelKey: "cb.tone.professional", hintKey: "cb.tone.professionalDesc" },
+  { id: "friendly",     labelKey: "cb.tone.friendly",     hintKey: "cb.tone.friendlyDesc" },
+  { id: "consultative", labelKey: "cb.tone.consultative", hintKey: "cb.tone.consultativeDesc" },
+  { id: "direct",       labelKey: "cb.tone.direct",       hintKey: "cb.tone.directDesc" },
+  { id: "witty",        labelKey: "cb.tone.witty",        hintKey: "cb.tone.wittyDesc" },
 ];
 
 function TonePillRow({
@@ -154,6 +155,7 @@ function TonePillRow({
   allowNull?: boolean;
   size?: "sm" | "md";
 }) {
+  const { t } = useLocale();
   const padding = size === "sm" ? "px-2.5 py-1" : "px-3 py-1.5";
   const fontSize = size === "sm" ? "text-[11px]" : "text-xs";
   return (
@@ -178,7 +180,7 @@ function TonePillRow({
             key={opt.id}
             type="button"
             onClick={() => onChange(opt.id)}
-            title={opt.hint}
+            title={t(opt.hintKey)}
             className={`${padding} ${fontSize} font-semibold rounded-full transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 hover:opacity-95`}
             style={active
               ? {
@@ -189,7 +191,7 @@ function TonePillRow({
               : { backgroundColor: C.cardHov, color: C.textBody, border: `1px solid ${C.border}` }
             }
           >
-            {opt.label}
+            {t(opt.labelKey)}
           </button>
         );
       })}
@@ -271,6 +273,7 @@ function ToneSelector({
 
 // ─── Tag Input ───────────────────────────────────────────
 function TagList({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+  const { t } = useLocale();
   const [input, setInput] = useState("");
   function add() {
     const s = input.trim();
@@ -313,8 +316,9 @@ function TagList({ values, onChange, placeholder }: { values: string[]; onChange
 // Hover-reveal pencil for a read-view section → jumps into edit mode at that
 // section (sets the hash that BioForm scrolls to on mount).
 function EditPencil({ onClick }: { onClick: () => void }) {
+  const { t } = useLocale();
   return (
-    <button onClick={onClick} title="Edit this section"
+    <button onClick={onClick} title={t("cb.editSection")}
       className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md"
       style={{ color: C.textMuted, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
       <Pencil size={10} /> Edit
@@ -361,7 +365,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         style={{ borderColor: `color-mix(in srgb, ${gold} 26%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
         <Sparkles size={14} style={{ color: "var(--fg1)", flexShrink: 0 }} />
         <p className="text-[11.5px]" style={{ color: C.textBody }}>
-          This profile is your AI's source of truth — it grounds every <strong>outreach message</strong> and <strong>reply suggestion</strong>. The more complete it is, the sharper the AI.
+          This profile is your AI's source of truth — it grounds every <strong>{t("cb.outreachMessage")}</strong> and <strong>{t("cb.replySuggestion")}</strong>. The more complete it is, the sharper the AI.
         </p>
       </div>
 
@@ -454,7 +458,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               one clear action instead of a button + a separate badge. */}
           <button
             onClick={() => goEdit()}
-            title={readiness.missing.length ? `${readiness.pct}% complete · missing: ${readiness.missing.join(", ")}` : "Profile complete"}
+            title={readiness.missing.length ? t("cb.pctMissing", { pct: readiness.pct, list: readiness.missing.map(k => t(k)).join(", ") }) : t("cb.profileComplete")}
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md shrink-0"
             style={{
               background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
@@ -894,6 +898,7 @@ import ArchiveCompanyModal from "@/components/ArchiveCompanyModal";
 
 // Icon + accent header for each form section (replaces the gray uppercase h2s).
 function SectionHeader({ icon: Icon, title, color = gold }: { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; title: string; color?: string }) {
+  const { t } = useLocale();
   return (
     <h2 className="flex items-center gap-2.5 mb-4">
       <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -905,19 +910,20 @@ function SectionHeader({ icon: Icon, title, color = gold }: { icon: React.Compon
   );
 }
 
-// Which fields meaningfully feed the AI. Drives the "AI Readiness" meter so the
+// Which fields meaningfully feed the AI. Drives the readiness meter so the
 // user knows how complete the bio is (it grounds messages, ICPs, suggestions).
 function bioReadiness(f: CompanyBio): { pct: number; filled: number; total: number; missing: string[] } {
   const checks: Array<[string, boolean]> = [
-    ["Industry", !!f.industry?.trim()],
-    ["Description", !!f.description?.trim()],
-    ["Value proposition", !!f.value_proposition?.trim()],
-    ["Differentiators", !!f.differentiators?.trim()],
-    ["Main services", (f.main_services?.length ?? 0) > 0],
-    ["Target market", !!f.target_market?.trim()],
-    ["Languages", (f.languages?.length ?? 0) > 0],
-    ["Logo", !!f.logo_url],
-    ["Proof (clients / cases)", (f.key_clients?.length ?? 0) > 0 || (f.case_studies?.length ?? 0) > 0],
+    // Keys, resolved by the panel — this runs outside a component.
+    ["cb.check.industry", !!f.industry?.trim()],
+    ["cb.check.description", !!f.description?.trim()],
+    ["cb.valuePropLower", !!f.value_proposition?.trim()],
+    ["cb.differentiators", !!f.differentiators?.trim()],
+    ["cb.check.mainServices", (f.main_services?.length ?? 0) > 0],
+    ["cb.targetMarket", !!f.target_market?.trim()],
+    ["cb.check.languages", (f.languages?.length ?? 0) > 0],
+    ["cb.check.logo", !!f.logo_url],
+    ["cb.check.proof", (f.key_clients?.length ?? 0) > 0 || (f.case_studies?.length ?? 0) > 0],
   ];
   const filled = checks.filter(([, ok]) => ok).length;
   const total = checks.length;
@@ -925,28 +931,29 @@ function bioReadiness(f: CompanyBio): { pct: number; filled: number; total: numb
 }
 
 function ReadinessPanel({ form }: { form: CompanyBio }) {
+  const { t } = useLocale();
   const r = bioReadiness(form);
   const tone = r.pct >= 85 ? C.green : r.pct >= 50 ? "#D97706" : C.red;
   return (
     <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${tone}` }}>
       <div className="flex items-center gap-2 mb-2.5">
         <Sparkles size={14} style={{ color: tone }} />
-        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>AI Readiness</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>{t("cb.aiReadiness")}</p>
         <span className="ml-auto text-[18px] font-bold tabular-nums" style={{ color: tone, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{r.pct}%</span>
       </div>
       <div className="h-2 rounded-full overflow-hidden mb-1" style={{ backgroundColor: C.border }}>
         <div className="h-2 rounded-full transition-all" style={{ width: `${r.pct}%`, backgroundColor: tone }} />
       </div>
-      <p className="text-[10.5px] mb-2.5" style={{ color: C.textDim }}>{r.filled} of {r.total} key fields · this is what the AI uses to write your outreach.</p>
+      <p className="text-[10.5px] mb-2.5" style={{ color: C.textDim }}>{t("cb.keyFields", { filled: r.filled, total: r.total })}</p>
       {r.missing.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {r.missing.map(m => (
             <span key={m} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>{m}</span>
+              style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>{t(m)}</span>
           ))}
         </div>
       ) : (
-        <p className="text-[11px] font-semibold flex items-center gap-1" style={{ color: C.green }}><CheckCircle2 size={12} /> Complete — your AI context is fully loaded.</p>
+        <p className="text-[11px] font-semibold flex items-center gap-1" style={{ color: C.green }}><CheckCircle2 size={12} /> {t("cb.complete")}</p>
       )}
     </div>
   );
@@ -954,10 +961,11 @@ function ReadinessPanel({ form }: { form: CompanyBio }) {
 
 // Live brand card — updates as the user types so the page feels purposeful.
 function BrandPreview({ form }: { form: CompanyBio }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-4 py-2.5 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Live preview</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("cb.livePreview")}</p>
       </div>
       <div className="p-4">
         <div className="flex items-center gap-3 mb-3">
@@ -998,6 +1006,7 @@ function BrandPreview({ form }: { form: CompanyBio }) {
 }
 
 function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; onSave: (b: CompanyBio) => void; onCancel: () => void; onDelete?: () => void; isNew: boolean }) {
+  const { t } = useLocale();
   const [form, setForm] = useState<CompanyBio>(bio);
   const [saving, setSaving] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -1099,7 +1108,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       <div className="space-y-6 min-w-0">
       {/* 1. Company info */}
       <div id="bsec-company" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Building2} title="Company Information" color={gold} />
+        <SectionHeader icon={Building2} title={t("cb.companyInfo")} color={gold} />
         <div className="grid grid-cols-2 gap-4">
           {/* Logo upload */}
           <div className="col-span-2 flex items-center gap-5 pb-4 mb-2 border-b" style={{ borderColor: C.border }}>
@@ -1112,7 +1121,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               </div>
             )}
             <div>
-              <p className="text-xs font-medium mb-2" style={{ color: C.textBody }}>Company Logo</p>
+              <p className="text-xs font-medium mb-2" style={{ color: C.textBody }}>{t("cb.companyLogo")}</p>
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
                   style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
@@ -1200,7 +1209,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 2. Services */}
       <div id="bsec-services" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Briefcase} title="Main Services" color="#0EA5E9" />
+        <SectionHeader icon={Briefcase} title={t("cb.mainServices")} color="#0EA5E9" />
         <div className="flex flex-wrap gap-2 mb-3">
           {(form.main_services ?? []).map((s, i) => (
             <span key={i} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
@@ -1215,7 +1224,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={newService} onChange={e => setNewService(e.target.value)}
             onKeyDown={e => e.key === "Enter" && addService()}
-            placeholder="Add service…" />
+            placeholder={t("cb.addService")} />
           <button onClick={addService}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
             style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
@@ -1226,7 +1235,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 3. Online — Links (moved before pitch) */}
       <div id="bsec-links" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Globe} title="Links & Social Media" color="#0A66C2" />
+        <SectionHeader icon={Globe} title={t("cb.linksSocial")} color="#0A66C2" />
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Website</label>
@@ -1251,35 +1260,35 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 4. Your pitch */}
       <div id="bsec-pitch" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Target} title="Value Proposition" color={C.green} />
+        <SectionHeader icon={Target} title={t("cb.valueProposition")} color={C.green} />
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Company Description</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.companyDescription")}</label>
             <textarea rows={4} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              placeholder="What does the company do, its mission, how many years, etc." />
+              placeholder={t("cb.companyDescriptionPh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Value proposition</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.valuePropLower")}</label>
             <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.value_proposition} onChange={e => setForm(f => ({ ...f, value_proposition: e.target.value }))}
-              placeholder="In one sentence: what problem does it solve and for whom" />
+              placeholder={t("cb.valuePropPh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Differentiators</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.differentiators")}</label>
             <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.differentiators} onChange={e => setForm(f => ({ ...f, differentiators: e.target.value }))}
-              placeholder="What makes this company different from the competition" />
+              placeholder={t("cb.differentiatorsPh")} />
           </div>
         </div>
       </div>
 
       {/* 5. Target audience & communication */}
       <div id="bsec-audience" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={MessageSquare} title="Target Audience & Communication" color="#8B5CF6" />
+        <SectionHeader icon={MessageSquare} title={t("cb.targetAudience")} color="#8B5CF6" />
         <div className="space-y-4">
           <ToneSelector
             value={form.tone_by_channel ?? DEFAULT_TONE_BY_CHANNEL}
@@ -1309,34 +1318,34 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             <TagList
               values={(form.languages ?? []).filter(l => !languageOptions.includes(l))}
               onChange={custom => setForm(f => ({ ...f, languages: [...(f.languages ?? []).filter(l => languageOptions.includes(l)), ...custom] }))}
-              placeholder="Add another language…"
+              placeholder={t("cb.addLanguage")}
             />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Target market</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.targetMarket")}</label>
             <textarea rows={3} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.target_market} onChange={e => setForm(f => ({ ...f, target_market: e.target.value }))}
-              placeholder="Ideal client type, industry, company size, geography, etc." />
+              placeholder={t("cb.targetMarketPh")} />
           </div>
         </div>
       </div>
 
       {/* 6. Track Record (clients + certs + cases) */}
       <div id="bsec-track" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <SectionHeader icon={Trophy} title="Track Record" color="#D97706" />
+        <SectionHeader icon={Trophy} title={t("cb.trackRecord")} color="#D97706" />
         <div className="space-y-5">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Key Clients</label>
-            <TagList values={form.key_clients ?? []} onChange={v => setForm(f => ({ ...f, key_clients: v }))} placeholder="Client name…" />
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.keyClients")}</label>
+            <TagList values={form.key_clients ?? []} onChange={v => setForm(f => ({ ...f, key_clients: v }))} placeholder={t("cb.clientNamePh")} />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Certifications / Awards</label>
-            <TagList values={form.certifications ?? []} onChange={v => setForm(f => ({ ...f, certifications: v }))} placeholder="Google Partner, ISO 9001…" />
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.certifications")}</label>
+            <TagList values={form.certifications ?? []} onChange={v => setForm(f => ({ ...f, certifications: v }))} placeholder={t("cb.certificationsPh")} />
           </div>
           <div className="pt-4 border-t" style={{ borderColor: C.border }}>
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Case Studies / Portfolio</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("cb.caseStudies")}</label>
               <button onClick={addCaseStudy}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                 style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>

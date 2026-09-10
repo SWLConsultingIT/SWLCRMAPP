@@ -41,6 +41,7 @@ import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
 import { getT } from "@/lib/i18n-server";
 import { renderPlaceholders } from "@/lib/placeholders";
+import { useLocale } from "@/lib/i18n";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -195,20 +196,22 @@ function scoreBadge(score: number | null, priority: boolean) {
   return                                         { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
 }
 
-const statusMap: Record<string, { label: string; color: string; bg: string }> = {
-  new:           { label: "New",           color: C.blue,      bg: C.blueLight },
-  contacted:     { label: "Contacted",     color: C.orange,    bg: C.orangeLight },
-  connected:     { label: "Connected",     color: C.accent,    bg: C.accentLight },
-  responded:     { label: "Responded",     color: C.green,     bg: C.greenLight },
-  qualified:     { label: "Qualified",     color: C.green,     bg: C.greenLight },
-  proposal_sent: { label: "Proposal Sent", color: C.accent,    bg: C.accentLight },
-  closed_won:    { label: "Won",           color: C.green,     bg: C.greenLight },
-  closed_lost:   { label: "Lost",          color: C.red,       bg: C.redLight },
-  nurturing:     { label: "Nurturing",     color: C.textMuted, bg: C.surface },
+// Keys, not labels: module scope. The header resolves them.
+const statusMap: Record<string, { labelKey: string; color: string; bg: string }> = {
+  new:           { labelKey: "ld.status.new",          color: C.blue,      bg: C.blueLight },
+  contacted:     { labelKey: "ld.status.contacted",    color: C.orange,    bg: C.orangeLight },
+  connected:     { labelKey: "ld.status.connected",    color: C.accent,    bg: C.accentLight },
+  responded:     { labelKey: "ld.status.responded",    color: C.green,     bg: C.greenLight },
+  qualified:     { labelKey: "ld.status.qualified",    color: C.green,     bg: C.greenLight },
+  proposal_sent: { labelKey: "ld.status.proposalSent", color: C.accent,    bg: C.accentLight },
+  closed_won:    { labelKey: "ld.status.won",          color: C.green,     bg: C.greenLight },
+  closed_lost:   { labelKey: "ld.status.lost",         color: C.red,       bg: C.redLight },
+  nurturing:     { labelKey: "ld.status.nurturing",    color: C.textMuted, bg: C.surface },
 };
 
 // Score ring SVG
 function ScoreRing({ score, color }: { score: number; color: string }) {
+  const { t } = useLocale();
   const r = 22;
   const circ = 2 * Math.PI * r;
   const offset = circ - (Math.min(score, 100) / 100) * circ;
@@ -222,7 +225,7 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
       </svg>
       <div className="text-center z-10">
         <p className="text-sm font-bold leading-none" style={{ color: C.textPrimary }}>{score}</p>
-        <p style={{ color: C.textDim, fontSize: 8, letterSpacing: "0.05em" }}>SCORE</p>
+        <p style={{ color: C.textDim, fontSize: 8, letterSpacing: "0.05em" }}>{t("ld.score")}</p>
       </div>
     </div>
   );
@@ -567,7 +570,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
+            <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>{t("ld.viewCompany")} <ExternalLink size={12} /></Link>
           </div>
         </div>
         {facts.length > 0 && (
@@ -582,7 +585,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         )}
         {ourPlay && (
           <div className="mx-5 mb-4 rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>Our play for this industry</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>{t("ld.ourPlay")}</p>
             <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 500)}</p>
           </div>
         )}
@@ -673,7 +676,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <div className="flex items-center gap-4 mt-2.5 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.textBody }}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.color }} />
-                  {st.label}
+                  {t(st.labelKey)}
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.textBody }}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: score.color }} />
@@ -729,7 +732,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               {seqNav && (
                 <div className="inline-flex items-center rounded-lg border overflow-hidden" style={{ borderColor: C.border }}>
                   {seqNav.prevId ? (
-                    <Link href={`/leads/${seqNav.prevId}`} title="Previous lead in this flow"
+                    <Link href={`/leads/${seqNav.prevId}`} title={t("ld.prevLead")}
                       className="inline-flex items-center px-2 py-2 transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
                       <ChevronLeft size={15} />
                     </Link>
@@ -740,7 +743,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     {seqNav.index}/{seqNav.total}
                   </span>
                   {seqNav.nextId ? (
-                    <Link href={`/leads/${seqNav.nextId}`} title="Next lead in this flow"
+                    <Link href={`/leads/${seqNav.nextId}`} title={t("ld.nextLead")}
                       className="inline-flex items-center px-2 py-2 transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
                       <ChevronRight size={15} />
                     </Link>
@@ -963,7 +966,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <ScrapeCompanyButton leadId={id} hasScrape={!!scrape?.summary} />
-                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
+                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>{t("ld.viewCompany")} <ExternalLink size={12} /></Link>
               </div>
             </div>
             {facts.length > 0 && (
@@ -1050,7 +1053,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         if (starters.length === 0) return null;
         return (
           <div className="rounded-2xl border mt-6 p-5 lift" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: ZONE.account, letterSpacing: "0.1em" }}>Conversation starters · what they posted</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: ZONE.account, letterSpacing: "0.1em" }}>{t("ld.starters")}</p>
             <div className="space-y-2.5">
               {starters.map((s, i) => (
                 <div key={i} className="flex gap-3 items-start p-3 rounded-xl" style={{ backgroundColor: C.bg }}>
@@ -1112,18 +1115,18 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         let tone = "neutral", title = "", subtitle = "", color: string = C.textMuted;
         if (status === "completed" || status === "closed_won") {
           tone = "won"; color = C.green;
-          title = "Campaign completed";
+          title = t("ld.campaignCompleted");
           subtitle = (campaign as any).reply_count
             ? `${(campaign as any).reply_count} repl${(campaign as any).reply_count === 1 ? "y" : "ies"} received.`
             : "Sequence ran end-to-end without a reply.";
         } else if (status === "closed_lost" || status === "failed") {
           tone = "lost"; color = C.red;
-          title = "Campaign ended";
+          title = t("ld.campaignEnded");
           subtitle = "Lead won't receive more outreach. Re-nurture or archive.";
         } else if (status === "paused") {
           tone = "paused"; color = "#D97706";
-          title = "Campaign paused";
-          subtitle = "Resume from the Pause/Resume button below to keep sending.";
+          title = t("ld.campaignPaused");
+          subtitle = t("ld.resumeHint");
         } else if (nextStep) {
           tone = "active"; color = C.blue;
           const when = dueDate
@@ -1181,7 +1184,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   {campaign!.name ?? "Outreach Campaign"}
                 </p>
                 {(campaign as any)?.call_advance_mode === "manual" && (
-                  <span title="Sequence is paused at every call step until the seller dials. Auto-advance is off for this campaign."
+                  <span title={t("ld.manualCallHint")}
                     className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md"
                     style={{
                       backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)",
@@ -1354,12 +1357,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <ZoneLabel title={t("lead.zone.details")} accent={ZONE.details} />
 
       <CompanyTabs tabs={[
-        { label: "Profile Overview" },
+        { label: t("ld.tab.profile") },
         { label: "Campaign" },
         { label: "Calls", count: visibleCalls.length || undefined },
         { label: "Conversation" },
         { label: "Notes" },
-        { label: "Social & Content" },
+        { label: t("ld.tab.social") },
       ]}>
 
         {/* ── TAB 1: Profile Overview ──
@@ -1376,16 +1379,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* About This Person */}
             <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.aboutPerson")}</h3>
 
               {/* Role + Seniority */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Role / Title</p>
+                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("ld.roleTitle")}</p>
                   <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{lead.primary_title_role ?? "—"}</p>
                 </div>
                 <div className="p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Seniority</p>
+                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("ld.seniority")}</p>
                   <span className="text-xs font-bold px-2.5 py-1 rounded"
                     style={{ backgroundColor: goldLight, color: gold }}>
                     {lead.primary_seniority?.replace("_", " ").toUpperCase() ?? "—"}
@@ -1582,7 +1585,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Tech Stack & Keywords */}
             {(technologies.length > 0 || keywords.length > 0) && (
               <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Tech Stack & Keywords</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.techStack")}</h3>
                 {technologies.length > 0 && (
                   <div className={keywords.length > 0 ? "mb-4" : ""}>
                     <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Technologies</p>
@@ -1598,7 +1601,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 )}
                 {keywords.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Keywords & Topics</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>{t("ld.keywords")}</p>
                     <div className="flex flex-wrap gap-2">
                       {keywords.map((k: string) => (
                         <span key={k} className="text-xs font-medium px-2.5 py-1 rounded-lg"
@@ -1615,7 +1618,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Industry Context */}
             {lead.industry_trends && (
               <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Industry Context</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("ld.industryContext")}</h3>
                 <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.industry_trends}</p>
               </div>
             )}
@@ -1623,7 +1626,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Social Activity — this person's posts */}
             {(lead.recent_linkedin_post || lead.recent_ig_post || lead.twitter_last_posts) && (
               <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Recent Social Activity</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.recentSocial")}</h3>
                 <div className="space-y-3">
                   {lead.recent_linkedin_post && (
                     <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
@@ -1678,7 +1681,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Career / Education */}
             {lead.primary_career && (
               <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Career & Education</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.careerEducation")}</h3>
                 <div className="space-y-0">
                   {lead.primary_career.split("\n").filter(Boolean).map((item: string, idx: number) => (
                     <div key={idx} className="flex gap-3">
@@ -1703,7 +1706,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Website Intelligence */}
             {(lead.website_summary || lead.recent_website_news) && (
               <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Website Intelligence</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("ld.websiteIntel")}</h3>
                 {lead.website_summary && (
                   <div className="mb-3">
                     <p className="text-xs font-medium mb-1" style={{ color: C.textDim }}>Services</p>
@@ -1720,7 +1723,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)",
                       borderLeft: "3px solid #F59E0B",
                     }}>
-                    <p className="text-xs font-bold mb-1" style={{ color: "#D97706" }}>Recent News</p>
+                    <p className="text-xs font-bold mb-1" style={{ color: "#D97706" }}>{t("ld.recentNews")}</p>
                     <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.recent_website_news}</p>
                   </div>
                 )}
@@ -1771,14 +1774,14 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               }}
             >
               <AlertTriangle size={13} />
-              <span className="font-semibold">Phone marked wrong</span>
-              <span className="opacity-75">— scroll to the top of the page to replace it and re-enable Call.</span>
+              <span className="font-semibold">{t("ld.phoneWrong")}</span>
+              <span className="opacity-75">{t("ld.phoneWrongTail")}</span>
             </div>
           )}
           {visibleCalls.length === 0 ? (
             <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-              <p className="text-sm font-medium" style={{ color: C.textBody }}>No calls recorded yet</p>
+              <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("ld.noCalls")}</p>
               <p className="text-xs mt-1" style={{ color: C.textMuted }}>
                 Calls made via Aircall from the Queue will appear here. Click &ldquo;Sync from Aircall&rdquo; above to pull recent calls.
               </p>
@@ -1834,7 +1837,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               handle: lead.twitter_url ? `@${lead.twitter_url.split("/").pop()}` : null,
             },
             lead.company_blog && {
-              platform: "Company Blog",
+              platform: t("ld.companyBlog"),
               icon: <span style={{ fontSize: 14 }}>📝</span>,
               color: C.accent,
               bg: "#F0FDFA",
@@ -1842,7 +1845,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               handle: lead.company_name,
             },
             lead.company_posts_content && {
-              platform: "Company Post",
+              platform: t("ld.companyPost"),
               icon: <span style={{ fontSize: 14 }}>🏢</span>,
               color: gold,
               bg: goldLight,
@@ -1851,7 +1854,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             },
           ].filter(Boolean).length > 0 ? (
             <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider px-1" style={{ color: C.textMuted }}>Scraped Social Content</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider px-1" style={{ color: C.textMuted }}>{t("ld.scrapedSocial")}</h3>
               {[
                 lead.recent_linkedin_post && {
                   platform: "LinkedIn",
@@ -1878,7 +1881,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   handle: lead.twitter_url ? lead.twitter_url.split("/").pop() : null,
                 },
                 lead.company_blog && {
-                  platform: "Company Blog",
+                  platform: t("ld.companyBlog"),
                   icon: <span style={{ fontSize: 14 }}>📝</span>,
                   color: C.accent,
                   bg: "#F0FDFA",
@@ -1886,7 +1889,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   handle: lead.company_name,
                 },
                 lead.company_posts_content && {
-                  platform: "Company Post",
+                  platform: t("ld.companyPost"),
                   icon: <span style={{ fontSize: 14 }}>🏢</span>,
                   color: gold,
                   bg: goldLight,
@@ -1920,7 +1923,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             </div>
           ) : (
             <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <p className="text-sm" style={{ color: C.textDim }}>No social content scraped for this contact yet.</p>
+              <p className="text-sm" style={{ color: C.textDim }}>{t("ld.noSocial")}</p>
             </div>
           )}
         </div>
