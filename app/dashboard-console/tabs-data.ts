@@ -34,6 +34,18 @@ import type { Delta } from "./ui";
 export const TABS = ["Overview", "ICPs", "Campaigns", "Channels", "Sellers", "Portfolio"] as const;
 export type Tab = (typeof TABS)[number];
 
+/**
+ * The tabs the dashboard actually offers.
+ *
+ * Portfolio is HIDDEN, not removed: it is the one surface still rendering
+ * hand-measured constants instead of a source of truth, and a dashboard
+ * whose whole point is that every number is traceable cannot ship a tab of
+ * invented ones. The component, its route and its data are untouched —
+ * putting it back is deleting the filter below.
+ */
+export const HIDDEN_TABS: readonly Tab[] = ["Portfolio"];
+export const VISIBLE_TABS = TABS.filter(t => !HIDDEN_TABS.includes(t));
+
 /** The four things we can do to a lead. One order, one colour, everywhere. */
 export const CH_KEYS = ["li_cr", "li_dm", "email", "call"] as const;
 export type ChKey = (typeof CH_KEYS)[number];

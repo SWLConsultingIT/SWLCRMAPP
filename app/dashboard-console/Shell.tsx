@@ -20,7 +20,7 @@ import { C } from "@/lib/design";
 import { gold, Pick } from "./ui";
 import type { OverviewData, TabsData } from "@/lib/console-data";
 import { ConsoleProvider, useD } from "./ctx";
-import { TABS, type Tab } from "./tabs-data";
+import { VISIBLE_TABS, HIDDEN_TABS, type Tab } from "./tabs-data";
 
 import Overview from "./Console";
 import Icps from "./Icps";
@@ -77,7 +77,7 @@ function Controls({ tab }: { tab: Tab }) {
     go({ preset: p, from: r?.from ?? null, to: r?.to ?? null });
   };
 
-  const on = APPLIES[tab];
+  const on = APPLIES[tab] ?? [];
   const active = [
     on.includes("campaign") && a.campaign,
     on.includes("icp") && a.icp,
@@ -114,9 +114,6 @@ function Controls({ tab }: { tab: Tab }) {
           <X size={11} /> Clear
         </button>
       )}
-      {tab === "Portfolio" && (
-        <span style={{ fontSize: 11, color: C.textDim }}>filters apply within one client — not on this tab</span>
-      )}
 
       <div className="flex-1" />
       <span style={{ fontSize: 11.5, color: C.textDim }}>{pending ? "loading…" : D.period.range}</span>
@@ -131,7 +128,10 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
   // dropdown thinks. Changing it navigates; it does not re-slice in place.
   const label = D.period.range;
 
-  const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[tab];
+  // Portfolio stays in the map so the component keeps compiling and one
+  // line brings it back; it is simply unreachable while hidden.
+  const safeTab: Tab = HIDDEN_TABS.includes(tab) ? "Overview" : tab;
+  const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[safeTab];
 
   return (
     <ConsoleProvider value={{ D, T, goTab: (t) => setTab(t as Tab) }}>
@@ -145,17 +145,13 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
 
         {/* tabs — names, one underline, no chapter numerals */}
         <nav className="flex items-center gap-1 mt-5" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
-          {TABS.map(t => {
+          {VISIBLE_TABS.map(t => {
             const on = t === tab;
             return (
               <button key={t} role="tab" aria-selected={on} onClick={() => setTab(t)}
                 className="px-3 py-2 font-medium relative"
                 style={{ fontSize: 13, color: on ? C.textPrimary : C.textMuted }}>
                 {t}
-                {t === "Portfolio" && (
-                  <span className="ml-1.5 align-middle rounded-full px-1.5 py-px font-bold"
-                    style={{ fontSize: 8.5, border: `1px solid ${C.border}`, color: C.textDim }}>SA</span>
-                )}
                 {on && <span aria-hidden className="absolute left-2 right-2 -bottom-px" style={{ height: 2, backgroundColor: gold, borderRadius: 2 }} />}
               </button>
             );

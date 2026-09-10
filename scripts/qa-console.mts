@@ -152,6 +152,72 @@ console.log("\n── STABILITY ──");
   back.D.funnel.stages[0].n !== fwd.D.funnel.stages[0].n ? ok("scopes are independent") : bad("scope bleed");
 }
 
+
+/* ══ 8. TABS · VISIBILITY ═══════════════════════════════════════════════ */
+console.log("\n── TABS ──");
+{
+  const { VISIBLE_TABS, HIDDEN_TABS, TABS } = await import("../app/dashboard-console/tabs-data.ts");
+  eq("Portfolio is hidden from the bar", VISIBLE_TABS.includes("Portfolio" as never), false);
+  eq("five tabs are offered", VISIBLE_TABS.length, 5);
+  eq("Portfolio's code is still there", TABS.includes("Portfolio" as never), true);
+  eq("nothing else got hidden", HIDDEN_TABS.length, 1);
+  for (const t of ["Overview", "ICPs", "Campaigns", "Channels", "Sellers"])
+    VISIBLE_TABS.includes(t as never) ? ok(`${t} is offered`) : bad(`${t} disappeared`);
+}
+
+/* ══ 9. EVERY TAB RENDERS UNDER EVERY FILTER ════════════════════════════ */
+console.log("\n── EVERY TAB × EVERY FILTER ──");
+{
+  const windows: [string, Partial<ConsoleFilters>][] = [
+    ["Today", { from: day(now), to: day(now), preset: "Today" }],
+    ["7 days", { from: day(now - 6 * 864e5), to: day(now), preset: "7 days" }],
+    ["30 days", {}],
+    ["90 days", { from: day(now - 89 * 864e5), to: day(now), preset: "90 days" }],
+    ["All time", { from: null, to: null, preset: "All time" }],
+    ["Custom", { from: "2026-08-01", to: "2026-08-20", preset: null }],
+  ];
+  const dims: [string, Partial<ConsoleFilters>][] = [
+    ["no dimension", {}],
+    ["campaign", { campaignNames: [CAMP] }],
+    ["ICP", { icpIds: [ICP_ODOO] }],
+    ["seller", { sellerIds: [LUCIA] }],
+  ];
+  let cells = 0, broken = 0;
+  const isBad = (v: unknown): boolean =>
+    typeof v === "number" ? !Number.isFinite(v)
+    : Array.isArray(v) ? v.some(isBad)
+    : v && typeof v === "object" ? Object.values(v).some(isBad) : false;
+
+  for (const [wn, w] of windows) for (const [dn, d] of dims) {
+    cells++;
+    const v = view({ ...w, ...d });
+    const payload = { D: v.D, T: v.T };
+    if (isBad(payload)) { broken++; bad(`${wn} + ${dn}: a NaN or Infinity reached the payload`); continue; }
+    const h = v.T.teamHealth;
+    if (h.calls !== h.confirmedConnected + h.confirmedNotConnected + h.unknown) {
+      broken++; bad(`${wn} + ${dn}: calls do not add up`); continue;
+    }
+    const den = h.confirmedConnected + h.confirmedNotConnected;
+    if (den === 0 && h.connectRate !== null) { broken++; bad(`${wn} + ${dn}: rate shown with no denominator`); continue; }
+    const sum = v.T.icps.reduce((a, r) => a + r.contacted, 0);
+    if (sum !== v.D.funnel.stages[0].n) { broken++; bad(`${wn} + ${dn}: Σ ICP ${sum} != workspace ${v.D.funnel.stages[0].n}`); continue; }
+  }
+  broken === 0 ? ok(`${cells} window × dimension combinations: no NaN, calls add up, rates guarded, ICPs additive`)
+               : bad(`${broken} of ${cells} combinations broken`);
+}
+
+/* ══ 10. NO LEGACY NUMBER LEAKS INTO THE CONSOLE ════════════════════════ */
+console.log("\n── CANONICAL CALLS ──");
+{
+  const v = P.d30;
+  const groups = v.ix.callGroups;
+  const distinct = new Set(groups.map(g => g.canonicalCallId)).size;
+  eq("every call in the view is one canonical id", distinct, groups.length);
+  eq("teamHealth.calls == distinct canonical ids", v.T.teamHealth.calls, distinct);
+  groups.every(g => g.connection === "confirmed_connected" || g.connection === "confirmed_not_connected" || g.connection === "unknown")
+    ? ok("every call carries one of the three states") : bad("a call has no connection state");
+}
+
 console.log(`\n${"─".repeat(70)}`);
 console.log(`  ${green} GREEN · ${yellow} YELLOW · ${reds.length} RED`);
 if (yellows.length) { console.log("\n  YELLOW:"); yellows.forEach(y => console.log(`   · ${y}`)); }
