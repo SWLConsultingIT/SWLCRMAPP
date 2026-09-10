@@ -23,6 +23,7 @@ import {
   extractCoachScore,
 } from "@/lib/prompts/call-coach";
 import { getServerLocale } from "@/lib/i18n-server";
+import { DEFAULT_LOCALE } from "@/lib/i18n-locale";
 
 const MODEL = "claude-sonnet-4-6";
 const GENERATION_LOCK_MS = 90 * 1000;
@@ -49,7 +50,7 @@ export async function POST(
   const { data: call, error: callErr } = await svc
     .from("calls")
     .select(
-      "id, lead_id, direction, duration, transcript, coach_analysis, coach_score, coach_generated_at, coach_model, coach_generating_at, leads!inner(primary_first_name, primary_last_name, primary_title_role, company_bio_id, company_bios!inner(company_name))"
+      "id, lead_id, direction, duration, transcript, coach_analysis, coach_score, coach_generated_at, coach_model, coach_locale, coach_generating_at, leads!inner(primary_first_name, primary_last_name, primary_title_role, company_bio_id, company_bios!inner(company_name))"
     )
     .eq("id", callId)
     .maybeSingle();
@@ -66,8 +67,14 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden (cross-tenant)" }, { status: 403 });
   }
 
-  // Cached result wins — no public force knob.
-  if (call.coach_analysis) {
+  // Cached result wins — but only for a reader who can read it. The analysis
+  // is markdown prose in one language; `coach_locale` records which. NULL
+  // means it predates localization, and everything generated then was English.
+  const locale = await getServerLocale();
+  const cacheLocale = (call.coach_locale as string | null) ?? DEFAULT_LOCALE;
+  const cacheUsable = !!call.coach_analysis && cacheLocale === locale;
+
+  if (cacheUsable) {
     return NextResponse.json({
       analysis: call.coach_analysis,
       score: call.coach_score,
@@ -104,7 +111,11 @@ export async function POST(
     .from("calls")
     .update({ coach_generating_at: lockTime })
     .eq("id", callId)
-    .is("coach_analysis", null)
+    // Lockable when there is no analysis at all, OR the one on file is in
+    // another language. The `coach_locale.is.null` arm matters: a legacy row
+    // read by an Italian user has an analysis and a NULL locale, and
+    // `neq.it` on NULL is NULL — it would never match on its own.
+    .or(`coach_analysis.is.null,coach_locale.is.null,coach_locale.neq.${locale}`)
     .or(`coach_generating_at.is.null,coach_generating_at.lt.${new Date(Date.now() - GENERATION_LOCK_MS).toISOString()}`)
     .select("id");
 
@@ -113,10 +124,12 @@ export async function POST(
     // or another request took the lock first. Re-read and return current state.
     const { data: refreshed } = await svc
       .from("calls")
-      .select("coach_analysis, coach_score, coach_generated_at, coach_model")
+      .select("coach_analysis, coach_score, coach_generated_at, coach_model, coach_locale")
       .eq("id", callId)
       .maybeSingle();
-    if (refreshed?.coach_analysis) {
+    // Same language gate as above — a fresh analysis in another language is
+    // not a cache hit for this reader.
+    if (refreshed?.coach_analysis && ((refreshed.coach_locale as string | null) ?? DEFAULT_LOCALE) === locale) {
       return NextResponse.json({
         analysis: refreshed.coach_analysis,
         score: refreshed.coach_score,
@@ -139,7 +152,7 @@ export async function POST(
     callDirection: call.direction ?? null,
     callDuration: call.duration ?? null,
     transcript: call.transcript,
-    locale: await getServerLocale(),
+    locale,
   });
 
   const anthropic = new Anthropic();
@@ -190,6 +203,7 @@ export async function POST(
       coach_score: score,
       coach_generated_at: nowISO,
       coach_model: MODEL,
+      coach_locale: locale,
       coach_generating_at: null,
     })
     .eq("id", callId);
