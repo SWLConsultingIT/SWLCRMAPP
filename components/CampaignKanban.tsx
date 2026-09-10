@@ -388,7 +388,7 @@ function Column({ stepIndex, step, children, count, activeDragStep, isPast }: { 
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
               style={{ color: C.textDim }}>
-              Step {stepIndex + 1}
+              {t("kb.stepN", { n: stepIndex + 1 })}
               {isPast && (
                 <span className="text-[8px] font-bold px-1 py-px rounded" style={{ backgroundColor: C.surface, color: C.textDim }}>
                   {t("kb.past")}
@@ -469,7 +469,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
 
   // The earliest column any visible lead currently sits at. Columns to the
   // left of this index are "past" — leads can only move forward, so they
-  // can never receive a drop, and showing "Drop leads here" on them is a
+  // can never receive a drop, and showing t("kb.dropLeadsHere") on them is a
   // lie that confuses sellers. We use this to dim those columns and swap
   // the empty-state copy.
   const minActiveStep = useMemo(() => {
@@ -563,9 +563,8 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     <div>
       <div className="rounded-xl border p-4 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>{t("kb.dragLead")}</span> to advance it to a later step.
-          Steps marked <span className="font-semibold" style={{ color: C.textBody }}>{t("kb.past")}</span> have already been completed and can&apos;t receive drops.
-          Changes apply on the next orchestrator cycle.
+          <span className="font-semibold" style={{ color: C.textBody }}>{t("kb.dragLead")}</span> {t("kb.dragHintA")}{" "}
+          {t("kb.dragHintB")} <span className="font-semibold" style={{ color: C.textBody }}>{t("kb.past")}</span> {t("kb.dragHintC")}
         </p>
       </div>
 
@@ -582,12 +581,12 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
                 ))}
                 {isEmpty && !isPast && (
                   <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>
-                    Drop leads here
+                    {t("kb.dropLeadsHere")}
                   </p>
                 )}
                 {isEmpty && isPast && (
                   <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>
-                    Already passed
+                    {t("kb.alreadyPassed")}
                   </p>
                 )}
               </Column>
@@ -604,10 +603,10 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
-                    Final
+                    {t("kb.final")}
                   </p>
                   <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>
-                    Completed
+                    {t("kb.completed")}
                   </p>
                 </div>
               </div>
@@ -619,7 +618,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
               {buckets.done.map(c => <LeadCard key={c.id} camp={c} />)}
               {buckets.done.length === 0 && (
                 <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>
-                  Leads that finished the flow land here.
+                  {t("kb.finishedLand")}
                 </p>
               )}
             </div>
@@ -701,10 +700,10 @@ function MoveModal({
             </div>
             <div>
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>
-                Moving {pending.leadName}
+                {t("kb.movingLead", { name: pending.leadName })}
               </h2>
               <p className="text-xs" style={{ color: C.textMuted }}>
-                Advance to Step {pending.targetStep}. Decide what happens with the pending {noun}.
+                {t("kb.advanceToStep", { n: pending.targetStep, noun })}
               </p>
             </div>
           </div>
@@ -719,9 +718,9 @@ function MoveModal({
             <div className="flex items-start gap-2">
               <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: "#D97706" }} />
               <p className="text-[11px] leading-relaxed" style={{ color: "#92400E" }}>
-                <strong>Send</strong> will deliver the {noun} to the lead&apos;s inbox on the next orchestrator cycle (up to 1h).
+                <strong>{t("kb.send")}</strong> {t("kb.sendExplain", { noun })}
                 <br />
-                <strong>Skip</strong> advances the step without sending — the {noun} is never delivered.
+                <strong>{t("kb.skip")}</strong> {t("kb.skipExplain", { noun })}
               </p>
             </div>
           </div>
@@ -752,7 +751,7 @@ function MoveModal({
           <button onClick={onCancel} disabled={busy}
             className="text-xs font-semibold px-3 py-1.5 rounded transition-opacity hover:opacity-80"
             style={{ color: C.textMuted }}>
-            Cancel
+            {t("kb.cancel")}
           </button>
         </div>
       </div>

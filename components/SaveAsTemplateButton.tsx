@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, X, CheckCircle } from "lucide-react";
 import { C } from "@/lib/design";
 
 /**
- * Tiny modal-based "Save as Template" action. Lives next to the campaign
+ * Tiny modal-based t("satb.saveAs") action. Lives next to the campaign
  * edit page's primary Save Changes button — secondary action, low friction.
  * Captures only name + optional tags; the server-side POST extracts the
  * sequence + messages + attachments from the campaign automatically. Per
@@ -17,6 +18,7 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
   campaignId: string;
   defaultName?: string;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(defaultName ?? "");
@@ -78,10 +80,10 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] cursor-pointer hover:shadow-sm"
         style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}
-        title="Save this campaign's sequence + messages as a reusable template"
+        title={t("satb.btnTitle")}
       >
         <FileText size={14} />
-        Save as Template
+        {t("satb.saveAs")}
       </button>
 
       {open && (
@@ -100,7 +102,7 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
               <div className="flex items-center gap-2">
                 <FileText size={16} style={{ color: "#7C3AED" }} />
                 <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>
-                  {savedId ? "Template saved" : "Save as Template"}
+                  {savedId ? "Template saved" : t("satb.saveAs")}
                 </h3>
               </div>
               <button onClick={resetAndClose} className="p-1 rounded hover:bg-gray-100" style={{ color: C.textMuted }}>
@@ -114,23 +116,23 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
                 <div className="text-center py-4">
                   <CheckCircle size={36} className="mx-auto mb-2" style={{ color: C.green }} />
                   <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-                    Saved to your library
+                    {t("satb.savedToLibrary")}
                   </p>
                   <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-                    Find it under <strong>Campaigns → Templates</strong>. Reuse it on any future campaign.
+                    {t("satb.findItUnder")} <strong>{t("satb.campaignsTemplates")}</strong>{t("satb.reuseIt")}
                   </p>
                 </div>
               ) : (
                 <>
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>
-                      Template name <span style={{ color: C.red }}>*</span>
+                      {t("satb.nameLabel")} <span style={{ color: C.red }}>*</span>
                     </label>
                     <input
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g., Healthcare Asset Finance — CEO Outreach"
+                      placeholder={t("satb.namePh")}
                       className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
                       style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
                       autoFocus
@@ -139,13 +141,13 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
 
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>
-                      Description <span style={{ color: C.textMuted }}>(optional)</span>
+                      {t("satb.description")} <span style={{ color: C.textMuted }}>{t("satb.optional")}</span>
                     </label>
                     <input
                       type="text"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="What's this sequence good for?"
+                      placeholder={t("satb.descPh")}
                       className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
                       style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
                     />
@@ -153,13 +155,13 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
 
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>
-                      Tags <span style={{ color: C.textMuted }}>(comma-separated, optional)</span>
+                      {t("satb.tags")} <span style={{ color: C.textMuted }}>{t("satb.commaSeparated")}</span>
                     </label>
                     <input
                       type="text"
                       value={tagsInput}
                       onChange={(e) => setTagsInput(e.target.value)}
-                      placeholder="healthcare, asset-finance, c-level"
+                      placeholder={t("satb.tagsPh")}
                       className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
                       style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
                     />
@@ -181,14 +183,14 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
                     className="text-xs font-semibold px-3 py-1.5 rounded-md"
                     style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}
                   >
-                    View Templates
+                    {t("satb.viewTemplates")}
                   </button>
                   <button
                     onClick={resetAndClose}
                     className="text-xs font-semibold px-3 py-1.5 rounded-md"
                     style={{ backgroundColor: "#7C3AED", color: "#fff" }}
                   >
-                    Done
+                    {t("satb.done")}
                   </button>
                 </>
               ) : (
@@ -198,7 +200,7 @@ export default function SaveAsTemplateButton({ campaignId, defaultName }: {
                     className="text-xs font-semibold px-3 py-1.5 rounded-md"
                     style={{ color: C.textMuted }}
                   >
-                    Cancel
+                    {t("satb.cancel")}
                   </button>
                   <button
                     onClick={save}

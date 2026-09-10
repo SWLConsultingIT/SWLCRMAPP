@@ -11,6 +11,7 @@
 // new Step 3 review (signal coverage banner + samples + tag grid).
 
 import { Sparkles, Zap, ArrowLeft, Users, Clock } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 
 const gold = C.gold;
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export default function FlowTypePicker({ profileName, leadsCount, onChoose, onBack }: Props) {
+  const { t } = useLocale();
   return (
     <div className="max-w-5xl mx-auto">
       {onBack && (
@@ -32,21 +34,19 @@ export default function FlowTypePicker({ profileName, leadsCount, onChoose, onBa
           style={{ color: C.textMuted }}
         >
           <ArrowLeft size={12} />
-          Back
+          {t("ftp.back")}
         </button>
       )}
 
       <div className="text-center mb-10">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: gold }}>
-          New outreach flow{profileName ? ` · ${profileName}` : ""}
+          {t("ftp.newFlow")}{profileName ? ` · ${profileName}` : ""}
         </p>
         <h1 className="text-3xl font-bold mb-3" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-          How do you want to write the messages?
+          {t("ftp.howWrite")}
         </h1>
         <p className="text-sm max-w-2xl mx-auto" style={{ color: C.textBody }}>
-          Both paths use AI to draft templates. The difference is whether every lead gets a unique hook
-          built from their LinkedIn posts, company news, and tech stack — or whether they share one template
-          with the usual {`{{first_name}}`} substitution.
+          {t("ftp.intro")} {`{{first_name}}`} {t("ftp.introTail")}
         </p>
       </div>
 
@@ -65,26 +65,25 @@ export default function FlowTypePicker({ profileName, leadsCount, onChoose, onBa
               style={{ backgroundColor: `color-mix(in srgb, ${C.textMuted} 12%, transparent)` }}>
               <Zap size={16} style={{ color: C.textBody }} />
             </div>
-            <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>Generic flow</h2>
+            <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>{t("ftp.generic")}</h2>
             <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto"
               style={{ backgroundColor: `color-mix(in srgb, ${C.textMuted} 12%, transparent)`, color: C.textMuted }}>
-              Standard
+              {t("ftp.standard")}
             </span>
           </div>
 
           <p className="text-[13px] leading-relaxed mb-5" style={{ color: C.textBody }}>
-            One AI-written template per step. Every lead receives the same wording, with mechanical placeholder
-            substitution ({`{{first_name}}`}, {`{{company_name}}`}, etc.). What we have today.
+            {t("ftp.genericBody")} ({`{{first_name}}`}, {`{{company_name}}`}{t("ftp.genericBodyTail")}
           </p>
 
           <div className="space-y-2.5 mb-6">
-            <Feature icon={<Clock size={12} />} label="Review time" value="Instant" />
-            <Feature icon={<Users size={12} />} label="Best for" value="Pure-volume cold outreach" />
+            <Feature icon={<Clock size={12} />} label={t("ftp.reviewTime")} value={t("ftp.instant")} />
+            <Feature icon={<Users size={12} />} label={t("ftp.bestFor")} value={t("ftp.bestForGeneric")} />
           </div>
 
           <div className="text-xs font-bold py-2.5 rounded-lg text-center transition-opacity group-hover:opacity-90"
             style={{ backgroundColor: C.surface, color: C.textPrimary, border: `1px solid ${C.border}` }}>
-            Use generic flow
+            {t("ftp.useGeneric")}
           </div>
         </button>
 
@@ -103,32 +102,31 @@ export default function FlowTypePicker({ profileName, leadsCount, onChoose, onBa
               style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))` }}>
               <Sparkles size={16} style={{ color: "#1A1A2E" }} />
             </div>
-            <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>Tailored flow</h2>
+            <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>{t("ftp.tailored")}</h2>
             <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto"
               style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}>
-              New · AI per-lead
+              {t("ftp.newBadge")}
             </span>
           </div>
 
           <p className="text-[13px] leading-relaxed mb-5" style={{ color: C.textBody }}>
-            AI writes a unique hook and pitch for every lead, drawing from their recent LinkedIn posts,
-            company news, tech stack, and other enrichment signals. Reviewable in Step 3 before launch.
+            {t("ftp.tailoredBody")}
           </p>
 
           <div className="space-y-2.5 mb-6">
-            <Feature icon={<Clock size={12} />} label="Generation time" value="~30s in Step 3" />
-            <Feature icon={<Users size={12} />} label="Best for" value="Warm or high-value batches" />
+            <Feature icon={<Clock size={12} />} label={t("ftp.generationTime")} value={t("ftp.thirtySeconds")} />
+            <Feature icon={<Users size={12} />} label={t("ftp.bestFor")} value={t("ftp.bestForTailored")} />
           </div>
 
           <div className="text-xs font-bold py-2.5 rounded-lg text-center transition-opacity group-hover:opacity-90"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}>
-            Use tailored flow
+            {t("ftp.useTailored")}
           </div>
         </button>
       </div>
 
       <p className="text-center text-[11px]" style={{ color: C.textMuted }}>
-        You can switch flow types by starting over — your draft is saved automatically.
+        {t("ftp.switchNote")}
       </p>
     </div>
   );

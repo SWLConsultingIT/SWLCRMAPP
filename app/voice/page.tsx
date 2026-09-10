@@ -186,12 +186,13 @@ type Template = {
 };
 type IcpOption = { id: string; profile_name: string };
 
+// labelKey, not label: module scope. Resolved where the pickers render.
 const CHANNELS = [
-  { value: "linkedin", label: "LinkedIn", icon: Share2, color: C.linkedin },
-  { value: "email",    label: "Email",    icon: Mail,   color: C.email },
-  { value: "whatsapp", label: "WhatsApp", icon: MessageCircle, color: "#25D366" },
-  { value: "sms",      label: "SMS",      icon: MessageCircle, color: "#9333EA" },
-  { value: "call",     label: "Call",     icon: Phone,  color: C.phone },
+  { value: "linkedin", labelKey: "chan.linkedin", icon: Share2, color: C.linkedin },
+  { value: "email",    labelKey: "chan.email",    icon: Mail,   color: C.email },
+  { value: "whatsapp", labelKey: "chan.whatsapp", icon: MessageCircle, color: "#25D366" },
+  { value: "sms",      labelKey: "chan.sms",      icon: MessageCircle, color: "#9333EA" },
+  { value: "call",     labelKey: "chan.call",     icon: Phone,  color: C.phone },
 ];
 // Keys, not labels: module scope. Resolved where the pickers render.
 const STEP_POSITIONS = [
@@ -284,7 +285,7 @@ function TemplatesTab() {
     if (!confirm("Delete this template? This can't be undone.")) return;
     const sb = getSupabaseBrowser();
     const { error } = await sb.from("message_templates").delete().eq("id", id);
-    if (error) { toast.show({ kind: "error", title: "Couldn't delete", description: error.message }); return; }
+    if (error) { toast.show({ kind: "error", title: t("vc.couldntDelete"), description: error.message }); return; }
     toast.show({ kind: "success", title: t("vc.templateDeleted") });
     await load();
   }
@@ -304,7 +305,7 @@ function TemplatesTab() {
     <div>
       <div className="flex items-start justify-between mb-5">
         <p className="text-sm max-w-xl" style={{ color: C.textMuted }}>
-          Library of proven outreach copy. The AI uses these as few-shot references when generating new campaigns — keep the best ones marked Active.
+          {t("vc.libraryHint")}
         </p>
         <button onClick={() => { setEditingId(null); setShowForm(true); }}
           className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shrink-0"
@@ -315,12 +316,12 @@ function TemplatesTab() {
 
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <FilterPill label={t("opp.col.channel")} value={filterChannel} onChange={setFilterChannel}
-          options={[{ value: "all", label: t("vc.all") }, ...CHANNELS.map(c => ({ value: c.value, label: c.label }))]} />
+          options={[{ value: "all", label: t("vc.all") }, ...CHANNELS.map(c => ({ value: c.value, label: t(c.labelKey) }))]} />
         <FilterPill label={t("vc.step")} value={filterStep} onChange={setFilterStep}
           options={[{ value: "all", label: t("vc.all") }, ...STEP_POSITIONS.map(sp => ({ value: sp.value, label: t(sp.labelKey) }))]} />
         <FilterPill label={t("imp.status")} value={filterStatus} onChange={setFilterStatus}
           options={[{ value: "all", label: t("vc.status.all") }, { value: "active", label: t("vc.status.active") }, { value: "draft", label: t("vc.status.draft") }, { value: "archived", label: t("vc.status.archived") }]} />
-        <span className="ml-auto text-xs" style={{ color: C.textMuted }}>{filtered.length} of {templates.length}</span>
+        <span className="ml-auto text-xs" style={{ color: C.textMuted }}>{t("vc.nOfM", { a: filtered.length, b: templates.length })}</span>
       </div>
 
       {loading ? (
@@ -395,13 +396,13 @@ function TemplateCard({ tpl, icpName, onEdit, onDelete }: { tpl: Template; icpNa
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={onEdit} className="p-1.5 rounded hover:bg-black/5" title={t("acc.edit")}><Pencil size={12} style={{ color: C.textMuted }} /></button>
-          <button onClick={onDelete} className="p-1.5 rounded hover:bg-red-50" title="Delete"><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
+          <button onClick={onDelete} className="p-1.5 rounded hover:bg-red-50" title={t("vc.delete")}><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
         </div>
       </div>
       {tpl.label && <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{tpl.label}</p>}
       <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{tpl.template_text}</p>
       <div className="flex flex-wrap items-center gap-1.5 mt-auto pt-2 border-t" style={{ borderColor: C.border }}>
-        {icpName && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ color: gold, backgroundColor: C.goldGlow }}>ICP: {icpName}</span>}
+        {icpName && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ color: gold, backgroundColor: C.goldGlow }}>{t("vc.icpLabel")} {icpName}</span>}
         {tpl.industry && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ color: C.textMuted, backgroundColor: C.bg }}>{tpl.industry}</span>}
         {(tpl.tone_tags ?? []).map(tag => (
           <span key={tag} className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ color: C.blue, backgroundColor: C.blueLight }}>{tag}</span>
@@ -433,7 +434,7 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label={t("opp.col.channel")}>
             <select value={form.channel} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              {CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {CHANNELS.map(c => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}
             </select>
           </Field>
           <Field label={t("vc.stepPosition")}>
@@ -452,7 +453,7 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
           </Field>
           <div className="md:col-span-2">
             <Field label={t("vc.label")}>
-              <input type="text" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder='e.g. "Pathway opener — Asset finance hot lead"' className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
+              <input type="text" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={t("vc.labelPh")} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
             </Field>
           </div>
           <div className="md:col-span-2">
@@ -542,8 +543,7 @@ const emptySequence = {
 };
 
 function SequencesTab() {
-  // Named `tr` because the step list below binds `t` to a template row.
-  const { t: tr } = useLocale();
+  const { t } = useLocale();
   const toast = useToast();
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [allTemplates, setAllTemplates] = useState<Template[]>([]);
@@ -573,14 +573,14 @@ function SequencesTab() {
   // For showing each sequence card, compute its steps from templates
   function stepsOf(seqId: string): Template[] {
     return allTemplates
-      .filter(t => t.sequence_id === seqId)
+      .filter(tp => tp.sequence_id === seqId)
       .sort((a, b) => (a.sequence_order ?? 999) - (b.sequence_order ?? 999));
   }
 
   function startEdit(seq: Sequence) {
     setEditingId(seq.id);
     const tpls = stepsOf(seq.id);
-    setEditingSteps(tpls.map(t => ({ step_position: t.step_position, template_id: t.id })));
+    setEditingSteps(tpls.map(tp => ({ step_position: tp.step_position, template_id: tp.id })));
     setShowForm(true);
   }
   function startNew() {
@@ -604,10 +604,10 @@ function SequencesTab() {
     let seqId = editingId;
     if (editingId) {
       const { error } = await sb.from("message_sequences").update(payload).eq("id", editingId);
-      if (error) { toast.show({ kind: "error", title: tr("vc.saveFailed"), description: error.message }); return; }
+      if (error) { toast.show({ kind: "error", title: t("vc.saveFailed"), description: error.message }); return; }
     } else {
       const { data, error } = await sb.from("message_sequences").insert(payload).select("id").single();
-      if (error || !data) { toast.show({ kind: "error", title: "Couldn't create sequence", description: error?.message || "Insert failed" }); return; }
+      if (error || !data) { toast.show({ kind: "error", title: t("vc.couldntCreateSeq"), description: error?.message || "Insert failed" }); return; }
       seqId = data.id;
     }
 
@@ -631,8 +631,8 @@ function SequencesTab() {
     if (!confirm("Delete this sequence? Templates that belong to it will become standalone in the library (not deleted).")) return;
     const sb = getSupabaseBrowser();
     const { error } = await sb.from("message_sequences").delete().eq("id", id);
-    if (error) { toast.show({ kind: "error", title: "Couldn't delete sequence", description: error.message }); return; }
-    toast.show({ kind: "success", title: tr("vc.sequenceDeleted") });
+    if (error) { toast.show({ kind: "error", title: t("vc.couldntDeleteSeq"), description: error.message }); return; }
+    toast.show({ kind: "success", title: t("vc.sequenceDeleted") });
     await load();
   }
 
@@ -653,13 +653,12 @@ function SequencesTab() {
     <div>
       <div className="flex items-start justify-between mb-5">
         <p className="text-sm max-w-xl" style={{ color: C.textMuted }}>
-          Full outreach narratives — an ordered set of templates the AI follows in order so all messages in the campaign tell one coherent story.
-          When creating a campaign, the user can pick a sequence as starting point or skip it and write everything from scratch.
+          {t("vc.sequencesHint")}
         </p>
         <button onClick={startNew}
           className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shrink-0"
           style={{ backgroundColor: gold, color: "#fff" }}>
-          <Plus size={14} /> New Sequence
+          <Plus size={14} /> {t("vc.newSequence")}
         </button>
       </div>
 
@@ -668,9 +667,9 @@ function SequencesTab() {
       ) : sequences.length === 0 ? (
         <EmptyState
           icon={Layers}
-          title={tr("voice.seq.empty.title")}
-          description={tr("voice.seq.empty.desc")}
-          primaryCta={{ label: `+ ${tr("voice.seq.new")}`, onClick: startNew }}
+          title={t("voice.seq.empty.title")}
+          description={t("voice.seq.empty.desc")}
+          primaryCta={{ label: `+ ${t("voice.seq.new")}`, onClick: startNew }}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -682,7 +681,7 @@ function SequencesTab() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{seq.name}</span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{tr(statusMeta.labelKey)}</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{t(statusMeta.labelKey)}</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => startEdit(seq)} className="p-1.5 rounded hover:bg-black/5"><Pencil size={12} style={{ color: C.textMuted }} /></button>
@@ -691,17 +690,17 @@ function SequencesTab() {
                 </div>
                 {seq.description && <p className="text-xs" style={{ color: C.textBody }}>{seq.description}</p>}
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px]" style={{ color: C.textMuted }}>
-                  <span className="font-semibold" style={{ color: C.textBody }}>{steps.length} step{steps.length === 1 ? "" : "s"}</span>
+                  <span className="font-semibold" style={{ color: C.textBody }}>{steps.length} {t(steps.length === 1 ? "u.step" : "u.steps")}</span>
                   {seq.industry && <span>· {seq.industry}</span>}
                   {seq.icp_profile_id && icpOptions.find(i => i.id === seq.icp_profile_id) &&
-                    <span>· ICP: {icpOptions.find(i => i.id === seq.icp_profile_id)?.profile_name}</span>}
+                    <span>· {t("vc.icpLabel")} {icpOptions.find(i => i.id === seq.icp_profile_id)?.profile_name}</span>}
                 </div>
                 {steps.length > 0 && (
                   <ol className="text-[11px] mt-1 space-y-0.5" style={{ color: C.textBody }}>
-                    {steps.map((t, i) => (
-                      <li key={t.id}>
-                        <span className="font-semibold">{i + 1}.</span> {(() => { const sp = STEP_POSITIONS.find(s => s.value === t.step_position); return sp ? tr(sp.labelKey) : t.step_position; })()}
-                        {t.label && <span style={{ color: C.textMuted }}> — {t.label}</span>}
+                    {steps.map((tp, i) => (
+                      <li key={tp.id}>
+                        <span className="font-semibold">{i + 1}.</span> {(() => { const sp = STEP_POSITIONS.find(s => s.value === tp.step_position); return sp ? t(sp.labelKey) : tp.step_position; })()}
+                        {tp.label && <span style={{ color: C.textMuted }}> — {tp.label}</span>}
                       </li>
                     ))}
                   </ol>
@@ -778,7 +777,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" style={{ backgroundColor: C.card }}>
         <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: C.border }}>
-          <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{isEdit ? "Edit Sequence" : "New Sequence"}</h2>
+          <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{isEdit ? "Edit Sequence" : t("vc.newSequence")}</h2>
           <button onClick={onCancel} className="p-1 rounded hover:bg-black/5"><X size={16} /></button>
         </div>
 
@@ -786,7 +785,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label={t("auth.name")}>
               <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder='e.g. "Pathway hot lead — Asset finance"'
+                placeholder={t("vc.namePh")}
                 className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
             </Field>
             <Field label={t("imp.status")}>
@@ -822,16 +821,16 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                Steps ({form.steps.length})
+                {t("vc.stepsCount", { n: form.steps.length })}
               </span>
               <button onClick={addStep} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-lg" style={{ backgroundColor: C.goldGlow, color: gold }}>
-                <Plus size={11} /> Add step
+                <Plus size={11} /> {t("vc.addStep")}
               </button>
             </div>
 
             {form.steps.length === 0 ? (
               <div className="rounded-lg border p-6 text-center text-xs" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textMuted }}>
-                No steps yet. Add steps in order — connection request, first DM, follow-ups, CTA, breakup.
+                {t("vc.noStepsYet")}
               </div>
             ) : (
               <div className="space-y-2">
@@ -858,7 +857,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
               </div>
             )}
             <p className="text-[10px] mt-2" style={{ color: C.textMuted }}>
-              Pick templates from your library for each step. The dropdown only shows templates of the right step_position that aren't already used in another sequence.
+              {t("vc.pickTemplatesHint")}
             </p>
           </div>
         </div>
