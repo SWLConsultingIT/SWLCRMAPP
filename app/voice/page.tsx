@@ -72,8 +72,8 @@ function BrandVoiceTab() {
         body: JSON.stringify({ tone_of_voice: tone.trim() || null, ideal_message_examples: cleaned }),
       });
       if (!res.ok) {
-        const { error } = await res.json().catch(() => ({ error: "Save failed" }));
-        toast.show({ kind: "error", title: "Save failed", description: error || "Try again." });
+        const { error } = await res.json().catch(() => ({ error: t("vc.saveFailed") }));
+        toast.show({ kind: "error", title: t("vc.saveFailed"), description: error || "Try again." });
         return;
       }
       setSavedAt(new Date());
@@ -193,20 +193,21 @@ const CHANNELS = [
   { value: "sms",      label: "SMS",      icon: MessageCircle, color: "#9333EA" },
   { value: "call",     label: "Call",     icon: Phone,  color: C.phone },
 ];
+// Keys, not labels: module scope. Resolved where the pickers render.
 const STEP_POSITIONS = [
-  { value: "connection_request", label: "Connection Request" },
-  { value: "first_dm",           label: "First DM (post-connection)" },
-  { value: "followup_1",         label: "Follow-up 1" },
-  { value: "followup_2",         label: "Follow-up 2" },
-  { value: "cta",                label: "CTA / Book a call" },
-  { value: "breakup",            label: "Breakup" },
-  { value: "other",              label: "Other" },
+  { value: "connection_request", labelKey: "vc.step.cr" },
+  { value: "first_dm",           labelKey: "vc.step.firstDm" },
+  { value: "followup_1",         labelKey: "vc.step.followup1" },
+  { value: "followup_2",         labelKey: "vc.step.followup2" },
+  { value: "cta",                labelKey: "vc.step.cta" },
+  { value: "breakup",            labelKey: "vc.step.breakup" },
+  { value: "other",              labelKey: "vc.step.other" },
 ];
 const TONE_OPTIONS = ["formal", "casual", "witty", "direct", "soft", "consultative", "urgent"];
-const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
-  active:   { label: "Active",   color: C.green,  bg: C.greenLight },
-  draft:    { label: "Draft",    color: C.yellow, bg: C.yellowLight },
-  archived: { label: "Archived", color: C.textDim, bg: C.bg },
+const STATUS_STYLES: Record<string, { labelKey: string; color: string; bg: string }> = {
+  active:   { labelKey: "vc.status.active",   color: C.green,   bg: C.greenLight },
+  draft:    { labelKey: "vc.status.draft",    color: C.yellow,  bg: C.yellowLight },
+  archived: { labelKey: "vc.status.archived", color: C.textDim, bg: C.bg },
 };
 const emptyForm = {
   icp_profile_id: null as string | null,
@@ -221,6 +222,7 @@ const emptyForm = {
 };
 
 function TemplatesTab() {
+  const { t } = useLocale();
   const { t: tr } = useLocale();
   const toast = useToast();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -266,12 +268,12 @@ function TemplatesTab() {
     };
     if (editingId) {
       const { error } = await sb.from("message_templates").update(payload).eq("id", editingId);
-      if (error) { toast.show({ kind: "error", title: "Save failed", description: error.message }); return; }
-      toast.show({ kind: "success", title: "Template updated" });
+      if (error) { toast.show({ kind: "error", title: t("vc.saveFailed"), description: error.message }); return; }
+      toast.show({ kind: "success", title: t("vc.templateUpdated") });
     } else {
       const { error } = await sb.from("message_templates").insert(payload);
-      if (error) { toast.show({ kind: "error", title: "Save failed", description: error.message }); return; }
-      toast.show({ kind: "success", title: "Template created" });
+      if (error) { toast.show({ kind: "error", title: t("vc.saveFailed"), description: error.message }); return; }
+      toast.show({ kind: "success", title: t("vc.templateCreated") });
     }
     setShowForm(false);
     setEditingId(null);
@@ -283,7 +285,7 @@ function TemplatesTab() {
     const sb = getSupabaseBrowser();
     const { error } = await sb.from("message_templates").delete().eq("id", id);
     if (error) { toast.show({ kind: "error", title: "Couldn't delete", description: error.message }); return; }
-    toast.show({ kind: "success", title: "Template deleted" });
+    toast.show({ kind: "success", title: t("vc.templateDeleted") });
     await load();
   }
 
@@ -313,9 +315,9 @@ function TemplatesTab() {
 
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <FilterPill label="Channel" value={filterChannel} onChange={setFilterChannel}
-          options={[{ value: "all", label: "All" }, ...CHANNELS.map(c => ({ value: c.value, label: c.label }))]} />
+          options={[{ value: "all", label: t("vc.all") }, ...CHANNELS.map(c => ({ value: c.value, label: c.label }))]} />
         <FilterPill label="Step" value={filterStep} onChange={setFilterStep}
-          options={[{ value: "all", label: "All" }, ...STEP_POSITIONS]} />
+          options={[{ value: "all", label: t("vc.all") }, ...STEP_POSITIONS.map(sp => ({ value: sp.value, label: t(sp.labelKey) }))]} />
         <FilterPill label="Status" value={filterStatus} onChange={setFilterStatus}
           options={[{ value: "all", label: "All" }, { value: "active", label: "Active" }, { value: "draft", label: "Draft" }, { value: "archived", label: "Archived" }]} />
         <span className="ml-auto text-xs" style={{ color: C.textMuted }}>{filtered.length} of {templates.length}</span>
@@ -339,9 +341,9 @@ function TemplatesTab() {
         ) : (
           <EmptyState
             icon={BookOpen}
-            title="No templates match the filters"
-            description="Try a different channel, step, or status — or clear the filters above to see your full library."
-            primaryCta={{ label: "Clear filters", onClick: () => { setFilterChannel("all"); setFilterStep("all"); setFilterStatus("all"); } }}
+            title={t("vc.noTemplates")}
+            description={t("vc.noTemplatesHint")}
+            primaryCta={{ label: t("vc.clearFilters"), onClick: () => { setFilterChannel("all"); setFilterStep("all"); setFilterStatus("all"); } }}
           />
         )
       ) : (
@@ -378,6 +380,7 @@ function FilterPill({ label, value, onChange, options }: { label: string; value:
 }
 
 function TemplateCard({ tpl, icpName, onEdit, onDelete }: { tpl: Template; icpName: string | null; onEdit: () => void; onDelete: () => void }) {
+  const { t } = useLocale();
   const channelMeta = CHANNELS.find(c => c.value === tpl.channel);
   const stepMeta = STEP_POSITIONS.find(s => s.value === tpl.step_position);
   const statusMeta = STATUS_STYLES[tpl.status] ?? STATUS_STYLES.active;
@@ -387,8 +390,8 @@ function TemplateCard({ tpl, icpName, onEdit, onDelete }: { tpl: Template; icpNa
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={14} style={{ color: channelMeta?.color ?? C.textMuted }} />
-          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{stepMeta?.label ?? tpl.step_position}</span>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{statusMeta.label}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{stepMeta ? t(stepMeta.labelKey) : tpl.step_position}</span>
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{t(statusMeta.labelKey)}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={onEdit} className="p-1.5 rounded hover:bg-black/5" title="Edit"><Pencil size={12} style={{ color: C.textMuted }} /></button>
@@ -410,12 +413,13 @@ function TemplateCard({ tpl, icpName, onEdit, onDelete }: { tpl: Template; icpNa
 }
 
 function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initial: typeof emptyForm; icpOptions: IcpOption[]; isEdit: boolean; onSave: (form: typeof emptyForm) => Promise<void>; onCancel: () => void }) {
+  const { t } = useLocale();
   const toast = useToast();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   function toggleTone(tag: string) { setForm(f => ({ ...f, tone_tags: f.tone_tags.includes(tag) ? f.tone_tags.filter(t => t !== tag) : [...f.tone_tags, tag] })); }
   async function submit() {
-    if (!form.template_text.trim()) { toast.show({ kind: "warning", title: "Template text is required" }); return; }
+    if (!form.template_text.trim()) { toast.show({ kind: "warning", title: t("vc.textRequired") }); return; }
     setSaving(true);
     try { await onSave(form); } finally { setSaving(false); }
   }
@@ -432,35 +436,35 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
               {CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </Field>
-          <Field label="Step Position">
+          <Field label={t("vc.stepPosition")}>
             <select value={form.step_position} onChange={e => setForm(f => ({ ...f, step_position: e.target.value }))} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              {STEP_POSITIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {STEP_POSITIONS.map(s => <option key={s.value} value={s.value}>{t(s.labelKey)}</option>)}
             </select>
           </Field>
-          <Field label="Lead Miner Profile (optional)">
+          <Field label={t("vc.leadMinerProfile")}>
             <select value={form.icp_profile_id ?? ""} onChange={e => setForm(f => ({ ...f, icp_profile_id: e.target.value || null }))} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <option value="">— Any profile —</option>
+              <option value="">{t("vc.anyProfile")}</option>
               {icpOptions.map(i => <option key={i.id} value={i.id}>{i.profile_name}</option>)}
             </select>
           </Field>
-          <Field label="Industry (optional)">
-            <input type="text" value={form.industry} onChange={e => setForm(f => ({ ...f, industry: e.target.value }))} placeholder="e.g. Asset Finance, SaaS, Healthcare" className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
+          <Field label={t("vc.industryOptional")}>
+            <input type="text" value={form.industry} onChange={e => setForm(f => ({ ...f, industry: e.target.value }))} placeholder={t("vc.industryPh")} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
           </Field>
           <div className="md:col-span-2">
-            <Field label="Label (short description)">
+            <Field label={t("vc.label")}>
               <input type="text" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder='e.g. "Pathway opener — Asset finance hot lead"' className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
             </Field>
           </div>
           <div className="md:col-span-2">
-            <Field label="Template text">
+            <Field label={t("vc.templateText")}>
               <textarea value={form.template_text} onChange={e => setForm(f => ({ ...f, template_text: e.target.value }))}
-                placeholder='Use {{first_name}}, {{role}}, {{company}}, {{seller_name}} and any enrichment placeholders.'
+                placeholder={t("vc.placeholderHint")}
                 rows={6} className="w-full text-sm px-3 py-2 rounded-lg border resize-y font-mono"
                 style={{ borderColor: C.border, backgroundColor: C.bg }} />
             </Field>
           </div>
           <div className="md:col-span-2">
-            <Field label="Tone tags">
+            <Field label={t("vc.toneTags")}>
               <div className="flex flex-wrap gap-1.5">
                 {TONE_OPTIONS.map(tag => (
                   <button key={tag} onClick={() => toggleTone(tag)} type="button"
@@ -472,7 +476,7 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
               </div>
             </Field>
           </div>
-          <Field label="Performance score (optional)">
+          <Field label={t("vc.perfScore")}>
             <input type="number" value={form.performance_score ?? ""} onChange={e => setForm(f => ({ ...f, performance_score: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="e.g. 8.5" step="0.1" className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
           </Field>
           <Field label="Status">
@@ -538,6 +542,7 @@ const emptySequence = {
 };
 
 function SequencesTab() {
+  // Named `tr` because the step list below binds `t` to a template row.
   const { t: tr } = useLocale();
   const toast = useToast();
   const [sequences, setSequences] = useState<Sequence[]>([]);
@@ -599,7 +604,7 @@ function SequencesTab() {
     let seqId = editingId;
     if (editingId) {
       const { error } = await sb.from("message_sequences").update(payload).eq("id", editingId);
-      if (error) { toast.show({ kind: "error", title: "Save failed", description: error.message }); return; }
+      if (error) { toast.show({ kind: "error", title: tr("vc.saveFailed"), description: error.message }); return; }
     } else {
       const { data, error } = await sb.from("message_sequences").insert(payload).select("id").single();
       if (error || !data) { toast.show({ kind: "error", title: "Couldn't create sequence", description: error?.message || "Insert failed" }); return; }
@@ -627,7 +632,7 @@ function SequencesTab() {
     const sb = getSupabaseBrowser();
     const { error } = await sb.from("message_sequences").delete().eq("id", id);
     if (error) { toast.show({ kind: "error", title: "Couldn't delete sequence", description: error.message }); return; }
-    toast.show({ kind: "success", title: "Sequence deleted" });
+    toast.show({ kind: "success", title: tr("vc.sequenceDeleted") });
     await load();
   }
 
@@ -677,7 +682,7 @@ function SequencesTab() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{seq.name}</span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{statusMeta.label}</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{tr(statusMeta.labelKey)}</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => startEdit(seq)} className="p-1.5 rounded hover:bg-black/5"><Pencil size={12} style={{ color: C.textMuted }} /></button>
@@ -695,7 +700,7 @@ function SequencesTab() {
                   <ol className="text-[11px] mt-1 space-y-0.5" style={{ color: C.textBody }}>
                     {steps.map((t, i) => (
                       <li key={t.id}>
-                        <span className="font-semibold">{i + 1}.</span> {STEP_POSITIONS.find(s => s.value === t.step_position)?.label ?? t.step_position}
+                        <span className="font-semibold">{i + 1}.</span> {(() => { const sp = STEP_POSITIONS.find(s => s.value === t.step_position); return sp ? tr(sp.labelKey) : t.step_position; })()}
                         {t.label && <span style={{ color: C.textMuted }}> — {t.label}</span>}
                       </li>
                     ))}
@@ -731,6 +736,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
   onSave: (form: typeof emptySequence) => Promise<void>;
   onCancel: () => void;
 }) {
+  const { t } = useLocale();
   const toast = useToast();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -763,7 +769,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
   }
 
   async function submit() {
-    if (!form.name.trim()) { toast.show({ kind: "warning", title: "Name is required" }); return; }
+    if (!form.name.trim()) { toast.show({ kind: "warning", title: t("vc.nameRequired") }); return; }
     setSaving(true);
     try { await onSave(form); } finally { setSaving(false); }
   }
@@ -791,22 +797,22 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
                 <option value="archived">Archived</option>
               </select>
             </Field>
-            <Field label="ICP (optional)" hint={<TermTooltip iconOnly definition="ICP = Ideal Customer Profile. Pick a profile to scope this template to a specific buyer segment. Leave empty to make it reusable across ICPs." />}>
+            <Field label={t("vc.icpOptional")} hint={<TermTooltip iconOnly definition="ICP = Ideal Customer Profile. Pick a profile to scope this template to a specific buyer segment. Leave empty to make it reusable across ICPs." />}>
               <select value={form.icp_profile_id ?? ""} onChange={e => setForm(f => ({ ...f, icp_profile_id: e.target.value || null }))}
                 className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <option value="">— Any ICP —</option>
+                <option value="">{t("vc.anyIcp")}</option>
                 {icpOptions.map(i => <option key={i.id} value={i.id}>{i.profile_name}</option>)}
               </select>
             </Field>
-            <Field label="Industry (optional)">
+            <Field label={t("vc.industryOptional")}>
               <input type="text" value={form.industry} onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                placeholder="e.g. Asset Finance"
+                placeholder={t("vc.industryPhShort")}
                 className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
             </Field>
             <div className="md:col-span-2">
               <Field label="Description">
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="What this sequence is for, when to use it"
+                  placeholder={t("vc.descriptionPh")}
                   rows={2}
                   className="w-full text-sm px-3 py-2 rounded-lg border resize-y" style={{ borderColor: C.border, backgroundColor: C.bg }} />
               </Field>
@@ -836,15 +842,15 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
                       <span className="w-6 text-center text-xs font-bold" style={{ color: C.textMuted }}>{i + 1}</span>
                       <select value={s.step_position} onChange={e => updateStep(i, { step_position: e.target.value, template_id: "" })}
                         className="text-xs px-2 py-1.5 rounded border" style={{ borderColor: C.border, backgroundColor: C.card }}>
-                        {STEP_POSITIONS.map(sp => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
+                        {STEP_POSITIONS.map(sp => <option key={sp.value} value={sp.value}>{t(sp.labelKey)}</option>)}
                       </select>
                       <select value={s.template_id} onChange={e => updateStep(i, { template_id: e.target.value })}
                         className="flex-1 text-xs px-2 py-1.5 rounded border" style={{ borderColor: C.border, backgroundColor: C.card }}>
-                        <option value="">— Select template —</option>
+                        <option value="">{t("vc.selectTemplate")}</option>
                         {opts.map(t => <option key={t.id} value={t.id}>{t.label || `${t.template_text.slice(0, 50)}…`}</option>)}
                       </select>
-                      <button onClick={() => moveStep(i, -1)} disabled={i === 0} className="px-1.5 text-xs disabled:opacity-30" title="Move up">↑</button>
-                      <button onClick={() => moveStep(i, 1)} disabled={i === form.steps.length - 1} className="px-1.5 text-xs disabled:opacity-30" title="Move down">↓</button>
+                      <button onClick={() => moveStep(i, -1)} disabled={i === 0} className="px-1.5 text-xs disabled:opacity-30" title={t("vc.moveUp")}>↑</button>
+                      <button onClick={() => moveStep(i, 1)} disabled={i === form.steps.length - 1} className="px-1.5 text-xs disabled:opacity-30" title={t("vc.moveDown")}>↓</button>
                       <button onClick={() => removeStep(i)} className="p-1 rounded hover:bg-red-50" title="Remove"><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
                     </div>
                   );

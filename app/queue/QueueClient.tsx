@@ -35,7 +35,7 @@ type PendingCall = {
   phone: string | null;
   secondaryPhone: string | null;
   // Surfaced from leads.allow_call so the Notifications card can flash a
-  // "Wrong number" badge next to the phone. false = the post-call popup
+  // t("qc.cls.wrongNumber") badge next to the phone. false = the post-call popup
   // flagged the number; the badge clicks through to the lead detail
   // where the WrongNumberPill opens its inline replace flow.
   allowCall?: boolean | null;
@@ -133,18 +133,19 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
 // and dark mode. color-mix(... transparent) yields a translucent wash that
 // sits on top of whatever the underlying card surface is.
 const tint = (color: string, pct = 12) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
-const classificationMeta: Record<string, { color: string; bg: string; label: string }> = {
-  // Labels mirror the post-call outcome popup so the History entry the
-  // seller sees in Notifications matches the button they tapped.
-  positive:            { color: C.green,    bg: tint(C.green, 12),   label: "Interested" },
-  meeting_intent:      { color: C.green,    bg: tint(C.green, 12),   label: "Meeting Intent" },
-  negative:            { color: C.red,      bg: tint(C.red, 12),     label: "Not interested" },
-  needs_info:          { color: "#D97706",  bg: tint("#D97706", 12), label: "Needs Info" },
-  not_now:             { color: C.textMuted, bg: tint(C.textMuted, 10), label: "Not Now" },
-  follow_up:           { color: "#D97706",  bg: tint("#D97706", 12), label: "Bad timing" },
-  voicemail:           { color: "#0EA5E9",  bg: tint("#0EA5E9", 12), label: "Voicemail" },
-  wrong_number:        { color: C.textMuted, bg: tint(C.textMuted, 10), label: "Wrong number" },
-  connection_accepted: { color: "#0A66C2",  bg: tint("#0A66C2", 12), label: "Accepted Connection" },
+// Keys mirror the post-call outcome popup so the History entry the seller
+// sees in Notifications matches the button they tapped. Keys rather than
+// labels because this is module scope.
+const classificationMeta: Record<string, { color: string; bg: string; labelKey: string }> = {
+  positive:            { color: C.green,     bg: tint(C.green, 12),      labelKey: "qc.cls.interested" },
+  meeting_intent:      { color: C.green,     bg: tint(C.green, 12),      labelKey: "qc.cls.meetingIntent" },
+  negative:            { color: C.red,       bg: tint(C.red, 12),        labelKey: "qc.cls.notInterested" },
+  needs_info:          { color: "#D97706",   bg: tint("#D97706", 12),    labelKey: "qc.cls.needsInfo" },
+  not_now:             { color: C.textMuted, bg: tint(C.textMuted, 10),  labelKey: "qc.cls.notNow" },
+  follow_up:           { color: "#D97706",   bg: tint("#D97706", 12),    labelKey: "qc.cls.badTiming" },
+  voicemail:           { color: "#0EA5E9",   bg: tint("#0EA5E9", 12),    labelKey: "qc.cls.voicemail" },
+  wrong_number:        { color: C.textMuted, bg: tint(C.textMuted, 10),  labelKey: "qc.cls.wrongNumber" },
+  connection_accepted: { color: "#0A66C2",   bg: tint("#0A66C2", 12),    labelKey: "qc.cls.accepted" },
 };
 
 function timeAgo(iso: string | null) {
@@ -327,14 +328,15 @@ function fmtDateTime(iso: string | null): string {
 // what was dialed and listen back.
 type HistClass = "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail" | "unclassified";
 
-const HIST_TABS: Array<{ key: HistClass; label: string; color: string }> = [
-  { key: "all",          label: "All",            color: "#0A66C2" },
-  { key: "positive",     label: "Interested",     color: "#15803D" },
-  { key: "negative",     label: "Not interested", color: "#DC2626" },
-  { key: "follow_up",    label: "Bad timing",     color: "#D97706" },
-  { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
-  { key: "wrong_number", label: "Wrong number",   color: C.textMuted },
-  { key: "unclassified", label: "Unclassified", color: "#DC2626" },
+// Keys, not labels: module scope. The tab bar resolves them.
+const HIST_TABS: Array<{ key: HistClass; labelKey: string; color: string }> = [
+  { key: "all",          labelKey: "qc.hist.all",           color: "#0A66C2" },
+  { key: "positive",     labelKey: "qc.cls.interested",     color: "#15803D" },
+  { key: "negative",     labelKey: "qc.cls.notInterested",  color: "#DC2626" },
+  { key: "follow_up",    labelKey: "qc.cls.badTiming",      color: "#D97706" },
+  { key: "voicemail",    labelKey: "qc.cls.voicemail",      color: "#0EA5E9" },
+  { key: "wrong_number", labelKey: "qc.cls.wrongNumber",    color: C.textMuted },
+  { key: "unclassified", labelKey: "qc.cls.unclassified",   color: "#DC2626" },
 ];
 
 // One reviewable call in the History list: recording player, transcript
@@ -454,7 +456,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
               checked={!!selected}
               onChange={() => onToggleSelect(e.id)}
               onClick={(ev) => ev.stopPropagation()}
-              title="Select for bulk delete"
+              title={t("qc.selectBulkDelete")}
               className="mt-2.5 cursor-pointer shrink-0"
             />
           )}
@@ -476,7 +478,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                 <span className="inline-flex items-center gap-1.5">
                   <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full"
                     style={{ backgroundColor: tint(accent, 14), color: accent, border: `1px solid ${tint(accent, 35)}` }}>
-                    {meta?.label ?? cls}
+                    {meta ? t(meta.labelKey) : cls}
                   </span>
                   <button onClick={() => setEditOutcome(true)}
                     className="text-[10px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textDim }}>
@@ -539,14 +541,14 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
               {e.dialedByName && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)", color: "#1D4ED8", border: "1px solid color-mix(in srgb, #2563EB 30%, transparent)" }}
-                  title="Team member who placed the call">
+                  title={t("qc.whoDialled")}>
                   <PhoneCall size={9} /> {e.dialedByName}
                 </span>
               )}
               {e.sellerName && e.sellerName !== e.dialedByName && (
                 <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
-                  title="LinkedIn sending account">
+                  title={t("qc.liAccount")}>
                   {e.sellerName}
                 </span>
               )}
@@ -580,7 +582,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
             style={{ borderColor: C.border, color: C.textMuted, backgroundColor: expanded ? C.surface : "transparent" }}>
             {expanded ? t("queue.history.hide") : t("queue.history.transcriptNotes")} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
           </button>
-          <button onClick={remove} disabled={deleting} title="Delete this call from History"
+          <button onClick={remove} disabled={deleting} title={t("qc.deleteCall")}
             className="inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors shrink-0 hover:bg-black/[0.03] disabled:opacity-50"
             style={{ borderColor: C.border, color: C.textMuted }}>
             {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
@@ -999,7 +1001,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
   // exclude events (accepted-connection / bounces) and already-resolved rows.
   // The tab badge + hero counts use THIS, not newReplies.length, so the number
   // matches what the seller actually has to work (was inflated by the synthetic
-  // "Accepted Connection" entries, which live in neither Pending nor History).
+  // t("qc.cls.accepted") entries, which live in neither Pending nor History).
   const REPLY_EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
   const isReplyEvent = (r: NewReply) => REPLY_EVENT_CLASS.has(r.classification ?? "");
   const pendingReplyCount = newReplies.filter(
@@ -1074,33 +1076,33 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
 
       {/* Tabs + search */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-        {tabs.map((t) => {
-          const isActive = tab === t.id;
+        {tabs.map((tb) => {
+          const isActive = tab === tb.id;
           return (
-            <div key={t.label} className="flex items-center">
-            {t.dividerBefore && <div className="w-px h-5 mx-1.5" style={{ backgroundColor: C.border }} />}
-            <button onClick={() => setTab(t.id)}
+            <div key={tb.label} className="flex items-center">
+            {tb.dividerBefore && <div className="w-px h-5 mx-1.5" style={{ backgroundColor: C.border }} />}
+            <button onClick={() => setTab(tb.id)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
-              style={{ color: isActive ? t.color : C.textMuted }}>
-              {t.label}
-              {t.dot && (
-                <span className="w-2 h-2 rounded-full" title="New activity"
-                  style={{ backgroundColor: t.color, boxShadow: `0 0 0 3px color-mix(in srgb, ${t.color} 22%, transparent)` }} />
+              style={{ color: isActive ? tb.color : C.textMuted }}>
+              {tb.label}
+              {tb.dot && (
+                <span className="w-2 h-2 rounded-full" title={t("qc.newActivity")}
+                  style={{ backgroundColor: tb.color, boxShadow: `0 0 0 3px color-mix(in srgb, ${tb.color} 22%, transparent)` }} />
               )}
               {/* One badge: count + (if any) a ⚠N suffix for items needing
                   review — instead of two stacked pills competing per tab. */}
-              {(t.count > 0 || t.reviewCount > 0) && (
+              {(tb.count > 0 || tb.reviewCount > 0) && (
                 <span className="inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
-                  {t.count}
-                  {t.reviewCount > 0 && (
+                  style={{ backgroundColor: isActive ? `${tb.color}15` : C.surface, color: isActive ? tb.color : C.textDim }}>
+                  {tb.count}
+                  {tb.reviewCount > 0 && (
                     <span className="inline-flex items-center gap-0.5 text-[10px]" style={{ color: "#D97706" }}>
-                      <AlertTriangle size={9} /> {t.reviewCount}
+                      <AlertTriangle size={9} /> {tb.reviewCount}
                     </span>
                   )}
                 </span>
               )}
-              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
+              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: tb.color }} />}
             </button>
             </div>
           );
@@ -1124,7 +1126,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
               style={{ borderColor: C.border, backgroundColor: C.card }}>
               <Search size={13} style={{ color: C.textDim }} />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
+                placeholder={t("qc.searchPh")} className="bg-transparent text-sm outline-none w-36"
                 style={{ color: C.textPrimary }} />
               {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
             </div>
@@ -1157,7 +1159,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
             }
           : {
               title: search ? t("queue.empty.noCallsSearch") : t("queue.empty.noCallsDue"),
-              hint: "Leads you marked Follow-up live here until you dial them again. Empty means you're caught up — back to To Call.",
+              hint: t("qc.recallEmpty"),
               ctaLabel: t("queue.empty.backToCall"),
               ctaTab: 0 as 0,
               ctaHref: null,

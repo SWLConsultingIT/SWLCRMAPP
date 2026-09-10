@@ -14,6 +14,7 @@ import CompanyTabs from "@/components/CompanyTabs";
 import ContactCards from "@/components/ContactCards";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import CompanyHooksPanel from "@/components/CompanyHooksPanel";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -328,7 +329,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
               {/* Company Profile */}
               <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Company Profile</h2>
+                  <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("cmp.profile")}</h2>
                   {lead.google_reviews_rating && <StarRating rating={Number(lead.google_reviews_rating)} />}
                 </div>
 
@@ -344,7 +345,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
                 {lead.company_mission && (
                   <div className="rounded-lg border p-3 mb-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Our Mission</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("cmp.ourMission")}</p>
                     <p className="text-sm italic" style={{ color: C.textBody }}>"{lead.company_mission}"</p>
                   </div>
                 )}
@@ -367,7 +368,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
               {/* Location & Contact */}
               <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Location & Contact</h2>
+                <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("cmp.locationContact")}</h2>
 
                 {(() => {
                   const locationQuery = [lead.company_address_1, lead.company_city, lead.company_state, lead.company_country].filter(Boolean).join(", ");
@@ -376,7 +377,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                       <iframe
                         width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"
                         src={`https://maps.google.com/maps?q=${encodeURIComponent(locationQuery)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                        title="Location map"
+                        title={t("cmp.locationMap")}
                       />
                     </div>
                   ) : null;
@@ -422,7 +423,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
               {/* Online Presence */}
               <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: gold }}>Online Presence</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: gold }}>{t("cmp.onlinePresence")}</h3>
                 <div className="grid grid-cols-2 gap-2.5">
                   {[
                     { label: "Website",   icon: <WebsiteIcon size={22} />,   url: lead.company_website,          activeBg: "#0D9488", activeText: "#FFFFFF" },
@@ -460,7 +461,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
               {/* Technologies & Keywords */}
               <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Technologies & Keywords</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>{t("cmp.techKeywords")}</h3>
 
                 {technologies.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-3">
@@ -493,7 +494,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
               {/* Industry Intel */}
               <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Industry Intel</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>{t("cmp.industryIntel")}</h3>
 
                 <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>
                   {lead.company_industry ?? "—"}
@@ -528,14 +529,14 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
               {/* Latest Content & News (3 cols) */}
               <div className="col-span-3 rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Latest Content & News</h2>
+                <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("cmp.latestContent")}</h2>
 
                 <div className="grid grid-cols-2 gap-5">
                   {lead.recent_website_news && (
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <Newspaper size={12} style={{ color: C.orange }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>Website News</span>
+                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("cmp.websiteNews")}</span>
                       </div>
                       <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>
                         {lead.recent_website_news.substring(0, 80)}
@@ -560,7 +561,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <Share2 size={12} style={{ color: "#0A66C2" }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>LinkedIn Post</span>
+                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("cmp.linkedinPost")}</span>
                       </div>
                       <p className="text-sm line-clamp-3" style={{ color: C.textBody }}>
                         {lead.recent_linkedin_post ?? lead.company_linkedin_post}
@@ -572,7 +573,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <Globe size={12} style={{ color: C.accent }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>Website Summary</span>
+                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("cmp.websiteSummary")}</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {lead.website_summary.split(",").slice(0, 5).map((w: string, i: number) => (
@@ -586,7 +587,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
                   {!lead.recent_website_news && !lead.company_blog && !lead.company_linkedin_post && !lead.recent_linkedin_post && !lead.website_summary && (
                     <div className="col-span-2 py-6 text-center">
-                      <p className="text-sm" style={{ color: C.textDim }}>No content data available yet</p>
+                      <p className="text-sm" style={{ color: C.textDim }}>{t("cmp.noContent")}</p>
                     </div>
                   )}
                 </div>
@@ -594,7 +595,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
               {/* Company Social Activity (2 cols) */}
               <div className="col-span-2 rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Company Social Activity</h3>
+                <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("cmp.socialActivity")}</h3>
 
                 <div className="space-y-4">
                   {(lead.recent_ig_post || lead.instagram_last_posts) && (
@@ -629,14 +630,14 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                         <Newspaper size={16} style={{ color: C.accent }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold" style={{ color: C.textMuted }}>Recent Posts</p>
+                        <p className="text-xs font-semibold" style={{ color: C.textMuted }}>{t("cmp.recentPosts")}</p>
                         <p className="text-sm line-clamp-2 mt-0.5" style={{ color: C.textBody }}>{lead.company_posts_content}</p>
                       </div>
                     </div>
                   )}
 
                   {!lead.recent_ig_post && !lead.instagram_last_posts && !lead.twitter_last_posts && !lead.company_posts_content && (
-                    <p className="text-sm text-center py-4" style={{ color: C.textDim }}>No social activity data</p>
+                    <p className="text-sm text-center py-4" style={{ color: C.textDim }}>{t("cmp.noSocial")}</p>
                   )}
                 </div>
               </div>

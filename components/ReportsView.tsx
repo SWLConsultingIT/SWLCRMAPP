@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { TrendingUp, Users, MessageSquare, Target } from "lucide-react";
 import { getT } from "@/lib/i18n-server";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -71,7 +72,8 @@ async function getReportData() {
   return { replyBreakdown, leadBreakdown, channelBreakdown, sellerBreakdown, recentQualified: recentQualified ?? [], conversionRate, positiveRate, total, totalReplies, qualified, weeklyData, avgDaysToQualify, channelResponseRate };
 }
 
-function HBarChart({ data, colorMap, labelMap }: { data: Record<string, number>; colorMap: Record<string, string>; labelMap: Record<string, string> }) {
+function HBarChart({ data, colorMap, labelKeys }: { data: Record<string, number>; colorMap: Record<string, string>; labelKeys: Record<string, string> }) {
+  const { t } = useLocale();
   const total = Object.values(data).reduce((a, b) => a + b, 1);
   return (
     <div className="space-y-3.5">
@@ -81,7 +83,7 @@ function HBarChart({ data, colorMap, labelMap }: { data: Record<string, number>;
         return (
           <div key={key}>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-medium" style={{ color: C.textBody }}>{labelMap[key] ?? key}</span>
+              <span className="text-sm font-medium" style={{ color: C.textBody }}>{labelKeys[key] ? t(labelKeys[key]) : key}</span>
               <div className="flex items-center gap-3">
                 <span className="text-sm font-bold tabular-nums" style={{ color }}>{value}</span>
                 <span className="text-xs tabular-nums w-8 text-right" style={{ color: C.textMuted }}>{pct}%</span>
@@ -131,6 +133,7 @@ function LineChart({ data }: { data: Record<string, number> }) {
 }
 
 function Funnel({ data }: { data: Record<string, number> }) {
+  const { t } = useLocale();
   const stages = [
     { key: "new",       label: "Imported",     color: C.blue },
     { key: "contacted", label: "Contacted",    color: gold },
@@ -164,9 +167,10 @@ function Funnel({ data }: { data: Record<string, number> }) {
   );
 }
 
-const statusLabels: Record<string, string> = { new: "New", contacted: "Contacted", connected: "Connected", responded: "Responded", qualified: "Qualified", proposal_sent: "Proposal", closed_won: "Won", closed_lost: "Lost", nurturing: "Nurturing" };
+// Keys, not labels: module scope. `labelOf` resolves them at render.
+const statusLabelKeys: Record<string, string> = { new: "rv.st.new", contacted: "rv.contacted", connected: "rv.st.connected", responded: "rv.st.responded", qualified: "rv.qualified", proposal_sent: "rv.st.proposal", closed_won: "rv.st.won", closed_lost: "rv.st.lost", nurturing: "rv.nurturing" };
 const statusColors: Record<string, string> = { new: C.blue, contacted: gold, connected: C.accent, responded: C.green, qualified: C.green, proposal_sent: C.accent, closed_won: C.green, closed_lost: C.red, nurturing: C.textMuted };
-const classLabels: Record<string, string> = { positive: "Positive", meeting_intent: "Meeting Intent", needs_info: "Needs Info", not_now: "Not Now", negative: "Negative", unsubscribe: "Unsubscribe" };
+const classLabelKeys: Record<string, string> = { positive: "rv.cls.positive", meeting_intent: "qc.cls.meetingIntent", needs_info: "qc.cls.needsInfo", not_now: "qc.cls.notNow", negative: "rv.cls.negative", unsubscribe: "rv.cls.unsubscribe" };
 const classColors: Record<string, string> = { positive: C.green, meeting_intent: C.green, needs_info: C.blue, not_now: C.orange, negative: C.red, unsubscribe: C.red };
 const channelColors: Record<string, string> = { linkedin: C.linkedin, email: C.email, whatsapp: "#22c55e", call: C.phone };
 
@@ -175,17 +179,17 @@ export default async function ReportsView() {
   const { replyBreakdown, leadBreakdown, sellerBreakdown, recentQualified, conversionRate, positiveRate, total, totalReplies, qualified, weeklyData, avgDaysToQualify, channelResponseRate } = await getReportData();
 
   const kpis = [
-    { label: "Total Leads",       value: total,                                              icon: Users,         color: gold },
+    { label: t("rv.totalLeads"),       value: total,                                              icon: Users,         color: gold },
     { label: "Qualified",         value: qualified,                                           icon: Target,        color: C.green },
-    { label: "Conversion Rate",   value: `${conversionRate}%`,                                icon: TrendingUp,    color: C.accent },
-    { label: "Positive Rate",     value: `${positiveRate}%`,                                  icon: MessageSquare, color: gold },
-    { label: "Avg Days to Qualify",value: avgDaysToQualify != null ? `${avgDaysToQualify}d` : "—", icon: TrendingUp, color: C.orange },
+    { label: t("rv.conversionRate"),   value: `${conversionRate}%`,                                icon: TrendingUp,    color: C.accent },
+    { label: t("rv.positiveRate"),     value: `${positiveRate}%`,                                  icon: MessageSquare, color: gold },
+    { label: t("rv.avgDays"),value: avgDaysToQualify != null ? `${avgDaysToQualify}d` : "—", icon: TrendingUp, color: C.orange },
   ];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <p className="text-sm font-medium" style={{ color: C.textMuted }}>Last 30 days</p>
+        <p className="text-sm font-medium" style={{ color: C.textMuted }}>{t("rv.last30")}</p>
       </div>
 
       {/* KPIs */}
@@ -203,33 +207,33 @@ export default async function ReportsView() {
 
       {/* Line chart */}
       <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Qualified per Week (last 4 weeks)</h2>
+        <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>{t("rv.qualifiedPerWeek")}</h2>
         <LineChart data={weeklyData} />
       </div>
 
       {/* Funnel */}
       <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Conversion Funnel</h2>
+        <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>{t("rv.funnel")}</h2>
         <Funnel data={leadBreakdown} />
       </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-3 gap-6 mb-6">
         <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Leads by Status</h2>
-          <HBarChart data={leadBreakdown} colorMap={statusColors} labelMap={statusLabels} />
+          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>{t("rv.byStatus")}</h2>
+          <HBarChart data={leadBreakdown} colorMap={statusColors} labelKeys={statusLabelKeys} />
         </div>
         <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Replies</h2>
             <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: goldLight, color: gold }}>{totalReplies} total</span>
           </div>
-          {totalReplies > 0 ? <HBarChart data={replyBreakdown} colorMap={classColors} labelMap={classLabels} /> : <p className="text-sm" style={{ color: C.textDim }}>No replies</p>}
+          {totalReplies > 0 ? <HBarChart data={replyBreakdown} colorMap={classColors} labelKeys={classLabelKeys} /> : <p className="text-sm" style={{ color: C.textDim }}>{t("rv.noReplies")}</p>}
         </div>
         <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Response Rate by Channel</h2>
+          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>{t("rv.responseByChannel")}</h2>
           {Object.keys(channelResponseRate).length === 0
-            ? <p className="text-sm" style={{ color: C.textDim }}>No data</p>
+            ? <p className="text-sm" style={{ color: C.textDim }}>{t("rv.noData")}</p>
             : <div className="space-y-3.5">
                 {Object.entries(channelResponseRate).sort(([,a],[,b]) => b.rate - a.rate).map(([ch, { total: t, replied, rate }]) => (
                   <div key={ch}>
@@ -253,8 +257,8 @@ export default async function ReportsView() {
       {/* Seller performance */}
       {Object.keys(sellerBreakdown).length > 0 && (
         <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Performance by Seller</h2>
-          <HBarChart data={sellerBreakdown} colorMap={{}} labelMap={{}} />
+          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>{t("rv.perfBySeller")}</h2>
+          <HBarChart data={sellerBreakdown} colorMap={{}} labelKeys={{}} />
         </div>
       )}
 
@@ -262,11 +266,11 @@ export default async function ReportsView() {
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <div className="px-5 py-4 border-b flex items-center justify-between"
           style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 50%)` }}>
-          <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Qualified Leads</h2>
+          <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("rv.recentQualified")}</h2>
           <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: C.greenLight, color: C.green }}>{recentQualified.length}</span>
         </div>
         {recentQualified.length === 0 ? (
-          <div className="py-10 text-center"><p className="text-sm" style={{ color: C.textDim }}>No qualified leads yet</p></div>
+          <div className="py-10 text-center"><p className="text-sm" style={{ color: C.textDim }}>{t("rv.noQualified")}</p></div>
         ) : (
           <table className="w-full text-sm">
             <thead>

@@ -110,14 +110,16 @@ const emptyForm = {
   leads_requested: null as number | null,
 };
 
-const statusConfig: Record<string, { label: string; color: string; bg: string; message: string }> = {
-  pending:  { label: "Pending Review", color: C.yellow, bg: C.yellowLight, message: "Our team is reviewing your profile." },
-  reviewed: { label: "Reviewed",       color: C.blue,   bg: C.blueLight,   message: "Your profile has been reviewed." },
-  approved: { label: "Approved",       color: C.green,  bg: C.greenLight,  message: "Profile approved. We're generating your leads." },
+// Keys, not labels: module scope. Every consumer resolves them.
+const statusConfig: Record<string, { labelKey: string; color: string; bg: string; messageKey: string }> = {
+  pending:  { labelKey: "icpx.pendingReview", color: C.yellow, bg: C.yellowLight, messageKey: "icpx.msg.pending" },
+  reviewed: { labelKey: "icpx.reviewed",      color: C.blue,   bg: C.blueLight,   messageKey: "icpx.msg.reviewed" },
+  approved: { labelKey: "icpx.approved",      color: C.green,  bg: C.greenLight,  messageKey: "icpx.msg.approved" },
 };
 
 
 function TagInput({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
+  const { t } = useLocale();
   const [input, setInput] = useState("");
   function add() {
     const s = input.trim();
@@ -156,6 +158,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
   onCancel: () => void;
   isNew: boolean;
 }) {
+  const { t } = useLocale();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +242,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
               className="w-full flex items-center justify-between px-4 py-3 text-left">
               <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: C.aiAccent }}>
                 <Sparkles size={15} /> Generate with AI
-                <span className="text-[11px] font-normal" style={{ color: C.textDim }}>— describe who you want to reach and we draft the whole profile</span>
+                <span className="text-[11px] font-normal" style={{ color: C.textDim }}>{t("icpx.aiLede")}</span>
               </span>
               <ChevronRight size={16} style={{ color: C.textDim, transform: genOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
             </button>
@@ -252,7 +255,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
                 {/* Example briefs — click to fill. Teaches the shape of a good
                     brief (who · where · trigger) far better than a URL did. */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-semibold" style={{ color: C.textDim }}>Examples:</span>
+                  <span className="text-[11px] font-semibold" style={{ color: C.textDim }}>{t("icpx.examples")}</span>
                   {[
                     "B2B SaaS companies, 50–200 staff, in LATAM scaling their outbound sales team",
                     "Manufacturing SMEs in Spain still running operations on spreadsheets",
@@ -286,33 +289,33 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
         )}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium" style={{ color: C.textBody }}>Profile Name *</label>
+            <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.profileName")}</label>
             {fieldError(form.profile_name) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.profile_name)}</span>}
           </div>
           <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
             style={{ borderColor: fieldError(form.profile_name) ? C.red : C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.profile_name} onChange={e => setForm(f => ({ ...f, profile_name: e.target.value }))}
-            placeholder="E.g.: CFO of Argentine SME" />
+            placeholder={t("icpx.profileNamePh")} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Target Industries *</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.targetIndustries")}</label>
               {fieldError(form.target_industries) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.target_industries)}</span>}
             </div>
-            <TagInput values={form.target_industries} onChange={v => setForm(f => ({ ...f, target_industries: v }))} placeholder="Type and press Enter…" />
+            <TagInput values={form.target_industries} onChange={v => setForm(f => ({ ...f, target_industries: v }))} placeholder={t("icpx.typeEnter")} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Target Roles *</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.targetRoles")}</label>
               {fieldError(form.target_roles) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.target_roles)}</span>}
             </div>
-            <TagInput values={form.target_roles} onChange={v => setForm(f => ({ ...f, target_roles: v }))} placeholder="CEO, CFO, Sales Manager…" />
+            <TagInput values={form.target_roles} onChange={v => setForm(f => ({ ...f, target_roles: v }))} placeholder={t("icpx.rolesPh")} />
           </div>
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>
-              Company Size <span style={{ color: C.textDim }}>(select all that apply)</span>
+              {t("icpx.companySize")} <span style={{ color: C.textDim }}>{t("icpx.selectAll")}</span>
             </label>
             <div className="flex flex-wrap gap-1.5">
               {COMPANY_SIZE_BUCKETS.map(s => {
@@ -337,41 +340,41 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
                 );
               })}
             </div>
-            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>employees</p>
+            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>{t("icpx.employees")}</p>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium" style={{ color: C.textBody }}>Geography *</label>
+              <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.geography")}</label>
               {fieldError(form.geography) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.geography)}</span>}
             </div>
-            <TagInput values={form.geography} onChange={v => setForm(f => ({ ...f, geography: v }))} placeholder="Argentina, Spain, LATAM…" />
+            <TagInput values={form.geography} onChange={v => setForm(f => ({ ...f, geography: v }))} placeholder={t("icpx.geographyPh")} />
           </div>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium" style={{ color: C.textBody }}>Pain Points You Solve *</label>
+            <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.painPoints")}</label>
             {fieldError(form.pain_points) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.pain_points)}</span>}
           </div>
           <textarea rows={3} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
             style={{ borderColor: fieldError(form.pain_points) ? C.red : C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.pain_points} onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))}
-            placeholder="What problem do these prospects have that your company can solve" />
+            placeholder={t("icpx.painPointsPh")} />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-medium" style={{ color: C.textBody }}>Solutions You Offer *</label>
+            <label className="block text-xs font-medium" style={{ color: C.textBody }}>{t("icpx.solutions")}</label>
             {fieldError(form.solutions_offered) && <span className="text-xs font-medium" style={{ color: C.red }}>{fieldError(form.solutions_offered)}</span>}
           </div>
           <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
             style={{ borderColor: fieldError(form.solutions_offered) ? C.red : C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.solutions_offered} onChange={e => setForm(f => ({ ...f, solutions_offered: e.target.value }))}
-            placeholder="What specific service/product best fits this profile" />
+            placeholder={t("icpx.solutionsPh")} />
         </div>
 
         <div>
-          <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Additional Notes</label>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("icpx.additionalNotes")}</label>
           <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
@@ -624,7 +627,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             <h2 className="text-xl font-bold" style={{ color: C.textPrimary }}>{profile.profile_name}</h2>
             <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold"
               style={{ backgroundColor: st.bg, color: st.color }}>
-              <Clock size={11} /> {st.label}
+              <Clock size={11} /> {t(st.labelKey)}
             </span>
             {isRecentUpload(profile.executed_at) && (
               <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
@@ -655,7 +658,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => printIcpPdf(profile.id, profile.profile_name)}
-            title="Download as branded PDF"
+            title={t("icpx.downloadPdf")}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: C.card, color: C.textBody, border: `1px solid ${C.border}` }}>
             <Download size={12} /> Download
@@ -703,7 +706,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </OverviewCard>
         )}
         {companySizeLabel(profile) && (
-          <OverviewCard icon={Users} label="Company Size" accent={"#7C3AED"}>
+          <OverviewCard icon={Users} label={t("icpx.companySize")} accent={"#7C3AED"}>
             <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
               {companySizeLabel(profile)}
             </p>
@@ -732,7 +735,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             </AccentBlock>
           )}
           {profile.solutions_offered && (
-            <AccentBlock icon={Lightbulb} title="Solutions Offered" accent={C.green}>
+            <AccentBlock icon={Lightbulb} title={t("icpx.solutionsOffered")} accent={C.green}>
               <p className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
                 {profile.solutions_offered}
               </p>
@@ -744,7 +747,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Classification Rubric (Notes) — parsed + tier badges highlighted */}
       {profile.notes && (
         <div className="px-6 pb-5">
-          <AccentBlock icon={BookOpen} title="Classification Rubric" accent={"#7C3AED"}>
+          <AccentBlock icon={BookOpen} title={t("icpx.rubric")} accent={"#7C3AED"}>
             <NotesRenderer text={profile.notes} />
           </AccentBlock>
         </div>
@@ -793,14 +796,14 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           )}
           {leadsOpen && !loadingLeads && leads.length === 0 && (
             <div className="px-5 py-6 text-center">
-              <p className="text-sm" style={{ color: C.textDim }}>No leads uploaded yet for this ticket.</p>
+              <p className="text-sm" style={{ color: C.textDim }}>{t("icpx.noLeadsYet")}</p>
             </div>
           )}
           {leadsOpen && !loadingLeads && leads.length > 0 && (() => {
             // Full lifecycle breakdown (boss 2026-08-19): where each lead sits.
             const BUCKET_META: { key: BucketKey; label: string; color: string }[] = [
               { key: "unassigned", label: "Unassigned", color: gold },
-              { key: "inFlow",     label: "In a flow",  color: C.blue },
+              { key: "inFlow",     label: t("icpx.inFlow"),  color: C.blue },
               { key: "won",        label: "Won",        color: C.green },
               { key: "lost",       label: "Lost",       color: C.red },
               { key: "renurture",  label: "Renurture",  color: "#7C3AED" },
@@ -814,12 +817,12 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               : s === "closed_won" ? { label: "Won", color: C.green }
               : { label: s || "—", color: C.textMuted };
             const emptyMsg: Record<BucketKey, string> = {
-              unassigned: "No unassigned leads — every lead here has already entered a flow.",
-              inFlow: "No leads in an active flow right now.",
-              won: "No won leads yet.",
-              lost: "No lost leads.",
-              renurture: "No leads in renurture.",
-              completed: "No completed leads (a flow that ended with no outcome marked).",
+              unassigned: t("icpx.noUnassigned"),
+              inFlow: t("icpx.noInFlow"),
+              won: t("icpx.noWon"),
+              lost: t("icpx.noLost"),
+              renurture: t("icpx.noRenurture"),
+              completed: t("icpx.noCompleted"),
             };
             const visible = buckets[leadsTab] ?? [];
             const visibleIds = visible.map(l => l.id);
@@ -965,7 +968,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: C.red }}>Are you sure?</span>
+            <span className="text-xs" style={{ color: C.red }}>{t("icpx.areYouSure")}</span>
             <button onClick={onDelete} className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: C.red, color: "#fff" }}>
               Yes, delete
             </button>
@@ -1081,6 +1084,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 
 // ─── Main Page ───────────────────────────────────────────
 export default function LeadGenPage() {
+  const { t } = useLocale();
   const [profiles, setProfiles] = useState<IcpProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1184,7 +1188,7 @@ export default function LeadGenPage() {
         <AuroraHero
           eyebrow="Growth Engine"
           title="Lead Miner"
-          subtitle="Your Ideal Customer Profiles (ICPs) — each one defines who your campaigns target and feeds the outreach."
+          subtitle={t("icpx.lede")}
           actions={profiles.length > 0 ? (
             <button onClick={() => setShowForm(true)} className="aurora-btn">
               <Plus size={15} /> New ICP
@@ -1192,7 +1196,7 @@ export default function LeadGenPage() {
           ) : undefined}
           kpis={lifecycle ? [
             { label: "ICPs", value: profiles.length, tone: "gold" },
-            { label: "Total leads", value: lifecycle.totals.total },
+            { label: t("icpx.totalLeads"), value: lifecycle.totals.total },
             { label: "In flow", value: lifecycle.totals.inFlow },
             { label: "Won", value: lifecycle.totals.won, tone: "green" },
           ] : undefined}
@@ -1270,9 +1274,9 @@ export default function LeadGenPage() {
 
             <div className="mt-8 pt-6 border-t grid grid-cols-3 gap-4" style={{ borderColor: C.border }}>
               {[
-                { icon: "1", label: "Define your ideal prospect" },
-                { icon: "2", label: "SWL reviews & approves" },
-                { icon: "3", label: "Campaigns target the right people" },
+                { icon: "1", label: t("icpx.step1") },
+                { icon: "2", label: t("icpx.step2") },
+                { icon: "3", label: t("icpx.step3") },
               ].map(step => (
                 <div key={step.icon} className="text-center">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1.5 text-xs font-bold"
@@ -1296,9 +1300,9 @@ export default function LeadGenPage() {
             const hasLeads = leadCount > 0;
 
             // Status chip — the ICP's own review status (self-serve-friendly).
-            const st = p.status === "approved" ? { label: "Approved", color: C.green }
-              : p.status === "reviewed" ? { label: "Reviewed", color: C.blue }
-              : p.status === "rejected" ? { label: "Rejected", color: C.red }
+            const st = p.status === "approved" ? { label: t("icpx.approved"), color: C.green }
+              : p.status === "reviewed" ? { label: t("icpx.reviewed"), color: C.blue }
+              : p.status === "rejected" ? { label: t("icpx.rejected"), color: C.red }
               : { label: "Pending review", color: "var(--fg1)" };
 
             // Lifecycle segments (gold ramp + red/green semantics), only the
@@ -1314,7 +1318,7 @@ export default function LeadGenPage() {
 
             // Simple 3-step stepper for ICPs with no leads yet.
             const stepIdx = p.status === "approved" ? 2 : (p.status === "reviewed" ? 1 : 1);
-            const steps = [{ label: "Submitted" }, { label: "In review" }, { label: "Leads ready" }];
+            const steps = [{ label: t("icpx.submitted") }, { label: t("icpx.inReview") }, { label: t("icpx.leadsReady") }];
 
             return (
               <button key={p.id} onClick={() => setSelectedId(p.id)}
@@ -1350,7 +1354,7 @@ export default function LeadGenPage() {
                 {p.status === "rejected" ? (
                   <div className="flex items-center gap-2 rounded-lg px-3 py-2 mt-4" style={{ backgroundColor: C.redLight }}>
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: C.red }} />
-                    <span className="text-xs font-medium" style={{ color: C.red }}>Not approved — revise and resubmit.</span>
+                    <span className="text-xs font-medium" style={{ color: C.red }}>{t("icpx.notApproved")}</span>
                   </div>
                 ) : hasLeads && segs.length > 0 ? (
                   <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
