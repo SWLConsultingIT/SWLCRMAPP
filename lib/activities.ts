@@ -195,6 +195,20 @@ export function wallTimeToUtcIso(dateStr: string, timeStr: string, tz: string): 
   return new Date(utc).toISOString();
 }
 
+/** Format an absolute instant as the wall-clock date+time in an IANA zone.
+ *  Inverse of wallTimeToUtcIso — used by the quick presets (in 30m / tomorrow…)
+ *  to express a target instant as the seller's local date/time. */
+export function wallPartsInTz(instant: Date, tz: string): { date: string; time: string } {
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const part of dtf.formatToParts(instant)) if (part.type !== "literal") p[part.type] = part.value;
+  const hour = p.hour === "24" ? "00" : p.hour;
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${hour}:${p.minute}` };
+}
+
 /** Curated IANA zones for the scheduler dropdown (label + value). */
 export const COMMON_TIMEZONES: { value: string; label: string }[] = [
   { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires (ART)" },

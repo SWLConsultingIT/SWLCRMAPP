@@ -13,7 +13,7 @@ import { useLocale } from "@/lib/i18n";
 import { bucketActivity } from "@/lib/activities";
 import ActivitiesList from "@/components/ActivitiesList";
 import ActivitiesBoard, { type BoardActivity } from "@/components/ActivitiesBoard";
-import NewActivityModal from "@/components/NewActivityModal";
+import ActivityComposer from "@/components/ActivityComposer";
 import { Plus, AlertTriangle, CalendarClock, CalendarDays, List as ListIcon, LayoutGrid } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
@@ -116,7 +116,7 @@ export default function ActivitiesWorkspace({
         <ActivitiesBoard initial={initial} seesAll={seesAll} currentScope={currentScope} />
       )}
 
-      <NewActivityModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={() => router.refresh()} canAssignOthers={canAssignOthers} />
+      <ActivityComposer mode="modal" open={modalOpen} onClose={() => setModalOpen(false)} onCreated={() => router.refresh()} canAssignOthers={canAssignOthers} />
     </div>
   );
 }

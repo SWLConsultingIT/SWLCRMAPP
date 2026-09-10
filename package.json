@@ -8,7 +8,7 @@
     "vercel-build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx scripts/test-metric-defs.mts && npx tsx scripts/test-outbound.mts && npx tsx scripts/test-calls-identity.mts && npx tsx scripts/test-calls-scope.mts && npx tsx scripts/test-activities.mts && npx tsx scripts/test-lead-outcome.mts",
+    "test": "npx tsx scripts/test-metric-defs.mts && npx tsx scripts/test-outbound.mts && npx tsx scripts/test-calls-identity.mts && npx tsx scripts/test-calls-scope.mts && npx tsx scripts/test-activities.mts && npx tsx scripts/test-lead-outcome.mts && npx tsx scripts/test-activity-presets.mts",
     "verify:metrics": "npx tsx scripts/verify-dashboard-metrics.ts",
     "dev:prod-readonly": "env $(grep -v '^#' .env.prod-readonly.local | xargs) next dev -p 3002",
     "capture:auth": "npx tsx scripts/capture-authenticated.mts"
