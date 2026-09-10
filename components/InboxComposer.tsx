@@ -59,7 +59,7 @@ export default function InboxComposer({
   useEffect(() => { setSelectedChannel(channel ?? null); }, [channel]);
   const effectiveChannel = selectedChannel ?? channel ?? null;
   const channelLabel =
-    effectiveChannel === "email" ? "Email" : effectiveChannel === "linkedin" ? "LinkedIn" : null;
+    effectiveChannel === "email" ? t("chan.email") : effectiveChannel === "linkedin" ? t("chan.linkedin") : null;
   const isEmail = effectiveChannel === "email";
   const pickable = (availableChannels ?? []).filter((c) => c === "linkedin" || c === "email");
   const showChannelPicker = pickable.length > 1;
@@ -122,14 +122,14 @@ export default function InboxComposer({
         }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { setError(data?.error || "No se pudo enviar"); return; }
+      if (!r.ok) { setError(data?.error || t("composer.err.send")); return; }
       setText("");
       // Soft delivery warning (email path can't always confirm) — the message
       // WAS sent, but surface the caution so the seller can double-check.
       if (data?.warning) setError(data.warning);
       onSent?.();
     } catch {
-      setError("No se pudo enviar");
+      setError(t("composer.err.send"));
     } finally {
       setSending(false);
     }
@@ -154,7 +154,7 @@ export default function InboxComposer({
           className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
           style={{ color: "#fff", backgroundColor: "var(--brand, #c9a83a)" }}
         >
-          <Send size={12} /> Escribir
+          <Send size={12} /> {t("composer.write")}
         </span>
       </button>
     );
@@ -167,11 +167,11 @@ export default function InboxComposer({
     >
       {isEmail && (
         <div className="flex items-center gap-2 px-1 pb-1.5 mb-1.5 border-b" style={{ borderColor: C.border }}>
-          <span className="text-[10px] uppercase tracking-wide font-semibold shrink-0" style={{ color: C.textDim }}>Subject</span>
+          <span className="text-[10px] uppercase tracking-wide font-semibold shrink-0" style={{ color: C.textDim }}>{t("composer.subject")}</span>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Re: …"
+            placeholder={t("composer.rePh")}
             disabled={sending}
             className="flex-1 bg-transparent text-sm outline-none"
             style={{ color: C.textPrimary }}
@@ -249,7 +249,7 @@ export default function InboxComposer({
                     className="text-[10px] uppercase tracking-wide font-semibold px-2 py-1 transition disabled:opacity-50"
                     style={{ color: active ? "#fff" : C.textDim, backgroundColor: active ? "var(--brand, #c9a83a)" : C.surface }}
                   >
-                    {ch === "email" ? "Email" : "LinkedIn"}
+                    {ch === "email" ? t("chan.email") : t("chan.linkedin")}
                   </button>
                 );
               })}
