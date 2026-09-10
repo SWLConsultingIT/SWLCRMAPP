@@ -25,16 +25,18 @@ type Lead = {
 
 const PAGE_SIZE = 50;
 
-const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  new:           { label: "New",          color: C.blue,      bg: C.blueLight,    icon: Clock },
-  contacted:     { label: "Contacted",    color: C.orange,    bg: C.orangeLight,  icon: Clock },
-  connected:     { label: "Connected",    color: C.accent,    bg: C.accentLight,  icon: CheckCircle },
-  responded:     { label: "Responded",    color: C.green,     bg: C.greenLight,   icon: MessageSquare },
-  qualified:     { label: "Qualified",    color: C.green,     bg: C.greenLight,   icon: CheckCircle },
-  proposal_sent: { label: "Proposal",     color: C.accent,    bg: C.accentLight,  icon: CheckCircle },
-  closed_won:    { label: "Won",          color: C.green,     bg: C.greenLight,   icon: CheckCircle },
-  closed_lost:   { label: "Lost",         color: C.red,       bg: C.redLight,     icon: XCircle },
-  nurturing:     { label: "Nurturing",    color: C.textMuted, bg: C.surface,      icon: MinusCircle },
+// No `label` here on purpose: the chips render statusLabel(key), which is
+// translated. A label field would be dead English.
+const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
+  new:           { color: C.blue,      bg: C.blueLight,    icon: Clock },
+  contacted:     { color: C.orange,    bg: C.orangeLight,  icon: Clock },
+  connected:     { color: C.accent,    bg: C.accentLight,  icon: CheckCircle },
+  responded:     { color: C.green,     bg: C.greenLight,   icon: MessageSquare },
+  qualified:     { color: C.green,     bg: C.greenLight,   icon: CheckCircle },
+  proposal_sent: { color: C.accent,    bg: C.accentLight,  icon: CheckCircle },
+  closed_won:    { color: C.green,     bg: C.greenLight,   icon: CheckCircle },
+  closed_lost:   { color: C.red,       bg: C.redLight,     icon: XCircle },
+  nurturing:     { color: C.textMuted, bg: C.surface,      icon: MinusCircle },
 };
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
@@ -178,7 +180,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
     <div className="p-8 w-full">
       {/* Header */}
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.gold }}>Database</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.gold }}>{t("leadsTbl.database")}</p>
         <div className="flex items-end justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{t("ld.leads")}</h1>
@@ -187,12 +189,12 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
           </div>
           <div className="flex items-center gap-3">
             {filtered.length !== leads.length && (
-              <span className="text-sm" style={{ color: C.textMuted }}>{filtered.length} filtered</span>
+              <span className="text-sm" style={{ color: C.textMuted }}>{t("leadsTbl.filtered", { n: filtered.length })}</span>
             )}
             <button onClick={() => exportCSV(filtered, t, locale)}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border"
               style={{ backgroundColor: C.goldGlow, borderColor: `color-mix(in srgb, ${C.gold} 19%, transparent)`, color: C.gold }}>
-              <Download size={12} /> Export CSV
+              <Download size={12} /> {t("leadsTbl.exportCsv")}
             </button>
           </div>
         </div>
@@ -227,7 +229,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
         </div>
         {[
           { value: filterSeller, setter: setFilterSeller, options: sellers.map(s => ({ v: s, l: s })), placeholder: t("leadsTbl.allSellers") },
-          { value: filterChannel, setter: setFilterChannel, options: [{ v:"linkedin",l:"LinkedIn"},{v:"email",l:"Email"},{v:"whatsapp",l:"WhatsApp"},{v:"call",l:"Call"}], placeholder: t("leadsTbl.allChannels") },
+          { value: filterChannel, setter: setFilterChannel, options: [{ v:"linkedin",l:t("chan.linkedin")},{v:"email",l:t("chan.email")},{v:"whatsapp",l:t("chan.whatsapp")},{v:"call",l:t("chan.call")}], placeholder: t("leadsTbl.allChannels") },
         ].map(({ value, setter, options, placeholder }, i) => (
           <div key={i} className="relative">
             <select value={value} onChange={e => changeFilter(setter, e.target.value)}

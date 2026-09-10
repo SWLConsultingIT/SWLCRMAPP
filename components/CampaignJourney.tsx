@@ -5,6 +5,7 @@ import { C } from "@/lib/design";
 import { ChevronDown, ChevronUp, CheckCircle2, Clock, Send, MessageSquare, Pencil, Save, Loader2 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import { useLocale } from "@/lib/i18n";
+import { intlTag, type Locale } from "@/lib/i18n-locale";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -65,9 +66,10 @@ function ChannelIcon({ channel, size = 14 }: { channel: string | null; size?: nu
   return <span style={{ fontSize: size }}>💬</span>;
 }
 
-const channelLabels: Record<string, string> = {
-  linkedin: "LinkedIn DM", email: "Email", call: "Phone Call",
-  whatsapp: "WhatsApp", sms: "SMS", instagram: "Instagram DM",
+// Module scope: keys, resolved by whoever renders the step.
+const channelLabelKeys: Record<string, string> = {
+  linkedin: "jrn.ch.linkedin", email: "chan.email", call: "jrn.ch.call",
+  whatsapp: "chan.whatsapp", sms: "chan.sms", instagram: "jrn.ch.instagram",
 };
 
 const classificationStyles: Record<string, { label: string; color: string; bg: string }> = {
@@ -82,17 +84,17 @@ const classificationStyles: Record<string, { label: string; color: string; bg: s
   auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: C.surface },
 };
 
-function formatDate(iso: string | null) {
+function formatDate(iso: string | null, locale: Locale) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString(intlTag(locale), { day: "numeric", month: "short", year: "numeric" });
 }
 
 function statusBadge(status: string | null) {
-  if (status === "active")    return { label: "ACTIVE",    color: C.green,  bg: C.greenLight };
-  if (status === "paused")    return { label: "PAUSED",    color: C.orange, bg: C.orangeLight };
-  if (status === "completed") return { label: "COMPLETED", color: C.blue,   bg: C.blueLight };
-  if (status === "failed")    return { label: "FAILED",    color: C.red,    bg: C.redLight };
-  return { label: "UNKNOWN", color: C.textMuted, bg: C.surface };
+  if (status === "active")    return { labelKey: "jrn.st.active",    color: C.green,  bg: C.greenLight };
+  if (status === "paused")    return { labelKey: "jrn.st.paused",    color: C.orange, bg: C.orangeLight };
+  if (status === "completed") return { labelKey: "jrn.st.completed", color: C.blue,   bg: C.blueLight };
+  if (status === "failed")    return { labelKey: "jrn.st.failed",    color: C.red,    bg: C.redLight };
+  return { labelKey: "jrn.st.unknown", color: C.textMuted, bg: C.surface };
 }
 
 /* ── Single Campaign Block ── */
@@ -106,7 +108,7 @@ function CampaignBlock({
   toggleStep: (k: string) => void;
   defaultOpen: boolean;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [open, setOpen] = useState(defaultOpen);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -153,10 +155,10 @@ function CampaignBlock({
             </div>
             <div>
               <p className="text-base font-bold" style={{ color: C.textPrimary }}>
-                {campaign.name ?? "Outreach Campaign"}
+                {campaign.name ?? t("jrn.outreachCampaign")}
               </p>
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                Channel: <span className="font-medium capitalize">{campaign.channel ?? "—"}</span>
+                {t("jrn.channelLabel")} <span className="font-medium capitalize">{campaign.channel ?? "—"}</span>
                 {campaign.sellers?.name && (
                   <> {t("jrn.seller")} <span className="font-medium">{campaign.sellers.name}</span></>
                 )}
@@ -166,7 +168,7 @@ function CampaignBlock({
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-bold px-2 py-1 rounded"
               style={{ color: st.color, backgroundColor: st.bg }}>
-              {st.label}
+              {t(st.labelKey)}
             </span>
             {open ? <ChevronUp size={16} style={{ color: C.textDim }} /> : <ChevronDown size={16} style={{ color: C.textDim }} />}
           </div>
@@ -174,16 +176,16 @@ function CampaignBlock({
 
         <div className="mt-3 flex items-center gap-6 flex-wrap text-xs" style={{ color: C.textMuted }}>
           {campaign.started_at && (
-            <span>{t("jrn.started")} <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.started_at)}</span></span>
+            <span>{t("jrn.started")} <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.started_at, locale)}</span></span>
           )}
           {campaign.next_step_due_at && (
             <span className="flex items-center gap-1">
               <Clock size={11} style={{ color: C.orange }} />
-              Next step: <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at)}</span>
+              {t("jrn.nextStep")} <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at, locale)}</span>
             </span>
           )}
           {campaign.completed_at && (
-            <span>{t("jrn.completed")} <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.completed_at)}</span></span>
+            <span>{t("jrn.completed")} <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.completed_at, locale)}</span></span>
           )}
           {steps.length > 0 && (
             <span>
@@ -270,7 +272,7 @@ function CampaignBlock({
 
                 const stepKey = `${campaign.id}-${stepNum}`;
                 const isExpanded = expandedSteps.has(stepKey);
-                const label = channelLabels[stepChannel] ?? stepChannel;
+                const label = channelLabelKeys[stepChannel] ? t(channelLabelKeys[stepChannel]) : stepChannel;
                 const lineColor = isCompleted ? "#22C55E" : isCurrent ? gold : C.border;
 
                 return (
@@ -350,7 +352,7 @@ function CampaignBlock({
                         {isCurrent && campaign.next_step_due_at && (
                           <span className="flex items-center gap-1">
                             <Clock size={10} style={{ color: C.orange }} />
-                            Response deadline: <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at)}</span>
+                            {t("jrn.deadline")} <span className="font-medium" style={{ color: C.orange }}>{formatDate(campaign.next_step_due_at, locale)}</span>
                           </span>
                         )}
                         {isPending && !msg && (
@@ -369,7 +371,7 @@ function CampaignBlock({
                                 className="flex items-center gap-1.5 text-xs font-medium"
                                 style={{ color: C.textMuted }}>
                                 <Send size={10} />
-                                {isSent ? "Message sent" : "Message created"}
+                                {isSent ? t("jrn.messageSent") : t("jrn.messageCreated")}
                                 {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                               </button>
                               {!isSent && isExpanded && !isEditing && (
@@ -381,7 +383,7 @@ function CampaignBlock({
                               )}
                               {isSent && isExpanded && (
                                 <span className="text-xs px-2 py-0.5 rounded" style={{ color: C.textDim, backgroundColor: C.surface }}>
-                                  Read-only
+                                  {t("jrn.readOnly")}
                                 </span>
                               )}
                             </div>
@@ -400,7 +402,7 @@ function CampaignBlock({
                                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-white"
                                       style={{ backgroundColor: gold, opacity: saving ? 0.7 : 1 }}>
                                       {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                      {saving ? "Saving…" : "Save"}
+                                      {saving ? t("jrn.saving") : t("jrn.save")}
                                     </button>
                                     <button onClick={() => setEditingId(null)}
                                       className="text-xs font-medium px-3 py-1.5 rounded-lg"
