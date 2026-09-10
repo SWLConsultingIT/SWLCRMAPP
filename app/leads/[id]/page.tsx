@@ -39,7 +39,8 @@ import ProspectClock from "@/components/ProspectClock";
 import { countryToTimeZone } from "@/lib/prospect-time";
 import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
-import { getT } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { intlTag } from "@/lib/i18n-locale";
 import { renderPlaceholders } from "@/lib/placeholders";
 import { useLocale } from "@/lib/i18n";
 
@@ -373,6 +374,7 @@ function zoneStyle(accent: string) {
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getT();
+  const locale = await getServerLocale();
   const { id } = await params;
   const lead = await getLead(id);
   if (!lead) notFound();
@@ -448,14 +450,14 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const positiveReplies = replies.filter((r: any) => ["positive", "meeting_intent"].includes(r.classification ?? "")).length;
   // Step progress data
   const channelStepLabels: Record<string, string> = {
-    linkedin: "LinkedIn", email: "Email", call: "Call",
-    whatsapp: "WhatsApp", sms: "SMS", instagram: "Instagram",
+    linkedin: t("chan.linkedin"), email: t("chan.email"), call: t("chan.call"),
+    whatsapp: t("chan.whatsapp"), sms: t("chan.sms"), instagram: t("chan.instagram"),
   };
   const rawSteps: any[] = campaign?.sequence_steps ?? [];
   const steps = rawSteps.map((s: any) => {
     if (typeof s === 'string') return channelStepLabels[s.toLowerCase()] ?? s;
     if (s?.channel) return channelStepLabels[s.channel.toLowerCase()] ?? s.channel;
-    return 'Unknown';
+    return t("ld.unknownStep");
   });
   const currentStep = campaign?.current_step ?? 0;
   // Find which step is a call step (for validation)
@@ -541,7 +543,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
   const teamNotes: { author: string; text: string; time: string }[] = [];
   if (lead.seller_notes) {
-    teamNotes.push({ author: lead.assigned_seller ?? "Team", text: lead.seller_notes, time: "Recently" });
+    teamNotes.push({ author: lead.assigned_seller ?? t("ld.team"), text: lead.seller_notes, time: t("ld.recently") });
   }
 
   const keywords = lead.keywords ? lead.keywords.split(",").map((k: string) => k.trim()).filter(Boolean) : [];
@@ -558,8 +560,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
     const website = lead.company_website ? (String(lead.company_website).startsWith("http") ? String(lead.company_website) : `https://${lead.company_website}`) : null;
     const facts = [
-      { label: "Industry", value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
-      { label: "Location", value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
+      { label: t("ld.industry"), value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
+      { label: t("ld.location"), value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
     ].filter(f => f.value);
     return (
       <div className="rounded-2xl border overflow-hidden lift" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
@@ -606,7 +608,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="p-6 w-full fade-in">
 
-      <Breadcrumb crumbs={[{ label: "Leads", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
+      <Breadcrumb crumbs={[{ label: t("ld.leads"), href: "/leads" }, { label: lead.company_name ?? t("ld.contact") }, { label: contactName }]} />
       <RecentLeadTracker leadId={id} name={contactName} company={lead.company_name ?? null} />
 
       {/* ═══ CONTACT HEADER ═══ */}
@@ -712,8 +714,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       size="sm"
                       defaultNumberId={campaign?.aircall_number_id ?? null}
                       phones={[
-                        ...(lead.primary_phone ? [{ label: "Personal", value: lead.primary_phone }] : []),
-                        ...(lead.primary_secondary_phone ? [{ label: "Company", value: lead.primary_secondary_phone }] : []),
+                        ...(lead.primary_phone ? [{ label: t("ld.personal"), value: lead.primary_phone }] : []),
+                        ...(lead.primary_secondary_phone ? [{ label: t("ld.phoneCompany"), value: lead.primary_secondary_phone }] : []),
                       ]}
                       isCallStep={isCallStep}
                       nextStepName={callStepIndex > 0 && callStepIndex < steps.length ? steps[callStepIndex] : undefined}
@@ -1117,24 +1119,25 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           tone = "won"; color = C.green;
           title = t("ld.campaignCompleted");
           subtitle = (campaign as any).reply_count
-            ? `${(campaign as any).reply_count} repl${(campaign as any).reply_count === 1 ? "y" : "ies"} received.`
-            : "Sequence ran end-to-end without a reply.";
+            ? ((campaign as any).reply_count === 1
+                ? t("ld.repliesReceivedOne")
+                : t("ld.repliesReceived", { n: (campaign as any).reply_count }))
+            : t("ld.noReplyRan");
         } else if (status === "closed_lost" || status === "failed") {
           tone = "lost"; color = C.red;
           title = t("ld.campaignEnded");
-          subtitle = "Lead won't receive more outreach. Re-nurture or archive.";
+          subtitle = t("ld.noMoreOutreach");
         } else if (status === "paused") {
           tone = "paused"; color = "#D97706";
           title = t("ld.campaignPaused");
           subtitle = t("ld.resumeHint");
         } else if (nextStep) {
           tone = "active"; color = C.blue;
+          const dueLabel = dueDate ? dueDate.toLocaleDateString(intlTag(locale), { day: "numeric", month: "short" }) : "";
           const when = dueDate
-            ? (isOverdue
-                ? `Overdue · was due ${dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
-                : `Due ${dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`)
-            : "Scheduled by the orchestrator";
-          title = `Next: ${nextStep} (Step ${nextIdx + 1} of ${steps.length})`;
+            ? (isOverdue ? t("ld.overdueWas", { date: dueLabel }) : t("ld.dueOn", { date: dueLabel }))
+            : t("ld.scheduledByOrch");
+          title = t("ld.nextStepOf", { step: nextStep, i: nextIdx + 1, n: steps.length });
           subtitle = when;
         }
 
@@ -1159,7 +1162,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color }}>
-                  {tone === "active" ? (isOverdue ? "Action overdue" : "Next action") : "Status"}
+                  {tone === "active" ? (isOverdue ? t("ld.actionOverdue") : t("ld.nextAction")) : t("fld.status")}
                 </p>
                 <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
                   {title}
@@ -1177,11 +1180,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           <div className="flex items-center justify-between mb-8">
             <div>
               <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
-                Campaign Step Progress
+                {t("ld.stepProgress")}
               </p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <p className="text-xs" style={{ color: C.textMuted }}>
-                  {campaign!.name ?? "Outreach Campaign"}
+                  {campaign!.name ?? t("ld.outreachCampaign")}
                 </p>
                 {(campaign as any)?.call_advance_mode === "manual" && (
                   <span title={t("ld.manualCallHint")}
@@ -1192,7 +1195,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       border: "1px solid color-mix(in srgb, #D97706 35%, transparent)",
                       letterSpacing: "0.06em",
                     }}>
-                    Manual gate
+                    {t("ld.manualGate")}
                   </span>
                 )}
                 {campaign && (
@@ -1309,8 +1312,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   {(isCompleted || isCurrent) && (
                     <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
                       {msg?.sent_at
-                        ? new Date(msg.sent_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
-                        : isCurrent ? "In progress" : ""}
+                        ? new Date(msg.sent_at).toLocaleDateString(intlTag(locale), { month: "short", day: "numeric" })
+                        : isCurrent ? t("ld.inProgress") : ""}
                     </p>
                   )}
                 </div>
@@ -1328,16 +1331,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
-                Campaign Step Progress
+                {t("ld.stepProgress")}
               </p>
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
                 {campaign
-                  ? `${campaign.name ?? "Campaign"} — no sequence steps defined yet`
-                  : "No campaign assigned to this contact yet"}
+                  ? t("ld.noStepsYet", { name: campaign.name ?? t("ld.campaignFallback") })
+                  : t("ld.noCampaignYet")}
               </p>
             </div>
             <span className="text-base font-bold italic" style={{ color: C.textDim }}>
-              0% Complete
+              {t("ld.zeroComplete")}
             </span>
           </div>
           <div className="mt-5 h-1.5 rounded-full" style={{ backgroundColor: C.border }} />
@@ -1358,10 +1361,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       <CompanyTabs tabs={[
         { label: t("ld.tab.profile") },
-        { label: "Campaign" },
-        { label: "Calls", count: visibleCalls.length || undefined },
-        { label: "Conversation" },
-        { label: "Notes" },
+        { label: t("ld.tab.campaign") },
+        { label: t("ld.tab.calls"), count: visibleCalls.length || undefined },
+        { label: t("ld.tab.conversation") },
+        { label: t("ld.tab.notes") },
         { label: t("ld.tab.social") },
       ]}>
 
@@ -1415,9 +1418,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   // fix it inline — same as the Mobile card. (Simo 2026-07-28)
                   const es = lead.primary_email_status as string | null;
                   const hasEmail = !!lead.primary_work_email;
-                  const label = hasEmail ? (es === "bounced" ? "Bounced — undeliverable"
-                    : es === "invalid" ? "Invalid address"
-                    : es === "catch_all" ? "Catch-all — risky" : null) : null;
+                  const label = hasEmail ? (es === "bounced" ? t("ld.email.bounced")
+                    : es === "invalid" ? t("ld.email.invalid")
+                    : es === "catch_all" ? t("ld.email.catchAll") : null) : null;
                   const col = es === "catch_all" ? "#D97706" : C.red;
                   const bad = !!label;
                   return (
@@ -1432,7 +1435,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         placeholder="name@company.com"
                         inputType="email"
                         displayAs="email"
-                        ariaLabel="Edit work email"
+                        ariaLabel={t("ld.editWorkEmail")}
                         displayClassName="text-sm font-medium hover:underline block truncate"
                       />
                       {label && (
@@ -1464,7 +1467,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         placeholder="+54 9 11 1234 5678"
                         inputType="tel"
                         displayAs="tel"
-                        ariaLabel="Edit mobile phone"
+                        ariaLabel={t("ld.editMobile")}
                       />
                     )}
                   </div>
@@ -1503,7 +1506,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         {url && !valid && (
                           <>
                             <p className="text-xs font-semibold mb-1 flex items-center gap-1" style={{ color: "#92400E" }}>
-                              <AlertTriangle size={11} /> URL is not a LinkedIn profile
+                              <AlertTriangle size={11} /> {t("ld.notLinkedInUrl")}
                             </p>
                             <a href={url} target="_blank" rel="noopener"
                               className="text-xs hover:underline break-all"
@@ -1513,7 +1516,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         {!url && (
                           <p className="text-xs font-semibold flex items-center gap-1"
                             style={{ color: disabled ? C.textMuted : "#92400E" }}>
-                            <AlertTriangle size={11} /> No LinkedIn URL on file{disabled ? "" : " — dispatch will fail"}
+                            <AlertTriangle size={11} /> {t("ld.noLinkedInUrl")}{disabled ? "" : t("ld.dispatchWillFail")}
                           </p>
                         )}
                       </div>
@@ -1540,16 +1543,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: C.textDim, fontSize: 10 }}>{t("lost.channels")}</p>
                   <div className="flex items-center gap-2">
                     {[
-                      { key: "allow_linkedin",  label: "LinkedIn",  icon: <LinkedInIcon size={15} /> },
-                      { key: "allow_email",     label: "Email",     icon: <span style={{ fontSize: 14 }}>✉️</span> },
-                      { key: "allow_call",      label: "Call",      icon: <span style={{ fontSize: 14 }}>📱</span> },
-                      { key: "allow_whatsapp",  label: "WhatsApp",  icon: <span style={{ fontSize: 14 }}>💬</span> },
-                      { key: "allow_instagram", label: "Instagram", icon: <span style={{ fontSize: 14 }}>📸</span> },
-                      { key: "allow_sms",       label: "SMS",       icon: <span style={{ fontSize: 14 }}>💬</span> },
+                      { key: "allow_linkedin",  label: t("chan.linkedin"),  icon: <LinkedInIcon size={15} /> },
+                      { key: "allow_email",     label: t("chan.email"),     icon: <span style={{ fontSize: 14 }}>✉️</span> },
+                      { key: "allow_call",      label: t("chan.call"),      icon: <span style={{ fontSize: 14 }}>📱</span> },
+                      { key: "allow_whatsapp",  label: t("chan.whatsapp"),  icon: <span style={{ fontSize: 14 }}>💬</span> },
+                      { key: "allow_instagram", label: t("chan.instagram"), icon: <span style={{ fontSize: 14 }}>📸</span> },
+                      { key: "allow_sms",       label: t("chan.sms"),       icon: <span style={{ fontSize: 14 }}>💬</span> },
                     ].map(ch => {
                       const allowed = lead[ch.key] !== false;
                       return (
-                        <div key={ch.key} title={`${ch.label}: ${allowed ? "Allowed" : "Blocked"}`}
+                        <div key={ch.key} title={`${ch.label}: ${allowed ? t("ld.chanAllowed") : t("ld.chanBlocked")}`}
                           className="w-9 h-9 rounded-full flex items-center justify-center border"
                           style={{
                             backgroundColor: allowed
@@ -1749,8 +1752,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   size="sm"
                   defaultNumberId={campaign?.aircall_number_id ?? null}
                   phones={[
-                    ...(lead.primary_phone ? [{ label: "Personal", value: lead.primary_phone }] : []),
-                    ...(lead.primary_secondary_phone ? [{ label: "Company", value: lead.primary_secondary_phone }] : []),
+                    ...(lead.primary_phone ? [{ label: t("ld.personal"), value: lead.primary_phone }] : []),
+                    ...(lead.primary_secondary_phone ? [{ label: t("ld.phoneCompany"), value: lead.primary_secondary_phone }] : []),
                   ]}
                   isCallStep={isCallStep}
                   nextStepName={callStepIndex > 0 && callStepIndex < steps.length ? steps[callStepIndex] : undefined}

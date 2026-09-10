@@ -4,7 +4,8 @@ import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import PrintTrigger from "../../../reports/print/PrintTrigger";
 import PrintActions from "../../../reports/print/PrintActions";
-import { getT } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { intlTag } from "@/lib/i18n-locale";
 
 // Branded, print-optimized single-lead sheet ("Opportunity Sheet"). Opened in a
 // new tab from the "Export" button on the lead detail; auto-fires window.print()
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     const lead = l as any;
     const name = (lead.company_name && String(lead.company_name).trim())
       || `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim()
-      || "Lead";
+      || t("ldp.lead");
     return { title: `${name} — ${t("fld.leadSheet")}` };
   } catch {
     return { title: t("fld.leadSheet") };
@@ -135,30 +136,30 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
   const nearby: any[] = Array.isArray(enr.nearby_companies) ? enr.nearby_companies : [];
 
   const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim();
-  const generatedAt = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const generatedAt = new Date().toLocaleDateString(intlTag(await getServerLocale()), { month: "long", day: "numeric", year: "numeric" });
   const location = [lead.company_city, lead.company_state, lead.company_country].filter(val).join(", ");
 
   // Top KPI strip — plant leads mirror the opportunity sheet; else lead vitals.
   const kpis: { label: string; value: React.ReactNode; accent: string }[] = [];
   if (intel) {
-    if (val(intel.province)) kpis.push({ label: "Province", value: intel.province, accent: "#2563EB" });
+    if (val(intel.province)) kpis.push({ label: t("pv.province"), value: intel.province, accent: "#2563EB" });
     if (val(intel.city)) kpis.push({ label: t("pv.municipality"), value: intel.city, accent: "#0D9488" });
     if (typeof intel.installed_power_kw === "number") kpis.push({ label: t("pv.installedCapacity"), value: `${it(intel.installed_power_kw)} kW`, accent });
-    if (val(intel.segment)) kpis.push({ label: "Segment", value: intel.segment, accent: "#7C3AED" });
+    if (val(intel.segment)) kpis.push({ label: t("pv.segment"), value: intel.segment, accent: "#7C3AED" });
     const gY = yr(intel.incentive_granted), vY = yr(intel.incentive_valid_until);
-    if (gY && vY && vY > gY) kpis.push({ label: t("pv.incentiveTerm"), value: `${vY - gY} yrs`, accent: "#EA580C" });
+    if (gY && vY && vY > gY) kpis.push({ label: t("pv.incentiveTerm"), value: t("ldp.yrs", { n: vY - gY }), accent: "#EA580C" });
   } else {
-    if (val(lead.status)) kpis.push({ label: "Status", value: titleCase(String(lead.status)), accent: "#2563EB" });
+    if (val(lead.status)) kpis.push({ label: t("fld.status"), value: titleCase(String(lead.status)), accent: "#2563EB" });
     if (val(icpName)) kpis.push({ label: t("fld.icpTicket"), value: icpName, accent: "#7C3AED" });
     if (typeof lead.lead_score === "number" && lead.lead_score > 0) kpis.push({ label: t("fld.leadScore"), value: lead.lead_score, accent: "#0D9488" });
-    if (val(lead.current_channel)) kpis.push({ label: "Channel", value: titleCase(String(lead.current_channel)), accent });
+    if (val(lead.current_channel)) kpis.push({ label: t("fld.channel"), value: titleCase(String(lead.current_channel)), accent });
   }
 
   const ownerFields: [string, any][] = intel ? ([
-    ["Incentive holder", intel.incentive_holder],
-    ["Beneficiary", intel.beneficiary],
-    ["Installation owner", intel.installation_owner],
-    ["Building owner", intel.building_owner],
+    [t("ldp.incentiveHolder"), intel.incentive_holder],
+    [t("ldp.beneficiary"), intel.beneficiary],
+    [t("ldp.installOwner"), intel.installation_owner],
+    [t("ldp.buildingOwner"), intel.building_owner],
   ] as [string, any][]).filter(([, v]) => val(v)) : [];
   const singleOwner = intel ? (intel.ownership_type ? intel.ownership_type === "single" : new Set(ownerFields.map(([, v]) => v)).size <= 1) : false;
 
@@ -166,10 +167,10 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
   if (val(enr.rooftop_area_m2)) rooftopStats.push({ label: t("pv.roofArea"), value: `${it(Number(enr.rooftop_area_m2))} m²` });
   if (val(intel?.roof_available_m2)) rooftopStats.push({ label: t("pv.availableRoof"), value: `${it(Number(intel!.roof_available_m2))} m²` });
   if (val(intel?.expansion_potential_kwp)) rooftopStats.push({ label: t("pv.expansion"), value: `+${it(Number(intel!.expansion_potential_kwp))} kWp` });
-  if (val(enr.proposed_system_kwp)) rooftopStats.push({ label: "Proposed system", value: `${it(Number(enr.proposed_system_kwp))} kWp` });
+  if (val(enr.proposed_system_kwp)) rooftopStats.push({ label: t("ldp.proposedSystem"), value: `${it(Number(enr.proposed_system_kwp))} kWp` });
   if (val(enr.annual_electricity_kwh)) rooftopStats.push({ label: t("pv.annualElectricity"), value: `${it(Number(enr.annual_electricity_kwh))} kWh/yr` });
   if (val(enr.estimated_bill_eur_year)) rooftopStats.push({ label: t("pv.estimatedBill"), value: `€${it(Number(enr.estimated_bill_eur_year))}/yr` });
-  if (val(enr.payback_months)) rooftopStats.push({ label: "Payback", value: `${enr.payback_months} months` });
+  if (val(enr.payback_months)) rooftopStats.push({ label: t("pv.payback"), value: t("ldp.paybackMonths", { n: enr.payback_months }) });
   if (val(enr.co2_offset_tons_year)) rooftopStats.push({ label: t("pv.co2Reduction"), value: `${enr.co2_offset_tons_year} t/yr` });
 
   // Generic leftover enrichment (primitives only) so nothing is dropped.
@@ -221,7 +222,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
         {/* Title */}
         <div style={{ marginBottom: 18 }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>
-            {val(lead.company_name) ? lead.company_name : (contactName || "Lead")}
+            {val(lead.company_name) ? lead.company_name : (contactName || t("ldp.lead"))}
           </h1>
           <p style={{ fontSize: 13, color: "#6B7280", margin: "6px 0 0" }}>
             {[contactName, lead.primary_title_role].filter(val).join(" · ")}
@@ -281,7 +282,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
                   <Field label={t("fld.address")} value={lead.company_address_1} />
                 </Grid>
               </Section>
-              <Section label={intel.conto_energia_scheme ? "Conto Energia" : "State Incentive (GSE)"} accent="#EA580C">
+              <Section label={intel.conto_energia_scheme ? "Conto Energia" : t("ldp.stateIncentive")} accent="#EA580C">
                 <Grid>
                   {intel.conto_energia_scheme && <div style={{ gridColumn: "1 / -1" }}><Field label={t("pv.scheme")} value={intel.conto_energia_scheme} /></div>}
                   <Field label={t("pv.feedInTariff")} value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
@@ -301,7 +302,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
           {intel && ownerFields.length > 0 && (
             <Section label={t("pv.beneficiary")} accent="#7C3AED">
               <span style={{ display: "inline-block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "2px 8px", borderRadius: 5, marginBottom: 10, color: singleOwner ? "#B45309" : "#DC2626", backgroundColor: singleOwner ? "#FEF3C7" : "#FEE2E2" }}>
-                {singleOwner ? "Single owner" : "Split ownership"}
+                {singleOwner ? t("ldp.singleOwner") : t("ldp.splitOwnership")}
               </span>
               <Grid cols={4}>
                 {ownerFields.map(([label, v]) => <Field key={label} label={label} value={v} />)}
@@ -344,10 +345,10 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
                 <Field label={t("cb.website")} value={lead.company_website} />
                 <Field label={t("ld.industry")} value={lead.company_industry} />
                 <Field label={t("cmp.employees")} value={lead.employees} />
-                <Field label="Annual revenue" value={lead.annual_revenue} />
+                <Field label={t("ldp.annualRevenue")} value={lead.annual_revenue} />
                 <Field label={t("fld.address")} value={lead.company_address_1} />
                 <Field label={t("pv.city")} value={lead.company_city} />
-                <Field label="Country" value={lead.company_country} />
+                <Field label={t("ldp.country")} value={lead.company_country} />
               </Grid>
               {val(lead.organization_description) && <p style={{ fontSize: 11.5, color: "#6B7280", margin: "10px 0 0", lineHeight: 1.55 }}>{lead.organization_description}</p>}
             </Section>
@@ -355,15 +356,15 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
           {/* Nearby C&I targets */}
           {nearby.length > 0 && (
-            <Section label={`Nearby Commercial & Industrial Targets (${nearby.length})`} accent={accent}>
+            <Section label={t("ldp.nearbyTargets", { n: nearby.length })} accent={accent}>
               <table style={{ fontSize: 11 }}>
                 <thead>
                   <tr style={{ textAlign: "left", color: "#6B7280", borderBottom: "1px solid #E5E7EB" }}>
                     <th style={{ padding: "5px 8px 5px 0", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("imp.company")}</th>
                     <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("fld.address")}</th>
-                    <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>Dist.</th>
+                    <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("ldp.dist")}</th>
                     <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("fld.phone")}</th>
-                    <th style={{ padding: "5px 0 5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>Est. use</th>
+                    <th style={{ padding: "5px 0 5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>{t("ldp.estUse")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -383,7 +384,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
           {/* Any remaining enrichment (nothing dropped) */}
           {extra.length > 0 && (
-            <Section label="Additional Intelligence" accent="#6B7280">
+            <Section label={t("ldp.additionalIntel")} accent="#6B7280">
               <Grid>
                 {extra.map(([k, v]) => <Field key={k} label={titleCase(k)} value={String(v)} />)}
               </Grid>
@@ -401,7 +402,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
         {/* Footer */}
         <div style={{ marginTop: 24, paddingTop: 14, borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9CA3AF" }}>
-          <span>Generated by GrowthAI · SWL Consulting</span>
+          <span>{t("ldp.generatedBy")}</span>
           <span>{brand.companyName} · {generatedAt}</span>
         </div>
       </div>
