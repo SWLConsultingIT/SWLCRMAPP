@@ -5564,4 +5564,5 @@ export const it: Record<string, string> = {
   "dem.buildN": "Genera {n} lead",
   "dem.newDemo": "Nuova demo",
   "dem.noneHint": "Incolla un URL — compiliamo settore, tagline, proposta di valore e servizi. Poi inserisci lead di esempio.",
+  "brief.err.generate": "Generazione non riuscita",
 };

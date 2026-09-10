@@ -236,7 +236,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
       setPoints(body.points ?? null);
       setGeneratedAt(new Date().toISOString());
     } catch (e: any) {
-      setError(e?.message ?? "Generation failed");
+      setError(e?.message ?? t("brief.err.generate"));
     } finally {
       setLoading(false);
     }

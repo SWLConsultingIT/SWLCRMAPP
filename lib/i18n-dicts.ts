@@ -5599,6 +5599,7 @@ export const en: Dict = {
   "dem.buildN": "Build {n} leads",
   "dem.newDemo": "New demo",
   "dem.noneHint": "Paste a URL — we auto-fill industry, tagline, value prop, services. Then seed sample leads.",
+  "brief.err.generate": "Generation failed",
 };
 
 export const es: Dict = {
@@ -11144,6 +11145,7 @@ export const es: Dict = {
   "dem.buildN": "Generar {n} leads",
   "dem.newDemo": "Demo nuevo",
   "dem.noneHint": "Pegá una URL — autocompletamos industria, tagline, propuesta de valor y servicios. Después sembrás leads de ejemplo.",
+  "brief.err.generate": "Falló la generación",
 };
 
 export { it };
