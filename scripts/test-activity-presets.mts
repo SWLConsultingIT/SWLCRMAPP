@@ -3,6 +3,7 @@
 
 import { presetToWall } from "../lib/activity-presets.ts";
 import { wallTimeToUtcIso } from "../lib/activities.ts";
+import { resolveDueTimezone, DEFAULT_DUE_TZ } from "../lib/prospect-time.ts";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];
@@ -56,6 +57,16 @@ console.log("\ndue_at represents the chosen LOCAL time (DST-correct)");
 }
 
 eq("pick → null (manual inputs)", presetToWall("pick", BA, NOW), null);
+
+console.log("\nresolveDueTimezone — callback defaults to the LEAD's zone (server-side)");
+eq("Germany → Europe/Berlin", resolveDueTimezone("Germany", null), "Europe/Berlin");
+eq("United States → America/New_York", resolveDueTimezone("United States", null), "America/New_York");
+eq("Argentina → BA", resolveDueTimezone("Argentina", null), "America/Argentina/Buenos_Aires");
+eq("lead country wins over company", resolveDueTimezone("Germany", "Italy"), "Europe/Berlin");
+eq("falls back to company country", resolveDueTimezone(null, "Italy"), "Europe/Rome");
+eq("unknown → default (BA)", resolveDueTimezone(null, null), DEFAULT_DUE_TZ);
+// End-to-end: "Call back 10:00" for a Berlin lead in January (CET = UTC+1) → 09:00Z.
+eq("callback tomorrow 10:00 Berlin (winter) → 09:00Z", wallTimeToUtcIso("2026-01-16", "10:00", resolveDueTimezone("Germany", null)), "2026-01-16T09:00:00.000Z");
 
 console.log(`\nActivity presets: ${pass} passed, ${fail} failed`);
 if (fail > 0) { console.error("FAILURES:\n" + fails.map(f => "  - " + f).join("\n")); process.exit(1); }

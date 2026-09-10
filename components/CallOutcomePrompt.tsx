@@ -7,7 +7,7 @@ import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import WhenScheduler, { type WhenValue } from "@/components/WhenScheduler";
 import ActivityComposer from "@/components/ActivityComposer";
-import { browserTimeZone, wallTimeToUtcIso } from "@/lib/activities";
+import { browserTimeZone } from "@/lib/activities";
 
 // Post-call outcome prompt. Lifted OUT of CallButton and driven by
 // AircallPhoneProvider so it ALWAYS appears when a call ends — regardless of
@@ -39,6 +39,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
     return { date: defaultCallbackDate(), time: "10:00", tz, reminderOffset: "10" };
   });
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const [ctxFetched, setCtxFetched] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -53,6 +54,17 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
       .catch(() => {});
     return () => { alive = false; };
   }, [leadId]);
+
+  // When "Call back" is chosen, default the scheduler to the LEAD's timezone
+  // (resolved server-side). One fetch, only when needed.
+  useEffect(() => {
+    if (outcome !== "callback" || ctxFetched) return;
+    setCtxFetched(true);
+    fetch(`/api/leads/${leadId}/callback-context`, { cache: "no-store" })
+      .then(r => r.json())
+      .then((d: { timezone?: string }) => { if (d?.timezone) setWhen(w => ({ ...w, tz: d.timezone as string })); })
+      .catch(() => {});
+  }, [outcome, ctxFetched, leadId]);
 
   const OPTS: { v: Outcome; label: string; desc: string; icon: typeof ThumbsUp; color: string }[] = [
     { v: "interested",     label: t("callOutcome.interested"),    desc: t("callOutcome.book"),            icon: ThumbsUp,   color: C.green },
@@ -76,14 +88,16 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
     setErr(null);
     try {
       const isCallback = outcome === "callback";
-      const callbackAt = isCallback ? (wallTimeToUtcIso(when.date, when.time || "10:00", when.tz) ?? undefined) : undefined;
+      // Send wall date/time + tz; the route resolves the tz (defaults to the
+      // LEAD's zone) and computes the absolute due_at server-side.
       const r = await fetch(`/api/leads/${leadId}/call-outcome`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           outcome,
           note: note.trim() || undefined,
-          callbackAt,
+          callbackDate: isCallback ? when.date : undefined,
+          callbackTime: isCallback ? (when.time || "10:00") : undefined,
           callbackTz: isCallback ? when.tz : undefined,
           reminderOffset: isCallback ? (when.reminderOffset === "" ? null : Number(when.reminderOffset)) : undefined,
         }),

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
-import { isValidTimeZone } from "@/lib/activities";
+import { isValidTimeZone, wallTimeToUtcIso } from "@/lib/activities";
+import { resolveDueTimezone } from "@/lib/prospect-time";
 import { logActivityEvent } from "@/lib/activities-server";
 
 // Quick-classify endpoint triggered by the post-call popup on the lead
@@ -44,18 +45,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { id: leadId } = await params;
-  let body: { outcome?: string; note?: string; callbackAt?: string; callbackTz?: string; reminderOffset?: number | null };
+  let body: { outcome?: string; note?: string; callbackAt?: string; callbackDate?: string; callbackTime?: string; callbackTz?: string; reminderOffset?: number | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid json" }, { status: 400 }); }
   const outcome = body.outcome as Outcome | undefined;
   if (!outcome || !VALID.has(outcome)) return NextResponse.json({ error: "invalid outcome" }, { status: 400 });
-  // Validate the optional callback datetime (only meaningful for `callback`).
-  let callbackAt: string | null = null;
-  if (outcome === "callback" && typeof body.callbackAt === "string" && body.callbackAt.trim()) {
-    const d = new Date(body.callbackAt);
-    if (!isNaN(d.getTime())) callbackAt = d.toISOString();
-  }
-  // IANA tz the callback time was picked in (kept on the Activity as due_tz).
-  const callbackTz = typeof body.callbackTz === "string" && isValidTimeZone(body.callbackTz) ? body.callbackTz : null;
   // Reminder lead time in minutes; callbacks default to 10 min before.
   const reminderOffset = (() => {
     const n = Number(body.reminderOffset);
@@ -64,10 +57,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   })();
 
   const svc = getSupabaseService();
-  const { data: lead } = await svc.from("leads").select("id, company_bio_id").eq("id", leadId).maybeSingle();
+  const { data: lead } = await svc.from("leads").select("id, company_bio_id, company_country").eq("id", leadId).maybeSingle();
   if (!lead) return NextResponse.json({ error: "lead not found" }, { status: 404 });
   if (scope.isScoped && lead.company_bio_id !== scope.companyBioId) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  // Resolve the callback instant SERVER-SIDE so it defaults to the LEAD's tz
+  // (explicit tz the seller picked → lead/company country → fallback). Prefer
+  // wall date/time (callbackDate + callbackTime) so we compute due_at in the
+  // resolved zone; fall back to a pre-computed callbackAt for older callers.
+  let callbackAt: string | null = null;
+  let callbackTz: string | null = null;
+  if (outcome === "callback") {
+    const explicitTz = typeof body.callbackTz === "string" && isValidTimeZone(body.callbackTz) ? body.callbackTz : null;
+    callbackTz = explicitTz ?? resolveDueTimezone((lead as { company_country: string | null }).company_country, null);
+    if (typeof body.callbackDate === "string" && body.callbackDate.trim()) {
+      callbackAt = wallTimeToUtcIso(body.callbackDate, (typeof body.callbackTime === "string" && body.callbackTime) || "10:00", callbackTz);
+    } else if (typeof body.callbackAt === "string" && body.callbackAt.trim()) {
+      const d = new Date(body.callbackAt);
+      if (!isNaN(d.getTime())) callbackAt = d.toISOString();
+    }
   }
 
   const now = new Date().toISOString();
