@@ -175,16 +175,15 @@ export default function LeadActivitiesPanel({
         )}
       </div>
 
-      {/* ── Activities section — Open + Completed ── */}
+      {/* ── Activities section — only when there ARE activities, so the empty
+          state lives solely in the NEXT ACTION block above (no duplicate "Add
+          activity"). Open + Completed. ── */}
+      {(pending.length > 0 || completed.length > 0) && (
       <div className="rounded-2xl border p-3.5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: C.shadow }}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-[13px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("activities.section.title")}</span>
           <button onClick={() => setComposerOpen(true)} className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: gold }}><Plus size={13} /> {t("activities.add")}</button>
         </div>
-
-        {!loading && pending.length === 0 && completed.length === 0 && (
-          <p className="text-[12px] py-3" style={{ color: C.textDim }}>{t("activities.none")}</p>
-        )}
 
         {pending.length > 0 && (
           <div className="mb-1">
@@ -230,6 +229,7 @@ export default function LeadActivitiesPanel({
           </div>
         )}
       </div>
+      )}
 
       {composerOpen && (
         <ActivityComposer
