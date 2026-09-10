@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Loader2, Zap, PauseCircle } from "lucide-react";
 import { C } from "@/lib/design";
@@ -17,6 +18,7 @@ import { C } from "@/lib/design";
 // 7 invites against a rate-limited Graeme account in successive ticks.
 
 export function CancelCooldownButton({ messageId }: { messageId: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function CancelCooldownButton({ messageId }: { messageId: string }) {
       <button
         onClick={go}
         disabled={busy}
-        title="Strip cooldown — dispatcher retries on next tick"
+        title={t("adm.stripCooldown")}
         className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 12%, transparent)`, color: C.gold }}
       >

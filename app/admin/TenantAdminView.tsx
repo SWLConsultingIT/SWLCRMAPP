@@ -1,4 +1,5 @@
 import { Users, Building2, Megaphone, Phone } from "lucide-react";
+import { getT } from "@/lib/i18n-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { C } from "@/lib/design";
 import PageHero from "@/components/PageHero";
@@ -63,6 +64,7 @@ function timeAgo(iso: string | null): string {
 }
 
 export default async function TenantAdminView({ tier, companyBioId }: Props) {
+  const t = await getT();
   const ctx = await fetchTenantContext(companyBioId);
   const tenantName = ctx.bio?.company_name ?? "Workspace";
   const canManage = tier === "owner";
@@ -73,15 +75,15 @@ export default async function TenantAdminView({ tier, companyBioId }: Props) {
 
   return (
     <div className="p-6 w-full">
-      <Breadcrumb crumbs={[{ label: "Admin", href: "/admin" }, { label: tenantName }]} />
+      <Breadcrumb crumbs={[{ label: t("admt.admin"), href: "/admin" }, { label: tenantName }]} />
 
       <PageHero
         icon={Users}
-        section="Workspace admin"
+        section={t("tav.workspaceAdmin")}
         title={tenantName}
         description={canManage
-          ? "Manage your team and workspace resources."
-          : "View your team. Read-only for managers."}
+          ? t("tav.manageLede")
+          : t("tav.viewLede")}
         accentColor={C.gold}
         status={{ label: tier === "owner" ? "Owner" : "Manager", active: true }}
       />
@@ -91,9 +93,9 @@ export default async function TenantAdminView({ tier, companyBioId }: Props) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <StatTile icon={Users} label="Members" value={ctx.memberCount} accent={gold}
           sub={`${ownerCount} owner${ownerCount === 1 ? "" : "s"} · ${managerCount} mgr · ${sellerCount} sellers${viewerCount > 0 ? ` · ${viewerCount} viewers` : ""}`} />
-        <StatTile icon={Megaphone} label="Active flows" value={ctx.activeFlowCount} accent={C.green} />
-        <StatTile icon={Phone} label="Sellers configured" value={ctx.sellerCount} accent={C.blue} />
-        <StatTile icon={Building2} label="Last team activity" value={timeAgo(ctx.lastSeen)} accent={C.textBody} small />
+        <StatTile icon={Megaphone} label={t("tav.activeFlows")} value={ctx.activeFlowCount} accent={C.green} />
+        <StatTile icon={Phone} label={t("tav.sellersConfigured")} value={ctx.sellerCount} accent={C.blue} />
+        <StatTile icon={Building2} label={t("tav.lastActivity")} value={timeAgo(ctx.lastSeen)} accent={C.textBody} small />
       </div>
 
       {/* Team list full-width. Workspace sidebar removed — the bio metadata

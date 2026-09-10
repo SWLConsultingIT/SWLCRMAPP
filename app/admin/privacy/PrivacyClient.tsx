@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { Lock, Shield, Sparkles, Mail, X, Bot, User, Server, Eye, ExternalLink } from "lucide-react";
 
@@ -13,11 +14,11 @@ type AccessEntry = {
   occurred_at: string;
 };
 
-const callerMeta: Record<string, { label: string; color: string; bg: string; icon: typeof Bot }> = {
-  "agent-ai":  { label: "AI agent",     color: C.blue,  bg: C.blueLight,  icon: Bot },
-  "client-app": { label: "Your team",   color: C.green, bg: C.greenLight, icon: User },
-  "swl-admin":  { label: "SWL admin",   color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",  icon: Eye },
-  "system":     { label: "System",      color: C.textMuted, bg: C.surface, icon: Server },
+const callerMeta: Record<string, { labelKey: string; color: string; bg: string; icon: typeof Bot }> = {
+  "agent-ai":   { labelKey: "prv.aiAgent",  color: C.blue,  bg: C.blueLight,  icon: Bot },
+  "client-app": { labelKey: "prv.yourTeam", color: C.green, bg: C.greenLight, icon: User },
+  "swl-admin":  { labelKey: "prv.swlAdmin", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",  icon: Eye },
+  "system":     { labelKey: "prv.system",   color: C.textMuted, bg: C.surface, icon: Server },
 };
 
 export default function PrivacyClient({
@@ -29,6 +30,7 @@ export default function PrivacyClient({
   entries: AccessEntry[];
   tier: string | null;
 }) {
+  const { t } = useLocale();
   const [showSovereignModal, setShowSovereignModal] = useState(false);
   const isOwner = tier === "super_admin" || tier === "owner";
 
@@ -44,24 +46,24 @@ export default function PrivacyClient({
 
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Access log</h2>
-          <p className="text-[10px]" style={{ color: C.textMuted }}>Last 100 reads — newest first</p>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("prv.accessLog")}</h2>
+          <p className="text-[10px]" style={{ color: C.textMuted }}>{t("prv.last100")}</p>
         </div>
 
         {entries.length === 0 ? (
           <div className="rounded-2xl border p-8 text-center" style={{ borderColor: C.border, backgroundColor: C.card }}>
-            <p className="text-sm" style={{ color: C.textMuted }}>No decrypts logged yet. Activity will appear here as soon as the AI agent or your team reads encrypted leads.</p>
+            <p className="text-sm" style={{ color: C.textMuted }}>{t("prv.noDecrypts")}</p>
           </div>
         ) : (
           <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
             <table className="w-full text-xs">
               <thead style={{ backgroundColor: C.bg }}>
                 <tr style={{ color: C.textMuted }}>
-                  <th className="text-left px-4 py-2 font-semibold">When</th>
-                  <th className="text-left px-4 py-2 font-semibold">Caller</th>
-                  <th className="text-left px-4 py-2 font-semibold">Reason</th>
-                  <th className="text-left px-4 py-2 font-semibold">Lead</th>
-                  <th className="text-left px-4 py-2 font-semibold">Mode</th>
+                  <th className="text-left px-4 py-2 font-semibold">{t("prv.when")}</th>
+                  <th className="text-left px-4 py-2 font-semibold">{t("prv.caller")}</th>
+                  <th className="text-left px-4 py-2 font-semibold">{t("prv.reason")}</th>
+                  <th className="text-left px-4 py-2 font-semibold">{t("prv.lead")}</th>
+                  <th className="text-left px-4 py-2 font-semibold">{t("prv.mode")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -75,7 +77,7 @@ export default function PrivacyClient({
                       </td>
                       <td className="px-4 py-2">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: meta.bg, color: meta.color }}>
-                          <Icon size={10} /> {meta.label}
+                          <Icon size={10} /> {t(meta.labelKey)}
                         </span>
                       </td>
                       <td className="px-4 py-2" style={{ color: C.textBody }}>{e.reason ?? "—"}</td>
@@ -84,9 +86,9 @@ export default function PrivacyClient({
                       </td>
                       <td className="px-4 py-2">
                         {e.encryption_mode === "sovereign" ? (
-                          <span className="text-[10px] font-bold" style={{ color: C.green }}>SOVEREIGN</span>
+                          <span className="text-[10px] font-bold" style={{ color: C.green }}>{t("prv.sovereign")}</span>
                         ) : e.encryption_mode === "standard" ? (
-                          <span className="text-[10px] font-bold" style={{ color: C.blue }}>STANDARD</span>
+                          <span className="text-[10px] font-bold" style={{ color: C.blue }}>{t("prv.standard")}</span>
                         ) : (
                           <span className="text-[10px]" style={{ color: C.textDim }}>—</span>
                         )}
@@ -114,6 +116,7 @@ function ModeCard({
   canManage: boolean;
   onUpgrade: () => void;
 }) {
+  const { t } = useLocale();
   const isStandard = mode === "standard";
   return (
     <div className="rounded-2xl border p-6" style={{ borderColor: C.border, backgroundColor: C.card, borderTop: `3px solid ${isStandard ? C.blue : C.green}` }}>
@@ -124,18 +127,18 @@ function ModeCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>
-              {isStandard ? "Standard mode" : "Sovereign mode"}
+              {isStandard ? t("prv.standardMode") : t("prv.sovereignMode")}
             </h2>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: isStandard ? C.blueLight : C.greenLight, color: isStandard ? C.blue : C.green }}>
-              ACTIVE
+              {t("prv.activeChip")}
             </span>
-            <span className="text-[10px]" style={{ color: C.textMuted }}>· key v{keyVersion}</span>
+            <span className="text-[10px]" style={{ color: C.textMuted }}>{t("prv.keyVersion", { n: keyVersion })}</span>
           </div>
           <p className="text-xs leading-relaxed mb-4" style={{ color: C.textBody }}>
             {isStandard ? (
-              <>Your client-uploaded leads are encrypted with AES-256 at rest. SWL operators don&apos;t see PII in admin views, every read is logged, and the contract guarantees no other use. The encryption key is custodied by SWL.</>
+              <>{t("prv.standardDesc")}</>
             ) : (
-              <>Your encryption key lives in your own infrastructure — SWL technically cannot decrypt your leads without calling your endpoint. If you revoke access, the AI agent stops processing. Endpoint: <span className="font-mono">{sovereignUrl ?? "(not set)"}</span></>
+              <>{t("prv.sovereignDesc")} <span className="font-mono">{sovereignUrl ?? t("prv.notSet")}</span></>
             )}
           </p>
 
@@ -145,7 +148,7 @@ function ModeCard({
               className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
               style={{ background: `linear-gradient(135deg, ${C.green}, color-mix(in srgb, ${C.green} 70%, white))`, color: "#fff" }}
             >
-              <Sparkles size={12} /> Upgrade to Sovereign
+              <Sparkles size={12} /> {t("prv.upgrade")}
             </button>
           )}
         </div>
@@ -155,41 +158,42 @@ function ModeCard({
 }
 
 function SovereignComingSoonModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLocale();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>Sovereign Encryption</h2>
+          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>{t("prv.sovereignTitle")}</h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
         <div className="rounded-xl border p-4 mb-4" style={{ borderColor: `${C.green}30`, backgroundColor: C.greenLight }}>
-          <p className="text-xs font-bold mb-2" style={{ color: C.green }}>Zero-knowledge encryption — coming soon</p>
+          <p className="text-xs font-bold mb-2" style={{ color: C.green }}>{t("prv.zeroKnowledge")}</p>
           <p className="text-[11px] leading-relaxed" style={{ color: C.textBody }}>
             With Sovereign mode, your team deploys a small worker (free Cloudflare tier) holding the encryption key on your own infrastructure. SWL calls your worker every time it needs to decrypt a lead. If you revoke access, the AI agent immediately loses the ability to read your data.
           </p>
         </div>
 
         <div className="space-y-3 mb-5">
-          <Bullet>Your team installs a 50-line Cloudflare Worker template (10–15 min setup).</Bullet>
-          <Bullet>You generate the AES-256 key and paste it into the Worker&apos;s env var. SWL never sees it.</Bullet>
-          <Bullet>SWL configures the worker URL + access token in this page. Validation runs end-to-end.</Bullet>
-          <Bullet>You see every decrypt call in your Cloudflare logs <em>plus</em> the access log here.</Bullet>
+          <Bullet>{t("prv.step1")}</Bullet>
+          <Bullet>{t("prv.step2pre")}</Bullet>
+          <Bullet>{t("prv.step3")}</Bullet>
+          <Bullet>{t("prv.step4pre")} <em>{t("prv.plus")}</em> {t("prv.step4post")}</Bullet>
         </div>
 
         <p className="text-[11px] mb-4" style={{ color: C.textMuted }}>
-          Sovereign mode is being prepared for the first client that requests it. Book a call with us and we&apos;ll activate it for your tenant within 1–2 days.
+          {t("prv.beingPrepared")}
         </p>
 
         <div className="flex items-center justify-end gap-3">
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>
-            Maybe later
+            {t("prv.maybeLater")}
           </button>
           <a
             href="mailto:it@swlconsulting.com?subject=Sovereign Encryption — request"
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold transition-opacity hover:opacity-90"
             style={{ background: `linear-gradient(135deg, ${C.green}, color-mix(in srgb, ${C.green} 70%, white))`, color: "#fff" }}
           >
-            <Mail size={14} /> Book a call
+            <Mail size={14} /> {t("prv.bookCall")}
             <ExternalLink size={12} />
           </a>
         </div>

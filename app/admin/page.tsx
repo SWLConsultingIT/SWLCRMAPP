@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getT } from "@/lib/i18n-server";
 import AdminClient from "./AdminClient";
 import TenantAdminView from "./TenantAdminView";
 import { redirect } from "next/navigation";
@@ -60,6 +61,7 @@ export type ExecutionItem = {
 };
 
 async function getData() {
+  const t = await getT();
   // Queries 1-5 are independent — fire them in parallel (Promise.all) instead
   // of awaiting sequentially. Was ~600-900ms in serial; now ~150-200ms parallel.
   const [
@@ -150,7 +152,7 @@ async function getData() {
         name: p.profile_name,
         clientName: bioMap[p.company_bio_id] ?? "Unknown",
         clientId: p.company_bio_id,
-        subtitle: "ICP profile awaiting review",
+        subtitle: t("adp.awaitingReview"),
         createdAt: p.created_at,
         href: `/admin/${p.company_bio_id}/profile/${p.id}`,
       })),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { RotateCcw, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
@@ -11,6 +12,7 @@ import { C } from "@/lib/design";
 // dispatcher tick. Common use: LinkedIn "already sent recently" blocks
 // that clear in 2-3 weeks.
 export default function RetryButton({ messageId }: { messageId: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function RetryButton({ messageId }: { messageId: string }) {
       <button
         onClick={retry}
         disabled={busy}
-        title="Flip back to queued — orquestador retries on next tick"
+        title={t("adm.flipQueued")}
         className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 12%, transparent)`, color: C.gold }}
       >

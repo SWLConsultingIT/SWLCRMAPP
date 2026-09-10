@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { ArrowLeft, ClipboardList, Loader2, RefreshCw, CheckCircle2, Clock, CircleDot, Ban, User, X, Search } from "lucide-react";
 import { C } from "@/lib/design";
@@ -25,30 +26,31 @@ type HelpRequest = {
 };
 
 // Pipeline columns (the kanban). Rejected is a terminal side-bucket kept last.
-const COLUMNS: { key: Status; label: string; accent: string; Icon: typeof CircleDot }[] = [
-  { key: "open",        label: "Open",        accent: "#D97706", Icon: CircleDot },
-  { key: "in_progress", label: "In progress", accent: "#2563EB", Icon: Clock },
-  { key: "resolved",    label: "Resolved",    accent: "#16A34A", Icon: CheckCircle2 },
-  { key: "rejected",    label: "Rejected",    accent: "#DC2626", Icon: Ban },
+// All four maps are module scope, so they hold keys.
+const COLUMNS: { key: Status; labelKey: string; accent: string; Icon: typeof CircleDot }[] = [
+  { key: "open",        labelKey: "sup.st.open",       accent: "#D97706", Icon: CircleDot },
+  { key: "in_progress", labelKey: "sup.st.inProgress", accent: "#2563EB", Icon: Clock },
+  { key: "resolved",    labelKey: "sup.st.resolved",   accent: "#16A34A", Icon: CheckCircle2 },
+  { key: "rejected",    labelKey: "sup.st.rejected",   accent: "#DC2626", Icon: Ban },
 ];
 
 // The move a card can make FROM its current column → verbs the admin clicks.
-const ACTIONS: { value: Status; label: string }[] = [
-  { value: "in_progress", label: "Mark in progress" },
-  { value: "resolved", label: "Mark resolved" },
-  { value: "rejected", label: "Reject" },
-  { value: "open", label: "Reopen" },
+const ACTIONS: { value: Status; labelKey: string }[] = [
+  { value: "in_progress", labelKey: "sup.markInProgress" },
+  { value: "resolved", labelKey: "sup.markResolved" },
+  { value: "rejected", labelKey: "sup.reject" },
+  { value: "open", labelKey: "sup.reopen" },
 ];
 
-const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string; Icon: typeof CircleDot }> = {
-  open: { bg: "color-mix(in srgb, #D97706 16%, transparent)", fg: "#B45309", label: "Open", Icon: CircleDot },
-  in_progress: { bg: "color-mix(in srgb, #2563EB 16%, transparent)", fg: "#1D4ED8", label: "In progress", Icon: Clock },
-  resolved: { bg: "color-mix(in srgb, #16A34A 16%, transparent)", fg: "#047857", label: "Resolved", Icon: CheckCircle2 },
-  rejected: { bg: "color-mix(in srgb, #DC2626 14%, transparent)", fg: "#B91C1C", label: "Rejected", Icon: Ban },
+const STATUS_STYLE: Record<string, { bg: string; fg: string; labelKey: string; Icon: typeof CircleDot }> = {
+  open: { bg: "color-mix(in srgb, #D97706 16%, transparent)", fg: "#B45309", labelKey: "sup.st.open", Icon: CircleDot },
+  in_progress: { bg: "color-mix(in srgb, #2563EB 16%, transparent)", fg: "#1D4ED8", labelKey: "sup.st.inProgress", Icon: Clock },
+  resolved: { bg: "color-mix(in srgb, #16A34A 16%, transparent)", fg: "#047857", labelKey: "sup.st.resolved", Icon: CheckCircle2 },
+  rejected: { bg: "color-mix(in srgb, #DC2626 14%, transparent)", fg: "#B91C1C", labelKey: "sup.st.rejected", Icon: Ban },
 };
 
-const CAT_LABEL: Record<string, string> = {
-  general: "General", bug: "Bug", feature: "Feature", question: "Question", billing: "Billing",
+const CAT_LABEL_KEYS: Record<string, string> = {
+  general: "sup.cat.general", bug: "sup.cat.bug", feature: "sup.cat.feature", question: "sup.question", billing: "sup.cat.billing",
 };
 const CAT_STYLE: Record<string, { bg: string; fg: string }> = {
   general:  { bg: "color-mix(in srgb, #64748B 15%, transparent)", fg: "#475569" },
@@ -66,6 +68,7 @@ function fmtShort(ts: string) {
 }
 
 export default function SupportInbox() {
+  const { t } = useLocale();
   const [items, setItems] = useState<HelpRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -129,13 +132,13 @@ export default function SupportInbox() {
             <h1 className="text-lg font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
               Requests
             </h1>
-            <p className="text-[11px]" style={{ color: C.textMuted }}>Every change / bug / question sent from the Help menu — move it across the pipeline.</p>
+            <p className="text-[11px]" style={{ color: C.textMuted }}>{t("sup.lede")}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5" style={{ borderColor: C.border, backgroundColor: C.card }}>
             <Search size={13} style={{ color: C.textDim }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search request / client…"
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("sup.searchPh")}
               className="bg-transparent text-sm outline-none w-44" style={{ color: C.textPrimary }} />
             {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
           </div>
@@ -161,7 +164,7 @@ export default function SupportInbox() {
                   <div className="px-3 py-2.5 border-b flex items-center gap-2 sticky top-0"
                     style={{ borderColor: C.border, backgroundColor: C.card }}>
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.accent }} />
-                    <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.textBody }}>{col.label}</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.textBody }}>{t(col.labelKey)}</span>
                     <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: C.surface, color: C.textMuted }}>
                       {list.length}
                     </span>
@@ -175,7 +178,7 @@ export default function SupportInbox() {
                           style={{ borderColor: C.border, backgroundColor: C.card }}>
                           <div className="flex items-center gap-1.5 mb-1.5">
                             <span className="text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5"
-                              style={{ backgroundColor: cat.bg, color: cat.fg }}>{CAT_LABEL[it.category] ?? it.category}</span>
+                              style={{ backgroundColor: cat.bg, color: cat.fg }}>{CAT_LABEL_KEYS[it.category] ?? it.category}</span>
                             <span className="ml-auto text-[10px]" style={{ color: C.textDim }}>{fmtShort(it.created_at)}</span>
                           </div>
                           <p className="text-[13px] font-semibold leading-snug" style={{ color: C.textPrimary }}>{it.subject}</p>
@@ -187,7 +190,7 @@ export default function SupportInbox() {
                       );
                     })}
                     {list.length === 0 && (
-                      <p className="text-[11px] italic text-center py-8" style={{ color: C.textDim }}>Nothing here</p>
+                      <p className="text-[11px] italic text-center py-8" style={{ color: C.textDim }}>{t("sup.nothingHere")}</p>
                     )}
                   </div>
                 </div>
@@ -208,11 +211,11 @@ export default function SupportInbox() {
                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   <span className="text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5"
                     style={{ backgroundColor: (CAT_STYLE[selected.category] ?? CAT_STYLE.general).bg, color: (CAT_STYLE[selected.category] ?? CAT_STYLE.general).fg }}>
-                    {CAT_LABEL[selected.category] ?? selected.category}
+                    {CAT_LABEL_KEYS[selected.category] ? t(CAT_LABEL_KEYS[selected.category]) : selected.category}
                   </span>
                   {(() => { const st = STATUS_STYLE[selected.status] ?? STATUS_STYLE.open; return (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5" style={{ backgroundColor: st.bg, color: st.fg }}>
-                      <st.Icon size={11} /> {st.label}
+                      <st.Icon size={11} /> {t(st.labelKey)}
                     </span>
                   ); })()}
                 </div>
@@ -247,7 +250,7 @@ export default function SupportInbox() {
                   onChange={e => setNotesDraft(d => ({ ...d, [selected.id]: e.target.value }))}
                   rows={2}
                   maxLength={4000}
-                  placeholder="e.g. Why you're rejecting, or how it was resolved…"
+                  placeholder={t("sup.notesPh")}
                   className="w-full text-xs rounded-lg border px-3 py-2 outline-none resize-none"
                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
                 />
@@ -279,7 +282,7 @@ export default function SupportInbox() {
                           ? { borderColor: "color-mix(in srgb, #DC2626 34%, transparent)", color: "#B91C1C" }
                           : { borderColor: C.border, color: C.textMuted }}
                     >
-                      {busyId === selected.id ? "…" : a.label}
+                      {busyId === selected.id ? "…" : t(a.labelKey)}
                     </button>
                   );
                 })}

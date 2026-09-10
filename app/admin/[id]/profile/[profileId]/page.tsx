@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getT } from "@/lib/i18n-server";
 import { requireAdminPage } from "@/lib/auth-admin";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
@@ -11,15 +12,16 @@ import CopyableId from "@/components/CopyableId";
 const gold = "var(--brand, #c9a83a)";
 const supabase = getSupabaseService();
 
-const statusStyles: Record<string, { label: string; color: string; bg: string }> = {
-  pending:  { label: "Pending Review", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  reviewed: { label: "Reviewed",       color: C.blue,    bg: C.blueLight },
-  approved: { label: "Approved",       color: C.green,   bg: C.greenLight },
-  rejected: { label: "Rejected",       color: C.red,     bg: C.redLight },
+const statusStyles: Record<string, { labelKey: string; color: string; bg: string }> = {
+  pending:  { labelKey: "apd.pendingReview",  color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  reviewed: { labelKey: "admt.st.reviewed",   color: C.blue,    bg: C.blueLight },
+  approved: { labelKey: "admt.st.approved",   color: C.green,   bg: C.greenLight },
+  rejected: { labelKey: "admt.st.rejected",   color: C.red,     bg: C.redLight },
 };
 
 
 export default async function AdminProfileDetailPage({ params }: { params: Promise<{ id: string; profileId: string }> }) {
+  const t = await getT();
   await requireAdminPage();
   const { id, profileId } = await params;
 
@@ -36,7 +38,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
     <div className="p-6 w-full">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/admin" className="hover:underline">Admin</Link>
+        <Link href="/admin" className="hover:underline">{t("admt.admin")}</Link>
         <span>/</span>
         <Link href={`/admin/${id}`} className="hover:underline">{client?.company_name ?? "Client"}</Link>
         <span>/</span>
@@ -56,7 +58,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
                 <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{profile.profile_name}</h1>
                 <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold"
                   style={{ backgroundColor: st.bg, color: st.color }}>
-                  <Clock size={11} /> {st.label}
+                  <Clock size={11} /> {t(st.labelKey)}
                 </span>
               </div>
               <p className="text-xs" style={{ color: C.textMuted }}>
@@ -101,7 +103,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
           )}
           {profile.company_size && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Company Size</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>{t("apd.companySize")}</p>
               <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{profile.company_size} employees</p>
             </div>
           )}
@@ -124,13 +126,13 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
       <div className="grid grid-cols-2 gap-6 mb-6">
         {profile.pain_points && (
           <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Pain Points</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>{t("apd.painPoints")}</h3>
             <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.pain_points}</p>
           </div>
         )}
         {profile.solutions_offered && (
           <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Solutions Offered</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>{t("apd.solutions")}</h3>
             <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.solutions_offered}</p>
           </div>
         )}
@@ -138,7 +140,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
 
       {profile.notes && (
         <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Additional Notes</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("apd.notes")}</h3>
           <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.notes}</p>
         </div>
       )}
@@ -154,11 +156,11 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
 
       {/* ═══ SHEET SYNC IDs (for uploading leads) ═══ */}
       <div className="rounded-xl border p-5 mt-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Sheet Sync IDs</h3>
-        <p className="text-xs mb-3" style={{ color: C.textDim }}>Copy these IDs into your Google Sheet when uploading leads for this project.</p>
+        <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("apd.sheetSync")}</h3>
+        <p className="text-xs mb-3" style={{ color: C.textDim }}>{t("apd.sheetSyncLede")}</p>
         <div className="grid grid-cols-2 gap-3">
-          <CopyableId label="Company Bio ID" value={id} />
-          <CopyableId label="ICP Profile ID" value={profileId} />
+          <CopyableId label={t("apd.companyBioId")} value={id} />
+          <CopyableId label={t("apd.icpProfileId")} value={profileId} />
         </div>
       </div>
     </div>

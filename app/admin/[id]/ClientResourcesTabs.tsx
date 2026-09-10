@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { Users, Share2, Phone, Mail, Loader2, CheckCircle } from "lucide-react";
 import TenantTeamTab from "../TenantTeamTab";
@@ -13,21 +14,22 @@ type SellerRow = { id: string; name: string; active: boolean; company_bio_id: st
 type AircallNumber = { id: number; name: string; digits: string; country: string };
 type InstantlyEmail = { email: string; dailyLimit: number; warmupScore: number; setupPending: boolean };
 
-const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  active:     { label: "Active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
-  restricted: { label: "Restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  banned:     { label: "Banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
-  warning:    { label: "Warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
+const linkedinStatusMeta: Record<string, { labelKey: string; color: string; bg: string }> = {
+  active:     { labelKey: "adm.st.active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  restricted: { labelKey: "adm.st.restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  banned:     { labelKey: "adm.st.banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
+  warning:    { labelKey: "adm.st.warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
 };
 
 export default function ClientResourcesTabs({ companyBioId, companyName }: Props) {
+  const { t } = useLocale();
   const [tab, setTab] = useState(0);
 
   const tabs = [
-    { label: "Users",    icon: Users,  color: C.blue },
-    { label: "Sellers",  icon: Share2, color: "#7C3AED" },
-    { label: "Aircall",  icon: Phone,  color: C.phone },
-    { label: "Emails",   icon: Mail,   color: "#7C3AED" },
+    { label: t("crt.users"),    icon: Users,  color: C.blue },
+    { label: t("crt.sellers"),  icon: Share2, color: "#7C3AED" },
+    { label: t("crt.aircall"),  icon: Phone,  color: C.phone },
+    { label: t("crt.emails"),   icon: Mail,   color: "#7C3AED" },
   ];
 
   return (
@@ -82,6 +84,7 @@ export default function ClientResourcesTabs({ companyBioId, companyName }: Props
 // Toggle persistence goes through PATCH /api/admin/sellers-access — never a
 // direct browser write to the sellers table (RLS would block it anyway).
 function ClientSellers({ companyBioId }: { companyBioId: string }) {
+  const { t } = useLocale();
   const [sellers, setSellers] = useState<SellerRow[]>([]);
   const [companies, setCompanies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -123,13 +126,13 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
   const sharable = sellers.filter(s => s.company_bio_id !== companyBioId);
 
   if (sellers.length === 0) {
-    return <TabEmptyState icon={Share2} text="No sellers in the system yet" sub="Add sellers from the global Sellers view first." />;
+    return <TabEmptyState icon={Share2} text={t("crt.noSellers")} sub={t("crt.addSellersFirst")} />;
   }
 
   const renderRow = (seller: SellerRow, mode: "owned" | "share") => {
     const statusMeta = seller.linkedin_status ? linkedinStatusMeta[seller.linkedin_status] : null;
     const isShared = (seller.shared_with_company_bio_ids ?? []).includes(companyBioId);
-    const ownerLabel = seller.company_bio_id ? (companies[seller.company_bio_id] ?? "Other tenant") : "Unassigned";
+    const ownerLabel = seller.company_bio_id ? (companies[seller.company_bio_id] ?? t("crt.otherTenant")) : "Unassigned";
     return (
       <div key={seller.id} className="flex items-center gap-4 py-3">
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
@@ -139,14 +142,14 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
           <p className="text-[11px]" style={{ color: C.textDim }}>
-            {mode === "owned" ? (seller.active ? "Active · primary owner" : "Inactive · primary owner") : `Owned by ${ownerLabel}${seller.active ? "" : " · inactive"}`}
+            {mode === "owned" ? (seller.active ? t("crt.activePrimary") : t("crt.inactivePrimary")) : `Owned by ${ownerLabel}${seller.active ? "" : " · inactive"}`}
             {seller.linkedin_status_note ? ` · ${seller.linkedin_status_note}` : ""}
           </p>
         </div>
         {statusMeta && (
           <span className="text-[10px] font-bold px-2 py-1 rounded-full"
             style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>
-            {statusMeta.label}
+            {t(statusMeta.labelKey)}
           </span>
         )}
         {mode === "share" && (
@@ -157,7 +160,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
               backgroundColor: isShared ? "#7C3AED10" : C.bg,
               color: isShared ? "#7C3AED" : C.textBody,
             }}>
-            {isShared ? <><CheckCircle size={11} className="inline mr-1" /> Shared</> : "Share with this client"}
+            {isShared ? <><CheckCircle size={11} className="inline mr-1" /> {t("adm.shared")}</> : t("crt.shareWith")}
           </button>
         )}
       </div>
@@ -188,7 +191,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
           Toggle to grant this client access to the seller&apos;s LinkedIn capacity. The seller&apos;s daily cap is shared across every tenant they serve.
         </p>
         {sharable.length === 0 ? (
-          <p className="text-xs italic py-2" style={{ color: C.textDim }}>No sellers from other tenants available.</p>
+          <p className="text-xs italic py-2" style={{ color: C.textDim }}>{t("crt.noShared")}</p>
         ) : (
           <div className="divide-y" style={{ borderColor: C.border }}>
             {sharable.map(s => renderRow(s, "share"))}
@@ -204,6 +207,7 @@ type AircallUser = { id: number; name: string; email: string | null; available: 
 type SellerAircallRow = { id: string; name: string; aircall_user_id: string | null; company_bio_id: string | null; active: boolean };
 
 function ClientAircall({ companyBioId }: { companyBioId: string }) {
+  const { t } = useLocale();
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [assigned, setAssigned] = useState<number[]>([]);
   const [tenantUserId, setTenantUserId] = useState<string | null>(null);
@@ -283,7 +287,7 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
           Click to toggle which Aircall numbers this client can dial from.
         </p>
         {numbers.length === 0 ? (
-          <p className="text-xs italic" style={{ color: C.textDim }}>No Aircall numbers available in the workspace.</p>
+          <p className="text-xs italic" style={{ color: C.textDim }}>{t("crt.noAircall")}</p>
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {numbers.map(n => {
@@ -343,10 +347,10 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
           Seller → Aircall user
         </p>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>
-          Each seller dials from THEIR Aircall user. Without this binding the dispatcher falls back to "first available user" globally — which can ring on the wrong device when multiple sellers are signed in. Required when scaling beyond one active seller.
+          Each seller dials from THEIR Aircall user. Without this binding the dispatcher falls back to t("crt.firstAvailable") globally — which can ring on the wrong device when multiple sellers are signed in. Required when scaling beyond one active seller.
         </p>
         {sellersInScope.length === 0 ? (
-          <p className="text-xs italic" style={{ color: C.textDim }}>No sellers in scope for this client. Owned + shared sellers appear here.</p>
+          <p className="text-xs italic" style={{ color: C.textDim }}>{t("crt.noInScope")}</p>
         ) : (
           <div className="divide-y" style={{ borderColor: C.border }}>
             {sellersInScope.map(s => {
@@ -397,6 +401,7 @@ type WorkspaceSection = {
 };
 
 function ClientEmails({ companyBioId }: { companyBioId: string }) {
+  const { t } = useLocale();
   const [sections, setSections] = useState<WorkspaceSection[]>([]);
   const [assigned, setAssigned] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -457,7 +462,7 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
   if (loading) return <Spinner />;
 
   const totalInboxes = sections.reduce((n, s) => n + s.inboxes.length, 0);
-  if (totalInboxes === 0) return <TabEmptyState icon={Mail} text="No Instantly inboxes available" sub="Register a workspace from /admin → Email Access first." />;
+  if (totalInboxes === 0) return <TabEmptyState icon={Mail} text={t("crt.noInboxes")} sub={t("crt.registerFirst")} />;
 
   return (
     <div className="space-y-4">

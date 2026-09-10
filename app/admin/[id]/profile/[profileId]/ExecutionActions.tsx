@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { Clock, Upload, CheckCircle, Loader2 } from "lucide-react";
 
+// Module scope: `key` is the stored execution_status, `labelKey` is the label.
 const steps = [
-  { key: "not_started",  label: "Not Started",    color: C.textMuted, bg: C.surface,    icon: Clock },
-  { key: "in_progress",  label: "In Progress",    color: "#D97706",   bg: "color-mix(in srgb, #D97706 13%, transparent)",    icon: Clock },
-  { key: "uploaded",     label: "Leads Uploaded",  color: C.blue,      bg: C.blueLight,  icon: Upload },
-  { key: "completed",    label: "Completed",       color: C.green,     bg: C.greenLight, icon: CheckCircle },
+  { key: "not_started",  labelKey: "exa.notStarted",    color: C.textMuted, bg: C.surface,    icon: Clock },
+  { key: "in_progress",  labelKey: "exa.inProgress",    color: "#D97706",   bg: "color-mix(in srgb, #D97706 13%, transparent)",    icon: Clock },
+  { key: "uploaded",     labelKey: "exa.leadsUploaded", color: C.blue,      bg: C.blueLight,  icon: Upload },
+  { key: "completed",    labelKey: "exa.completed",     color: C.green,     bg: C.greenLight, icon: CheckCircle },
 ];
 
 export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
@@ -17,6 +19,7 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
   currentStatus: string;
   leadsUploaded: number;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [acting, setActing] = useState(false);
   const [count, setCount] = useState(leadsUploaded);
@@ -43,7 +46,7 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
 
   return (
     <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Execution Status</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("exa.executionStatus")}</h3>
 
       {/* Progress steps */}
       <div className="flex items-center gap-1 mb-5">
@@ -60,7 +63,7 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
                 </div>
                 <span className="text-xs font-medium truncate"
                   style={{ color: isActive ? step.color : isDone ? C.textBody : C.textDim }}>
-                  {step.label}
+                  {t(step.labelKey)}
                 </span>
               </div>
               {i < steps.length - 1 && (
@@ -114,7 +117,7 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
               style={{ backgroundColor: C.blue, color: "#fff" }}>
               {acting ? <Loader2 size={12} className="animate-spin" /> : "Confirm"}
             </button>
-            <button onClick={() => setShowCountInput(false)} className="text-xs" style={{ color: C.textMuted }}>Cancel</button>
+            <button onClick={() => setShowCountInput(false)} className="text-xs" style={{ color: C.textMuted }}>{t("exa.cancel")}</button>
           </div>
         )}
       </div>

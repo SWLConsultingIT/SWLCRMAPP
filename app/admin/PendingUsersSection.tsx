@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { UserPlus, AlertTriangle, Trash2, Loader2 } from "lucide-react";
 import AddPersonModal, { type AddPersonResult } from "./AddPersonModal";
@@ -12,6 +13,7 @@ type PendingUser = { id: string; email: string; role: string | null; created_at:
 type Company = { id: string; company_name: string };
 
 export default function PendingUsersSection() {
+  const { t } = useLocale();
   const toast = useToast();
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -52,7 +54,7 @@ export default function PendingUsersSection() {
       setUsers(prev => prev.filter(u => u.id !== user.id));
       toast.show({ kind: "success", title: `${user.email} deleted` });
     } catch {
-      toast.show({ kind: "error", title: "Network error", description: "Try again in a moment." });
+      toast.show({ kind: "error", title: t("ttt.err.network"), description: t("ttt.retrySoon") });
     } finally {
       setDeleting(null);
     }
@@ -90,7 +92,7 @@ export default function PendingUsersSection() {
             className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
             style={{ borderColor: "#D97706", color: "#fff", backgroundColor: "#D97706" }}
           >
-            <UserPlus size={12} /> Assign to companies…
+            <UserPlus size={12} /> {t("pus.assignToCompanies")}
           </button>
           <button
             onClick={() => removeUser(user)}

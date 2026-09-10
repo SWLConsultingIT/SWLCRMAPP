@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getT } from "@/lib/i18n-server";
 import { requireAdminPage } from "@/lib/auth-admin";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
@@ -12,10 +13,10 @@ import AdminActions from "../../AdminActions";
 const gold = "var(--brand, #c9a83a)";
 const supabase = getSupabaseService();
 
-const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },
-  email:    { icon: Mail,   color: C.email,    label: "Email" },
-  call:     { icon: Phone,  color: C.phone,    label: "Call" },
+const channelMeta: Record<string, { icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: C.linkedin, labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: C.email,    labelKey: "chan.email" },
+  call:     { icon: Phone,  color: C.phone,    labelKey: "chan.call" },
 };
 
 async function getRequest(id: string) {
@@ -48,6 +49,7 @@ async function getSellerNames(ids: string[]): Promise<Map<string, string>> {
 const SELLER_COLORS = ["#2563EB", "#0D9488", "#D97706", "#7C3AED", "#DB2777", "#059669"];
 
 export default async function ReviewCampaignPage({ params }: { params: Promise<{ requestId: string }> }) {
+  const t = await getT();
   await requireAdminPage();
   const { requestId } = await params;
   const req = await getRequest(requestId);
@@ -80,12 +82,12 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
   const sellerRows: { name: string; quota: number; pct: number }[] =
     rawQuotas.length > 0
       ? rawQuotas.map(q => ({
-          name: sellerNames.get(q.sellerId) ?? "Unknown seller",
+          name: sellerNames.get(q.sellerId) ?? t("rev.unknownSeller"),
           quota: Number(q.quota) || 0,
           pct: quotaSum > 0 ? Math.round(((Number(q.quota) || 0) / quotaSum) * 100) : 0,
         }))
       : singleSellerId
-      ? [{ name: sellerNames.get(singleSellerId) ?? "Unknown seller", quota: req.target_leads_count ?? 0, pct: 100 }]
+      ? [{ name: sellerNames.get(singleSellerId) ?? t("rev.unknownSeller"), quota: req.target_leads_count ?? 0, pct: 100 }]
       : [];
 
   let totalDays = 0;
@@ -100,9 +102,9 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
     <div className="p-6 w-full">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/admin" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> Admin</Link>
+        <Link href="/admin" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> {t("admt.admin")}</Link>
         <span>/</span>
-        <span style={{ color: C.textBody }}>Campaign Review</span>
+        <span style={{ color: C.textBody }}>{t("rev.title")}</span>
       </div>
 
       {/* Header */}
@@ -139,7 +141,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
         {/* Metrics */}
         <div className="px-6 py-4 grid grid-cols-4 gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Channels</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("rev.channels")}</p>
             <div className="flex gap-1.5 flex-wrap">
               {channels.map(ch => {
                 const meta = channelMeta[ch];
@@ -148,7 +150,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
                 return (
                   <span key={ch} className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md"
                     style={{ backgroundColor: `${meta.color}12`, color: meta.color }}>
-                    <Icon size={11} /> {meta.label}
+                    <Icon size={11} /> {t(meta.labelKey)}
                   </span>
                 );
               })}
@@ -156,7 +158,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           </div>
           {lead && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Lead</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("rev.lead")}</p>
               <Link href={`/leads/${lead.id}`} className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
                 {lead.primary_first_name} {lead.primary_last_name}
               </Link>
@@ -165,12 +167,12 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           )}
           {profile && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Lead Miner Profile</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("rev.leadMinerProfile")}</p>
               <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{profile.profile_name}</p>
             </div>
           )}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Duration</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("rev.duration")}</p>
             <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{sequence.length} steps · {totalDays} days</p>
           </div>
         </div>
@@ -181,7 +183,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
         <div className="rounded-xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: C.textMuted }}>
-              <Users size={12} /> {sellerRows.length > 1 ? "Sellers & Split" : "Assigned Seller"}
+              <Users size={12} /> {sellerRows.length > 1 ? t("rev.sellersSplit") : t("rev.assignedSeller")}
             </p>
             {sellerRows.length > 1 && (
               <span className="text-xs" style={{ color: C.textDim }}>
@@ -219,7 +221,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
 
       {/* Sequence Timeline */}
       <div className="rounded-xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Sequence Timeline</p>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("rev.timeline")}</p>
         <div className="flex items-center gap-2 flex-wrap">
           {sequence.map((step: any, i: number) => {
             const meta = channelMeta[step.channel];
@@ -232,7 +234,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
                     <Icon size={12} color="#fff" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{meta.label}</p>
+                    <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{t(meta.labelKey)}</p>
                     <p className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i]}{i > 0 ? ` (+${step.daysAfter}d)` : ""}</p>
                   </div>
                 </div>
@@ -248,7 +250,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
         <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${C.linkedin}` }}>
           <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border, background: `${C.linkedin}06` }}>
             <UserPlus size={14} style={{ color: C.linkedin }} />
-            <span className="text-sm font-bold" style={{ color: C.linkedin }}>LinkedIn Connection Request</span>
+            <span className="text-sm font-bold" style={{ color: C.linkedin }}>{t("rev.connectionRequest")}</span>
             <span className="text-xs ml-auto" style={{ color: C.textDim }}>Max 200 chars · {connectionRequest.length}/200</span>
           </div>
           <div className="px-5 py-4">
@@ -261,7 +263,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           Connection Request (rendered as the dedicated card above) and must
           NOT also appear as Step 1 in the numbered list. */}
       <div className="space-y-4 mb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Outreach Messages</p>
+        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("rev.messages")}</p>
         {(() => {
           const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
           let displayNum = 0;
@@ -280,7 +282,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
                   </div>
                   <span className="text-sm font-bold" style={{ color: C.textPrimary }}>Step {displayNum}</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
-                    {msg.label || meta.label}
+                    {msg.label || t(meta.labelKey)}
                   </span>
                   <span className="text-xs ml-auto tabular-nums" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}</span>
                 </div>
@@ -304,15 +306,15 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
       {(autoReplies.positive || autoReplies.negative) && (
         <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
           <div className="px-5 py-3 border-b" style={{ borderColor: C.border }}>
-            <p className="text-sm font-bold" style={{ color: C.textPrimary }}>Auto-Replies</p>
-            <p className="text-xs" style={{ color: C.textMuted }}>Sent automatically when the lead responds</p>
+            <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("rev.autoReplies")}</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("rev.autoRepliesLede")}</p>
           </div>
           <div className="p-5 space-y-4">
             {autoReplies.positive && (
               <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: `${C.green}04` }}>
                 <div className="flex items-center gap-2 mb-2">
                   <ThumbsUp size={13} style={{ color: C.green }} />
-                  <p className="text-xs font-semibold" style={{ color: C.green }}>Positive Response</p>
+                  <p className="text-xs font-semibold" style={{ color: C.green }}>{t("rev.positiveResponse")}</p>
                 </div>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.positive}</p>
               </div>
@@ -321,7 +323,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
               <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: `${C.red}04` }}>
                 <div className="flex items-center gap-2 mb-2">
                   <ThumbsDown size={13} style={{ color: C.red }} />
-                  <p className="text-xs font-semibold" style={{ color: C.red }}>Negative Response</p>
+                  <p className="text-xs font-semibold" style={{ color: C.red }}>{t("rev.negativeResponse")}</p>
                 </div>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.negative}</p>
               </div>
@@ -334,7 +336,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
       <div className="rounded-xl border px-6 py-4 flex items-center justify-between" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <Link href={`/admin/${req.icp_profile_id ? req.icp_profile_id : ""}`}
           className="text-xs font-medium" style={{ color: C.textMuted }}>
-          <ArrowLeft size={12} className="inline mr-1" /> Back to client
+          <ArrowLeft size={12} className="inline mr-1" /> {t("rev.backToClient")}
         </Link>
         <AdminActions id={req.id} table="campaign_requests" />
       </div>

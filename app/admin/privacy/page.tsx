@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getT } from "@/lib/i18n-server";
 import { Lock, Shield } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import { C } from "@/lib/design";
@@ -39,6 +40,7 @@ async function getData(bioId: string | null) {
 }
 
 export default async function PrivacyPage() {
+  const t = await getT();
   const scope = await getUserScope();
   if (!scope.userId) redirect("/login");
   if (!canViewAdminMenu(scope.tier)) redirect("/");
@@ -50,17 +52,17 @@ export default async function PrivacyPage() {
       <PageHero
         icon={Shield}
         section="Admin"
-        title="Data Privacy"
-        description="Encryption mode for client-uploaded leads, plus an audit log of every decrypt."
+        title={t("prvp.title")}
+        description={t("prvp.lede")}
         accentColor={C.gold}
         status={{ label: data.mode === "sovereign" ? "Sovereign" : "Standard", active: true }}
       />
 
       <div className="max-w-5xl mx-auto">
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <Stat icon={Lock} label="Encrypted leads" value={data.totals.client.toLocaleString()} accent={C.green} />
-          <Stat icon={Shield} label="Plain leads (SWL)" value={data.totals.swl.toLocaleString()} accent={C.textMuted} />
-          <Stat icon={Lock} label="Access log entries" value={data.entries.length.toLocaleString()} sub="last 100" accent={C.blue} />
+          <Stat icon={Lock} label={t("prvp.encrypted")} value={data.totals.client.toLocaleString()} accent={C.green} />
+          <Stat icon={Shield} label={t("prvp.plain")} value={data.totals.swl.toLocaleString()} accent={C.textMuted} />
+          <Stat icon={Lock} label={t("prvp.logEntries")} value={data.entries.length.toLocaleString()} sub={t("prvp.last100")} accent={C.blue} />
         </div>
 
         <PrivacyClient

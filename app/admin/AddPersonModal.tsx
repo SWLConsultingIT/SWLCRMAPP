@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Loader2, X, Check, Building2 } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -18,12 +19,12 @@ type SellerOption = { id: string; name: string; userId: string | null };
 const ASSIGNABLE_TIERS: Tier[] = ["owner", "manager", "seller", "viewer"];
 const SUPER_ADMIN_ASSIGNABLE_TIERS: Tier[] = ["super_admin", "owner", "manager", "seller", "viewer"];
 
-const TIER_LABELS: Record<Tier, { label: string; color: string }> = {
-  super_admin: { label: "Super Admin", color: "#9333EA" },
-  owner: { label: "Owner", color: "#C9A83A" },
-  manager: { label: "Manager", color: "#3B82F6" },
-  seller: { label: "Seller", color: "#10B981" },
-  viewer: { label: "Viewer", color: "#6B7280" },
+const TIER_LABELS: Record<Tier, { labelKey: string; color: string }> = {
+  super_admin: { labelKey: "ttt.role.superAdmin", color: "#9333EA" },
+  owner: { labelKey: "ttt.role.owner", color: "#C9A83A" },
+  manager: { labelKey: "ttt.role.manager", color: "#3B82F6" },
+  seller: { labelKey: "ttt.role.seller", color: "#10B981" },
+  viewer: { labelKey: "ttt.role.viewer", color: "#6B7280" },
 };
 
 export type AddPersonResult = {
@@ -47,6 +48,7 @@ export default function AddPersonModal({
   // Force a single company (e.g. opened from a client's Users tab).
   lockedCompanyId?: string;
 }) {
+  const { t } = useLocale();
   const [email, setEmail] = useState(presetEmail ?? "");
   const [fullName, setFullName] = useState("");
   const [tier, setTier] = useState<Tier>("owner");
@@ -131,7 +133,7 @@ export default function AddPersonModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b flex items-center justify-between shrink-0" style={{ borderColor: C.border }}>
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Add person to companies</h2>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("apm.title")}</h2>
           <button onClick={onClose}><X size={16} style={{ color: C.textMuted }} /></button>
         </div>
 
@@ -142,7 +144,7 @@ export default function AddPersonModal({
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="teammate@example.com"
+              placeholder={t("ttt.emailPh")}
               autoFocus={!presetEmail}
               disabled={!!presetEmail}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none disabled:opacity-70"
@@ -151,12 +153,12 @@ export default function AddPersonModal({
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Full name (optional)</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("ttt.fullNameOpt")}</label>
             <input
               type="text"
               value={fullName}
               onChange={e => setFullName(e.target.value)}
-              placeholder="Juan Perez"
+              placeholder={t("ttt.namePh")}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
             />
@@ -172,14 +174,14 @@ export default function AddPersonModal({
                 type="text"
                 value={companyQuery}
                 onChange={e => setCompanyQuery(e.target.value)}
-                placeholder="Search companies…"
+                placeholder={t("apm.searchPh")}
                 className="w-full px-3 py-2 mb-2 text-xs rounded-lg border outline-none"
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               />
             )}
             <div className="rounded-lg border max-h-44 overflow-y-auto" style={{ borderColor: C.border }}>
               {filteredCompanies.length === 0 ? (
-                <p className="px-3 py-3 text-xs" style={{ color: C.textDim }}>No companies.</p>
+                <p className="px-3 py-3 text-xs" style={{ color: C.textDim }}>{t("apm.noCompanies")}</p>
               ) : filteredCompanies.map(c => {
                 const checked = selectedIds.includes(c.id);
                 const locked = !!lockedCompanyId;
@@ -208,16 +210,16 @@ export default function AddPersonModal({
           {/* Role — applies to all selected companies */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-              Role {selectedIds.length > 1 && <span style={{ color: C.textDim }}>(applies to all selected)</span>}
+              {t("apm.role")} {selectedIds.length > 1 && <span style={{ color: C.textDim }}>{t("apm.appliesAll")}</span>}
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {assignableTiers.map(t => {
-                const meta = TIER_LABELS[t];
-                const selected = tier === t;
+              {assignableTiers.map(tt => {
+                const meta = TIER_LABELS[tt];
+                const selected = tier === tt;
                 return (
                   <button
-                    key={t}
-                    onClick={() => setTier(t)}
+                    key={tt}
+                    onClick={() => setTier(tt)}
                     className="text-xs font-semibold px-3 py-2 rounded-lg border text-left flex items-center justify-between"
                     style={{
                       borderColor: selected ? meta.color : C.border,
@@ -225,18 +227,18 @@ export default function AddPersonModal({
                       color: selected ? meta.color : C.textBody,
                     }}
                   >
-                    <span>{meta.label}</span>
+                    <span>{t(meta.labelKey)}</span>
                     {selected && <Check size={12} />}
                   </button>
                 );
               })}
             </div>
             <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-              {tier === "super_admin" && "Cross-tenant SWL ops. Lands as owner + can switch into any tenant. Use sparingly."}
-              {tier === "owner" && "Full admin: can manage team + settings in each company."}
-              {tier === "manager" && "Tenant-wide read/write. No team management."}
-              {tier === "seller" && "Only their own assigned leads + campaigns."}
-              {tier === "viewer" && "Read-only across the tenant."}
+              {tier === "super_admin" && t("apm.desc.superAdmin")}
+              {tier === "owner" && t("apm.desc.owner")}
+              {tier === "manager" && t("ttt.desc.manager")}
+              {tier === "seller" && t("ttt.desc.seller")}
+              {tier === "viewer" && t("ttt.desc.viewer")}
             </p>
           </div>
 
