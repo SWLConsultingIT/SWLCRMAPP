@@ -35,19 +35,27 @@ async function handle(req: NextRequest) {
   const svc = getSupabaseService();
   const nowIso = new Date().toISOString();
 
-  // Candidates: pending, not yet reminded, due now, with a recipient.
+  // Fire time = due_at − reminder_offset_minutes. Only activities that WANT a
+  // reminder (reminder_offset_minutes NOT NULL) qualify; NULL means "no
+  // reminder". Offsets are small (10/30/60), so a 1-day lookahead window bounds
+  // the fetch; the exact "now >= due_at − offset" test is applied in JS.
+  const lookahead = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   const { data: due, error } = await svc
     .from("activities")
-    .select("id, company_bio_id, lead_id, assigned_to, title, type")
+    .select("id, company_bio_id, lead_id, assigned_to, title, type, due_at, reminder_offset_minutes")
     .eq("status", "pending")
     .is("reminder_sent_at", null)
     .not("assigned_to", "is", null)
-    .lte("due_at", nowIso)
+    .not("reminder_offset_minutes", "is", null)
+    .lte("due_at", lookahead)
     .order("due_at", { ascending: true })
-    .limit(500);
+    .limit(1000);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = (due ?? []) as Array<{ id: string; company_bio_id: string; lead_id: string | null; assigned_to: string; title: string; type: string }>;
+  const nowMs = Date.now();
+  const rows = ((due ?? []) as Array<{ id: string; company_bio_id: string; lead_id: string | null; assigned_to: string; title: string; type: string; due_at: string | null; reminder_offset_minutes: number | null }>)
+    // fire only once the reminder instant (due_at − offset) has arrived
+    .filter(r => r.due_at != null && (Date.parse(r.due_at) - (r.reminder_offset_minutes ?? 0) * 60000) <= nowMs);
   if (rows.length === 0) return NextResponse.json({ ok: true, fired: 0 });
 
   // CLAIM first (atomic-ish): mark reminded so a concurrent run won't re-pick.

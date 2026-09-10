@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { isValidTimeZone } from "@/lib/activities";
+import { logActivityEvent } from "@/lib/activities-server";
 
 // Quick-classify endpoint triggered by the post-call popup on the lead
 // detail. Four mutually exclusive outcomes, each mapped to a concrete
@@ -33,16 +35,16 @@ import { getUserScope } from "@/lib/scope";
 //   other_person → "asked for someone else" — campaign keeps running; the
 //                  observation captures who to route to (referral is a later
 //                  feature); lead is NOT closed.
-type Outcome = "interested" | "meeting" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number" | "info" | "callback" | "other_person";
+type Outcome = "interested" | "meeting" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number" | "info" | "callback" | "other_person" | "no_contact_established" | "mailbox_full";
 
-const VALID: ReadonlySet<Outcome> = new Set(["interested", "meeting", "not_interested", "bad_timing", "voicemail", "wrong_number", "info", "callback", "other_person"] as const);
+const VALID: ReadonlySet<Outcome> = new Set(["interested", "meeting", "not_interested", "bad_timing", "voicemail", "wrong_number", "info", "callback", "other_person", "no_contact_established", "mailbox_full"] as const);
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { id: leadId } = await params;
-  let body: { outcome?: string; note?: string; callbackAt?: string };
+  let body: { outcome?: string; note?: string; callbackAt?: string; callbackTz?: string; reminderOffset?: number | null };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid json" }, { status: 400 }); }
   const outcome = body.outcome as Outcome | undefined;
   if (!outcome || !VALID.has(outcome)) return NextResponse.json({ error: "invalid outcome" }, { status: 400 });
@@ -52,6 +54,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const d = new Date(body.callbackAt);
     if (!isNaN(d.getTime())) callbackAt = d.toISOString();
   }
+  // IANA tz the callback time was picked in (kept on the Activity as due_tz).
+  const callbackTz = typeof body.callbackTz === "string" && isValidTimeZone(body.callbackTz) ? body.callbackTz : null;
+  // Reminder lead time in minutes; callbacks default to 10 min before.
+  const reminderOffset = (() => {
+    const n = Number(body.reminderOffset);
+    if (Number.isFinite(n) && n >= 0 && n <= 10080) return Math.round(n);
+    return 10;
+  })();
 
   const svc = getSupabaseService();
   const { data: lead } = await svc.from("leads").select("id, company_bio_id").eq("id", leadId).maybeSingle();
@@ -73,6 +83,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                       ? `Call outcome: call back on ${callbackAt} — campaign continues`
                       : "Call outcome: call back later — campaign continues",
     other_person:   "Call outcome: asked to speak with someone else — see note, campaign continues",
+    no_contact_established: "Call outcome: no contact established — call didn't connect, campaign continues",
+    mailbox_full:   "Call outcome: mailbox full — couldn't leave a message, campaign continues",
   };
   const summary = summaryMap[outcome];
 
@@ -96,6 +108,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     info: "needs_info",
     callback: "follow_up",
     other_person: "follow_up",
+    // Failed-attempt outcomes: no conversation happened → neutral bucket, never
+    // counts as a reply/positive/negative.
+    no_contact_established: "not_now",
+    mailbox_full: "not_now",
   };
   await svc.from("lead_replies").insert({
     lead_id: leadId,
@@ -128,6 +144,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     info: "needs_info",
     callback: "follow_up",
     other_person: "other_person",
+    no_contact_established: "no_contact_established",
+    mailbox_full: "mailbox_full",
   };
   const { data: recentCalls } = await svc
     .from("calls")
@@ -161,7 +179,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } else if (outcome === "not_interested") {
     await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", callback_at: null, callback_note: null, updated_at: now }).eq("id", leadId);
     await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
-  } else if (outcome === "bad_timing" || outcome === "voicemail" || outcome === "info" || outcome === "callback" || outcome === "other_person") {
+  } else if (outcome === "bad_timing" || outcome === "voicemail" || outcome === "info" || outcome === "callback" || outcome === "other_person" || outcome === "no_contact_established" || outcome === "mailbox_full") {
     // Non-terminal outcomes — the campaign keeps running on its cadence. Do NOT
     // advance the step on the spot: the campaign stays parked on the call step
     // and the lead's call_advance_mode + skip-stale-calls cron decide next
@@ -185,7 +203,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // fires an in-app notification when due_at arrives.
     if (outcome === "callback" && callbackAt) {
       const nowIso = new Date().toISOString();
-      await svc.from("activities").insert({
+      const fields = {
         company_bio_id: lead.company_bio_id,
         lead_id: leadId,
         type: "call",
@@ -194,11 +212,44 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         assigned_to: scope.userId,
         created_by: scope.userId,
         due_at: callbackAt,
+        due_tz: callbackTz,
+        reminder_offset_minutes: reminderOffset,
         status: "pending",
         source: "call_callback",
-        created_at: nowIso,
+        source_reference_id: targetCallId ?? null,
         updated_at: nowIso,
-      });
+      };
+      // Idempotent: one callback Activity per originating call. A retry / double
+      // submit of the same call's callback UPDATES the existing row instead of
+      // creating a duplicate (the outcome + Activity behave as one operation).
+      let activityId: string | null = null;
+      let created = false;
+      if (targetCallId) {
+        const { data: existing } = await svc
+          .from("activities")
+          .select("id")
+          .eq("source", "call_callback")
+          .eq("source_reference_id", targetCallId)
+          .maybeSingle();
+        if (existing?.id) {
+          activityId = existing.id as string;
+          await svc.from("activities").update({ ...fields, reminder_sent_at: null }).eq("id", activityId);
+        }
+      }
+      if (!activityId) {
+        const { data: ins } = await svc.from("activities").insert({ ...fields, created_at: nowIso }).select("id").maybeSingle();
+        activityId = (ins as { id?: string } | null)?.id ?? null;
+        created = true;
+      }
+      if (activityId) {
+        await logActivityEvent({
+          activityId,
+          companyBioId: lead.company_bio_id,
+          actorUserId: scope.userId,
+          event: created ? "created" : "rescheduled",
+          detail: { source: "call_callback", call_id: targetCallId ?? null, due_at: callbackAt, due_tz: callbackTz },
+        });
+      }
     }
   } else {
     // wrong_number: flag the lead so future calls are blocked, then

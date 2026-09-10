@@ -13,7 +13,7 @@
 //   - seller known        → hide the assignee picker
 //   - tz known/inferred   → preselect it
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
@@ -21,12 +21,12 @@ import { useToast } from "@/lib/toast";
 import { countryToTimeZone } from "@/lib/prospect-time";
 import { leadDisplayName } from "@/lib/lead-label";
 import { createActivity } from "@/lib/create-activity";
-import { presetToWall, PRESET_KEYS, type PresetKey } from "@/lib/activity-presets";
+import WhenScheduler from "@/components/WhenScheduler";
 import {
-  ACTIVITY_TYPES, COMMON_TIMEZONES, browserTimeZone, wallTimeToUtcIso, wallPartsInTz,
+  ACTIVITY_TYPES, browserTimeZone, wallTimeToUtcIso, wallPartsInTz,
   type ActivityType,
 } from "@/lib/activities";
-import { X, Search, Building2, Calendar, Bell } from "lucide-react";
+import { X, Search, Building2, Calendar } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -48,10 +48,6 @@ export type ActivityComposerContext = {
 
 type LeadHit = { id: string; primary_first_name: string | null; primary_last_name: string | null; company_name: string | null; company_country: string | null };
 type Mode = "modal" | "drawer" | "inline";
-
-const REMINDER_OPTS: { value: string; key: string }[] = [
-  { value: "", key: "none" }, { value: "0", key: "at" }, { value: "10", key: "10" }, { value: "30", key: "30" }, { value: "60", key: "60" },
-];
 
 export default function ActivityComposer({
   mode, open = true, onClose, onCreated, context = {}, canAssignOthers = false,
@@ -97,12 +93,6 @@ export default function ActivityComposer({
       if (Array.isArray(j?.team)) setTeam(j.team.map((m: { userId: string; displayName: string | null; email: string | null }) => ({ userId: m.userId, label: m.displayName || m.email || m.userId })));
     }).catch(() => {});
   }, [open, knownSeller, canAssignOthers]);
-
-  const applyPreset = useCallback((preset: PresetKey) => {
-    if (preset === "pick") { setDate(prev => prev || wallPartsInTz(new Date(), tz).date); return; }
-    const w = presetToWall(preset, tz);
-    if (w) { setDate(w.date); setTime(w.time); }
-  }, [tz]);
 
   function runSearch(term: string) {
     setQ(term);
@@ -205,33 +195,16 @@ export default function ActivityComposer({
         </label>
       )}
 
-      {/* When — presets + date/time + tz */}
+      {/* When — shared scheduler (presets + date/time + tz + reminder) */}
       <div>
         <span className={labelCls} style={{ color: C.textMuted }}>{t("activities.form.when")}</span>
-        <div className="flex flex-wrap gap-1.5 mt-1">
-          {PRESET_KEYS.map(p => (
-            <button key={p} onClick={() => applyPreset(p)} className="text-[11px] font-semibold rounded-full px-2.5 py-1" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textMuted }}>
-              {t(`activities.preset.${p}`)}
-            </button>
-          ))}
+        <div className="mt-1">
+          <WhenScheduler
+            value={{ date, time, tz, reminderOffset: reminder }}
+            onChange={v => { setDate(v.date); setTime(v.time); setTz(v.tz); setReminder(v.reminderOffset); }}
+          />
         </div>
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} className="rounded-lg px-2 py-2 text-[13px]" style={field} />
-          <input type="time" value={time} onChange={e => setTime(e.target.value)} className="rounded-lg px-2 py-2 text-[13px]" style={field} />
-        </div>
-        <select value={tz} onChange={e => setTz(e.target.value)} className="mt-2 w-full rounded-lg px-2 py-1.5 text-[12px]" style={field}>
-          {COMMON_TIMEZONES.some(z => z.value === tz) ? null : <option value={tz}>{tz}</option>}
-          {COMMON_TIMEZONES.map(z => <option key={z.value} value={z.value}>{z.label}</option>)}
-        </select>
       </div>
-
-      {/* Reminder */}
-      <label className="block">
-        <span className={labelCls + " flex items-center gap-1"} style={{ color: C.textMuted }}><Bell size={11} /> {t("activities.form.reminder")}</span>
-        <select value={reminder} onChange={e => setReminder(e.target.value)} className="mt-1 w-full rounded-lg px-2 py-2 text-[13px]" style={field}>
-          {REMINDER_OPTS.map(o => <option key={o.key} value={o.value}>{t(`activities.reminder.${o.key}`)}</option>)}
-        </select>
-      </label>
 
       {/* Seller — only when unknown + allowed */}
       {!knownSeller && canAssignOthers && team.length > 0 && (
