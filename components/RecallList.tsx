@@ -26,17 +26,17 @@ const gold = "var(--brand, #c9a83a)";
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 
-function whenLabel(iso: string, now: Date): { top: string; bottom: string; bucket: "over" | "today" | "up" } {
+function whenLabel(iso: string, now: Date, t: (k: string) => string): { top: string; bottom: string; bucket: "over" | "today" | "up" } {
   const d = new Date(iso);
   const today = startOfDay(now).getTime();
   const day = startOfDay(d).getTime();
   const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   if (d.getTime() < now.getTime()) {
     // overdue
-    const dayLabel = day === today ? "Hoy" : d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    const dayLabel = day === today ? t("recall.today") : d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
     return { top: dayLabel, bottom: time, bucket: "over" };
   }
-  if (day === today) return { top: "Hoy", bottom: time, bucket: "today" };
+  if (day === today) return { top: t("recall.today"), bottom: time, bucket: "today" };
   return { top: d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }), bottom: time, bucket: "up" };
 }
 
@@ -74,7 +74,7 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
   const groups = useMemo(() => {
     const g: Record<"over" | "today" | "up", (RecallItem & { w: ReturnType<typeof whenLabel> })[]> = { over: [], today: [], up: [] };
     for (const r of visible) {
-      const w = whenLabel(r.callbackAt, now);
+      const w = whenLabel(r.callbackAt, now, t);
       g[w.bucket].push({ ...r, w });
     }
     return g;
@@ -119,12 +119,12 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
       {/* Seller filter */}
       <div className="flex items-center gap-1.5 mb-3 flex-wrap text-xs">
         <RotateCcw size={12} style={{ color: C.textDim }} />
-        <span style={{ color: C.textMuted }}>Seller:</span>
+        <span style={{ color: C.textMuted }}>{t("recall.sellerLabel")}</span>
         <div className="flex gap-1 rounded-lg border p-1" style={{ borderColor: C.border, backgroundColor: C.card }}>
           {mySellerNames.length > 0 && (
-            <FilterPill active={sellerFilter === "__me__"} onClick={() => setSellerFilter("__me__")} label="Yo" />
+            <FilterPill active={sellerFilter === "__me__"} onClick={() => setSellerFilter("__me__")} label={t("recall.me")} />
           )}
-          <FilterPill active={sellerFilter === "all"} onClick={() => setSellerFilter("all")} label="Todos" />
+          <FilterPill active={sellerFilter === "all"} onClick={() => setSellerFilter("all")} label={t("recall.all")} />
           {sellerNames.filter(n => !mine.has(n)).map(n => (
             <FilterPill key={n} active={sellerFilter === n} onClick={() => setSellerFilter(n)} label={n} />
           ))}
@@ -165,10 +165,10 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
                       <div className="flex items-end gap-1.5">
                         <input type="date" value={rsDate} onChange={e => setRsDate(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
                         <input type="time" value={rsTime} onChange={e => setRsTime(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
-                        <button onClick={() => saveReschedule(r.leadId)} disabled={busy === r.leadId} className="w-7 h-7 rounded-md grid place-items-center" style={{ backgroundColor: gold, color: "#1A1505" }} title="Guardar">
+                        <button onClick={() => saveReschedule(r.leadId)} disabled={busy === r.leadId} className="w-7 h-7 rounded-md grid place-items-center" style={{ backgroundColor: gold, color: "#1A1505" }} title={t("recall.save")}>
                           {busy === r.leadId ? <Loader2 size={12} className="animate-spin" /> : <Check size={13} />}
                         </button>
-                        <button onClick={() => setRescheduling(null)} className="w-7 h-7 rounded-md border grid place-items-center" style={{ borderColor: C.border, color: C.textDim }} title="Cancelar"><X size={12} /></button>
+                        <button onClick={() => setRescheduling(null)} className="w-7 h-7 rounded-md border grid place-items-center" style={{ borderColor: C.border, color: C.textDim }} title={t("recall.cancel")}><X size={12} /></button>
                       </div>
                     ) : (
                       <>
@@ -177,10 +177,10 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
                         </div>
                         <div className="flex gap-1 shrink-0">
                           <button onClick={() => router.push(`/leads/${r.leadId}`)} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors" style={{ borderColor: `color-mix(in srgb, ${C.green} 45%, transparent)`, color: C.green }} title={t("recall.openToCall")}><Phone size={14} /></button>
-                          <button onClick={() => markDone(r.leadId)} disabled={busy === r.leadId} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title="Hecho">
+                          <button onClick={() => markDone(r.leadId)} disabled={busy === r.leadId} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title={t("recall.done")}>
                             {busy === r.leadId ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} />}
                           </button>
-                          <button onClick={() => openReschedule(r)} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title="Reprogramar"><Clock size={14} /></button>
+                          <button onClick={() => openReschedule(r)} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title={t("recall.reschedule")}><Clock size={14} /></button>
                         </div>
                       </>
                     )}
@@ -209,7 +209,7 @@ export function recallDueCount(recalls: RecallItem[], mySellerNames: string[] = 
   const mine = new Set(mySellerNames);
   return recalls.filter(r => {
     if (mySellerNames.length > 0 && (!r.sellerName || !mine.has(r.sellerName))) return false;
-    const b = whenLabel(r.callbackAt, now).bucket;
+    const b = whenLabel(r.callbackAt, now, (k) => k).bucket;
     return b === "over" || b === "today";
   }).length;
 }

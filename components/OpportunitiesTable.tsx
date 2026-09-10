@@ -127,9 +127,9 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
             title={t("opp.none")}
             description={t("opp.noneDesc")}
             steps={[
-              "Run a flow against an approved ICP so leads start receiving outreach.",
-              "When replies arrive, triage them in Inbox and tag positives.",
-              "Positive replies and won-classified calls land here automatically — ready to push to your CRM.",
+              t("opp.empty.step1"),
+              t("opp.empty.step2"),
+              t("opp.empty.step3"),
             ]}
             primaryCta={{ label: t("opp.startFlow"), href: "/campaigns?tab=new" }}
             secondaryCta={{ label: t("opp.openInbox"), href: "/inbox" }}
@@ -140,19 +140,19 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
           <table className="w-full text-left min-w-[640px]">
             <thead>
               <tr style={{ backgroundColor: C.bg }}>
-                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>
-                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>Company</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("opp.tbl.lead")}</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>{t("opp.tbl.company")}</th>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>{t("opp.col.campaign")}</th>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("opp.col.channel")}</th>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center hidden sm:table-cell" style={{ color: C.textMuted }}>{t("opp.col.days")}</th>
-                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Status</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("opp.tbl.status")}</th>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden xl:table-cell" style={{ color: C.textMuted }}>{t("opp.col.reply")}</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody>
               {filtered.map(lead => {
-                const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.company || "Unknown";
+                const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || lead.company || t("opp.tbl.unknown");
                 const badge = scoreBadge(lead.score, lead.is_priority);
                 const chMeta = channelMeta[lead.win_channel ?? "email"] ?? channelMeta.email;
                 const ChIcon = chMeta.icon;
@@ -196,11 +196,11 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
                       {lead.transferred ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
                           style={{ backgroundColor: C.greenLight, color: C.green }}>
-                          <ExternalLink size={9} /> In CRM
+                          <ExternalLink size={9} /> {t("opp.tbl.inCrm")}
                         </span>
                       ) : (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>Pending</span>
+                          style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>{t("opp.tbl.pending")}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 hidden xl:table-cell">
