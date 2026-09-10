@@ -58,7 +58,7 @@ function TeamHealth() {
     { v: n(h.sent), l: "Messages sent" },
     { v: n(h.calls), l: "Calls attempted" },
     { v: `${h.replyRate}%`, l: "Reply rate" },
-    { v: `${h.connectRate}%`, l: "Connect rate" },
+    { v: h.connectRate == null ? "—" : `${h.connectRate}%`, l: "Confirmed connect rate" },
   ];
 
   return (
@@ -196,7 +196,7 @@ function Detail({ s }: { s: CT.Seller }) {
 
             {/* B — calls */}
             <div>
-              <Eyebrow note={c.attempted > 0 ? `${c.connectRate}% connect rate` : "none this period"}>Calls</Eyebrow>
+              <Eyebrow note={c.attempted === 0 ? "none this period" : c.connectRate == null ? "no outcome logged" : `${c.connectRate}% confirmed connect rate`}>Calls</Eyebrow>
               {c.attempted === 0 ? (
                 <p style={{ fontSize: 11.5, color: C.textDim }}>No dials in the period.</p>
               ) : (
@@ -423,7 +423,7 @@ function Compare() {
                 </div>
                 {meta.team !== null && (
                   <div aria-hidden className="absolute top-[-3px] bottom-[-3px]"
-                    style={{ left: `${(meta.team / max) * 100}%`, width: 1, backgroundColor: C.textMuted, opacity: .6 }} />
+                    style={{ left: `${max > 0 ? (meta.team / max) * 100 : 0}%`, width: 1, backgroundColor: C.textMuted, opacity: .6 }} />
                 )}
               </div>
               <span className="w-[64px] shrink-0 text-right tabular-nums font-semibold"
@@ -496,7 +496,7 @@ function Calls() {
               {num(r.connected)}
               <td className={`${PAD} text-right tabular-nums font-semibold`}
                 style={{ fontSize: 13.5, color: r.attempted === 0 ? C.textDim : C.textPrimary }}>
-                {r.attempted === 0 ? "—" : `${r.connectRate}%`}
+                {r.attempted === 0 || r.connectRate == null ? "—" : `${r.connectRate}%`}
               </td>
               {num(r.interested, TONE.good, r.interested > 0)}
               {num(r.followUp, TONE.neutral)}
@@ -508,7 +508,7 @@ function Calls() {
             <td className={PAD}><span className="font-semibold" style={{ fontSize: 13, color: gold }}>Team</span></td>
             {num(t.attempted, C.textPrimary, true)}
             {num(t.connected, C.textBody, true)}
-            <td className={`${PAD} text-right tabular-nums font-semibold`} style={{ fontSize: 13.5, color: C.textPrimary }}>{t.connectRate}%</td>
+            <td className={`${PAD} text-right tabular-nums font-semibold`} style={{ fontSize: 13.5, color: C.textPrimary }}>{t.connectRate == null ? "—" : `${t.connectRate}%`}</td>
             {num(t.interested, TONE.good, true)}
             {num(t.followUp, TONE.neutral, true)}
             {num(t.noAnswer, C.textMuted, true)}

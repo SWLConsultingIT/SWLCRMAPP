@@ -47,7 +47,7 @@ function Touches({ t, reach, max }: { t: CT.Touch; reach: CT.Touch; max: number 
               {v > 0 ? `${n(reach[k])} leads` : ""}
             </div>
             <div className="mt-1 rounded-full" style={{ height: 3, backgroundColor: C.surface }}>
-              {v > 0 && <div className="h-full rounded-full" style={{ width: `${Math.max((v / max) * 100, 3)}%`, backgroundColor: CH_COLOR[k] }} />}
+              {v > 0 && <div className="h-full rounded-full" style={{ width: `${max > 0 ? Math.max((v / max) * 100, 3) : 0}%`, backgroundColor: CH_COLOR[k] }} />}
             </div>
           </div>
         );
@@ -62,7 +62,7 @@ function Rank() {
   const best = Math.max(...rows.map(r => r.rate));
   const team = T.icpsTotals.rate;
   const maxTouch = Math.max(...rows.flatMap(r => K.map(k => r.touch[k])));
-  const x = (v: number) => (v / best) * 100;
+  const x = (v: number) => (best > 0 ? (v / best) * 100 : 0);
 
   return (
     <div>

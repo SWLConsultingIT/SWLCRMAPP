@@ -18,6 +18,7 @@ import {
   Minus, Check, X, ArrowRight, HelpCircle,
 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useGoTab } from "./ctx";
 
 export const gold = "var(--brand, #c9a83a)";
 export const n = (x: number) => x.toLocaleString("en-US");
@@ -108,12 +109,48 @@ export function Eyebrow({ children, note }: { children: React.ReactNode; note?: 
   );
 }
 
+/** Where each drill affordance goes.
+ *
+ *  Only three of the nine labels happened to match a tab name, so switching
+ *  on the label alone would have left six of them still inert. Anything not
+ *  listed here renders as plain text rather than a button that does nothing. */
+const DRILL_TAB: Record<string, string> = {
+  "Campaigns": "Campaigns",
+  "All flows": "Campaigns",
+  "Channels": "Channels",
+  "Sellers": "Sellers",
+  "Team": "Sellers",
+  "ICP list": "ICPs",
+};
+const DRILL_HREF: Record<string, string> = {
+  "Inbox": "/inbox",
+  "Call queue": "/queue?tab=inbox&channel=call",
+  "Weekly PDF": "/reports/print",
+};
+
 export function Drill({ label }: { label: string }) {
-  return (
-    <button className="inline-flex items-center gap-1 font-semibold" style={{ fontSize: 11.5, color: gold }}>
-      {label} <ArrowRight size={11} />
-    </button>
-  );
+  const goTab = useGoTab();
+  const tab = DRILL_TAB[label];
+  const href = DRILL_HREF[label];
+  const cls = "inline-flex items-center gap-1 font-semibold hover:underline";
+  const style = { fontSize: 11.5, color: gold } as const;
+
+  if (tab && goTab) {
+    return (
+      <button onClick={() => goTab(tab)} className={cls} style={style} aria-label={`Go to the ${tab} tab`}>
+        {label} <ArrowRight size={11} />
+      </button>
+    );
+  }
+  if (href) {
+    return (
+      <a href={href} className={cls} style={style}>
+        {label} <ArrowRight size={11} />
+      </a>
+    );
+  }
+  // No destination: say so quietly instead of faking an affordance.
+  return <span className="inline-flex items-center gap-1 font-semibold" style={{ ...style, color: C.textDim }}>{label}</span>;
 }
 
 /** The caveat line. Everywhere a number needed a qualifier the qualifier is
@@ -129,22 +166,27 @@ export type IconKey = keyof typeof ICONS;
 
 /* ── filters ────────────────────────────────────────────────────────────── */
 
+export type PickOption = { id: string; label: string };
+
+/** Options carry an id: the dropdown shows the label and sends the id, so a
+ *  seller or ICP can be filtered by its real key instead of its name. */
 export function Pick({ label, options, value, onChange }: {
-  label: string; options: string[]; value: string; onChange: (v: string) => void;
+  label: string; options: PickOption[]; value: string; onChange: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const on = value !== options[0];
+  const on = value !== "" && value !== options[0]?.id;
+  const current = options.find(o => o.id === value)?.label ?? label;
   return (
     <div className="relative">
       <div className="inline-flex items-center rounded-full border overflow-hidden"
         style={{ borderColor: on ? gold : C.border, backgroundColor: on ? `color-mix(in srgb, ${gold} 10%, transparent)` : "transparent" }}>
         <button onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 font-medium max-w-[180px]"
           style={{ fontSize: 12.5, color: on ? gold : C.textBody }}>
-          <span className="truncate">{on ? value : label}</span>
+          <span className="truncate">{on ? current : label}</span>
           <ChevronDown size={12} className="shrink-0" />
         </button>
         {on && (
-          <button onClick={() => onChange(options[0])} aria-label={`Clear ${label}`} className="pr-2.5 pl-1 py-1" style={{ color: gold }}>
+          <button onClick={() => onChange("")} aria-label={`Clear ${label}`} className="pr-2.5 pl-1 py-1" style={{ color: gold }}>
             <X size={11} />
           </button>
         )}
@@ -155,10 +197,11 @@ export function Pick({ label, options, value, onChange }: {
           <div className="absolute z-50 mt-1.5 min-w-[220px] rounded-2xl border py-1.5 shadow-xl left-0"
             style={{ borderColor: C.border, backgroundColor: C.card }}>
             {options.map(o => (
-              <button key={o} onClick={() => { onChange(o); setOpen(false); }} className="flex items-center gap-2 w-full text-left px-3.5 py-1.5"
-                style={{ fontSize: 12.5, color: o === value ? gold : C.textBody }}>
-                <span className="w-3 shrink-0">{o === value && <Check size={11} />}</span>
-                <span className="truncate">{o}</span>
+              <button key={o.id || "_all"} onClick={() => { onChange(o.id); setOpen(false); }}
+                className="flex items-center gap-2 w-full text-left px-3.5 py-1.5"
+                style={{ fontSize: 12.5, color: o.id === value ? gold : C.textBody }}>
+                <span className="w-3 shrink-0">{o.id === value && <Check size={11} />}</span>
+                <span className="truncate">{o.label}</span>
               </button>
             ))}
           </div>
@@ -191,7 +234,7 @@ export function Ranked({ rows, note, unit = "contacted" }: {
               </div>
             </div>
             <div className="flex-1 h-1.5 rounded-full min-w-[40px]" style={{ backgroundColor: C.surface }}>
-              <div className="h-full rounded-full" style={{ width: `${(r.rate / best) * 100}%`, backgroundColor: gold, opacity: .9 }} />
+              <div className="h-full rounded-full" style={{ width: `${best > 0 ? (r.rate / best) * 100 : 0}%`, backgroundColor: gold, opacity: .9 }} />
             </div>
             <span className="w-[46px] shrink-0 text-right font-semibold tabular-nums" style={{ fontSize: 15, color: C.textPrimary }}>
               {r.rate}%

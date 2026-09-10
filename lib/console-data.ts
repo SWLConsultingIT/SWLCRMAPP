@@ -51,9 +51,17 @@ export type ConsoleFilters = {
   from: string | null;
   to: string | null;
   bioId: string | null;
+  /**
+   * Seller-tier scope: campaigns.assigned_user_id. When set, this human may
+   * only see the leads assigned to them. The legacy dashboard enforces this
+   * and the console must too — without it a seller sees the whole workspace.
+   */
+  assignedUserId?: string | null;
   campaignNames?: string[];
   icpIds?: string[];
   sellerIds?: string[];
+  /** Which preset button produced this window, for the control's state. */
+  preset?: string | null;
 };
 
 async function page<T>(make: () => any, source: string): Promise<T[]> {
@@ -128,6 +136,11 @@ export function buildIndex(src: ConsoleSource, f: ConsoleFilters) {
   const campNameOfLead = (id: string | null) => (id ? campOfLead.get(id)?.name ?? null : null);
 
   /* ── active filters, as sets ──────────────────────────────────────── */
+  // Seller tier first: it is a permission, not a filter, so it applies
+  // before anything the user chose on screen.
+  const assignedLeadIds: Set<string> | null = f.assignedUserId
+    ? new Set(src.camps.filter(c => c.assigned_user_id === f.assignedUserId && c.lead_id).map(c => c.lead_id as string))
+    : null;
   const campSet = f.campaignNames?.length ? new Set(f.campaignNames) : null;
   const icpSet = f.icpIds?.length ? new Set(f.icpIds) : null;
   const sellerSet = f.sellerIds?.length ? new Set(f.sellerIds) : null;
@@ -136,6 +149,7 @@ export function buildIndex(src: ConsoleSource, f: ConsoleFilters) {
    *  per artefact (a call's seller is who dialled, a message's is the flow). */
   const leadInScope = (id: string | null): boolean => {
     if (!id) return false;
+    if (assignedLeadIds && !assignedLeadIds.has(id)) return false;
     if (campSet && !campSet.has(campNameOfLead(id) ?? "")) return false;
     if (icpSet && !icpSet.has(icpOfLead(id) ?? "")) return false;
     if (sellerSet) {
@@ -186,14 +200,14 @@ export function buildIndex(src: ConsoleSource, f: ConsoleFilters) {
   });
   const callScope = {
     ...emptyPhysicalCallScope(),
-    sellerIds: sellerSet, campaignNames: campSet, icpIds: icpSet,
+    sellerIds: sellerSet, campaignNames: campSet, icpIds: icpSet, assignedLeadIds,
   };
   const callGroups = allGroups.filter(g => callMatchesScope(g, callScope));
 
   return {
     win, prior, src,
     leadById, icpName, sellerById, sellerOfUser, campOfLead, campById, leadOfCampaign, campNameOfLead, icpOfLead,
-    campSet, icpSet, sellerSet, leadInScope,
+    campSet, icpSet, sellerSet, assignedLeadIds, leadInScope,
     msgsWin, msgsPrior, contacted, contactedPrior,
     inboundWin, cohortReplies, cohortRepliedLeads, cohortPositiveLeads, outsideCohort,
     priorRepliedLeads, priorPositiveLeads,
@@ -409,9 +423,11 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
   const timing = { tz: "America/Buenos_Aires", days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], blocks: BLOCKS, grid, total: ix.inboundWin.length };
 
   /* ── workspace stock: the three parts PARTITION the total ─────────── */
-  const everContacted = new Set(src.msgs.filter(m => m.status === "sent" && m.lead_id).map(m => m.lead_id as string));
-  const enrolled = new Set(src.camps.map(c => c.lead_id).filter((x): x is string => !!x));
-  const total = src.leads.length;
+  const visible = (id: string | null | undefined): id is string =>
+    !!id && (!ix.assignedLeadIds || ix.assignedLeadIds.has(id));
+  const everContacted = new Set(src.msgs.filter(m => m.status === "sent" && visible(m.lead_id)).map(m => m.lead_id as string));
+  const enrolled = new Set(src.camps.map(c => c.lead_id).filter(visible));
+  const total = ix.assignedLeadIds ? ix.assignedLeadIds.size : src.leads.length;
   const inFlowNeverMessaged = [...enrolled].filter(id => !everContacted.has(id)).length;
   const workspace = {
     total,
@@ -420,7 +436,7 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
       { label: "in a flow, never messaged", n: inFlowNeverMessaged },
       { label: "never enrolled", n: total - everContacted.size - inFlowNeverMessaged },
     ],
-    intake: { n: src.leads.filter(l => inWindow(l.created_at, ix.win)).length, label: "added during this period" },
+    intake: { n: src.leads.filter(l => visible(l.id) && inWindow(l.created_at, ix.win)).length, label: "added during this period" },
   };
 
   return {
@@ -437,10 +453,27 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
     sellers,
     sellersNote: "Attribution is by the flow's assigned seller. Replies that arrive without a flow cannot be attributed and are excluded, not spread across the rows.",
     replyQuality, activity, timing, workspace,
+    // {id, label} pairs: the dropdowns send the id the server filters on.
+    // Campaigns filter by NAME (the wizard groups flows by name); ICPs and
+    // sellers by id. A label-only list could not do that.
     filters: {
-      campaigns: ["All campaigns", ...[...new Set(src.camps.map(c => c.name).filter((x): x is string => !!x))].sort()],
-      icps: ["All ICPs", ...src.icps.map(i => i.profile_name ?? "—").sort()],
-      sellers: ["All sellers", ...src.sellers.filter(s => s.active !== false).map(s => s.name).sort()],
+      campaigns: [{ id: "", label: "All campaigns" },
+        ...[...new Set(src.camps.map(c => c.name).filter((x): x is string => !!x))].sort()
+          .map(n => ({ id: n, label: n }))],
+      icps: [{ id: "", label: "All ICPs" },
+        ...src.icps.map(i => ({ id: i.id, label: i.profile_name ?? "—" }))
+          .sort((a, b) => a.label.localeCompare(b.label))],
+      sellers: [{ id: "", label: "All sellers" },
+        ...src.sellers.filter(s => s.active !== false).map(s => ({ id: s.id, label: s.name }))
+          .sort((a, b) => a.label.localeCompare(b.label))],
+    },
+    /** What is selected right now, so the controls can render their state. */
+    active: {
+      preset: f.preset ?? null,
+      from: f.from, to: f.to,
+      campaign: f.campaignNames?.[0] ?? "",
+      icp: f.icpIds?.[0] ?? "",
+      seller: f.sellerIds?.[0] ?? "",
     },
   };
 }
@@ -603,7 +636,7 @@ export function buildTabs(ix: ConsoleIndex) {
     { key: "call" as ChKey, label: "Calls", icon: "call" as const,
       sent: callTotals.attempted, sentLabel: "calls attempted", reach: new Set(ix.callGroups.map(g => g.leadId).filter(Boolean)).size, reachLabel: "leads dialled",
       result: callTotals.confirmedConnected, resultLabel: "confirmed connected",
-      rate: callTotals.confirmedConnectRate == null ? 0 : Math.round(callTotals.confirmedConnectRate * 10) / 10,
+      rate: callTotals.confirmedConnectRate == null ? null : Math.round(callTotals.confirmedConnectRate * 10) / 10,
       rateLabel: "confirmed connect rate", delta: null as Delta, comparable: false,
       outcomes: [
         { label: "Interested", n: outcomeCount(["positive", "meeting_intent", "interested"]), tone: "good" as const },
@@ -657,7 +690,9 @@ export function buildTabs(ix: ConsoleIndex) {
     return {
       name: s.name,
       attempted: m.attempted, connected: m.confirmedConnected,
-      connectRate: m.confirmedConnectRate == null ? 0 : Math.round(m.confirmedConnectRate),
+      // null, not 0: nobody with zero classified calls "connected 0% of the
+      // time" — there is simply nothing to divide.
+      connectRate: m.confirmedConnectRate == null ? null : Math.round(m.confirmedConnectRate),
       interested: c(["positive", "meeting_intent", "interested"]),
       followUp: c(["follow_up", "callback", "needs_info"]),
       negative: c(["negative", "not_interested"]),
@@ -674,7 +709,8 @@ export function buildTabs(ix: ConsoleIndex) {
     for (const k of ["attempted", "connected", "interested", "followUp", "negative", "noAnswer", "unclassified"] as const) a[k] += s[k];
     return a;
   }, { attempted: 0, connected: 0, interested: 0, followUp: 0, negative: 0, noAnswer: 0, unclassified: 0 });
-  const sellerCallsTotal = { ...sct, name: "Team", connectRate: rate(sct.connected, sct.connected + sct.noAnswer) };
+  const sellerCallsTotal = { ...sct, name: "Team",
+    connectRate: sct.connected + sct.noAnswer > 0 ? rate(sct.connected, sct.connected + sct.noAnswer) : null };
 
   // Daily activity per seller: messages and calls, per business day.
   const dayKeys = [...new Set([...ix.msgsWin.map(m => businessDayKey(m.sent_at)), ...ix.callGroups.map(g => g.day)])].filter(Boolean).sort();
@@ -714,7 +750,7 @@ export function buildTabs(ix: ConsoleIndex) {
     confirmedConnected: callTotals.confirmedConnected,
     confirmedNotConnected: callTotals.confirmedNotConnected,
     unknown: callTotals.unknown,
-    connectRate: callTotals.confirmedConnectRate == null ? 0 : Math.round(callTotals.confirmedConnectRate * 10) / 10,
+    connectRate: callTotals.confirmedConnectRate == null ? null : Math.round(callTotals.confirmedConnectRate * 10) / 10,
     queue: sellerRows.reduce((a, s) => a + s.queue, 0),
     /** replies in the window no flow can be tied to — never redistributed */
     unattributedReplies: ix.cohortReplies.filter(r => !r.lead_id || !ix.campOfLead.get(r.lead_id)).length,
