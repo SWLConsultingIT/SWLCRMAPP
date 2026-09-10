@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
@@ -66,13 +67,14 @@ type Props = {
     activeCampaigns: number;
     executionPending?: number;
   };
-  /** Caller's own bio_id (super_admin → SWL). Used by the "My Team" tab to
+  /** Caller's own bio_id (super_admin → SWL). Used by the t("adm.tab.myTeam") tab to
    *  scope TenantTeamTab to the admin's own workspace without forcing them
    *  to click into "SWL Consulting" as if it were just another client. */
   myCompanyBioId: string | null;
 };
 
 function UsersTab() {
+  const { t } = useLocale();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +116,7 @@ function UsersTab() {
       {users.length === 0 && (
         <div className="py-16 text-center">
           <Users size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm" style={{ color: C.textMuted }}>No users found</p>
+          <p className="text-sm" style={{ color: C.textMuted }}>{t("adm.noUsers")}</p>
         </div>
       )}
       {users.map((user, i) => (
@@ -138,12 +140,12 @@ function UsersTab() {
               {user.role && !user.company_bio_id && (
                 <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded shrink-0"
                   style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#D97706" }}>
-                  <AlertTriangle size={9} /> No company
+                  <AlertTriangle size={9} /> {t("adm.noCompany")}
                 </span>
               )}
             </div>
             <p className="text-[11px]" style={{ color: C.textDim }}>
-              {user.role ? `${user.role} · joined ${new Date(user.created_at).toLocaleDateString()}` : "No profile assigned"}
+              {user.role ? `${user.role} · joined ${new Date(user.created_at).toLocaleDateString()}` : t("adm.noProfile")}
             </p>
           </div>
 
@@ -159,9 +161,9 @@ function UsersTab() {
               backgroundColor: user.role === "admin" ? `color-mix(in srgb, ${gold} 7%, transparent)` : C.card,
             }}
           >
-            <option value="">— no role —</option>
-            <option value="admin">admin</option>
-            <option value="client">client</option>
+            <option value="">{t("adm.noRole")}</option>
+            <option value="admin">{t("adm.role.admin")}</option>
+            <option value="client">{t("adm.role.client")}</option>
           </select>
 
           {/* Company selector */}
@@ -184,7 +186,7 @@ function UsersTab() {
           ) : (
             <button
               onClick={() => remove(user.id)}
-              title="Remove profile"
+              title={t("adm.removeProfile")}
               className="p-1.5 rounded-lg hover:bg-red-50 transition-colors shrink-0"
             >
               <Trash2 size={13} style={{ color: C.textDim }} />
@@ -206,14 +208,16 @@ type SellerRow = {
   linkedin_status_note: string | null;
 };
 
-const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  active:     { label: "Active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
-  restricted: { label: "Restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  banned:     { label: "Banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
-  warning:    { label: "Warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
+// Module scope: keys, resolved by whoever renders the chip.
+const linkedinStatusMeta: Record<string, { labelKey: string; color: string; bg: string }> = {
+  active:     { labelKey: "adm.st.active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  restricted: { labelKey: "adm.st.restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  banned:     { labelKey: "adm.st.banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
+  warning:    { labelKey: "adm.st.warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
 };
 
 function SellersTab() {
+  const { t } = useLocale();
   const [sellers, setSellers] = useState<SellerRow[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,7 +255,7 @@ function SellersTab() {
       {sellers.length === 0 && (
         <div className="py-16 text-center">
           <Share2 size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm" style={{ color: C.textMuted }}>No sellers found</p>
+          <p className="text-sm" style={{ color: C.textMuted }}>{t("adm.noSellers")}</p>
         </div>
       )}
       {sellers.map((seller, i) => {
@@ -272,14 +276,14 @@ function SellersTab() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
               <p className="text-[11px]" style={{ color: C.textDim }}>
-                {seller.active ? "Active seller" : "Inactive"}{seller.linkedin_status_note ? ` · ${seller.linkedin_status_note}` : ""}
+                {seller.active ? t("adm.activeSeller") : t("adm.inactive")}{seller.linkedin_status_note ? ` · ${seller.linkedin_status_note}` : ""}
               </p>
             </div>
 
             {statusMeta && (
               <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0"
                 style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>
-                {statusMeta.label}
+                {t(statusMeta.labelKey)}
               </span>
             )}
 
@@ -310,6 +314,7 @@ type AircallNumber = { id: number; name: string; digits: string; country: string
 type CompanyWithNumbers = { id: string; company_name: string; aircall_number_ids: number[] | null };
 
 function AircallAccessTab() {
+  const { t } = useLocale();
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [companies, setCompanies] = useState<CompanyWithNumbers[]>([]);
   const [loading, setLoading] = useState(true);
@@ -356,7 +361,7 @@ function AircallAccessTab() {
     <div className="space-y-4">
       <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>Click a client</span> to assign which Aircall numbers they can use in their campaigns. If no numbers are selected, the client won&apos;t see any in the campaign creation flow (admins still see all).
+          <span className="font-semibold" style={{ color: C.textBody }}>{t("adm.clickClient")}</span> {t("adm.aircallLede")}
         </p>
       </div>
 
@@ -377,7 +382,7 @@ function AircallAccessTab() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{company.company_name}</p>
                   <p className="text-[11px]" style={{ color: C.textDim }}>
-                    {assigned.length === 0 ? "No numbers assigned" : `${assigned.length} number${assigned.length > 1 ? "s" : ""} assigned`}
+                    {assigned.length === 0 ? t("adm.noNumbers") : `${assigned.length} number${assigned.length > 1 ? "s" : ""} assigned`}
                   </p>
                 </div>
                 {saving === company.id && <Loader2 size={14} className="animate-spin" style={{ color: C.textDim }} />}
@@ -391,7 +396,7 @@ function AircallAccessTab() {
               {isExpanded && (
                 <div className="px-5 pb-5 pt-1">
                   {numbers.length === 0 ? (
-                    <p className="text-xs italic" style={{ color: C.textDim }}>No Aircall numbers available.</p>
+                    <p className="text-xs italic" style={{ color: C.textDim }}>{t("adm.noAircall")}</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
                       {numbers.map(n => {
@@ -429,7 +434,7 @@ function AircallAccessTab() {
         {companies.length === 0 && (
           <div className="py-16 text-center">
             <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-            <p className="text-sm" style={{ color: C.textMuted }}>No companies found</p>
+            <p className="text-sm" style={{ color: C.textMuted }}>{t("adm.noCompanies")}</p>
           </div>
         )}
       </div>
@@ -457,6 +462,7 @@ type CompanyWithEmails = {
 type WorkspaceRow = { id: string; label: string; account_user_id: string | null; notes: string | null };
 
 function EmailAccessTab() {
+  const { t } = useLocale();
   const [sections, setSections] = useState<WorkspaceSection[]>([]);
   const [companies, setCompanies] = useState<CompanyWithEmails[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceRow[]>([]);
@@ -526,7 +532,7 @@ function EmailAccessTab() {
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textBody }}>Instantly workspaces</p>
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textBody }}>{t("adm.workspaces")}</p>
             <p className="text-[11px]" style={{ color: C.textDim }}>
               {sections.length} {sections.length === 1 ? "workspace" : "workspaces"} · {totalInboxes} {totalInboxes === 1 ? "inbox" : "inboxes"} total
             </p>
@@ -536,7 +542,7 @@ function EmailAccessTab() {
             className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg"
             style={{ backgroundColor: "#7C3AED12", color: "#7C3AED" }}
           >
-            <Plus size={11} /> Add workspace
+            <Plus size={11} /> {t("adm.addWorkspace")}
           </button>
         </div>
         <div>
@@ -558,8 +564,8 @@ function EmailAccessTab() {
       {/* Tenant assignments */}
       <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textBody }}>
-          <span className="font-semibold">{totalInboxes} inboxes available across {sections.length} workspaces.</span>
-          <span style={{ color: C.textMuted }}> Assign each tenant which inboxes they can use + the Instantly workspace the dispatcher routes through. Sync Approved Campaigns creates one Instantly campaign per approved request automatically — no manual campaign UUID needed.</span>
+          <span className="font-semibold">{t("adm.inboxesAcross", { n: totalInboxes, m: sections.length })}</span>
+          <span style={{ color: C.textMuted }}> {t("adm.workspaceLede")}</span>
         </p>
       </div>
 
@@ -581,7 +587,7 @@ function EmailAccessTab() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{company.company_name}</p>
                   <p className="text-[11px]" style={{ color: C.textDim }}>
-                    {assigned.length === 0 ? "No inboxes assigned" : `${assigned.length} inbox${assigned.length > 1 ? "es" : ""}`}
+                    {assigned.length === 0 ? t("adm.noInboxes") : `${assigned.length} inbox${assigned.length > 1 ? "es" : ""}`}
                     {tenantWs && <span> · {tenantWs.label}</span>}
                   </p>
                 </div>
@@ -597,7 +603,7 @@ function EmailAccessTab() {
                 <div className="px-5 pb-5 pt-1 space-y-4">
                   {/* Workspace selector */}
                   <div className="p-3 rounded-lg" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Instantly workspace</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("adm.workspace")}</label>
                     <select
                       value={company.instantly_workspace_id ?? ""}
                       onChange={e => setWorkspaceForCompany(company.id, e.target.value || null)}
@@ -614,7 +620,7 @@ function EmailAccessTab() {
 
                   {/* Inbox grid grouped by workspace + domain */}
                   {sections.length === 0 ? (
-                    <p className="text-xs italic" style={{ color: C.textDim }}>No workspaces registered.</p>
+                    <p className="text-xs italic" style={{ color: C.textDim }}>{t("adm.noWorkspaces")}</p>
                   ) : sections.map(section => {
                     const sectionInboxes = section.inboxes;
                     if (sectionInboxes.length === 0) return null;
@@ -658,7 +664,7 @@ function EmailAccessTab() {
                                   className="text-[10px] font-semibold"
                                   style={{ color: allAssignedInDomain ? C.red : "#7C3AED" }}
                                 >
-                                  {allAssignedInDomain ? "Unassign all" : someAssignedInDomain ? "Assign rest" : "Assign all"}
+                                  {allAssignedInDomain ? t("adm.unassignAll") : someAssignedInDomain ? t("adm.assignRest") : t("adm.assignAll")}
                                 </button>
                               </div>
                               <div className="grid grid-cols-2 gap-2">
@@ -682,7 +688,7 @@ function EmailAccessTab() {
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[11px] font-semibold truncate" style={{ color: C.textPrimary }}>{e.email}</p>
                                         <p className="text-[10px]" style={{ color: C.textMuted }}>
-                                          {e.setupPending ? "Warming up" : `${e.dailyLimit}/d · score ${e.warmupScore}`}
+                                          {e.setupPending ? t("adm.warmingUp") : `${e.dailyLimit}/d · score ${e.warmupScore}`}
                                         </p>
                                       </div>
                                       {isAssigned && <CheckCircle size={13} style={{ color: "#7C3AED" }} />}
@@ -709,6 +715,7 @@ function EmailAccessTab() {
 }
 
 function WorkspaceRow({ section, isLast, onChanged }: { section: WorkspaceSection; isLast: boolean; onChanged: () => void }) {
+  const { t } = useLocale();
   const [editing, setEditing] = useState(false);
   return (
     <div className="px-5 py-3" style={{ borderBottom: isLast ? "none" : `1px solid ${C.border}` }}>
@@ -718,16 +725,16 @@ function WorkspaceRow({ section, isLast, onChanged }: { section: WorkspaceSectio
             <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{section.label}</span>
             {section.isEnvFallback && (
               <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
-                style={{ backgroundColor: C.surface, color: C.textMuted }}>env</span>
+                style={{ backgroundColor: C.surface, color: C.textMuted }}>{t("adm.envSource")}</span>
             )}
             {section.error && (
               <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
-                style={{ backgroundColor: `${C.red}15`, color: C.red }}>error</span>
+                style={{ backgroundColor: `${C.red}15`, color: C.red }}>{t("adm.errorShort")}</span>
             )}
           </div>
           <p className="text-[11px]" style={{ color: C.textDim }}>
-            {section.inboxes.length} inboxes
-            {section.accountUserId && <span> · account {section.accountUserId.slice(0, 8)}…</span>}
+            {t("adm.inboxesCount", { n: section.inboxes.length })}
+            {section.accountUserId && <span> · {t("adm.accountShort", { id: section.accountUserId.slice(0, 8) })}</span>}
             {section.error && <span style={{ color: C.red }}> · {section.error}</span>}
           </p>
           {section.notes && <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{section.notes}</p>}
@@ -738,7 +745,7 @@ function WorkspaceRow({ section, isLast, onChanged }: { section: WorkspaceSectio
             className="text-[10px] font-semibold inline-flex items-center gap-1"
             style={{ color: C.textMuted }}
           >
-            <Edit3 size={10} /> Edit
+            <Edit3 size={10} /> {t("adm.edit")}
           </button>
         )}
       </div>
@@ -756,6 +763,7 @@ function WorkspaceRow({ section, isLast, onChanged }: { section: WorkspaceSectio
 }
 
 function AddWorkspaceModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { t } = useLocale();
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [notes, setNotes] = useState("");
@@ -771,10 +779,10 @@ function AddWorkspaceModal({ onClose, onCreated }: { onClose: () => void; onCrea
         body: JSON.stringify({ label, apiKey, notes: notes || undefined }),
       });
       const d = await res.json();
-      if (!res.ok) { setErr(d.error ?? "Failed"); return; }
+      if (!res.ok) { setErr(d.error ?? t("adm.err.failed")); return; }
       onCreated();
     } catch (e: any) {
-      setErr(e?.message ?? "Network error");
+      setErr(e?.message ?? t("adm.err.network"));
     } finally {
       setSaving(false);
     }
@@ -783,29 +791,29 @@ function AddWorkspaceModal({ onClose, onCreated }: { onClose: () => void; onCrea
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={e => e.stopPropagation()}>
-        <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Add Instantly workspace</h2>
+        <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("adm.addWorkspaceTitle")}</h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Label</label>
-            <input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. SWL Main, Pathway, Hypergrowth Arqy"
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("adm.label")}</label>
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder={t("adm.labelPh")}
               className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>API key</label>
-            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="off" placeholder="Bearer token from Instantly settings"
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("adm.apiKey")}</label>
+            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="off" placeholder={t("adm.apiKeyPh")}
               className="w-full text-sm font-mono px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Notes (optional)</label>
-            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. billed to fran@swl, inbox pool 50/d"
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("adm.notesOptional")}</label>
+            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("adm.notesPh")}
               className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
           </div>
           {err && <p className="text-xs" style={{ color: C.red }}>{err}</p>}
         </div>
         <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onClose} disabled={saving} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody }}>Cancel</button>
+          <button onClick={onClose} disabled={saving} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody }}>{t("adm.cancel")}</button>
           <button onClick={save} disabled={saving || !label.trim() || !apiKey.trim()} className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 inline-flex items-center gap-1.5" style={{ backgroundColor: "#7C3AED", color: "white" }}>
-            {saving && <Loader2 size={11} className="animate-spin" />} Create
+            {saving && <Loader2 size={11} className="animate-spin" />} {t("adm.create")}
           </button>
         </div>
       </div>
@@ -814,6 +822,7 @@ function AddWorkspaceModal({ onClose, onCreated }: { onClose: () => void; onCrea
 }
 
 function EditWorkspaceModal({ id, initialLabel, initialNotes, onClose, onSaved }: { id: string; initialLabel: string; initialNotes: string; onClose: () => void; onSaved: () => void }) {
+  const { t } = useLocale();
   const [label, setLabel] = useState(initialLabel);
   const [apiKey, setApiKey] = useState("");
   const [notes, setNotes] = useState(initialNotes);
@@ -852,20 +861,20 @@ function EditWorkspaceModal({ id, initialLabel, initialNotes, onClose, onSaved }
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={e => e.stopPropagation()}>
-        <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Edit workspace</h2>
+        <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("adm.editWorkspace")}</h2>
         <div className="space-y-3">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Label</label>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("adm.label")}</label>
             <input value={label} onChange={e => setLabel(e.target.value)}
               className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>New API key (leave empty to keep current)</label>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("adm.newApiKey")}</label>
             <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="off"
               className="w-full text-sm font-mono px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Notes</label>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("adm.notes")}</label>
             <input value={notes} onChange={e => setNotes(e.target.value)}
               className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
           </div>
@@ -874,19 +883,19 @@ function EditWorkspaceModal({ id, initialLabel, initialNotes, onClose, onSaved }
         <div className="flex items-center justify-between mt-5">
           {!confirmingDelete ? (
             <button onClick={() => setConfirmingDelete(true)} disabled={saving} className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: C.red }}>
-              <Trash2 size={11} /> Delete
+              <Trash2 size={11} /> {t("adm.delete")}
             </button>
           ) : (
             <div className="inline-flex items-center gap-2">
-              <span className="text-[10px]" style={{ color: C.textBody }}>Tenants using this revert to env.</span>
-              <button onClick={destroy} disabled={saving} className="text-[10px] font-semibold px-2 py-1 rounded" style={{ backgroundColor: C.red, color: "white" }}>Confirm delete</button>
-              <button onClick={() => setConfirmingDelete(false)} disabled={saving} className="text-[10px] font-medium px-2 py-1 rounded" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+              <span className="text-[10px]" style={{ color: C.textBody }}>{t("adm.revertToEnv")}</span>
+              <button onClick={destroy} disabled={saving} className="text-[10px] font-semibold px-2 py-1 rounded" style={{ backgroundColor: C.red, color: "white" }}>{t("adm.confirmDelete")}</button>
+              <button onClick={() => setConfirmingDelete(false)} disabled={saving} className="text-[10px] font-medium px-2 py-1 rounded" style={{ backgroundColor: C.surface, color: C.textBody }}>{t("adm.cancel")}</button>
             </div>
           )}
           <div className="flex gap-2">
-            <button onClick={onClose} disabled={saving} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody }}>Close</button>
+            <button onClick={onClose} disabled={saving} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody }}>{t("adm.close")}</button>
             <button onClick={save} disabled={saving || !label.trim()} className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 inline-flex items-center gap-1.5" style={{ backgroundColor: "#7C3AED", color: "white" }}>
-              {saving && <Loader2 size={11} className="animate-spin" />} Save
+              {saving && <Loader2 size={11} className="animate-spin" />} {t("adm.save")}
             </button>
           </div>
         </div>
@@ -905,11 +914,12 @@ function timeAgo(iso: string | null) {
 }
 
 export default function AdminClient({ clients, pendingApprovals, myCompanyBioId }: Props) {
+  const { t } = useLocale();
   const toast = useToast();
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  // Canonical company list (all bios, incl. SWL) for the "Add person" modal —
+  // Canonical company list (all bios, incl. SWL) for the Add-person modal —
   // same source the rest of the admin uses. Cheap; fetched once on mount.
   const [allCompanies, setAllCompanies] = useState<Company[]>([]);
   useEffect(() => {
@@ -941,22 +951,22 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
       );
 
   const tabs = [
-    { label: "Clients",           count: clients.length,          color: gold,      icon: Building2 },
-    { label: "Pending Approvals", count: pendingApprovals.length, color: "#D97706", icon: Clock },
-    { label: "Activity",          count: 0,                       color: C.aiAccent, icon: Activity },
-    // "My Team" — manage SWL's own workspace (the super_admin's tenant)
+    { label: t("adm.tab.clients"), count: clients.length,          color: gold,      icon: Building2 },
+    { label: t("adm.tab.approvals"), count: pendingApprovals.length, color: "#D97706", icon: Clock },
+    { label: t("adm.tab.activity"), count: 0,                      color: C.aiAccent, icon: Activity },
+    // My Team — manage SWL's own workspace (the super_admin's tenant)
     // without having to navigate into /admin/[swl-id] as if it were a
     // client. Hidden when myCompanyBioId is null (super_admin without a
     // bio, edge case).
-    ...(myCompanyBioId ? [{ label: "My Team", count: 0, color: "#7C3AED", icon: Users }] : []),
+    ...(myCompanyBioId ? [{ label: t("adm.tab.myTeam"), count: 0, color: "#7C3AED", icon: Users }] : []),
   ];
 
   return (
     <div className="p-6 w-full">
       <AuroraHero
-        eyebrow="Internal"
-        title="Admin Panel"
-        subtitle="Manage clients, review tickets, and approve campaign requests."
+        eyebrow={t("adm.internal")}
+        title={t("adm.panelTitle")}
+        subtitle={t("adm.panelLede")}
         actions={
           <span className="inline-flex items-center gap-2 aurora-btn plain" style={{ cursor: "default" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#8B5CF6" }} />
@@ -965,7 +975,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
         }
       />
 
-      {/* Always-visible "Add person" — opens the multi-company modal for any
+      {/* Always-visible t("adm.addPerson") — opens the multi-company modal for any
           person (new or existing), independent of the Pending banner. */}
       <div className="flex justify-end mb-4">
         <button
@@ -973,7 +983,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg"
           style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 65%, white))`, color: "#1A1A2E" }}
         >
-          <Plus size={14} /> Add person
+          <Plus size={14} /> {t("adm.addPerson")}
         </button>
       </div>
 
@@ -986,8 +996,8 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           onClose={() => setAddOpen(false)}
           onSuccess={(result) => {
             setAddOpen(false);
-            const where = result.count > 1 ? `${result.count} companies` : "the company";
-            const verb = result.mode === "invited" ? "invited to" : "added to";
+            const where = result.count > 1 ? `${result.count} companies` : t("adm.theCompany");
+            const verb = result.mode === "invited" ? t("adm.invitedTo") : t("adm.addedTo");
             toast.show({ kind: "success", title: `${result.email} ${verb} ${where}` });
           }}
         />
@@ -1066,7 +1076,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           style={{ borderColor: C.border, backgroundColor: C.card }}>
           <Search size={13} style={{ color: C.textDim }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
+            placeholder={t("adm.searchPh")} className="bg-transparent text-sm outline-none w-36"
             style={{ color: C.textPrimary }} />
           {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
         </div>
@@ -1078,7 +1088,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <Building2 size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
             <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No clients match your search" : "No clients registered yet"}
+              {search ? t("adm.noClientsMatch") : t("adm.noClientsYet")}
             </p>
           </div>
         ) : (
@@ -1100,14 +1110,14 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold" style={{ color: C.textPrimary }}>{client.company_name}</h3>
                     <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                      {[client.industry, client.location].filter(Boolean).join(" · ") || "No details"}
+                      {[client.industry, client.location].filter(Boolean).join(" · ") || t("adm.noDetails")}
                     </p>
                   </div>
                   <div className="flex items-center gap-5 shrink-0">
                     {[
-                      { label: "Leads",     value: client.leads },
-                      { label: "Profiles",  value: client.profiles },
-                      { label: "Campaigns", value: client.campaigns },
+                      { label: t("adm.leads"),     value: client.leads },
+                      { label: t("adm.profiles"),  value: client.profiles },
+                      { label: t("adm.campaigns"), value: client.campaigns },
                     ].map(m => (
                       <div key={m.label} className="text-center min-w-[50px]">
                         <p className="text-base font-bold tabular-nums" style={{ color: C.textPrimary }}>{m.value}</p>
@@ -1140,7 +1150,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
             <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No approvals match your search" : "All caught up — nothing to approve"}
+              {search ? t("adm.noApprovalsMatch") : t("adm.allCaughtUp")}
             </p>
           </div>
         );

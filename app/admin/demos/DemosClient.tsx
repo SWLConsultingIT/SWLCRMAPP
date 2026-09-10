@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
@@ -44,7 +45,7 @@ type ShapeState = {
 };
 
 // Map a free-text industry from the scrape to one of our seed pools so the
-// "Industry preset" defaults to something sensible after auto-fill.
+// industry preset defaults to something sensible after auto-fill.
 function autoPresetClient(industry: string | null | undefined): DemoIndustryKey {
   if (!industry) return "mixed";
   const i = industry.toLowerCase();
@@ -65,6 +66,7 @@ export default function DemosClient({
   isInDemoMode: boolean;
   currentDemoBioId: string | null;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -81,7 +83,7 @@ export default function DemosClient({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        alert(body.error ?? "Failed to enter demo");
+        alert(body.error ?? t("dem.err.enter"));
         setBusy(null);
         return;
       }
@@ -111,7 +113,7 @@ export default function DemosClient({
     <div className="p-6 w-full max-w-7xl mx-auto">
       <div className="mb-6 flex items-center justify-between gap-3">
         <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs font-semibold hover:underline" style={{ color: C.textMuted }}>
-          <ArrowLeft size={12} /> Back to Admin
+          <ArrowLeft size={12} /> {t("dem.backToAdmin")}
         </Link>
         <button
           onClick={() => setShowCreate(true)}
@@ -122,17 +124,17 @@ export default function DemosClient({
             boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)`,
           }}
         >
-          <Plus size={12} /> New demo
+          <Plus size={12} /> {t("dem.newDemo")}
         </button>
       </div>
 
       <PageHero
         icon={Theater}
-        section="Internal"
-        title="Demo Tenants"
-        description="Sales-ready impersonation. Paste a URL, auto-fill from the website, seed sample leads, and walk a prospect through the product in their context. Your SWL data stays untouched."
+        section={t("adm.internal")}
+        title={t("dem.title")}
+        description={t("dem.lede")}
         accentColor={gold}
-        status={{ label: "Internal", active: true }}
+        status={{ label: t("adm.internal"), active: true }}
       />
 
       {isInDemoMode && currentDemoBioId && (
@@ -149,9 +151,9 @@ export default function DemosClient({
               <Sparkles size={18} style={{ color: goldDark }} />
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>You are currently inside a demo tenant</p>
+              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("dem.insideDemo")}</p>
               <p className="text-xs" style={{ color: C.textMuted }}>
-                {demos.find(d => d.id === currentDemoBioId)?.company_name ?? "Unknown demo"}
+                {demos.find(d => d.id === currentDemoBioId)?.company_name ?? t("dem.unknownDemo")}
               </p>
             </div>
           </div>
@@ -161,7 +163,7 @@ export default function DemosClient({
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold border transition-opacity hover:opacity-80 disabled:opacity-50"
             style={{ borderColor: `color-mix(in srgb, ${goldDark} 35%, transparent)`, color: goldDark, backgroundColor: C.card }}
           >
-            <LogOut size={11} /> Exit demo
+            <LogOut size={11} /> {t("dem.exitDemo")}
           </button>
         </div>
       )}
@@ -171,9 +173,9 @@ export default function DemosClient({
           <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${goldDark} 10%, transparent)` }}>
             <Theater size={22} style={{ color: goldDark }} />
           </div>
-          <h2 className="text-base font-bold mb-1" style={{ color: C.textPrimary }}>No demo tenants yet</h2>
+          <h2 className="text-base font-bold mb-1" style={{ color: C.textPrimary }}>{t("dem.none")}</h2>
           <p className="text-sm mb-4" style={{ color: C.textMuted }}>
-            Paste a URL — we auto-fill industry, tagline, value prop, services. Then seed sample leads.
+            {t("dem.noneHint")}
           </p>
           <button
             onClick={() => setShowCreate(true)}
@@ -184,7 +186,7 @@ export default function DemosClient({
               boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)`,
             }}
           >
-            <Plus size={12} /> Create your first demo
+            <Plus size={12} /> {t("dem.createFirst")}
           </button>
         </div>
       ) : (
@@ -230,7 +232,7 @@ export default function DemosClient({
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-sm font-bold leading-tight truncate" style={{ color: C.textPrimary }}>{d.company_name}</h3>
                       {isCurrent && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 uppercase tracking-wider" style={{ backgroundColor: `color-mix(in srgb, ${goldDark} 14%, transparent)`, color: goldDark }}>Active</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 uppercase tracking-wider" style={{ backgroundColor: `color-mix(in srgb, ${goldDark} 14%, transparent)`, color: goldDark }}>{t("dem.active")}</span>
                       )}
                     </div>
                     {d.industry && <p className="text-xs mt-0.5 truncate" style={{ color: C.textMuted }}>{d.industry}</p>}
@@ -239,9 +241,9 @@ export default function DemosClient({
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 mb-4">
-                  <Stat label="Leads" value={d.leads} icon={Users} color={C.blue} />
-                  <Stat label="ICPs" value={d.profiles} icon={Target} color={C.accent} />
-                  <Stat label="Camps" value={d.campaigns} icon={Megaphone} color={C.green} />
+                  <Stat label={t("dem.leads")} value={d.leads} icon={Users} color={C.blue} />
+                  <Stat label={t("dem.icps")} value={d.profiles} icon={Target} color={C.accent} />
+                  <Stat label={t("dem.camps")} value={d.campaigns} icon={Megaphone} color={C.green} />
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -255,11 +257,11 @@ export default function DemosClient({
                       boxShadow: isCurrent ? "none" : `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)`,
                     }}
                   >
-                    {isCurrent ? "You're here" : busy === d.id ? "Entering…" : (<><span>Enter demo</span><ArrowRight size={11} /></>)}
+                    {isCurrent ? t("dem.youreHere") : busy === d.id ? t("dem.entering") : (<><span>{t("dem.enterDemo")}</span><ArrowRight size={11} /></>)}
                   </button>
                   <button
                     onClick={() => setBuildFor(d)}
-                    title="Build demo data (leads, ICPs, campaigns, opportunities)"
+                    title={t("dem.buildTitle")}
                     className="rounded-lg px-2.5 py-2 text-xs font-bold border transition-colors hover:bg-black/5"
                     style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}
                   >
@@ -327,6 +329,7 @@ function CreateDemoModal({
   onClose: () => void;
   onCreated: (bioId: string) => void | Promise<void>;
 }) {
+  const { t } = useLocale();
   const [url, setUrl] = useState("");
   const [scraped, setScraped] = useState<ScrapedBio | null>(null);
   const [companyName, setCompanyName] = useState("");
@@ -341,7 +344,7 @@ function CreateDemoModal({
   async function autoFill() {
     setScrapeError(null);
     if (!url.trim()) {
-      setScrapeError("Paste a URL first");
+      setScrapeError(t("dem.err.pasteUrl"));
       return;
     }
     let normalized = url.trim();
@@ -355,7 +358,7 @@ function CreateDemoModal({
       });
       const body = (await res.json()) as ScrapedBio & { error?: string };
       if (!res.ok) {
-        setScrapeError(body.error ?? "Scrape failed");
+        setScrapeError(body.error ?? t("dem.err.scrape"));
         setScraping(false);
         return;
       }
@@ -388,7 +391,7 @@ function CreateDemoModal({
   async function submit() {
     setError(null);
     if (!companyName.trim()) {
-      setError("Company name required");
+      setError(t("dem.err.nameReq"));
       return;
     }
     setBusy(true);
@@ -409,7 +412,7 @@ function CreateDemoModal({
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body.error ?? "Create failed");
+        setError(body.error ?? t("dem.err.create"));
         setBusy(false);
         return;
       }
@@ -435,15 +438,15 @@ function CreateDemoModal({
             <Theater size={18} style={{ color: goldDark }} />
           </div>
           <div>
-            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Create demo tenant</h2>
-            <p className="text-xs" style={{ color: C.textMuted }}>Paste a URL → AI fills the rest. You can edit before saving.</p>
+            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{t("dem.createTitle")}</h2>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("dem.createLede")}</p>
           </div>
         </div>
 
         {/* URL + auto-fill */}
         <div className="rounded-xl border p-3 mb-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
           <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>
-            <Globe size={10} className="inline mr-1" /> Company website
+            <Globe size={10} className="inline mr-1" /> {t("dem.website")}
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -466,22 +469,22 @@ function CreateDemoModal({
               }}
             >
               {scraping ? <Loader2 size={11} className="animate-spin" /> : scraped ? <Check size={11} /> : <Wand2 size={11} />}
-              {scraping ? "Reading…" : scraped ? "Filled" : "Auto-fill"}
+              {scraping ? t("dem.reading") : scraped ? t("dem.filled") : t("dem.autofill")}
             </button>
           </div>
           {scrapeError && <p className="mt-2 text-[11px]" style={{ color: C.red }}>{scrapeError}</p>}
           {scraped && !scrapeError && (
             <p className="mt-2 text-[11px]" style={{ color: C.textMuted }}>
-              Filled from {new URL(scraped.website ?? url).hostname}. Edit anything below before saving.
+              {t("dem.filledFrom", { host: new URL(scraped.website ?? url).hostname })}
             </p>
           )}
         </div>
 
         <div className="space-y-3">
-          <Field label="Company name" value={companyName} onChange={setCompanyName} placeholder="SWL Consulting" autoFocus />
-          <Field label="Industry" value={industry} onChange={setIndustry} placeholder="B2B Sales & Growth Consulting" />
-          <Field label="Tagline" value={tagline} onChange={setTagline} placeholder="The growth engine for B2B sales teams" />
-          <Field label="Value proposition" value={valueProp} onChange={setValueProp} placeholder="What problem they solve, for whom" />
+          <Field label={t("dem.companyName")} value={companyName} onChange={setCompanyName} placeholder="SWL Consulting" autoFocus />
+          <Field label={t("dem.industry")} value={industry} onChange={setIndustry} placeholder="B2B Sales & Growth Consulting" />
+          <Field label={t("dem.tagline")} value={tagline} onChange={setTagline} placeholder={t("dem.taglinePh")} />
+          <Field label={t("dem.valueProp")} value={valueProp} onChange={setValueProp} placeholder={t("dem.valuePropPh")} />
         </div>
 
         {/* Shape sliders — when totalLeads > 0, the same request also seeds
@@ -490,9 +493,9 @@ function CreateDemoModal({
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>
-              <Sprout size={10} className="inline mr-1" /> Shape your demo data
+              <Sprout size={10} className="inline mr-1" /> {t("dem.shapeData")}
             </h3>
-            <span className="text-[10px]" style={{ color: C.textDim }}>{shape.totalLeads === 0 ? "Empty (skip)" : "Auto-populate on create"}</span>
+            <span className="text-[10px]" style={{ color: C.textDim }}>{shape.totalLeads === 0 ? t("dem.emptySkip") : t("dem.autoPopulate")}</span>
           </div>
           <ShapeSliders value={shape} onChange={setShape} />
         </div>
@@ -504,7 +507,7 @@ function CreateDemoModal({
         )}
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>{t("dem.cancel")}</button>
           <button
             onClick={submit}
             disabled={busy || !companyName.trim()}
@@ -516,7 +519,7 @@ function CreateDemoModal({
             }}
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-            {busy ? (shape.totalLeads > 0 ? "Building…" : "Creating…") : "Create & enter"}
+            {busy ? (shape.totalLeads > 0 ? t("dem.building") : t("dem.creating")) : t("dem.createEnter")}
           </button>
         </div>
       </div>
@@ -526,12 +529,13 @@ function CreateDemoModal({
 
 // ─── Reusable shape-config sliders ──────────────────────────────────────────
 function ShapeSliders({ value, onChange }: { value: ShapeState; onChange: (next: ShapeState) => void }) {
+  const { t } = useLocale();
   const set = <K extends keyof ShapeState>(k: K, v: ShapeState[K]) => onChange({ ...value, [k]: v });
   return (
     <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: C.border, backgroundColor: C.surface }}>
       {/* Industry preset */}
       <div>
-        <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>Industry preset</label>
+        <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>{t("dem.industryPreset")}</label>
         <div className="grid grid-cols-2 gap-1.5">
           {DEMO_INDUSTRY_OPTIONS.map(opt => {
             const active = value.industryPreset === opt.key;
@@ -554,17 +558,17 @@ function ShapeSliders({ value, onChange }: { value: ShapeState; onChange: (next:
         </div>
       </div>
 
-      <Slider label="Total leads" value={value.totalLeads} min={0} max={50} step={5} onChange={n => set("totalLeads", n)} />
+      <Slider label={t("dem.totalLeads")} value={value.totalLeads} min={0} max={50} step={5} onChange={n => set("totalLeads", n)} />
 
       {value.totalLeads > 0 && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Slider label="ICPs" value={value.icps} min={0} max={4} step={1} onChange={n => set("icps", n)} compact />
-            <Slider label="Campaigns" value={value.campaigns} min={0} max={4} step={1} onChange={n => set("campaigns", n)} compact />
+            <Slider label={t("dem.icps")} value={value.icps} min={0} max={4} step={1} onChange={n => set("icps", n)} compact />
+            <Slider label={t("dem.campaigns")} value={value.campaigns} min={0} max={4} step={1} onChange={n => set("campaigns", n)} compact />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Slider label="Won leads" value={value.wonLeads} min={0} max={Math.min(10, value.totalLeads)} step={1} onChange={n => set("wonLeads", n)} compact accent={C.green} />
-            <Slider label="Lost leads" value={value.lostLeads} min={0} max={Math.min(10, value.totalLeads)} step={1} onChange={n => set("lostLeads", n)} compact accent={C.red} />
+            <Slider label={t("dem.wonLeads")} value={value.wonLeads} min={0} max={Math.min(10, value.totalLeads)} step={1} onChange={n => set("wonLeads", n)} compact accent={C.green} />
+            <Slider label={t("dem.lostLeads")} value={value.lostLeads} min={0} max={Math.min(10, value.totalLeads)} step={1} onChange={n => set("lostLeads", n)} compact accent={C.red} />
           </div>
           {value.wonLeads + value.lostLeads > value.totalLeads && (
             <p className="text-[10px]" style={{ color: C.red }}>
@@ -644,6 +648,7 @@ function BuildDemoModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { t } = useLocale();
   const [shape, setShape] = useState<ShapeState>({
     totalLeads: 15,
     icps: 2,
@@ -667,7 +672,7 @@ function BuildDemoModal({
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body.error ?? "Build failed");
+        setError(body.error ?? t("dem.err.build"));
         setBusy(false);
         return;
       }
@@ -699,8 +704,8 @@ function BuildDemoModal({
             <Sprout size={18} style={{ color: C.green }} />
           </div>
           <div>
-            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Build demo data</h2>
-            <p className="text-xs" style={{ color: C.textMuted }}>Add ICPs, leads, campaigns, and opportunities to <span className="font-bold" style={{ color: C.textBody }}>{demo.company_name}</span>.</p>
+            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{t("dem.buildDataTitle")}</h2>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("dem.buildDataLede")} <span className="font-bold" style={{ color: C.textBody }}>{demo.company_name}</span>.</p>
           </div>
         </div>
 
@@ -718,7 +723,7 @@ function BuildDemoModal({
         )}
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>{t("dem.cancel")}</button>
           <button
             onClick={submit}
             disabled={busy || !!done || shape.totalLeads === 0}
@@ -730,7 +735,7 @@ function BuildDemoModal({
             }}
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : done ? <Check size={12} /> : <Sprout size={12} />}
-            {busy ? "Building…" : done ? "Done" : `Build ${shape.totalLeads} leads`}
+            {busy ? t("dem.building") : done ? t("dem.done") : t("dem.buildN", { n: shape.totalLeads })}
           </button>
         </div>
       </div>
@@ -748,6 +753,7 @@ function DeleteDemoModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -786,19 +792,19 @@ function DeleteDemoModal({
             <Trash2 size={18} style={{ color: C.red }} />
           </div>
           <div>
-            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Delete demo?</h2>
-            <p className="text-xs" style={{ color: C.textMuted }}>This permanently removes the demo and everything in it.</p>
+            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{t("dem.deleteTitle")}</h2>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("dem.deleteLede")}</p>
           </div>
         </div>
 
         <div className="rounded-xl border p-3 mb-4" style={{ backgroundColor: C.redLight, borderColor: `color-mix(in srgb, ${C.red} 25%, transparent)` }}>
-          <p className="text-xs font-semibold mb-1" style={{ color: C.red }}>About to delete <span className="font-bold">{demo.company_name}</span></p>
+          <p className="text-xs font-semibold mb-1" style={{ color: C.red }}>{t("dem.aboutToDelete")} <span className="font-bold">{demo.company_name}</span></p>
           {total > 0 ? (
             <p className="text-[11px]" style={{ color: C.red }}>
               Cascade: {demo.leads} lead{demo.leads === 1 ? "" : "s"} · {demo.profiles} ICP{demo.profiles === 1 ? "" : "s"} · {demo.campaigns} campaign{demo.campaigns === 1 ? "" : "s"}
             </p>
           ) : (
-            <p className="text-[11px]" style={{ color: C.red }}>Empty demo — nothing else to clean.</p>
+            <p className="text-[11px]" style={{ color: C.red }}>{t("dem.emptyDemo")}</p>
           )}
         </div>
 
@@ -809,7 +815,7 @@ function DeleteDemoModal({
         )}
 
         <div className="flex items-center justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>{t("dem.cancel")}</button>
           <button
             onClick={submit}
             disabled={busy}
