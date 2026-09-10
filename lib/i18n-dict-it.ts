@@ -885,6 +885,7 @@ export const it: Record<string, string> = {
   "brief.point.hook": "Gancio personale",
   "brief.point.opener": "Apertura",
   "brief.point.objection": "Obiezione probabile",
+  "brief.opener.say": "dì questo",
   "brief.group.read": "La lettura — chi sono e come giocarla",
   "brief.group.play": "La mossa — problema, adeguatezza e cosa dire",
   "brief.refresh": "Aggiorna",
