@@ -22,6 +22,7 @@ import {
   buildCoachUserMessage,
   extractCoachScore,
 } from "@/lib/prompts/call-coach";
+import { getServerLocale } from "@/lib/i18n-server";
 
 const MODEL = "claude-sonnet-4-6";
 const GENERATION_LOCK_MS = 90 * 1000;
@@ -138,6 +139,7 @@ export async function POST(
     callDirection: call.direction ?? null,
     callDuration: call.duration ?? null,
     transcript: call.transcript,
+    locale: await getServerLocale(),
   });
 
   const anthropic = new Anthropic();

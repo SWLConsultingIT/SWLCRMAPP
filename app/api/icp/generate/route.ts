@@ -7,6 +7,8 @@
 // draft the client drops straight into the ICP form; nothing is persisted here.
 
 import { NextRequest, NextResponse } from "next/server";
+import { getServerLocale } from "@/lib/i18n-server";
+import { PROMPT_LANGUAGE } from "@/lib/i18n-locale";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
@@ -36,7 +38,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const prompt = String(body?.prompt ?? "").trim();
   const geography = String(body?.geography ?? "").trim();
-  const language = String(body?.language ?? "").trim();
+  // An explicit hint from the caller wins; otherwise the draft comes back in
+  // the language the user is reading the form in. It used to fall through to
+  // "" — i.e. English — and the ICP page never sends the hint, so every draft
+  // arrived in English into a Spanish form.
+  const language = String(body?.language ?? "").trim() || PROMPT_LANGUAGE[await getServerLocale()];
   const url = String(body?.url ?? "").trim();
 
   if (!prompt && !url) {

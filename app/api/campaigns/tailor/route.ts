@@ -130,8 +130,14 @@ export async function POST(req: NextRequest) {
      *  of paying for a second Haiku call per lead — exactly the
      *  hand-off the wizard's Step 3 review surface produces. */
     previewOutputs?: Record<string, { hook?: string | null; fit?: string | null; manual_edit?: { hook?: string | null; fit?: string | null } }>;
+    /** The campaign's outbound language — the one the wizard picked, stored on
+     *  the request as `message_prompts.language`. NOT the operator's interface
+     *  language: this text is read by the lead. Without it the hook and fit
+     *  came back in English and got substituted into a Spanish or Italian
+     *  body, so one outbound message shipped in two languages. */
+    language?: string | null;
   };
-  const { campaignId, dryRun = false, leadIdsLimit, previewOutputs } = body;
+  const { campaignId, dryRun = false, leadIdsLimit, previewOutputs, language } = body;
   if (!campaignId) return NextResponse.json({ error: "campaignId required" }, { status: 400 });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -294,6 +300,7 @@ export async function POST(req: NextRequest) {
       companyBio,
       seller: { name: sellerName },
       stepChannel: row.channel,
+      language: language ?? undefined,
     };
     const slots = await callHaiku(client, ctx);
     return { lead_id: row.lead_id, channel: row.channel, slots };

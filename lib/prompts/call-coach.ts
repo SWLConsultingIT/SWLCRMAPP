@@ -9,6 +9,8 @@
  * message AFTER the cache breakpoint.
  */
 
+import { writeAllContentIn, type Locale } from "@/lib/i18n-locale";
+
 export const CALL_COACH_SYSTEM_PROMPT = `You are an elite B2B sales coach and call analyst integrated inside a sales operating system.
 
 Your job is to analyze sales calls objectively and generate extremely actionable feedback for the seller based on:
@@ -291,6 +293,10 @@ export function buildCoachUserMessage(args: {
   callDirection: string | null;
   callDuration: number | null;
   transcript: string;
+  /** The reader's interface language. Deliberately part of the USER message,
+   *  not the system prompt: the system prompt is prompt-cached, and putting a
+   *  per-locale line in it would fork that cache three ways. */
+  locale: Locale;
 }): string {
   const durationLabel = args.callDuration
     ? `${Math.floor(args.callDuration / 60)}m ${args.callDuration % 60}s`
@@ -304,7 +310,7 @@ export function buildCoachUserMessage(args: {
     "TRANSCRIPT:",
     args.transcript,
     "",
-    "Analyze this call following the structured output format. Be specific to the transcript — quote exact moments. Do not be generic.",
+    `Analyze this call following the structured output format. Be specific to the transcript — quote exact moments. Do not be generic. ${writeAllContentIn(args.locale)}`,
   ].filter(Boolean).join("\n");
 }
 
