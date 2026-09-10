@@ -68,7 +68,7 @@ function Flow() {
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" style={{ height: "auto", aspectRatio: `${W} / ${H}`, maxHeight: 280 }} role="img"
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" style={{ height: "auto", aspectRatio: `${W} / ${H}`, maxHeight: 340 }} role="img"
         aria-label="Leads contacted, replied and positive within the selected period">
         <defs>
           <linearGradient id="flowgrad" x1="0" x2="1">
@@ -314,7 +314,7 @@ function Trend() {
         </span>
         <span style={{ fontSize: 11, color: C.textDim }}>dashed = previous period</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" style={{ height: "auto", aspectRatio: `${W} / ${H}`, maxHeight: 170 }} role="img" aria-label="Sends and replies over the period">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" style={{ height: "auto", aspectRatio: `${W} / ${H}`, maxHeight: 210 }} role="img" aria-label="Sends and replies over the period">
         <polyline points={line(prior, maxS)} fill="none" stroke={C.textDim} strokeWidth="1.3" strokeDasharray="5 4" opacity=".5" />
         <polyline points={line(sent, maxS)} fill="none" stroke={C.blue} strokeWidth="1.9" />
         <polyline points={line(replies, maxR)} fill="none" stroke={gold} strokeWidth="1.9" />

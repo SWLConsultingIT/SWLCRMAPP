@@ -101,10 +101,10 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
   return (
     <ConsoleProvider value={{ D, T }}>
     <div className="p-4 sm:p-6 w-full">
-      {/* ONE grid. The hero used to run full-bleed while the analysis sat in
-          a narrower centred column, so the page had two different left edges
-          and read as broken. Hero and content now share the same column. */}
-      <div className="mx-auto w-full" style={{ maxWidth: 1180, paddingBottom: 64 }}>
+      {/* Same width as every other view — app/page.tsx, /leads, /results all
+          use p-4 sm:p-6 w-full. A centred 1180px column left ~250px of dead
+          margin either side that no other screen has. */}
+      <div className="w-full" style={{ paddingBottom: 64 }}>
 
         {hero}
 
