@@ -54,7 +54,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
         setApiKeyPreview(typeof d.instantlyApiKeyPreview === "string" ? d.instantlyApiKeyPreview : null);
         setAccountSource(d.instantlyAccountSource === "tenant" ? "tenant" : "env");
       })
-      .catch(() => alive && setError("Failed to load Instantly pool"))
+      .catch(() => alive && setError(t("epm.err.load")))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [open]);
@@ -85,13 +85,13 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
       });
       const d = await res.json();
       if (!res.ok) {
-        setError(d.error ?? "Save failed");
+        setError(d.error ?? t("epm.err.save"));
         return;
       }
       router.refresh();
       onClose();
     } catch {
-      setError("Network error");
+      setError(t("epm.err.network"));
     } finally {
       setSaving(false);
     }
@@ -127,11 +127,11 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
             <div>
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("pool.manage")}</h2>
               <p className="text-[11px]" style={{ color: C.textMuted }}>
-                Pick which Instantly inboxes belong to your tenant
+                {t("epm.pickInboxes")}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5" aria-label="Close">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5" aria-label={t("epm.close")}>
             <X size={16} style={{ color: C.textMuted }} />
           </button>
         </div>
@@ -152,15 +152,15 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder={apiKeyPreview ?? "Leave empty to use the default SWL account"}
+                placeholder={apiKeyPreview ?? t("epm.leaveEmpty")}
                 autoComplete="off"
                 className="w-full px-3 py-2 text-sm font-mono rounded-lg border outline-none"
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               />
               <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
                 {accountSource === "tenant"
-                  ? <>Currently using <b>this tenant's own</b> Instantly account ({apiKeyPreview}). Paste a new key to overwrite, or leave empty to keep the current one.</>
-                  : <>Currently using the <b>default SWL</b> Instantly account. Paste a key here only if this tenant has its own Instantly subscription.</>
+                  ? <>{t("epm.currentlyUsing")} <b>{t("epm.tenantOwn")}</b> {t("epm.usingOwnFull", { preview: apiKeyPreview ?? "" })}</>
+                  : <>{t("epm.currentlyUsingThe")} <b>{t("epm.defaultSwl")}</b> {t("epm.defaultTail")}</>
                 }
               </p>
             </div>
@@ -173,12 +173,12 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
             </div>
           ) : accounts.length === 0 ? (
             <p className="text-sm text-center py-10" style={{ color: C.textDim }}>
-              No Instantly accounts available. Connect accounts in the Instantly dashboard first.
+              {t("epm.noAccounts")}
             </p>
           ) : (
             <>
               <div className="flex items-center gap-4 mb-3 text-[11px]" style={{ color: C.textMuted }}>
-                <span><b style={{ color: C.textBody }}>{myCount}</b> yours</span>
+                <span><b style={{ color: C.textBody }}>{myCount}</b> {t("epm.yours")}</span>
                 <span><b style={{ color: C.textBody }}>{availableCount}</b> {t("pool.availableClaim")}</span>
               </div>
               <div className="space-y-1.5">
@@ -199,13 +199,13 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{a.email}</p>
                         <p className="text-[10px]" style={{ color: C.textMuted }}>
-                          Daily limit {a.dailyLimit} · Warmup score {a.warmupScore}
-                          {a.setupPending && " · setup pending"}
+                          {t("epm.dailyWarmup", { limit: a.dailyLimit, score: a.warmupScore })}
+                          {a.setupPending && t("epm.setupPending")}
                         </p>
                       </div>
                       {a.isMine && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full inline-flex items-center gap-1" style={{ backgroundColor: `${C.green}15`, color: C.green }}>
-                          <Check size={10} /> yours
+                          <Check size={10} /> {t("epm.yours")}
                         </span>
                       )}
                     </label>

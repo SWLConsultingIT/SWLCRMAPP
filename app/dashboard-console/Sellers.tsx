@@ -57,11 +57,11 @@ function TeamHealth() {
   const shown = all ? T.teamAlerts : T.teamAlerts.slice(0, 3);
 
   const MAIN = [
-    { v: `${h.activeSellers}/${h.totalSellers}`, l: "Sellers active" },
-    { v: n(h.contacted), l: "Leads contacted" },
-    { v: n(h.sent), l: "Messages sent" },
-    { v: n(h.calls), l: "Calls attempted" },
-    { v: `${h.replyRate}%`, l: "Reply rate" },
+    { v: `${h.activeSellers}/${h.totalSellers}`, l: t("cons.sell.kpi.active") },
+    { v: n(h.contacted), l: t("cons.sell.kpi.contacted") },
+    { v: n(h.sent), l: t("cons.sell.kpi.msgs") },
+    { v: n(h.calls), l: t("cons.sell.kpi.calls") },
+    { v: `${h.replyRate}%`, l: t("cons.sell.kpi.replyRate") },
     { v: h.connectRate == null ? "—" : `${h.connectRate}%`, l: "Confirmed connect rate" },
   ];
 
@@ -108,7 +108,7 @@ function TeamHealth() {
         })}
         {T.teamAlerts.length > 3 && (
           <button onClick={() => setAll(v => !v)} className="font-semibold" style={{ fontSize: 11.5, color: gold }}>
-            {all ? "Show less" : `View all ${T.teamAlerts.length}`}
+            {all ? t("cons.sell.showLess") : t("cons.sell.viewAllN", { n: T.teamAlerts.length })}
           </button>
         )}
       </div>
@@ -242,10 +242,10 @@ function Detail({ s }: { s: CT.Seller }) {
               <Eyebrow>{t("cons.sell.activityBacklog")}</Eyebrow>
               <div className="grid grid-cols-2" style={{ gap: "14px 18px" }}>
                 {[
-                  { v: `${days(d.sent)} / ${T.WINDOW_DAYS}`, l: "active days" },
-                  { v: days(d.calls) > 0 ? `${days(d.calls)} / ${T.WINDOW_DAYS}` : "—", l: "days calling" },
-                  { v: s.lastActive, l: "last send" },
-                  { v: s.queue > 0 ? n(s.queue) : "—", l: "queued now", accent: s.queue > 500 ? C.orange : undefined },
+                  { v: `${days(d.sent)} / ${T.WINDOW_DAYS}`, l: t("cons.sell.activeDays") },
+                  { v: days(d.calls) > 0 ? `${days(d.calls)} / ${T.WINDOW_DAYS}` : "—", l: t("cons.sell.daysCalling") },
+                  { v: s.lastActive, l: t("cons.sell.lastSend") },
+                  { v: s.queue > 0 ? n(s.queue) : "—", l: t("cons.sell.queuedNow"), accent: s.queue > 500 ? C.orange : undefined },
                 ].map(x => (
                   <div key={x.l}>
                     <div className="tabular-nums font-semibold" style={{ fontSize: 16, color: x.accent ?? C.textPrimary }}>{x.v}</div>
@@ -370,12 +370,12 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
       <div className="flex items-center gap-5 mt-3 flex-wrap">
         <span className="inline-flex items-center gap-1.5">
           <span style={{ width: 1, height: 10, backgroundColor: C.textMuted, opacity: .6 }} />
-          <span style={{ fontSize: 10.5, color: C.textMuted }}>team {team.replyRate}%</span>
+          <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.teamRate", { n: team.replyRate })}</span>
         </span>
-        <span style={{ fontSize: 10.5, color: C.textDim }}>click a row for the detail</span>
+        <span style={{ fontSize: 10.5, color: C.textDim }}>{t("cons.sell.clickRow")}</span>
         <div className="flex-1" />
         <span style={{ fontSize: 10.5, color: C.textDim }}>
-          {team.unattributedReplies} reply has no seller — not redistributed
+          {t(team.unattributedReplies === 1 ? "cons.sell.unattrOne" : "cons.sell.unattrN", { n: team.unattributedReplies })}
         </span>
       </div>
     </div>
@@ -384,12 +384,13 @@ function Performance({ open, setOpen }: { open: string | null; setOpen: (v: stri
 
 /* ═══ 3 · COMPARE ═════════════════════════════════════════════════════════ */
 
+// Module scope: `key` addresses the metric, `labelKey` is what the tab prints.
 const METRICS = [
-  { key: "replyRate", label: "Reply rate", unit: "%", team: null },
-  { key: "replies", label: "Replies", unit: "", team: null },
-  { key: "contacted", label: "Contacted", unit: "", team: null },
-  { key: "sent", label: "Messages sent", unit: "", team: null },
-  { key: "calls", label: "Calls", unit: "", team: null },
+  { key: "replyRate", labelKey: "cons.sell.kpi.replyRate", unit: "%", team: null },
+  { key: "replies", labelKey: "cons.sell.replies", unit: "", team: null },
+  { key: "contacted", labelKey: "cons.sell.contacted", unit: "", team: null },
+  { key: "sent", labelKey: "cons.sell.kpi.msgs", unit: "", team: null },
+  { key: "calls", labelKey: "cons.sell.callsShort", unit: "", team: null },
 ] as const;
 
 function Compare() {
@@ -411,11 +412,11 @@ function Compare() {
               color: m === x.key ? "#1A1405" : C.textBody,
               border: `1px solid ${m === x.key ? gold : C.border}`,
             }}>
-            {x.label}
+            {t(x.labelKey)}
           </button>
         ))}
         <div className="flex-1" />
-        <span style={{ fontSize: 11.5, color: C.textMuted }}>Sorted by {meta.label}</span>
+        <span style={{ fontSize: 11.5, color: C.textMuted }}>{t("cons.sell.sortedBy", { metric: t(meta.labelKey) })}</span>
       </div>
 
       <div className="flex flex-col" style={{ gap: 12 }}>
@@ -502,7 +503,7 @@ function Calls() {
             <tr key={r.name} style={{ borderBottom: `1px solid ${C.border}` }}>
               <td className={PAD}>
                 <span className="font-medium" style={{ fontSize: 13, color: r.attempted === 0 ? C.textMuted : C.textPrimary }}>{r.name}</span>
-                {r.attempted === 0 && <span className="ml-2" style={{ fontSize: 10.5, color: C.textDim }}>no dials</span>}
+                {r.attempted === 0 && <span className="ml-2" style={{ fontSize: 10.5, color: C.textDim }}>{t("cons.sell.noDials")}</span>}
               </td>
               {num(r.attempted, C.textPrimary, true)}
               {num(r.connected)}
@@ -571,8 +572,8 @@ function Consistency() {
             <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.sell.col.seller")}</th>
             <Th hint={t("cons.sell.def.activeDays")}>{t("cons.sell.col.activeDays")}</Th>
             <Th hint={t("cons.sell.def.daysCalling")}>{t("cons.sell.col.daysCalling")}</Th>
-            <Th hint="Share of this person's messages that went out on their single busiest day.">Biggest day</Th>
-            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted, width: 250 }}>Pattern</th>
+            <Th hint={t("cons.sell.biggestHint")}>{t("cons.sell.biggestDay")}</Th>
+            <th className={`${PAD} text-left font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted, width: 250 }}>{t("cons.sell.pattern")}</th>
             <th className={`${PAD} text-right font-semibold uppercase tracking-wider`} style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.sell.consistency")}</th>
           </tr>
         </thead>
@@ -602,14 +603,14 @@ function Consistency() {
         <span style={{ fontSize: 10.5, color: C.textDim }}>{T.WINDOW_START} → {T.WINDOW_END}</span>
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded-sm" style={{ width: 8, height: 8, backgroundColor: C.blue }} />
-          <span style={{ fontSize: 10.5, color: C.textMuted }}>messages</span>
+          <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.messagesLower")}</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded-sm" style={{ width: 8, height: 8, backgroundColor: gold }} />
-          <span style={{ fontSize: 10.5, color: C.textMuted }}>calls</span>
+          <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.sell.callsLower")}</span>
         </span>
         <span style={{ fontSize: 10.5, color: C.textDim }}>
-          Burst-heavy = half the sends on one day · Sporadic = active on a third of the window or less
+          {t("cons.sell.burstNote")}
         </span>
       </div>
     </div>
@@ -649,11 +650,11 @@ export default function Sellers({ label }: { label: string }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
-      <Opening question={t("cons.sell.q1")} sub={`in ${label}`} aside={<Drill label="Team" />}>
+      <Opening question={t("cons.sell.q1")} sub={t("cons.sell.inLabel", { label })} aside={<Drill label={t("cons.sell.team")} />}>
         <TeamHealth />
       </Opening>
 
-      <Band question={t("cons.sell.q2")} sub="click a row for the detail" aside={<Drill label="Call queue" />}>
+      <Band question={t("cons.sell.q2")} sub={t("cons.sell.clickRow")} aside={<Drill label={t("cons.sell.callQueue")} />}>
         <Performance open={open} setOpen={setOpen} />
       </Band>
 

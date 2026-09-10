@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Link2, ChevronDown, Loader2, RefreshCw, ExternalLink, Briefcase, GraduationCap, Award, Languages as LangIcon, MapPin, Users } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const LI = "#0A66C2"; // LinkedIn blue
 
@@ -21,9 +22,9 @@ function yr(s: string | null): string {
   const d = new Date(s);
   return Number.isFinite(d.getTime()) ? String(d.getFullYear()) : s;
 }
-function range(a: string | null, b: string | null): string {
+function range(a: string | null, b: string | null, t: (k: string) => string): string {
   const start = yr(a);
-  const end = b ? yr(b) : (a ? "Present" : "");
+  const end = b ? yr(b) : (a ? t("lie.present") : "");
   return [start, end].filter(Boolean).join(" – ");
 }
 
@@ -32,6 +33,7 @@ function range(a: string | null, b: string | null): string {
 // languages, certifications. Collapsed behind a button so it's an explicit,
 // human-paced action (one profile view per click — never automated/batched).
 export default function LinkedInEnrichment({ leadId }: { leadId: string }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -62,9 +64,9 @@ export default function LinkedInEnrichment({ leadId }: { leadId: string }) {
   }
 
   const reasonMsg: Record<string, string> = {
-    no_linkedin: "This lead has no LinkedIn profile on file.",
-    no_account: "No connected LinkedIn account is available to pull the profile.",
-    fetch_failed: "Couldn't reach this profile right now.",
+    no_linkedin: t("lie.noProfile"),
+    no_account: t("lie.noAccount"),
+    fetch_failed: t("lie.err.reach"),
   };
 
   return (
@@ -78,9 +80,9 @@ export default function LinkedInEnrichment({ leadId }: { leadId: string }) {
           <Link2 size={17} style={{ color: "#fff" }} />
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-bold tracking-tight" style={{ color: C.textPrimary }}>LinkedIn Enrichment</p>
+          <p className="text-[14px] font-bold tracking-tight" style={{ color: C.textPrimary }}>{t("lie.title")}</p>
           <p className="text-[11px]" style={{ color: C.textMuted }}>
-            {loading ? "Pulling the full profile…" : "About, full work history, skills, education"}
+            {loading ? t("lie.pulling") : t("lie.subtitle")}
           </p>
         </div>
         {loading && <Loader2 size={15} className="animate-spin shrink-0" style={{ color: LI }} />}
@@ -91,7 +93,7 @@ export default function LinkedInEnrichment({ leadId }: { leadId: string }) {
         <div className="px-5 pb-5 pt-1 border-t" style={{ borderColor: C.border }}>
           {loading ? (
             <div className="flex items-center gap-2 py-6 text-[12px]" style={{ color: C.textMuted }}>
-              <Loader2 size={14} className="animate-spin" /> Fetching LinkedIn profile…
+              <Loader2 size={14} className="animate-spin" /> {t("lie.fetching")}
             </div>
           ) : profile ? (
             <ProfileView profile={profile} onRefresh={load} />
@@ -100,7 +102,7 @@ export default function LinkedInEnrichment({ leadId }: { leadId: string }) {
               <span className="text-[12px]" style={{ color: C.textMuted }}>{reasonMsg[reason ?? "fetch_failed"]}</span>
               {reason === "fetch_failed" && (
                 <button onClick={load} className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border" style={{ color: LI, borderColor: `color-mix(in srgb, ${LI} 35%, transparent)` }}>
-                  <RefreshCw size={11} /> Retry
+                  <RefreshCw size={11} /> {t("lie.retry")}
                 </button>
               )}
             </div>
@@ -112,6 +114,7 @@ export default function LinkedInEnrichment({ leadId }: { leadId: string }) {
 }
 
 function ProfileView({ profile: p, onRefresh }: { profile: Profile; onRefresh: () => void }) {
+  const { t } = useLocale();
   const name = [p.firstName, p.lastName].filter(Boolean).join(" ");
   return (
     <div className="pt-4">
@@ -128,22 +131,22 @@ function ProfileView({ profile: p, onRefresh }: { profile: Profile; onRefresh: (
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{name || "—"}</p>
-            {p.isPremium && <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>Premium</span>}
+            {p.isPremium && <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>{t("lie.premium")}</span>}
             {p.networkDistance && <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>{p.networkDistance.replace("_", " ")}</span>}
           </div>
           {p.headline && <p className="text-[12.5px] mt-0.5 leading-snug" style={{ color: C.textBody }}>{p.headline}</p>}
           <div className="flex items-center gap-3 mt-1 text-[11px]" style={{ color: C.textMuted }}>
             {p.location && <span className="inline-flex items-center gap-1"><MapPin size={11} /> {p.location}</span>}
-            {p.connectionsCount != null && <span className="inline-flex items-center gap-1"><Users size={11} /> {p.connectionsCount}+ connections</span>}
+            {p.connectionsCount != null && <span className="inline-flex items-center gap-1"><Users size={11} /> {t("lie.connections", { n: p.connectionsCount })}</span>}
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {p.profileUrl && (
             <a href={p.profileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ color: LI, backgroundColor: `color-mix(in srgb, ${LI} 10%, transparent)` }}>
-              View <ExternalLink size={11} />
+              {t("lie.view")} <ExternalLink size={11} />
             </a>
           )}
-          <button onClick={onRefresh} title="Refresh from LinkedIn" className="inline-flex items-center justify-center w-8 h-8 rounded-lg" style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
+          <button onClick={onRefresh} title={t("lie.refresh")} className="inline-flex items-center justify-center w-8 h-8 rounded-lg" style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
             <RefreshCw size={13} />
           </button>
         </div>
@@ -151,21 +154,21 @@ function ProfileView({ profile: p, onRefresh }: { profile: Profile; onRefresh: (
 
       {/* About */}
       {p.summary && (
-        <Section title="About">
+        <Section title={t("lie.about")}>
           <p className="text-[12.5px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{p.summary}</p>
         </Section>
       )}
 
       {/* Experience — full history with dates */}
       {p.experience.length > 0 && (
-        <Section title="Experience" icon={Briefcase}>
+        <Section title={t("lie.experience")} icon={Briefcase}>
           <ol className="space-y-3">
             {p.experience.map((e, i) => (
               <li key={i} className="flex gap-3">
                 <span className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: LI }} />
                 <div className="min-w-0">
                   <p className="text-[12.5px] font-semibold" style={{ color: C.textPrimary }}>{[e.position, e.company].filter(Boolean).join(" · ")}</p>
-                  <p className="text-[10.5px]" style={{ color: C.textMuted }}>{[range(e.start, e.end), e.location].filter(Boolean).join(" · ")}</p>
+                  <p className="text-[10.5px]" style={{ color: C.textMuted }}>{[range(e.start, e.end, t), e.location].filter(Boolean).join(" · ")}</p>
                   {e.description && <p className="text-[11.5px] mt-1 leading-snug whitespace-pre-line" style={{ color: C.textBody }}>{e.description}</p>}
                 </div>
               </li>
@@ -176,12 +179,12 @@ function ProfileView({ profile: p, onRefresh }: { profile: Profile; onRefresh: (
 
       {/* Education */}
       {p.education.length > 0 && (
-        <Section title="Education" icon={GraduationCap}>
+        <Section title={t("lie.education")} icon={GraduationCap}>
           <ul className="space-y-1.5">
             {p.education.map((e, i) => (
               <li key={i}>
                 <p className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>{e.school ?? "—"}</p>
-                <p className="text-[10.5px]" style={{ color: C.textMuted }}>{[e.degree, range(e.start, e.end)].filter(Boolean).join(" · ")}</p>
+                <p className="text-[10.5px]" style={{ color: C.textMuted }}>{[e.degree, range(e.start, e.end, t)].filter(Boolean).join(" · ")}</p>
               </li>
             ))}
           </ul>
@@ -190,7 +193,7 @@ function ProfileView({ profile: p, onRefresh }: { profile: Profile; onRefresh: (
 
       {/* Skills */}
       {p.skills.length > 0 && (
-        <Section title="Skills">
+        <Section title={t("lie.skills")}>
           <div className="flex flex-wrap gap-1.5">
             {p.skills.map((s, i) => (
               <span key={i} className="text-[11px] px-2 py-0.5 rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${LI} 9%, transparent)`, color: LI }}>
@@ -203,12 +206,12 @@ function ProfileView({ profile: p, onRefresh }: { profile: Profile; onRefresh: (
 
       {/* Languages + Certifications */}
       {p.languages.length > 0 && (
-        <Section title="Languages" icon={LangIcon}>
+        <Section title={t("lie.languages")} icon={LangIcon}>
           <p className="text-[12px]" style={{ color: C.textBody }}>{p.languages.join(", ")}</p>
         </Section>
       )}
       {p.certifications.length > 0 && (
-        <Section title="Certifications" icon={Award}>
+        <Section title={t("lie.certifications")} icon={Award}>
           <ul className="space-y-1">
             {p.certifications.map((c, i) => <li key={i} className="text-[12px]" style={{ color: C.textBody }}>{c}</li>)}
           </ul>
