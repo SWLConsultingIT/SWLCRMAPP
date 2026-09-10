@@ -5,6 +5,7 @@ import { C } from "@/lib/design";
 import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote, Trash2, Loader2, Paperclip, AtSign } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import LeadChatThread from "@/components/LeadChatThread";
+import { useLocale } from "@/lib/i18n";
 
 type ActivityItem = {
   id: string;
@@ -40,6 +41,7 @@ type Note = {
 type RosterMember = { userId: string; name: string };
 
 function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number }) {
+  const { t } = useLocale();
   const s = size > 14 ? "text-base" : "text-sm";
   if (channel === "linkedin") return <LinkedInIcon size={size} />;
   if (channel === "email") return <span className={s}>✉️</span>;
@@ -55,16 +57,16 @@ const channelIcons: Record<string, { icon?: typeof Mail; color: string; bg: stri
   whatsapp: { color: "#25D366",  bg: "#F0FDF4",   label: "WhatsApp" },
 };
 
-const classificationStyles: Record<string, { label: string; color: string; bg: string }> = {
-  positive:       { label: "POSITIVE",       color: C.green,  bg: C.greenLight },
-  meeting_intent: { label: "MEETING INTENT", color: C.green,  bg: C.greenLight },
-  needs_info:     { label: "NEEDS INFO",     color: C.blue,   bg: C.blueLight },
-  nurturing:      { label: "NURTURING",      color: C.accent, bg: C.accentLight },
-  not_now:        { label: "NOT NOW",        color: C.orange, bg: C.orangeLight },
-  negative:       { label: "NEGATIVE",       color: C.red,    bg: C.redLight },
-  unsubscribe:    { label: "UNSUBSCRIBE",    color: C.red,    bg: C.redLight },
-  spam:           { label: "SPAM",           color: C.textMuted, bg: C.surface },
-  auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: C.surface },
+const classificationStyles: Record<string, { labelKey: string; color: string; bg: string }> = {
+  positive:       { labelKey: "at.positive",       color: C.green,  bg: C.greenLight },
+  meeting_intent: { labelKey: "at.meetingIntent", color: C.green,  bg: C.greenLight },
+  needs_info:     { labelKey: "at.needsInfo",     color: C.blue,   bg: C.blueLight },
+  nurturing:      { labelKey: "at.nurturing",      color: C.accent, bg: C.accentLight },
+  not_now:        { labelKey: "at.notNow",        color: C.orange, bg: C.orangeLight },
+  negative:       { labelKey: "at.negative",       color: C.red,    bg: C.redLight },
+  unsubscribe:    { labelKey: "at.unsubscribe",    color: C.red,    bg: C.redLight },
+  spam:           { labelKey: "at.spam",           color: C.textMuted, bg: C.surface },
+  auto_reply:     { labelKey: "at.autoReply",     color: C.textMuted, bg: C.surface },
 };
 
 function formatTime(iso: string) {
@@ -106,6 +108,7 @@ function renderNoteText(text: string, names: string[]) {
 }
 
 export default function ActivityTimeline({ activities, notes: initialNotes, leadId }: { activities: ActivityItem[]; notes: Note[]; leadId?: string }) {
+  const { t } = useLocale();
   const [filter, setFilter] = useState<"all" | "messages" | "replies" | "calls">("all");
   // Timeline (event log) vs Chat (read-only conversation thread for this lead).
   const [view, setView] = useState<"timeline" | "chat">("timeline");
@@ -250,7 +253,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
           <select value={contactFilter} onChange={e => setContactFilter(e.target.value)}
             className="ml-auto text-xs px-3 py-1.5 rounded-lg border"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
-            <option value="all">All contacts</option>
+            <option value="all">{t("at.allContacts")}</option>
             {contacts.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
@@ -274,7 +277,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
             >
               <MessageSquare size={22} style={{ color: "var(--brand, #c9a83a)" }} />
             </div>
-            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No activity yet</p>
+            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("at.noActivity")}</p>
             <p className="text-xs mt-1.5" style={{ color: C.textDim }}>Messages, replies and calls will appear here as they happen.</p>
           </div>
         ) : (
@@ -346,7 +349,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                                   border: `1px solid color-mix(in srgb, ${cls.color} 22%, transparent)`,
                                 }}
                               >
-                                {cls.label}
+                                {t(cls.labelKey)}
                               </span>
                               {item.aiConfidence && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>
@@ -376,7 +379,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                               >
                                 Reply Now
                               </button>
-                              <button className="text-xs font-medium hover:underline" style={{ color: C.textMuted }}>Dismiss</button>
+                              <button className="text-xs font-medium hover:underline" style={{ color: C.textMuted }}>{t("at.dismiss")}</button>
                             </div>
                           )}
                         </div>
@@ -409,7 +412,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                               Campaign started — {item.content ?? "Outreach"}
                             </p>
                             {item.sellerName && (
-                              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Assigned to: <span className="font-semibold" style={{ color: "var(--brand, #c9a83a)" }}>{item.sellerName}</span></p>
+                              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("at.assignedTo")} <span className="font-semibold" style={{ color: "var(--brand, #c9a83a)" }}>{item.sellerName}</span></p>
                             )}
                           </div>
                         </div>
@@ -430,7 +433,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                           <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.card }}>
                             <PlusCircle size={14} style={{ color: C.textMuted }} />
                           </div>
-                          <p className="text-sm font-medium" style={{ color: C.textBody }}>Lead created</p>
+                          <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("at.leadCreated")}</p>
                         </div>
                       );
                     }
@@ -536,7 +539,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
             boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
           }}
         >
-          <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Channel Indicators</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("at.channelIndicators")}</h3>
           <div className="space-y-2.5">
             {Object.entries(channelIcons).map(([key, { color, bg, label }]) => (
               <div

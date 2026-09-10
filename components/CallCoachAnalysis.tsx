@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, Loader2, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Target, MessageSquare, Mic, Shield, TrendingUp, AlertTriangle, Award, X, Quote, ArrowRight, ListChecks } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 type CoachState = {
   analysis: string | null;
@@ -17,30 +18,30 @@ type CoachState = {
 const SECTION_META: Array<{
   match: RegExp;
   key: string;
-  label: string;
+  labelKey: string;
   icon: typeof Sparkles;
   tint: "neutral" | "good" | "bad" | "info" | "warning";
   defaultOpen?: boolean;
 }> = [
-  { match: /^CALL SCORE/i,                        key: "score",         label: "Score",                       icon: Sparkles,       tint: "neutral", defaultOpen: true },
-  { match: /^EXECUTIVE ASSESSMENT/i,              key: "assessment",    label: "Executive Assessment",        icon: Sparkles,       tint: "neutral", defaultOpen: true },
-  { match: /^WHAT THE SELLER DID WELL/i,          key: "wins",          label: "What worked",                 icon: ThumbsUp,       tint: "good",    defaultOpen: true },
-  { match: /^BIGGEST MISSED OPPORTUNITIES/i,      key: "misses",        label: "Missed opportunities",        icon: ThumbsDown,     tint: "bad",     defaultOpen: true },
-  { match: /^NEXT CALL IMPROVEMENTS/i,            key: "next_improvements", label: "Top improvements for next call", icon: ListChecks, tint: "info", defaultOpen: true },
-  { match: /^IDEAL NEXT STEP/i,                   key: "next_step",     label: "Ideal next step",             icon: ArrowRight,     tint: "info",    defaultOpen: true },
-  { match: /^BEST MOMENT OF THE CALL/i,           key: "best_moment",   label: "Best moment",                 icon: Award,          tint: "good" },
-  { match: /^WORST MOMENT OF THE CALL/i,          key: "worst_moment",  label: "Worst moment",                icon: AlertTriangle,  tint: "bad" },
-  { match: /^BUYING SIGNALS DETECTED/i,           key: "buying_signals", label: "Buying signals",             icon: TrendingUp,     tint: "good" },
-  { match: /^MOMENTS THAT INCREASED TRUST/i,      key: "trust_up",      label: "Trust gained",                icon: Shield,         tint: "good" },
-  { match: /^MOMENTS THAT REDUCED TRUST/i,        key: "trust_down",    label: "Trust lost",                  icon: Shield,         tint: "bad" },
-  { match: /^DISCOVERY ANALYSIS/i,                key: "discovery",     label: "Discovery analysis",          icon: Target,         tint: "neutral" },
-  { match: /^POSITIONING ANALYSIS/i,              key: "positioning",   label: "Positioning analysis",        icon: Target,         tint: "neutral" },
-  { match: /^COMMUNICATION ANALYSIS/i,            key: "communication", label: "Communication analysis",      icon: Mic,            tint: "neutral" },
-  { match: /^OBJECTION HANDLING ANALYSIS/i,       key: "objections",    label: "Objection handling",          icon: Shield,         tint: "neutral" },
-  { match: /^WHAT SHOULD HAVE BEEN SAID INSTEAD/i, key: "rewrites",     label: "Better lines to use",         icon: Quote,          tint: "info" },
+  { match: /^CALL SCORE/i,                        key: "score",         labelKey: "coach.score",                       icon: Sparkles,       tint: "neutral", defaultOpen: true },
+  { match: /^EXECUTIVE ASSESSMENT/i,              key: "assessment",    labelKey: "coach.execAssessment",        icon: Sparkles,       tint: "neutral", defaultOpen: true },
+  { match: /^WHAT THE SELLER DID WELL/i,          key: "wins",          labelKey: "coach.whatWorked",                 icon: ThumbsUp,       tint: "good",    defaultOpen: true },
+  { match: /^BIGGEST MISSED OPPORTUNITIES/i,      key: "misses",        labelKey: "coach.missed",        icon: ThumbsDown,     tint: "bad",     defaultOpen: true },
+  { match: /^NEXT CALL IMPROVEMENTS/i,            key: "next_improvements", labelKey: "coach.improvements", icon: ListChecks, tint: "info", defaultOpen: true },
+  { match: /^IDEAL NEXT STEP/i,                   key: "next_step",     labelKey: "coach.nextStep",             icon: ArrowRight,     tint: "info",    defaultOpen: true },
+  { match: /^BEST MOMENT OF THE CALL/i,           key: "best_moment",   labelKey: "coach.bestMoment",                 icon: Award,          tint: "good" },
+  { match: /^WORST MOMENT OF THE CALL/i,          key: "worst_moment",  labelKey: "coach.worstMoment",                icon: AlertTriangle,  tint: "bad" },
+  { match: /^BUYING SIGNALS DETECTED/i,           key: "buying_signals", labelKey: "coach.buyingSignals",             icon: TrendingUp,     tint: "good" },
+  { match: /^MOMENTS THAT INCREASED TRUST/i,      key: "trust_up",      labelKey: "coach.trustGained",                icon: Shield,         tint: "good" },
+  { match: /^MOMENTS THAT REDUCED TRUST/i,        key: "trust_down",    labelKey: "coach.trustLost",                  icon: Shield,         tint: "bad" },
+  { match: /^DISCOVERY ANALYSIS/i,                key: "discovery",     labelKey: "coach.discovery",          icon: Target,         tint: "neutral" },
+  { match: /^POSITIONING ANALYSIS/i,              key: "positioning",   labelKey: "coach.positioning",        icon: Target,         tint: "neutral" },
+  { match: /^COMMUNICATION ANALYSIS/i,            key: "communication", labelKey: "coach.communication",      icon: Mic,            tint: "neutral" },
+  { match: /^OBJECTION HANDLING ANALYSIS/i,       key: "objections",    labelKey: "coach.objections",          icon: Shield,         tint: "neutral" },
+  { match: /^WHAT SHOULD HAVE BEEN SAID INSTEAD/i, key: "rewrites",     labelKey: "coach.betterLines",         icon: Quote,          tint: "info" },
 ];
 
-type ParsedSection = { key: string; label: string; icon: typeof Sparkles; tint: "neutral" | "good" | "bad" | "info" | "warning"; defaultOpen: boolean; lines: string[]; };
+type ParsedSection = { key: string; labelKey: string | null; rawTitle: string; icon: typeof Sparkles; tint: "neutral" | "good" | "bad" | "info" | "warning"; defaultOpen: boolean; lines: string[]; };
 
 function parseSections(text: string): ParsedSection[] {
   const out: ParsedSection[] = [];
@@ -54,7 +55,8 @@ function parseSections(text: string): ParsedSection[] {
       const meta = SECTION_META.find(s => s.match.test(title));
       current = {
         key: meta?.key ?? `extra-${out.length}`,
-        label: meta?.label ?? title,
+        labelKey: meta?.labelKey ?? null,
+        rawTitle: title,
         icon: meta?.icon ?? Sparkles,
         tint: meta?.tint ?? "neutral",
         defaultOpen: meta?.defaultOpen ?? false,
@@ -125,6 +127,7 @@ function renderLines(lines: string[], color: string) {
 }
 
 function SectionCard({ section, expandable = true }: { section: ParsedSection; expandable?: boolean }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(section.defaultOpen);
   const colors = tintColors(section.tint);
   const Icon = section.icon;
@@ -140,7 +143,7 @@ function SectionCard({ section, expandable = true }: { section: ParsedSection; e
       >
         <Icon size={13} style={{ color: colors.fg }} />
         <span className="text-xs font-semibold flex-1" style={{ color: colors.fg }}>
-          {section.label}
+          {section.labelKey ? t(section.labelKey) : section.rawTitle}
         </span>
         {expandable && (
           isOpen
@@ -192,6 +195,7 @@ export default function CallCoachAnalysis(props: {
   hasTranscript: boolean;
   initial: CoachState;
 }) {
+  const { t } = useLocale();
   const [state, setState] = useState<CoachState>(props.initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -279,7 +283,7 @@ export default function CallCoachAnalysis(props: {
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <Loader2 size={12} className="animate-spin" style={{ color: "#b79832" }} />
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>AI Coach analysis</span> — generating in background…
+          <span className="font-semibold" style={{ color: C.textBody }}>{t("coach.title")}</span> — generating in background…
         </p>
       </div>
     );
@@ -293,7 +297,7 @@ export default function CallCoachAnalysis(props: {
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={14} style={{ color: "#b79832" }} />
           <p className="text-xs" style={{ color: C.textBody }}>
-            <span className="font-semibold">AI Coach analysis</span> — actionable feedback on this call
+            <span className="font-semibold">{t("coach.title")}</span> — actionable feedback on this call
           </p>
         </div>
         <button
@@ -304,9 +308,9 @@ export default function CallCoachAnalysis(props: {
           style={{ backgroundColor: "#b79832", color: "#04070d" }}
         >
           {loading ? (
-            <><Loader2 size={11} className="animate-spin" /> Analyzing…</>
+            <><Loader2 size={11} className="animate-spin" /> {t("coach.analyzing")}</>
           ) : (
-            <>Generate</>
+            <>{t("coach.generate")}</>
           )}
         </button>
         {error && (

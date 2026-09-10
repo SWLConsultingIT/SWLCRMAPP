@@ -7,6 +7,7 @@ import {
   TrendingUp, Send, MessageSquare, Users, Clock,
 } from "lucide-react";
 import LimitEditor from "./LimitEditor";
+import { getT } from "@/lib/i18n-server";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -101,6 +102,7 @@ function timeAgo(iso: string | null) {
 }
 
 export default async function LinkedInAccountDetail({ params }: { params: Promise<{ sellerId: string }> }) {
+  const t = await getT();
   const { sellerId } = await params;
   const { seller, todayMsgs, weekMsgs, monthMsgs, campaignBreakdown, replies } = await getSellerDetail(sellerId);
   if (!seller) notFound();
@@ -125,7 +127,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
         <Link href="/accounts" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Accounts
+          <ArrowLeft size={12} /> {t("acc.accounts")}
         </Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{seller.name}</span>
@@ -162,7 +164,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
               <div className="flex items-start gap-2">
                 <AlertTriangle size={16} style={{ color: statusMeta.color }} className="shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-bold" style={{ color: statusMeta.color }}>Issue detected</p>
+                  <p className="text-xs font-bold" style={{ color: statusMeta.color }}>{t("sl.issueDetected")}</p>
                   <p className="text-xs mt-0.5" style={{ color: C.textBody }}>
                     {seller.linkedin_status_note ?? "Account has been flagged. Check LinkedIn manually."}
                   </p>
@@ -199,10 +201,10 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
       {/* Stats grid */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Sent this week",   value: weekSent,       sub: "LinkedIn messages", color: C.linkedin, icon: Send },
+          { label: t("sl.sentThisWeek"),   value: weekSent,       sub: "LinkedIn messages", color: C.linkedin, icon: Send },
           { label: "Reply rate",       value: `${replyRate}%`, sub: `${replies.length} replies`, color: C.green,    icon: MessageSquare },
-          { label: "Fail rate",        value: `${failRate}%`,  sub: `${weekFailed} failed`,      color: failRate > 10 ? C.red : C.textMuted, icon: AlertTriangle },
-          { label: "Active campaigns", value: activeCampaignsCount, sub: "in progress",             color: gold,       icon: Users },
+          { label: t("sl.failRate"),        value: `${failRate}%`,  sub: `${weekFailed} failed`,      color: failRate > 10 ? C.red : C.textMuted, icon: AlertTriangle },
+          { label: t("sl.activeCampaigns"), value: activeCampaignsCount, sub: t("sl.inProgress"),             color: gold,       icon: Users },
         ].map(({ label, value, sub, color, icon: Icon }) => (
           <div key={label} className="rounded-2xl border p-4" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center justify-between mb-2">
@@ -227,12 +229,12 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
         <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
             <TrendingUp size={14} style={{ color: C.textMuted }} />
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Recent LinkedIn Activity</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("sl.recentActivity")}</h3>
           </div>
           {monthMsgs.length === 0 ? (
             <div className="py-12 text-center">
               <Clock size={22} className="mx-auto mb-2" style={{ color: C.textDim }} />
-              <p className="text-xs" style={{ color: C.textMuted }}>No recent activity</p>
+              <p className="text-xs" style={{ color: C.textMuted }}>{t("sl.noActivity")}</p>
             </div>
           ) : (
             <div className="max-h-[400px] overflow-y-auto">
@@ -272,19 +274,19 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
           {campaignBreakdown.length === 0 ? (
             <div className="py-12 text-center">
               <Users size={22} className="mx-auto mb-2" style={{ color: C.textDim }} />
-              <p className="text-xs" style={{ color: C.textMuted }}>No campaigns yet</p>
+              <p className="text-xs" style={{ color: C.textMuted }}>{t("sl.noCampaigns")}</p>
             </div>
           ) : (
             <div className="max-h-[420px] overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0" style={{ backgroundColor: C.bg, borderBottom: `1px solid ${C.border}` }}>
                   <tr>
-                    <th className="text-left px-4 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Campaign</th>
-                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Leads</th>
-                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Sent</th>
-                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Replied</th>
-                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Positive</th>
-                    <th className="text-right px-4 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Started</th>
+                    <th className="text-left px-4 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("opp.col.campaign")}</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("ld.leads")}</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("kb.sent")}</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("pulse.col.replied")}</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("pulse.col.positive")}</th>
+                    <th className="text-right px-4 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("sl.started")}</th>
                   </tr>
                 </thead>
                 <tbody>
