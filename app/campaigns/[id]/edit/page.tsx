@@ -16,6 +16,7 @@ import { LinkedInIcon, EmailIcon, PhoneIcon, WhatsAppIcon } from "@/components/S
 import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
 import { PlaceholdersHint } from "@/components/ChannelMessageConfig";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
+import { useLocale } from "@/lib/i18n";
 
 const gold = C.gold;
 
@@ -70,6 +71,7 @@ const channelConfig: Record<string, { label: string; color: string; svgIcon: Rea
 };
 
 export default function FlowEditorPage() {
+  const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const params = useParams();
@@ -362,7 +364,7 @@ export default function FlowEditorPage() {
       if (res.leftSent) parts.push(`${res.leftSent} already sent — left untouched`);
       toast.show({
         kind: "success",
-        title: "Flow updated",
+        title: t("fed.flowUpdated"),
         description: parts.length > 0 ? parts.join(" · ") : "Sequence and settings saved.",
       });
       router.push(`/campaigns/${campaignId}`);
@@ -390,8 +392,8 @@ export default function FlowEditorPage() {
             style={{ color: C.textMuted }}>
             <ArrowLeft size={14} /> Back to Outreach Flow
           </Link>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: gold }}>Flow Editor</p>
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Edit Sequence</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: gold }}>{t("fed.flowEditor")}</p>
+          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{t("fed.editSequence")}</h1>
         </div>
         <div className="flex items-center gap-3 pt-8 shrink-0">
           <Link href="/campaigns"
@@ -433,16 +435,16 @@ export default function FlowEditorPage() {
 
           {/* Flow Name */}
           <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Flow Name</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>{t("fed.flowName")}</label>
             <input value={flowName} onChange={e => setFlowName(e.target.value)}
               className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none"
               style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-              placeholder="E.g.: Crop Nutrition Outbound" />
+              placeholder={t("fed.flowNamePh")} />
           </div>
 
           {/* Manager + Email */}
           <div className="rounded-xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Accounts</label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("fed.accounts")}</label>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Flow Manager</label>
@@ -735,7 +737,7 @@ export default function FlowEditorPage() {
                             onChange={e => updateStep(i, { wait_days: parseInt(e.target.value) || 0 })}
                             className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
                             style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
-                          <span className="text-xs shrink-0" style={{ color: C.textMuted }}>days</span>
+                          <span className="text-xs shrink-0" style={{ color: C.textMuted }}>{t("tpl.days")}</span>
                         </div>
                       </div>
                     </div>
@@ -763,7 +765,7 @@ export default function FlowEditorPage() {
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: `${conf.color}15` }}>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                          {step.action === "Send Request" ? "Connection Note" : "Message Template"}
+                          {step.action === "Send Request" ? t("nfl.connectionNote") : "Message Template"}
                         </label>
                         {msg?.content ? (
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"

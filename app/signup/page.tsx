@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ChevronRight, Mail, CheckCircle2, User, Lock } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useLocale } from "@/lib/i18n";
 
 const inputStyle = {
   backgroundColor: "rgba(255,255,255,0.04)",
@@ -22,6 +23,7 @@ const inputBlur = {
 };
 
 export default function SignupPage() {
+  const { t } = useLocale();
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -127,14 +129,14 @@ export default function SignupPage() {
             <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border w-fit"
               style={{ borderColor: "color-mix(in srgb, #b79832 30%, transparent)", backgroundColor: "color-mix(in srgb, #b79832 7%, transparent)" }}>
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#b79832" }} />
-              <span className="text-xs font-medium tracking-widest uppercase" style={{ color: "#b79832" }}>Empezar ahora</span>
+              <span className="text-xs font-medium tracking-widest uppercase" style={{ color: "#b79832" }}>{t("auth.startNow")}</span>
             </div>
             <h1 className="text-6xl font-bold leading-[1.1] mb-6" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
-              Automatizá tu equipo{" "}
-              <span style={{ color: "#b79832" }}>de ventas.</span>
+              {t("auth.automateTeam")}{" "}
+              <span style={{ color: "#b79832" }}>{t("auth.salesTeam")}</span>
             </h1>
             <p className="text-lg leading-relaxed mb-10" style={{ color: "#d9dee2", opacity: 0.7 }}>
-              Lead generation, outreach multicanal y gestión de campañas. Todo en un lugar, potenciado por IA.
+              {t("auth.signupLede")}
             </p>
           </div>
           <div className="flex items-center gap-1 text-xs" style={{ color: "rgba(217,222,226,0.3)" }}>
@@ -161,7 +163,7 @@ export default function SignupPage() {
                 style={{ backgroundColor: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
                 <CheckCircle2 size={32} style={{ color: "#22C55E" }} />
               </div>
-              <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>Check your email</h2>
+              <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>{t("auth.checkEmail")}</h2>
               <p className="text-sm leading-relaxed mb-6" style={{ color: "rgba(217,222,226,0.6)" }}>
                 We sent a confirmation link to <strong style={{ color: "#f8fafc" }}>{email}</strong>. Click it to activate your account.
               </p>
@@ -173,7 +175,7 @@ export default function SignupPage() {
             <>
               <div className="mb-8">
                 <h2 className="text-2xl font-bold mb-1" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)", letterSpacing: "-0.01em" }}>
-                  Create account
+                  {t("auth.createAccountBtn")}
                 </h2>
                 <p className="text-sm" style={{ color: "rgba(217,222,226,0.5)" }}>
                   Start using GrowthAI in minutes
@@ -184,11 +186,11 @@ export default function SignupPage() {
 
                 {/* Name */}
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Name</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.name")}</p>
                   <div className="relative">
                     <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
-                      placeholder="Your name" required
+                      placeholder={t("auth.yourName")} required
                       className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                       style={inputStyle}
                       onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
@@ -198,7 +200,7 @@ export default function SignupPage() {
 
                 {/* Email */}
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Email</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.email")}</p>
                   <div className="relative">
                     <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -212,11 +214,11 @@ export default function SignupPage() {
 
                 {/* Password */}
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Password</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.password")}</p>
                   <div className="relative">
                     <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
-                      placeholder="At least 6 characters" autoComplete="new-password" minLength={6} required
+                      placeholder={t("auth.min6")} autoComplete="new-password" minLength={6} required
                       className="w-full pl-10 pr-4 py-3 pr-11 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                       style={inputStyle}
                       onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
@@ -231,11 +233,11 @@ export default function SignupPage() {
 
                 {/* Confirm password */}
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Confirm password</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>{t("auth.confirmPassword")}</p>
                   <div className="relative">
                     <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type={showConfirm ? "text" : "password"} value={confirm} onChange={e => setConfirm(e.target.value)}
-                      placeholder="Repeat your password" autoComplete="new-password" minLength={6} required
+                      placeholder={t("auth.repeatPassword")} autoComplete="new-password" minLength={6} required
                       className="w-full pl-10 pr-11 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                       style={{
                         ...inputStyle,
@@ -250,7 +252,7 @@ export default function SignupPage() {
                     </button>
                   </div>
                   {passwordMismatch && (
-                    <p className="text-[11px] mt-1.5" style={{ color: "color-mix(in srgb, #DC2626 34%, transparent)" }}>Passwords don&apos;t match</p>
+                    <p className="text-[11px] mt-1.5" style={{ color: "color-mix(in srgb, #DC2626 34%, transparent)" }}>{t("auth.passwordsMismatch")}</p>
                   )}
                 </div>
 
@@ -272,14 +274,14 @@ export default function SignupPage() {
                       Creating account…
                     </span>
                   ) : (
-                    <>Create account <ChevronRight size={15} /></>
+                    <>{t("auth.createAccountBtn")} <ChevronRight size={15} /></>
                   )}
                 </button>
               </form>
 
               <p className="text-center text-xs mt-6" style={{ color: "rgba(217,222,226,0.4)" }}>
                 Already have an account?{" "}
-                <a href="/login" className="font-semibold hover:underline" style={{ color: "#b79832" }}>Sign in</a>
+                <a href="/login" className="font-semibold hover:underline" style={{ color: "#b79832" }}>{t("auth.signInLink")}</a>
               </p>
             </>
           )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, X, Loader2, Check } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 // Modal that lets a tenant claim Instantly email accounts into their pool.
 // Lists every account in the connected Instantly org with one of three states:
@@ -25,6 +26,7 @@ type PoolAccount = {
 };
 
 export default function EmailPoolManager({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -123,7 +125,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
               <Mail size={16} style={{ color: "#7C3AED" }} />
             </div>
             <div>
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Manage Email Pool</h2>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("pool.manage")}</h2>
               <p className="text-[11px]" style={{ color: C.textMuted }}>
                 Pick which Instantly inboxes belong to your tenant
               </p>
@@ -167,7 +169,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
           {loading ? (
             <div className="flex items-center justify-center py-10 gap-2" style={{ color: C.textMuted }}>
               <Loader2 size={16} className="animate-spin" />
-              <span className="text-sm">Loading Instantly accounts…</span>
+              <span className="text-sm">{t("pool.loading")}</span>
             </div>
           ) : accounts.length === 0 ? (
             <p className="text-sm text-center py-10" style={{ color: C.textDim }}>
@@ -177,7 +179,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
             <>
               <div className="flex items-center gap-4 mb-3 text-[11px]" style={{ color: C.textMuted }}>
                 <span><b style={{ color: C.textBody }}>{myCount}</b> yours</span>
-                <span><b style={{ color: C.textBody }}>{availableCount}</b> available to claim</span>
+                <span><b style={{ color: C.textBody }}>{availableCount}</b> {t("pool.availableClaim")}</span>
               </div>
               <div className="space-y-1.5">
                 {visibleAccounts.map(a => {

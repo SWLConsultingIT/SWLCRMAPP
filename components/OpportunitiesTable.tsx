@@ -14,6 +14,7 @@ import {
   ExternalLink, Search, X, ChevronRight,
 } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -54,6 +55,7 @@ function scoreBadge(score: number | null, priority: boolean) {
 }
 
 export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[] }) {
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
@@ -84,29 +86,29 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
           style={{ borderColor: C.border, backgroundColor: C.card }}>
           <Search size={14} style={{ color: C.textDim }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search opportunities..." className="bg-transparent text-sm outline-none flex-1"
+            placeholder={t("opp.search")} className="bg-transparent text-sm outline-none flex-1"
             style={{ color: C.textPrimary }} />
           {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
         </div>
         {profileNames.length > 1 && (
           <select value={profileFilter} onChange={e => setProfileFilter(e.target.value)}
             className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-            <option value="all">All Profiles</option>
+            <option value="all">{t("opp.allProfiles")}</option>
             {profileNames.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         )}
         {allChannels.length > 1 && (
           <select value={channelFilter} onChange={e => setChannelFilter(e.target.value)}
             className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-            <option value="all">All Channels</option>
+            <option value="all">{t("opp.allChannels")}</option>
             {allChannels.map(ch => <option key={ch} value={ch}>{channelMeta[ch]?.label ?? ch}</option>)}
           </select>
         )}
         <select value={transferFilter} onChange={e => setTransferFilter(e.target.value)}
           className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-          <option value="all">All Status</option>
-          <option value="yes">Transferred</option>
-          <option value="no">Pending Transfer</option>
+          <option value="all">{t("opp.allStatus")}</option>
+          <option value="yes">{t("opp.transferred")}</option>
+          <option value="no">{t("opp.pendingTransfer")}</option>
         </select>
         <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
       </div>
@@ -116,21 +118,21 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
         (search || profileFilter !== "all" || channelFilter !== "all") ? (
           <EmptyState
             icon={Trophy}
-            title="No opportunities match your filters"
-            description="Adjust the search or clear the channel/profile filters to widen the view."
+            title={t("opp.noMatch")}
+            description={t("opp.noMatchDesc")}
           />
         ) : (
           <EmptyState
             icon={Trophy}
-            title="No opportunities yet"
-            description="Opportunities show up here when a lead replies positively or a call gets classified as Positive."
+            title={t("opp.none")}
+            description={t("opp.noneDesc")}
             steps={[
               "Run a flow against an approved ICP so leads start receiving outreach.",
               "When replies arrive, triage them in Inbox and tag positives.",
               "Positive replies and won-classified calls land here automatically — ready to push to your CRM.",
             ]}
-            primaryCta={{ label: "Start a flow", href: "/campaigns?tab=new" }}
-            secondaryCta={{ label: "Open Inbox", href: "/inbox" }}
+            primaryCta={{ label: t("opp.startFlow"), href: "/campaigns?tab=new" }}
+            secondaryCta={{ label: t("opp.openInbox"), href: "/inbox" }}
           />
         )
       ) : (
@@ -140,11 +142,11 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
               <tr style={{ backgroundColor: C.bg }}>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>Company</th>
-                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>Campaign</th>
-                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Channel</th>
-                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center hidden sm:table-cell" style={{ color: C.textMuted }}>Days</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>{t("opp.col.campaign")}</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("opp.col.channel")}</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center hidden sm:table-cell" style={{ color: C.textMuted }}>{t("opp.col.days")}</th>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Status</th>
-                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden xl:table-cell" style={{ color: C.textMuted }}>Reply</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden xl:table-cell" style={{ color: C.textMuted }}>{t("opp.col.reply")}</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>

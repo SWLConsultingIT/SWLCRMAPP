@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ChevronRight, Mail } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useLocale } from "@/lib/i18n";
 
 const REMEMBER_KEY = "crm_last_email";
 
 export default function LoginPage() {
+  const { t } = useLocale();
   const router = useRouter();
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
@@ -118,19 +120,19 @@ export default function LoginPage() {
               letterSpacing: "-0.02em",
             }}>
               Bigger deals.{" "}
-              <span style={{ color: "#b79832" }}>Stronger teams.</span>
+              <span style={{ color: "#b79832" }}>{t("auth.strongerTeams")}</span>
             </h1>
 
             <p className="text-lg leading-relaxed mb-10" style={{ color: "#d9dee2", opacity: 0.7 }}>
-              Human ideas. AI-powered systems.
+              {t("auth.humanIdeas")}
             </p>
 
             {/* Stats */}
             <div className="flex items-center gap-8">
               {[
-                { value: "360°", label: "Full consulting" },
-                { value: "AI", label: "Automation" },
-                { value: "SWL", label: "Consulting" },
+                { value: "360°", label: t("auth.stat.fullConsulting") },
+                { value: "AI", label: t("auth.stat.automation") },
+                { value: "SWL", label: t("auth.stat.consulting") },
               ].map(s => (
                 <div key={s.label}>
                   <p className="text-2xl font-bold" style={{ color: "#b79832", fontFamily: "var(--font-outfit)" }}>{s.value}</p>
@@ -181,10 +183,10 @@ export default function LoginPage() {
               fontFamily: "var(--font-outfit)",
               letterSpacing: "-0.01em",
             }}>
-              Welcome back
+              {t("auth.welcomeBack")}
             </h2>
             <p className="text-sm" style={{ color: "rgba(217,222,226,0.5)" }}>
-              Sign in to your GrowthAI dashboard
+              {t("auth.signInSub")}
             </p>
           </div>
 
@@ -193,7 +195,7 @@ export default function LoginPage() {
             {/* Email */}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>
-                Email
+                {t("auth.email")}
               </p>
               <div className="relative">
                 <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
@@ -226,7 +228,7 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>
-                Password
+                {t("auth.password")}
               </p>
               <div className="relative">
                 <input
@@ -286,7 +288,7 @@ export default function LoginPage() {
                   )}
                 </div>
               </div>
-              <span className="text-xs" style={{ color: "rgba(217,222,226,0.5)" }}>Remember me</span>
+              <span className="text-xs" style={{ color: "rgba(217,222,226,0.5)" }}>{t("auth.rememberMe")}</span>
             </label>
 
             {/* Error */}
@@ -317,7 +319,7 @@ export default function LoginPage() {
                 </span>
               ) : (
                 <>
-                  Sign in
+                  {t("auth.signIn")}
                   <ChevronRight size={15} />
                 </>
               )}
@@ -327,10 +329,10 @@ export default function LoginPage() {
           {/* Bottom links */}
           <div className="flex items-center justify-between text-xs mt-6" style={{ color: "rgba(217,222,226,0.4)" }}>
             <a href="/forgot-password" className="hover:underline" style={{ color: "rgba(217,222,226,0.5)" }}>
-              Forgot password
+              {t("auth.forgotPassword")}
             </a>
             <a href="/signup" className="hover:underline font-semibold" style={{ color: "#b79832" }}>
-              Create account →
+              {t("auth.createAccount")}
             </a>
           </div>
 

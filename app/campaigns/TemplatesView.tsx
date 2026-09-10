@@ -13,6 +13,7 @@ import EmptyState from "@/components/EmptyState";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import { useToast } from "@/lib/toast";
 import { printPdf } from "@/lib/print-pdf";
+import { useLocale } from "@/lib/i18n";
 
 // 2026-05-17 — Templates organized by ICP.
 // Default view: "By ICP" with collapsible sections per ICP. A "Needs ICP"
@@ -92,6 +93,7 @@ function timeAgo(iso: string | null) {
 }
 
 export default function TemplatesView() {
+  const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const [templates, setTemplates] = useState<TemplateListItem[] | null>(null);
@@ -341,7 +343,7 @@ export default function TemplatesView() {
           <Link href="/campaigns/templates/new"
             className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-            <Plus size={12} /> New Template
+            <Plus size={12} /> {t("tpl.newTemplate")}
           </Link>
         </div>
       </div>
@@ -350,7 +352,7 @@ export default function TemplatesView() {
       {loading && templates === null ? (
         <div className="flex items-center justify-center py-16" style={{ color: C.textMuted }}>
           <Loader2 size={16} className="animate-spin mr-2" />
-          <span className="text-sm">Loading templates…</span>
+          <span className="text-sm">{t("tpl.loadingTemplates")}</span>
         </div>
       ) : err ? (
         <div className="rounded-2xl border py-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>

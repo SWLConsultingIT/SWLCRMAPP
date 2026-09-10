@@ -10,6 +10,8 @@ import LostLeadActions from "@/components/LostLeadActions";
 import RegenerateLossAnalysis from "@/components/RegenerateLossAnalysis";
 import CopyTemplateButton from "@/components/CopyTemplateButton";
 import LostReasonPanel from "@/components/LostReasonPanel";
+import { useLocale } from "@/lib/i18n";
+import { getT } from "@/lib/i18n-server";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, Send,
   MessageSquare, XCircle, AlertTriangle, Target, Megaphone,
@@ -312,6 +314,7 @@ async function getLostLeadData(leadId: string) {
 }
 
 export default async function LostLeadPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const data = await getLostLeadData(id);
   if (!data) notFound();
@@ -332,7 +335,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
       {/* Breadcrumb back to /results — that's where Lost / Won / Renurture
           live post 2026-05-28 restructure. Linking to /leads sent the
           seller to an unrelated index (boss complaint 2026-05-29). */}
-      <Breadcrumb crumbs={[{ label: "Results", href: "/results" }, { label: "Lost", href: "/results" }, { label: name }]} />
+      <Breadcrumb crumbs={[{ label: t("lost.results"), href: "/results" }, { label: t("lost.lost"), href: "/results" }, { label: name }]} />
 
       {/* ═══ HEADER CARD ═══ */}
       <div
@@ -415,10 +418,10 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-5 gap-3 mb-6">
         {[
           { label: "Campaigns", value: stats.totalCampaigns, color: gold },
-          { label: "Steps Done", value: `${stats.stepsCompleted}/${stats.totalSteps}`, color: C.blue },
+          { label: t("lost.stepsDone"), value: `${stats.stepsCompleted}/${stats.totalSteps}`, color: C.blue },
           { label: "Channels", value: stats.channels.length, color: "#7C3AED" },
           { label: "Replies", value: stats.totalReplies, color: lossReason === "negative" ? C.red : C.textDim },
-          { label: "Days Active", value: stats.daysSinceCreated, color: C.textBody },
+          { label: t("lost.daysActive"), value: stats.daysSinceCreated, color: C.textBody },
         ].map(s => (
           <div key={s.label} className="rounded-2xl border p-3.5 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <p className="text-lg font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
@@ -436,7 +439,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
             <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Target size={12} style={{ color: gold }} />
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Lead Miner Profile</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>{t("lost.leadMinerProfile")}</span>
               </div>
               <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{profile.profile_name}</p>
               <p className="text-xs mt-1" style={{ color: C.textDim }}>
@@ -449,10 +452,10 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-1.5 mb-3">
               <Megaphone size={12} style={{ color: gold }} />
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Campaigns Attempted</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>{t("lost.campaignsAttempted")}</span>
             </div>
             {campaigns.length === 0 ? (
-              <p className="text-xs" style={{ color: C.textDim }}>No campaigns</p>
+              <p className="text-xs" style={{ color: C.textDim }}>{t("lost.noCampaigns")}</p>
             ) : (
               <div className="space-y-2">
                 {campaigns.map(c => {
@@ -490,11 +493,11 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${C.red}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-1.5 mb-3">
               <TrendingDown size={12} style={{ color: C.red }} />
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.red }}>Loss Analysis</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.red }}>{t("lost.lossAnalysis")}</span>
             </div>
             {lossReason === "negative" ? (
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>Lead replied negatively</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>{t("lost.repliedNegatively")}</p>
                 <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
                   After {stats.stepsCompleted} touchpoints across {stats.channels.length} channel{stats.channels.length > 1 ? "s" : ""} ({stats.channels.join(", ")}),
                   the lead responded with a negative reply. The full sequence was {stats.stepsCompleted === stats.totalSteps ? "completed" : `${stats.stepsCompleted}/${stats.totalSteps} steps in`} before receiving the response.
@@ -502,7 +505,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
               </div>
             ) : (
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>No response received</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>{t("lost.noResponse")}</p>
                 <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
                   The complete sequence of {stats.totalSteps} steps across {stats.channels.length} channel{stats.channels.length > 1 ? "s" : ""} ({stats.channels.join(", ")}) was executed over {stats.daysSinceCreated} days with no reply from the lead.
                 </p>
@@ -513,8 +516,8 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
               <AIRecoveryPanel analysis={aiAnalysis} leadId={lead.id} firstName={lead.first_name} analyzedAt={analyzedAt} />
             ) : (
               <div className="mt-3 rounded-lg px-3 py-2.5 border border-dashed" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>AI Recovery Plan</p>
-                <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>Add ANTHROPIC_API_KEY to .env.local to enable AI analysis.</p>
+                <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>{t("lost.recoveryPlan")}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{t("lost.needKey")}</p>
               </div>
             )}
           </div>
@@ -524,13 +527,13 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
         <div className="col-span-3">
           <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Outreach Timeline</h2>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Complete history of interactions with this lead</p>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("lost.timeline")}</h2>
+              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("lost.timelineDesc")}</p>
             </div>
 
             <div className="p-5">
               {timeline.length === 0 ? (
-                <p className="text-sm text-center py-6" style={{ color: C.textDim }}>No interactions recorded</p>
+                <p className="text-sm text-center py-6" style={{ color: C.textDim }}>{t("lost.noInteractions")}</p>
               ) : (
                 <div className="relative">
                   {/* Vertical line */}
@@ -581,8 +584,8 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                                   {cls.label}
                                 </span>
                               )}
-                              {isCampStart && <span className="text-[10px] font-bold" style={{ color: gold }}>Campaign Started</span>}
-                              {isCampEnd && <span className="text-[10px] font-bold" style={{ color: C.textMuted }}>Campaign Ended</span>}
+                              {isCampStart && <span className="text-[10px] font-bold" style={{ color: gold }}>{t("lost.campaignStarted")}</span>}
+                              {isCampEnd && <span className="text-[10px] font-bold" style={{ color: C.textMuted }}>{t("lost.campaignEnded")}</span>}
                               {item.date && <span className="text-[9px] ml-auto" style={{ color: C.textDim }}>{formatDate(item.date)}</span>}
                             </div>
 
@@ -640,10 +643,11 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
 // ─── AI Recovery Panel ──────────────────────────────────────────────────────
 const viabilityColor = { high: "#16A34A", medium: "#D97706", low: C.red };
 const viabilityBg = { high: "color-mix(in srgb, #16A34A 16%, transparent)", medium: "color-mix(in srgb, #D97706 13%, transparent)", low: C.redLight };
-const verdictMeta: Record<LossAnalysis["verdict"], { label: string; color: string; bg: string }> = {
-  recoverable: { label: "Recoverable",  color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
-  dormant:     { label: "Dormant",      color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  lost:        { label: "Lost",         color: C.red,     bg: C.redLight },
+// Keys, not labels: module scope. The panel resolves them.
+const verdictMeta: Record<LossAnalysis["verdict"], { labelKey: string; color: string; bg: string }> = {
+  recoverable: { labelKey: "lost.recoverable", color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  dormant:     { labelKey: "lost.dormant",     color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  lost:        { labelKey: "lost.lost",        color: C.red,     bg: C.redLight },
 };
 const channelIcon: Record<string, { icon: typeof Share2; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
@@ -659,6 +663,7 @@ function AIRecoveryPanel({
   firstName: string | null;
   analyzedAt: Date | null;
 }) {
+  const { t } = useLocale();
   const verdict = verdictMeta[analysis.verdict] ?? verdictMeta.lost;
   const v = analysis.reengage_viability;
   const vColor = viabilityColor[v] ?? C.textMuted;
@@ -674,7 +679,7 @@ function AIRecoveryPanel({
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b" style={{ borderColor: "#7C3AED20", backgroundColor: "color-mix(in srgb, #7C3AED 16%, transparent)" }}>
         <div className="flex items-center gap-1.5">
           <Sparkles size={11} style={{ color: "#7C3AED" }} />
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>AI Recovery Plan</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>{t("lost.recoveryPlan")}</span>
         </div>
         <div className="flex items-center gap-2">
           {analyzedAt && (
@@ -690,7 +695,7 @@ function AIRecoveryPanel({
         {/* Verdict + confidence */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: verdict.bg, color: verdict.color }}>
-            {verdict.label}
+            {t(verdict.labelKey)}
           </span>
           <span className="text-[10px] font-medium" style={{ color: "#6B7280" }}>
             <Gauge size={9} className="inline mr-0.5" /> {analysis.confidence}% confidence

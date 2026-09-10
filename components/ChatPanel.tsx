@@ -5,6 +5,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import { Send, Plus, Hash, User, X, Loader2, MessageSquare, Smile, Trash2 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useLocale } from "@/lib/i18n";
 
 // System @mention pings embed a "→ /leads/<uuid>?tab=notes" deep link as plain
 // text. Render those (and any /leads/<id> path) as a clickable link so the
@@ -65,6 +66,7 @@ function ago(iso: string) {
 }
 
 export default function ChatPanel({ initialThreadId }: { initialThreadId?: string | null }) {
+  const { t } = useLocale();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(initialThreadId ?? null);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -155,7 +157,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
         </div>
         <div className="flex-1 overflow-y-auto">
           {threads.length === 0 ? (
-            <p className="text-xs text-center py-8 px-4" style={{ color: C.textDim }}>No conversations yet. Hit “New” to start one.</p>
+            <p className="text-xs text-center py-8 px-4" style={{ color: C.textDim }}>{t("chat.noConversations")}</p>
           ) : threads.map(t => (
             <button key={t.id} onClick={() => setActiveId(t.id)}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-b transition-colors hover:bg-black/[0.03]"
@@ -184,7 +186,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
         {!active ? (
           <div className="flex-1 flex flex-col items-center justify-center" style={{ color: C.textDim }}>
             <MessageSquare size={28} className="mb-2" />
-            <p className="text-sm">Pick a conversation</p>
+            <p className="text-sm">{t("chat.pickConversation")}</p>
           </div>
         ) : (
           <>
@@ -193,7 +195,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
               <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{active.title}</p>
               <CompanyTag company={active.otherCompany} />
               <span className="text-[11px]" style={{ color: C.textDim }}>· {active.members.length} {active.members.length === 1 ? "member" : "members"}</span>
-              <button onClick={() => delThread(active.id)} disabled={deleting} title="Delete conversation"
+              <button onClick={() => delThread(active.id)} disabled={deleting} title={t("chat.deleteConversation")}
                 className="ml-auto p-1.5 rounded-lg transition-colors hover:bg-black/[0.04] disabled:opacity-50" style={{ color: C.textMuted }}>
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
               </button>
@@ -247,6 +249,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
 }
 
 function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: (threadId: string) => void }) {
+  const { t } = useLocale();
   const [roster, setRoster] = useState<Member[]>([]);
   const [kind, setKind] = useState<"dm" | "channel">("dm");
   const [selected, setSelected] = useState<string[]>([]);
@@ -285,7 +288,7 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               <button key={k} onClick={() => { setKind(k); setSelected([]); }}
                 className="text-xs font-semibold px-3 py-2 rounded-lg border flex items-center justify-center gap-1.5"
                 style={{ borderColor: kind === k ? C.gold : C.border, backgroundColor: kind === k ? `color-mix(in srgb, ${C.gold} 10%, transparent)` : C.bg, color: kind === k ? C.gold : C.textBody }}>
-                {k === "dm" ? <User size={12} /> : <Hash size={12} />} {k === "dm" ? "Direct message" : "Channel"}
+                {k === "dm" ? <User size={12} /> : <Hash size={12} />} {k === "dm" ? "Direct message" : t("opp.col.channel")}
               </button>
             ))}
           </div>

@@ -11,6 +11,7 @@ import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 import { useToast } from "@/lib/toast";
 import { printPdf } from "@/lib/print-pdf";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -33,18 +34,19 @@ type FullTemplate = {
 type TonePreset = "conservative" | "balanced" | "direct" | "spicy" | "custom";
 type RewriteMode = "verbatim" | "personalize" | "rewrite_with_source";
 
-const TONE_PRESETS: Array<{ id: TonePreset; label: string; desc: string }> = [
-  { id: "conservative", label: "Conservative", desc: "Formal, safe, no hype." },
-  { id: "balanced",     label: "Balanced",     desc: "Conversational professional. Default." },
-  { id: "direct",       label: "Direct",       desc: "Punchy, no fluff." },
-  { id: "spicy",        label: "Spicy",        desc: "Bold opener, sharp angles." },
-  { id: "custom",       label: "Custom",       desc: "Bring your own style notes." },
+// Keys, not labels: module scope. Resolved where the pickers render.
+const TONE_PRESETS: Array<{ id: TonePreset; labelKey: string; descKey: string }> = [
+  { id: "conservative", labelKey: "tpl.tone.conservative", descKey: "tpl.tone.conservativeShort" },
+  { id: "balanced",     labelKey: "tpl.tone.balanced",     descKey: "tpl.tone.balancedShort" },
+  { id: "direct",       labelKey: "tpl.tone.direct",       descKey: "tpl.tone.directShort" },
+  { id: "spicy",        labelKey: "tpl.tone.spicy",        descKey: "tpl.tone.spicyShort" },
+  { id: "custom",       labelKey: "tpl.tone.custom",       descKey: "tpl.tone.customShort" },
 ];
 
-const REWRITE_MODES: Array<{ id: RewriteMode; label: string; desc: string }> = [
-  { id: "verbatim",            label: "Verbatim",                desc: "Use body as-is. Only {{first_name}} / {{seller_name}} substituted." },
-  { id: "personalize",         label: "Personalize per lead",    desc: "Light per-lead rewrite by Claude." },
-  { id: "rewrite_with_source", label: "Rewrite from source PDF", desc: "Per-lead rewrite anchored to the source PDFs." },
+const REWRITE_MODES: Array<{ id: RewriteMode; labelKey: string; descKey: string }> = [
+  { id: "verbatim",            labelKey: "tpl.mode.verbatim",    descKey: "tpl.mode.verbatimShort" },
+  { id: "personalize",         labelKey: "tpl.mode.personalize", descKey: "tpl.mode.personalizeShort" },
+  { id: "rewrite_with_source", labelKey: "tpl.mode.rewrite",     descKey: "tpl.mode.rewriteShort" },
 ];
 
 type EditStep = { channel: string; daysAfter: number; subject: string; body: string; attachments?: StepAttachment[] };
@@ -178,6 +180,7 @@ export default function TemplateDetailActions({
 
 /* ── Edit overlay ── */
 function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: string; icps: IcpOption[]; onClose: () => void; onSaved: () => void }) {
+  const { t: tr } = useLocale();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -354,7 +357,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
               </div>
 
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Tone</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>{tr("tpl.tone")}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {TONE_PRESETS.map(t => (
                     <button key={t.id} onClick={() => setTonePreset(t.id)}
@@ -364,12 +367,12 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                         backgroundColor: tonePreset === t.id ? `color-mix(in srgb, ${gold} 10%, transparent)` : C.bg,
                         color: tonePreset === t.id ? gold : C.textBody,
                       }}>
-                      {t.label}
+                      {tr(t.labelKey)}
                     </button>
                   ))}
                 </div>
                 <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>
-                  {TONE_PRESETS.find(t => t.id === tonePreset)?.desc}
+                  {(() => { const p = TONE_PRESETS.find(x => x.id === tonePreset); return p ? tr(p.descKey) : null; })()}
                 </p>
                 {tonePreset === "custom" && (
                   <textarea value={toneCustom} onChange={e => setToneCustom(e.target.value)}
@@ -391,9 +394,9 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                         backgroundColor: rewriteMode === m.id ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.bg,
                       }}>
                       <span className="text-xs font-semibold shrink-0" style={{ color: rewriteMode === m.id ? gold : C.textBody }}>
-                        {m.label}
+                        {tr(m.labelKey)}
                       </span>
-                      <span className="text-[11px]" style={{ color: C.textMuted }}>{m.desc}</span>
+                      <span className="text-[11px]" style={{ color: C.textMuted }}>{tr(m.descKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -468,7 +471,7 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
                           <span className="text-[10px] px-2 py-1 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>Day 0</span>
                         ) : (
                           <>
-                            <span className="text-[10px]" style={{ color: C.textMuted }}>Wait</span>
+                            <span className="text-[10px]" style={{ color: C.textMuted }}>{tr("nfl.wait")}</span>
                             <input type="number" min={1} value={s.daysAfter}
                               onChange={e => updateStep(idx, { daysAfter: Math.max(1, parseInt(e.target.value || "1")) })}
                               className="w-14 rounded-lg border px-2 py-1 text-xs font-bold text-center focus:outline-none tabular-nums"
