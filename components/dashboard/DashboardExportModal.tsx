@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileDown, FileSpreadsheet, X, ChevronDown, ChevronRight, Loader2, Check, Minus } from "lucide-react";
+import { FileDown, FileSpreadsheet, X, Loader2, Check, Minus } from "lucide-react";
 import { printPdf } from "@/lib/print-pdf";
 import { C } from "@/lib/design";
 
@@ -10,49 +10,20 @@ const gold = "var(--brand, #C9A83A)";
 type SubItem = { id: string; label: string };
 type TabSection = { id: string; label: string; description: string; items: SubItem[] };
 
+// The dashboard's own tabs. This list used to describe the PREVIOUS
+// dashboard — "Tabla de ICPs", "Desglose por canal", "Leaderboard" — so you
+// picked sections that no page had shown for weeks. One entry per tab, no
+// sub-items: the unit people think in is the tab they were just looking at.
 const TABS: TabSection[] = [
-  {
-    id: "overview",
-    label: "Overview",
-    description: "KPIs del pipeline + desglose por ICP",
-    items: [
-      { id: "kpis",  label: "Pipeline KPIs" },
-      { id: "icps",  label: "Tabla de ICPs" },
-    ],
-  },
-  {
-    id: "outreach",
-    label: "Outreach",
-    description: "Campañas activas + canales",
-    items: [
-      { id: "campaigns", label: "Performance por campaña" },
-      { id: "channels",  label: "Desglose por canal" },
-    ],
-  },
-  {
-    id: "channels",
-    label: "Channels",
-    description: "Email, LinkedIn y Calls detallado",
-    items: [
-      { id: "email",    label: "Email" },
-      { id: "linkedin", label: "LinkedIn" },
-      { id: "calls",    label: "Calls" },
-    ],
-  },
-  {
-    id: "sellers",
-    label: "Sellers",
-    description: "Activity, leaderboard y call outcomes",
-    items: [
-      { id: "activity", label: "Seller activity" },
-      { id: "table",    label: "Leaderboard" },
-      { id: "calls",    label: "Call outcomes" },
-    ],
-  },
+  { id: "overview",  label: "Overview",  description: "Funnel, canales y llamadas", items: [] },
+  { id: "icps",      label: "ICPs",      description: "Rendimiento por ICP",        items: [] },
+  { id: "campaigns", label: "Campaigns", description: "Flows y su cohorte",         items: [] },
+  { id: "channels",  label: "Channels",  description: "Cada canal con su base",     items: [] },
+  { id: "sellers",   label: "Sellers",   description: "Actividad y llamadas",       items: [] },
 ];
 
 function allKeys() {
-  return new Set(TABS.flatMap(t => t.items.map(i => `${t.id}.${i.id}`)));
+  return new Set(TABS.map(t => t.id));
 }
 
 function Checkbox({ checked, partial = false }: { checked: boolean; partial?: boolean }) {
@@ -82,44 +53,28 @@ export default function DashboardExportModal({
   searchParams: Record<string, string | undefined>;
 }) {
   const [open, setOpen]         = useState(false);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(TABS.map(t => t.id)));
   const [selected, setSelected] = useState<Set<string>>(allKeys());
   const [loading, setLoading]     = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
   const [lang, setLang]           = useState<"es" | "en">("es");
 
   function toggleTab(tabId: string) {
-    const items   = TABS.find(t => t.id === tabId)?.items ?? [];
-    const allSel  = items.every(i => selected.has(`${tabId}.${i.id}`));
-    const next    = new Set(selected);
-    items.forEach(i => {
-      const k = `${tabId}.${i.id}`;
-      if (allSel) next.delete(k); else next.add(k);
-    });
-    setSelected(next);
-  }
-
-  function toggleItem(tabId: string, itemId: string) {
-    const k    = `${tabId}.${itemId}`;
     const next = new Set(selected);
-    if (next.has(k)) next.delete(k); else next.add(k);
-    setSelected(next);
-  }
-
-  function toggleExpand(tabId: string) {
-    const next = new Set(expanded);
     if (next.has(tabId)) next.delete(tabId); else next.add(tabId);
-    setExpanded(next);
+    setSelected(next);
   }
 
   function buildQs() {
     const qs = new URLSearchParams();
-    qs.set("sections", [...selected].join(","));
+    // The report reads the same params the dashboard does, so it renders the
+    // view you were looking at rather than a differently-scoped query.
+    qs.set("tabs", [...selected].join(","));
     if (searchParams.from)     qs.set("from",     searchParams.from);
     if (searchParams.to)       qs.set("to",        searchParams.to);
-    if (searchParams.campaign) qs.set("campaign",  searchParams.campaign);
-    if (searchParams.seller)   qs.set("seller",    searchParams.seller);
-    if (searchParams.icp)      qs.set("icp",       searchParams.icp);
+    if (searchParams.preset)   qs.set("preset",    searchParams.preset);
+    if (searchParams.campaign) qs.set("campaigns", searchParams.campaign);
+    if (searchParams.seller)   qs.set("sellers",   searchParams.seller);
+    if (searchParams.icp)      qs.set("icps",      searchParams.icp);
     qs.set("lang", lang);
     return qs;
   }
@@ -151,7 +106,7 @@ export default function DashboardExportModal({
     setTimeout(() => { setCsvLoading(false); setOpen(false); }, 8000);
   }
 
-  const totalItems = TABS.flatMap(t => t.items).length;
+  const totalItems = TABS.length;
 
   return (
     <>
@@ -191,8 +146,8 @@ export default function DashboardExportModal({
                   <FileDown size={15} style={{ color: "var(--brand, #C9A83A)" }} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-bold leading-tight" style={{ color: C.textPrimary }}>Exportar PDF</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>Elegí qué secciones incluir</p>
+                  <p className="text-[13px] font-bold leading-tight" style={{ color: C.textPrimary }}>Descargar el dashboard</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{periodLabel}</p>
                 </div>
               </div>
               <button
@@ -217,64 +172,29 @@ export default function DashboardExportModal({
               </div>
             </div>
 
-            {/* Section list */}
+            {/* What the report will contain — one row per tab, nothing nested */}
             <div className="flex-1 overflow-y-auto py-1">
               {TABS.map(tab => {
-                const allSel  = tab.items.every(i => selected.has(`${tab.id}.${i.id}`));
-                const someSel = tab.items.some(i => selected.has(`${tab.id}.${i.id}`));
-                const isExp   = expanded.has(tab.id);
-
+                const checked = selected.has(tab.id);
                 return (
-                  <div key={tab.id}>
-                    {/* Section header row */}
-                    <div
-                      className="flex items-center gap-3 px-5 py-3 cursor-pointer select-none group transition-colors hover:bg-black/[0.03]"
-                      onClick={() => toggleTab(tab.id)}
-                    >
-                      <Checkbox checked={allSel} partial={someSel && !allSel} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>
-                          {tab.label}
-                        </p>
-                        <p className="text-[10.5px] leading-tight mt-0.5" style={{ color: C.textMuted }}>
-                          {tab.description}
-                        </p>
-                      </div>
-                      <button
-                        className="shrink-0 p-1 rounded hover:opacity-60 transition-opacity"
-                        style={{ color: C.textDim }}
-                        onClick={e => { e.stopPropagation(); toggleExpand(tab.id); }}
-                      >
-                        {isExp ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                      </button>
+                  <div
+                    key={tab.id}
+                    className="flex items-center gap-3 px-5 py-3 cursor-pointer select-none transition-colors hover:bg-black/[0.03]"
+                    onClick={() => toggleTab(tab.id)}
+                    role="checkbox"
+                    aria-checked={checked}
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleTab(tab.id); } }}
+                  >
+                    <Checkbox checked={checked} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>{tab.label}</p>
+                      <p className="text-[10.5px] leading-tight mt-0.5" style={{ color: C.textMuted }}>{tab.description}</p>
                     </div>
-
-                    {/* Sub-items */}
-                    {isExp && (
-                      <div className="pb-2 border-b" style={{ borderColor: C.border }}>
-                        {tab.items.map(item => {
-                          const k       = `${tab.id}.${item.id}`;
-                          const checked = selected.has(k);
-                          return (
-                            <div
-                              key={item.id}
-                              className="flex items-center gap-3 py-2 px-5 pl-14 cursor-pointer hover:bg-black/[0.03] transition-colors"
-                              onClick={() => toggleItem(tab.id, item.id)}
-                            >
-                              <Checkbox checked={checked} />
-                              <span className="text-[11.5px]" style={{ color: C.textBody }}>
-                                {item.label}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
-
             {/* Footer */}
             <div className="px-5 py-3 shrink-0 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
               {/* Language picker */}

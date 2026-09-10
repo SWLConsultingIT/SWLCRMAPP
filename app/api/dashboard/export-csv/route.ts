@@ -255,15 +255,29 @@ function autoWidth(ws: ExcelJS.Worksheet) {
 
 export async function GET(req: NextRequest) {
   const sp       = Object.fromEntries(req.nextUrl.searchParams.entries());
-  const sections = new Set((sp.sections ?? "").split(",").filter(Boolean));
-  const has      = (k: string) => sections.size === 0 || sections.has(k);
+  // The export modal now speaks the dashboard's own vocabulary: `tabs` with
+  // one id per tab, and plural filter params. The old `sections` spelling
+  // and the singular params still work, so any saved link keeps working.
+  const tabs = new Set((sp.tabs ?? "").split(",").filter(Boolean));
+  const legacy = new Set((sp.sections ?? "").split(",").filter(Boolean));
+  const has = (k: string) => {
+    if (legacy.size > 0) return legacy.has(k);
+    if (tabs.size === 0) return true;
+    // A tab id enables every sheet that belonged to it.
+    const tab = k.split(".")[0];
+    const map: Record<string, string[]> = {
+      overview: ["overview"], icps: ["overview"], campaigns: ["outreach"],
+      channels: ["channels", "outreach"], sellers: ["sellers"],
+    };
+    return [...tabs].some(t => (map[t] ?? [t]).includes(tab));
+  };
 
   const filters = {
-    from:          sp.from     ?? null,
-    to:            sp.to       ?? null,
-    campaignNames: sp.campaign ? [sp.campaign] : undefined,
-    sellerIds:     sp.seller   ? [sp.seller]   : undefined,
-    icpIds:        sp.icp      ? [sp.icp]       : undefined,
+    from:          sp.from ?? null,
+    to:            sp.to   ?? null,
+    campaignNames: (sp.campaigns ?? sp.campaign) ? [(sp.campaigns ?? sp.campaign)!] : undefined,
+    sellerIds:     (sp.sellers   ?? sp.seller)   ? [(sp.sellers   ?? sp.seller)!]   : undefined,
+    icpIds:        (sp.icps      ?? sp.icp)      ? [(sp.icps      ?? sp.icp)!]      : undefined,
   };
 
   const bioId = await getBioId();
