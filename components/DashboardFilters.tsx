@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { CalendarDays, ChevronDown, Filter, X, Loader2, Search, Check } from "lucide-react";
 import { C } from "@/lib/design";
@@ -16,6 +17,7 @@ const gold = "var(--brand, #c9a83a)";
 export default function DashboardFilters({
   campaigns, sellers, icps,
 }: { campaigns: Opt[]; sellers: Opt[]; icps: Opt[] }) {
+  const { t } = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -85,7 +87,7 @@ export default function DashboardFilters({
             }}>
             <Filter size={12} />
           </div>
-          <span className="text-xs font-semibold" style={{ color: C.textBody }}>Filters</span>
+          <span className="text-xs font-semibold" style={{ color: C.textBody }}>{t("dfl.filters")}</span>
           {totalActive > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md tabular-nums"
               style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
@@ -101,18 +103,18 @@ export default function DashboardFilters({
           <div className="flex items-center pl-2.5 pr-1.5" style={{ color: from || to ? gold : C.textMuted }}>
             <CalendarDays size={12} />
           </div>
-          <DateField value={from} onChange={v => update({ from: v || null })} placeholder="From" />
+          <DateField value={from} onChange={v => update({ from: v || null })} placeholder={t("dfl.from")} />
           <span className="text-[11px]" style={{ color: C.textDim }}>→</span>
-          <DateField value={to} onChange={v => update({ to: v || null })} placeholder="To" />
+          <DateField value={to} onChange={v => update({ to: v || null })} placeholder={t("dfl.to")} />
         </div>
 
-        <MultiPopover label="Campaign" selected={cIds} options={campaigns}
+        <MultiPopover label={t("dfl.campaign")} selected={cIds} options={campaigns}
           onToggle={id => toggle("campaigns", id, cIds)}
           onClear={() => update({ campaigns: null })} />
-        <MultiPopover label="Seller" selected={sIds} options={sellers}
+        <MultiPopover label={t("dfl.seller")} selected={sIds} options={sellers}
           onToggle={id => toggle("sellers", id, sIds)}
           onClear={() => update({ sellers: null })} />
-        <MultiPopover label="ICP" selected={iIds} options={icps}
+        <MultiPopover label={t("dfl.icp")} selected={iIds} options={icps}
           onToggle={id => toggle("icps", id, iIds)}
           onClear={() => update({ icps: null })} />
 
@@ -124,7 +126,7 @@ export default function DashboardFilters({
             className="flex items-center gap-1 text-[11px] font-semibold rounded-lg px-2.5 py-1.5 border transition-colors hover:bg-black/[0.02]"
             style={{ borderColor: C.border, color: C.textMuted }}
           >
-            <X size={11} /> Clear all
+            <X size={11} /> {t("dfl.clearAll")}
           </button>
         )}
       </div>
@@ -174,6 +176,7 @@ function DateField({ value, onChange, placeholder }: { value: string; onChange: 
 }
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  const { t } = useLocale();
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-full pl-2 pr-1 py-0.5 border"
       style={{
@@ -182,7 +185,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
         color: C.textBody,
       }}>
       {label}
-      <button onClick={onRemove} aria-label="Remove filter"
+      <button onClick={onRemove} aria-label={t("dfl.removeFilter")}
         className="inline-flex items-center justify-center rounded-full w-3.5 h-3.5 hover:opacity-100 opacity-60 transition-opacity"
         style={{ color: C.textMuted }}>
         <X size={9} />
@@ -200,6 +203,7 @@ function MultiPopover({
   onToggle: (id: string) => void;
   onClear: () => void;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -275,7 +279,7 @@ function MultiPopover({
           <div style={{ maxHeight: 280, overflow: "auto" }}>
             {filtered.length === 0 ? (
               <p className="text-[11px] px-3 py-4 text-center" style={{ color: C.textMuted }}>
-                {options.length === 0 ? "No options" : "No matches"}
+                {options.length === 0 ? t("dfl.noOptions") : t("dfl.noMatches")}
               </p>
             ) : (
               filtered.map(opt => {

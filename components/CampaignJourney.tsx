@@ -72,17 +72,6 @@ const channelLabelKeys: Record<string, string> = {
   whatsapp: "chan.whatsapp", sms: "chan.sms", instagram: "jrn.ch.instagram",
 };
 
-const classificationStyles: Record<string, { label: string; color: string; bg: string }> = {
-  positive:       { label: "POSITIVE",       color: C.green,  bg: C.greenLight },
-  meeting_intent: { label: "MEETING INTENT", color: C.green,  bg: C.greenLight },
-  needs_info:     { label: "NEEDS INFO",     color: C.blue,   bg: C.blueLight },
-  nurturing:      { label: "NURTURING",      color: gold,     bg: goldLight },
-  not_now:        { label: "NOT NOW",        color: C.orange, bg: C.orangeLight },
-  negative:       { label: "NEGATIVE",       color: C.red,    bg: C.redLight },
-  unsubscribe:    { label: "UNSUBSCRIBE",    color: C.red,    bg: C.redLight },
-  spam:           { label: "SPAM",           color: C.textMuted, bg: C.surface },
-  auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: C.surface },
-};
 
 function formatDate(iso: string | null, locale: Locale) {
   if (!iso) return "—";
