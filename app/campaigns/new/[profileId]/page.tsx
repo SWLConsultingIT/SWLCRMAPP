@@ -32,6 +32,7 @@ const gold = C.gold;
 import { type StepAttachment } from "@/components/StepAttachments";
 import { readLeadSelection, clearLeadSelection, STASH_SENTINEL } from "@/lib/lead-selection";
 import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/lib/i18n-locale";
 
 type SequenceStep = { channel: string; daysAfter: number; attachments?: StepAttachment[] };
 
@@ -48,12 +49,14 @@ const languageOptions = [
   { code: "it", label: "Italiano" },
 ];
 
+// `label` is the English used to compose the campaign NAME in handleSubmit —
+// a stored value. `labelKey` is what the UI renders.
 const ALL_CHANNEL_OPTIONS = [
-  { key: "linkedin",  label: "LinkedIn",  icon: Share2,         color: C.linkedin, short: "LI" },
-  { key: "email",     label: "Email",     icon: Mail,           color: C.email,    short: "EM" },
-  { key: "call",      label: "Call",      labelKey: "inbox.channel.call", icon: Phone,          color: C.phone,    short: "CA" },
-  { key: "whatsapp",  label: "WhatsApp",  icon: MessageCircle,  color: "#25D366",  short: "WA", superAdminOnly: true },
-  { key: "telegram",  label: "Telegram",  icon: Send,           color: "#229ED9",  short: "TG", superAdminOnly: true },
+  { key: "linkedin",  label: "LinkedIn",  labelKey: "chan.linkedin",  icon: Share2,         color: C.linkedin, short: "LI" },
+  { key: "email",     label: "Email",     labelKey: "chan.email",     icon: Mail,           color: C.email,    short: "EM" },
+  { key: "call",      label: "Call",      labelKey: "chan.call",      icon: Phone,          color: C.phone,    short: "CA" },
+  { key: "whatsapp",  label: "WhatsApp",  labelKey: "chan.whatsapp",  icon: MessageCircle,  color: "#25D366",  short: "WA", superAdminOnly: true },
+  { key: "telegram",  label: "Telegram",  labelKey: "chan.telegram",  icon: Send,           color: "#229ED9",  short: "TG", superAdminOnly: true },
 ];
 
 const sequenceTemplates = [
@@ -129,7 +132,7 @@ function hashStr(s: string): string {
 }
 
 export default function NewCampaignWizard() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -842,7 +845,7 @@ export default function NewCampaignWizard() {
     const base = (profile?.profile_name as string | undefined)?.trim();
     if (!base) return "";
     const chans = [...new Set(sequence.map(s => s.channel))]
-      .map(k => channelOptions.find(c => c.key === k)?.label ?? k);
+      .map(k => { const c = channelOptions.find(o => o.key === k); return c ? t(c.labelKey) : k; });
     return chans.length > 0 ? `${base} — ${chans.join(" + ")}` : base;
   })();
 
@@ -866,7 +869,7 @@ export default function NewCampaignWizard() {
     // Resolve it from the signed-in user's profile; admins without a tenant can't submit here.
     const { data: companyBioId, error: scopeErr } = await supabase.rpc("get_auth_company_bio_id");
     if (scopeErr || !companyBioId) {
-      setSubmitError(scopeErr?.message ?? "Your account has no company assigned — contact an admin.");
+      setSubmitError(scopeErr?.message ?? t("wiz.err.noCompany"));
       setSubmitting(false);
       return;
     }
@@ -963,7 +966,7 @@ export default function NewCampaignWizard() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setTplSaveError(json.error ?? "Failed to save template");
+        setTplSaveError(json.error ?? t("wiz.err.saveTpl"));
         setSavingTpl(false);
         return; // keep modal open so user sees the error
       }
@@ -971,7 +974,7 @@ export default function NewCampaignWizard() {
       setShowSavePrompt(false);
       setSubmitted(true);
     } catch (e: any) {
-      setTplSaveError((e as any)?.message ?? "Unexpected error");
+      setTplSaveError((e as any)?.message ?? t("wiz.err.unexpected"));
     } finally {
       setSavingTpl(false);
     }
@@ -997,24 +1000,26 @@ export default function NewCampaignWizard() {
       {
         ok: named,
         blocking: true,
-        title: named ? "Flow is named" : "The flow needs a name",
-        detail: named ? campaignName.trim() : "Sellers find it by name in the Inbox and in Results",
+        title: named ? t("wiz.chk.named") : t("wiz.chk.needsName"),
+        detail: named ? campaignName.trim() : t("wiz.chk.nameHint"),
       },
       {
         ok: followups > 0,
         blocking: true,
         title: followups > 0
-          ? `${sequence.length} stop${sequence.length === 1 ? "" : "s"} in the sequence`
-          : "Add a step after the invitation",
-        detail: hasCR ? `Invitation + ${followups} message${followups === 1 ? "" : "s"}` : undefined,
+          ? t(sequence.length === 1 ? "wiz.chk.stopsOne" : "wiz.chk.stopsN", { n: sequence.length })
+          : t("wiz.chk.addAfterInvite"),
+        detail: hasCR
+          ? t(followups === 1 ? "wiz.chk.inviteAndOne" : "wiz.chk.inviteAndN", { n: followups })
+          : undefined,
       },
       {
         ok: dead.length === 0,
         blocking: false,
         title: dead.length === 0
-          ? "Every step can reach these leads"
-          : `No lead can be reached on ${dead.join(", ")}`,
-        detail: dead.length === 0 ? undefined : "Those steps would be skipped for everyone",
+          ? t("wiz.chk.allReach")
+          : t("wiz.chk.noneReach", { channels: dead.join(", ") }),
+        detail: dead.length === 0 ? undefined : t("wiz.chk.skipAll"),
       },
     ];
   })();
@@ -1078,7 +1083,7 @@ export default function NewCampaignWizard() {
   return (
     <div className="p-6 w-full">
       <button onClick={() => router.push("/campaigns")} className="flex items-center gap-1.5 text-[11px] font-medium mb-3 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
-        <ArrowLeft size={12} /> Back to Campaigns
+        <ArrowLeft size={12} /> {t("wiz.backToCampaigns")}
       </button>
 
       {/* Header card — gold-accented panel so the wizard's "you're configuring
@@ -1119,7 +1124,7 @@ export default function NewCampaignWizard() {
                   <span style={{ color: C.textBody, fontWeight: 600 }}>{profile?.profile_name}</span>
                   {" · "}
                   <span style={{ color: gold, fontWeight: 700 }}>{leadsCount}</span>
-                  {" "}{isPartialSelection ? "selected" : ""} lead{leadsCount === 1 ? "" : "s"}
+                  {" "}{isPartialSelection ? t("wiz.leadsSelected") : ""} {t("wiz.leads")}
                 </p>
               </div>
               {/* Flow-type badge — large, prominent, clickable to switch
@@ -1153,11 +1158,11 @@ export default function NewCampaignWizard() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm">{flowType === "tailored" ? "✨" : "⚡"}</span>
                   <span className="text-[13px] font-extrabold uppercase tracking-wider" style={{ fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                    {flowType === "tailored" ? "Tailored Flow" : "Generic Flow"}
+                    {flowType === "tailored" ? t("wiz.tailoredFlow") : t("wiz.genericFlow")}
                   </span>
                 </div>
                 <span className="text-[9px] font-semibold uppercase tracking-wider opacity-80">
-                  {flowType === "tailored" ? "AI per-lead · click to change" : "One template · click to change"}
+                  {flowType === "tailored" ? t("wiz.tailoredHintShort") : t("wiz.genericHintShort")}
                 </span>
               </button>
             </div>
@@ -1259,10 +1264,7 @@ export default function NewCampaignWizard() {
             </div>
           </div>
           <p className="text-[11px] max-w-md text-right" style={{ color: C.textMuted }}>
-            {wizardStep === 0 && "Pick channels + timing for every step in the sequence."}
-            {wizardStep === 1 && "Choose seller(s) and the channel accounts that will deliver this flow."}
-            {wizardStep === 2 && "Write the message body for each step. AI can draft from your tone + lead data."}
-            {wizardStep === 3 && "Review the full flow before launching. You can still jump back to edit anything."}
+            {t(`wiz.stepHint.${wizardStep}`)}
           </p>
         </div>
         <div className="flex items-center gap-1 flex-wrap">
@@ -1604,7 +1606,7 @@ export default function NewCampaignWizard() {
                               {isInvite
                                 ? (canDropInvite ? (
                                     <button type="button" onClick={removeConnectionRequest}
-                                      title="This sequence doesn't use LinkedIn — remove the invitation"
+                                      title={t("wiz.dropInviteTitle")}
                                       className="opacity-40 hover:opacity-100 transition-opacity" style={{ color: C.red }}>
                                       <Trash2 size={14} />
                                     </button>
@@ -1633,7 +1635,7 @@ export default function NewCampaignWizard() {
             <button onClick={addStep}
               className="flex items-center gap-2 mt-3 rounded-lg px-4 py-2.5 text-xs font-medium w-full justify-center transition-opacity hover:opacity-80 border border-dashed"
               style={{ borderColor: C.border, color: C.textMuted }}>
-              <Plus size={14} /> Add Step
+              <Plus size={14} /> {t("wiz.addStep")}
             </button>
           </div>
           </div>
@@ -1651,11 +1653,11 @@ export default function NewCampaignWizard() {
               {(() => {
                 const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
                 const rows: Array<[string, string, string?]> = [
-                  ["Stops", hasCR ? `${sequence.length} (invite + ${sequence.length - 1})` : String(sequence.length)],
-                  ["Duration", `${totalDays} days`],
-                  ["First send", stepCalendarDate(days[0] ?? 0).label],
-                  ["Last touch", stepCalendarDate(totalDays).label, "if nobody replies"],
-                  ["Total sends", (leadsCount * sequence.length).toLocaleString("es-AR"), `${leadsCount} leads × ${sequence.length}`],
+                  [t("wiz.brief.stops"), hasCR ? t("wiz.brief.stopsCr", { n: sequence.length, rest: sequence.length - 1 }) : String(sequence.length)],
+                  [t("wiz.brief.duration"), t("wiz.brief.days", { n: totalDays })],
+                  [t("wiz.brief.firstSend"), stepCalendarDate(days[0] ?? 0).label],
+                  [t("wiz.brief.lastTouch"), stepCalendarDate(totalDays).label, t("wiz.brief.ifNoReply")],
+                  [t("wiz.brief.totalSends"), (leadsCount * sequence.length).toLocaleString(intlTag(locale)), t("wiz.brief.leadsTimes", { leads: leadsCount, steps: sequence.length })],
                 ];
                 return (
                   <dl className="grid gap-y-2 text-[12.5px]" style={{ gridTemplateColumns: "1fr auto" }}>
@@ -1860,7 +1862,7 @@ export default function NewCampaignWizard() {
                       <div>
                         <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>{t("wiz.assignedSalespeople")}</label>
                         <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
-                          {leadsCount > 0 ? `${leadsCount} leads to assign — the salesperson who owns each lead: their LinkedIn sends AND they make the calls` : "The salesperson who owns each lead — their LinkedIn sends and they make the calls. Split across people below."}
+                          {leadsCount > 0 ? t("wiz.ownerHintN", { n: leadsCount }) : t("wiz.ownerHint")}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -2022,7 +2024,7 @@ export default function NewCampaignWizard() {
                                 <Icon size={18} style={{ color: meta.color }} />
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>LinkedIn</p>
+                                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("chan.linkedin")}</p>
                                 <div className="flex flex-wrap gap-1.5 mt-1">
                                   {withLi.map(s => (
                                     <span key={s.id} className="text-[11px] px-2 py-0.5 rounded-full font-medium"
@@ -2052,14 +2054,14 @@ export default function NewCampaignWizard() {
                         );
                       }
 
-                      let accountLabel = "Not configured";
+                      let accountLabel = t("wiz.notConfigured");
                       let isConfigured = false;
 
                       if (ch === "email") {
-                        accountLabel = "Instantly — Shared pool";
+                        accountLabel = t("wiz.acctInstantly");
                         isConfigured = true;
                       } else if (ch === "call") {
-                        accountLabel = "Aircall — shared SWL number";
+                        accountLabel = t("wiz.acctAircall");
                         isConfigured = true;
                       }
 
@@ -2250,14 +2252,14 @@ export default function NewCampaignWizard() {
           <div className="rounded-xl border px-5 py-3 flex items-center gap-3 flex-wrap" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <Globe size={13} style={{ color: C.textMuted }} />
             <span className="text-xs" style={{ color: C.textMuted }}>
-              Drafting in <b style={{ color: C.textPrimary }}>{languageOptions.find(l => l.code === language)?.label ?? language}</b>
+              {t("wiz.draftingIn")} <b style={{ color: C.textPrimary }}>{languageOptions.find(l => l.code === language)?.label ?? language}</b>
             </span>
             <button type="button" onClick={() => setWizardStep(0)}
               className="text-[11px] font-semibold underline" style={{ color: gold }}>
-              change in Step 1
+              {t("wiz.changeInStep1")}
             </button>
             <span className="text-xs flex-1 text-right" style={{ color: C.textDim, minWidth: 180 }}>
-              One step at a time. Write the intent, let AI draft, check the preview.
+              {t("wiz.oneAtATime")}
             </span>
           </div>
 
@@ -2395,27 +2397,33 @@ export default function NewCampaignWizard() {
               {
                 ok: emptySteps === 0,
                 blocking: true,
-                title: emptySteps === 0 ? "Every step has copy" : `${emptySteps} step${emptySteps === 1 ? "" : "s"} still empty`,
+                title: emptySteps === 0
+                  ? t("wiz.gate.allCopy")
+                  : t(emptySteps === 1 ? "wiz.gate.emptyOne" : "wiz.gate.emptyN", { n: emptySteps }),
                 detail: emptySteps === 0
-                  ? `${sequence.length} message${sequence.length === 1 ? "" : "s"} written`
-                  : "A step with no body can't be sent.",
+                  ? t(sequence.length === 1 ? "wiz.gate.writtenOne" : "wiz.gate.writtenN", { n: sequence.length })
+                  : t("wiz.gate.emptyDetail"),
                 goto: 2,
               },
               {
                 ok: badTokens.length === 0,
                 blocking: true,
-                title: badTokens.length === 0 ? "No unresolved variables" : `${badTokens.join(", ")} won't render`,
+                title: badTokens.length === 0
+                  ? t("wiz.gate.noUnresolved")
+                  : t("wiz.gate.wontRender", { tokens: badTokens.join(", ") }),
                 detail: badTokens.length === 0
-                  ? "Every placeholder is one the dispatcher fills."
-                  : "The dispatcher refuses the row rather than sending a raw token.",
+                  ? t("wiz.gate.allFilled")
+                  : t("wiz.gate.refuses"),
                 goto: 2,
               },
               {
                 ok: sellersMissingLi.length === 0,
                 blocking: true,
-                title: sellersMissingLi.length === 0 ? "Sending accounts connected" : `${sellersMissingLi.length} seller(s) without LinkedIn`,
+                title: sellersMissingLi.length === 0
+                  ? t("wiz.gate.acctsOk")
+                  : t("wiz.gate.sellersNoLi", { n: sellersMissingLi.length }),
                 detail: sellersMissingLi.length === 0
-                  ? "The channels in this flow can send."
+                  ? t("wiz.gate.canSend")
                   : sellersMissingLi.map(sl => sl.name).join(", "),
                 goto: 1,
               },
@@ -2438,11 +2446,11 @@ export default function NewCampaignWizard() {
             const notices = gates.filter(g => !g.ok && !g.blocking);
 
             const cells = [
-              { n: String(assigned), l: "Leads", h: profile?.profile_name ?? "" },
-              { n: sends.toLocaleString("es-AR"), l: "Sends", h: `${assigned} × ${sequence.length} steps` },
+              { n: String(assigned), l: t("wiz.cell.leads"), h: profile?.profile_name ?? "" },
+              { n: sends.toLocaleString(intlTag(locale)), l: t("wiz.cell.sends"), h: t("wiz.cell.stepsSuffix", { n: assigned, steps: sequence.length }) },
               { n: paceDays ? String(paceDays) : "—", l: "Business days", h: paceDays ? "at the current daily caps" : "no cap set" },
               { n: String(sellerQuotas.length || "—"), l: "Sellers", h: assignedSellerObjs.map(sl => sl.name).join(" · ") },
-              { n: lastTouch, l: "Last touch", h: "if nobody replies first", gold: true },
+              { n: lastTouch, l: t("wiz.brief.lastTouch"), h: t("wiz.cell.ifNoReplyFirst"), gold: true },
             ];
 
             return (
@@ -2595,11 +2603,11 @@ export default function NewCampaignWizard() {
                 border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)`,
                 letterSpacing: "0.06em",
               }}>
-              <Check size={11} /> Flow submitted
+              <Check size={11} /> {t("wiz.flowSubmitted2")}
             </div>
             <h2 className="text-lg font-bold mb-1" style={{ color: C.textPrimary }}>{t("wiz.saveAsTemplate")}</h2>
             <p className="text-sm mb-5" style={{ color: C.textMuted }}>
-              Optional. Save the sequence + messages so you can launch it again next time without rebuilding from scratch. You can skip and the flow goes through anyway.
+              {t("wiz.saveTplLede")}
             </p>
             <div className="space-y-3 mb-5">
               <div>
@@ -2703,7 +2711,7 @@ export default function NewCampaignWizard() {
         <button onClick={() => wizardStep === 0 ? router.push("/campaigns") : setWizardStep(s => s - 1)}
           className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-opacity"
           style={{ color: C.textBody, backgroundColor: C.surface }}>
-          <ArrowLeft size={15} /> {wizardStep === 0 ? "Cancel" : "Previous"}
+          <ArrowLeft size={15} /> {wizardStep === 0 ? t("wiz.cancel") : t("wiz.previous")}
         </button>
 
         {/* Say what's missing here, next to the button that would refuse.
@@ -2713,8 +2721,8 @@ export default function NewCampaignWizard() {
           return (
             <span className="text-[12px] hidden sm:block px-3 text-right" style={{ color: missing.length ? "#D97706" : C.textDim }}>
               {missing.length > 0
-                ? `Missing: ${missing.map(c => c.title.toLowerCase()).join(" · ")}`
-                : "Ready for step 2"}
+                ? t("wiz.missingList", { list: missing.map(c => c.title.toLowerCase()).join(" · ") })
+                : t("wiz.readyStep2")}
             </span>
           );
         })()}
@@ -2723,21 +2731,21 @@ export default function NewCampaignWizard() {
           <button
             onClick={() => {
               if (wizardStep === 0 && !campaignName.trim()) {
-                setMessagesWarning("Please enter a flow name.");
+                setMessagesWarning(t("wiz.warn.name"));
                 return;
               }
               if (wizardStep === 0 && sequence.length === 0) {
-                setMessagesWarning("Please add at least one step to the sequence.");
+                setMessagesWarning(t("wiz.warn.steps"));
                 return;
               }
               if (wizardStep === 1 && sellerQuotas.length === 0) {
-                setMessagesWarning("Please select a seller before continuing.");
+                setMessagesWarning(t("wiz.warn.seller"));
                 return;
               }
               if (wizardStep === 2) {
                 const hasAnyContent = channelMessages.steps?.some((s: any) => s.body?.trim());
                 if (!hasAnyContent) {
-                  setMessagesWarning("Please write or generate at least one message before continuing.");
+                  setMessagesWarning(t("wiz.warn.messages"));
                   return;
                 }
               }
@@ -2747,7 +2755,7 @@ export default function NewCampaignWizard() {
             disabled={false}
             className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-40"
             style={{ backgroundColor: gold, color: "#04070d" }}>
-            Next <ArrowRight size={15} />
+            {t("wiz.next")} <ArrowRight size={15} />
           </button>
         ) : (
           <button onClick={handleSubmit} disabled={submitting}
@@ -2756,7 +2764,7 @@ export default function NewCampaignWizard() {
               ? { background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E", boxShadow: `0 4px 14px -4px color-mix(in srgb, ${gold} 50%, transparent)` }
               : { backgroundColor: C.green, color: "#fff" }}>
             {submitting ? <Loader2 size={15} className="animate-spin" /> : (flowType === "tailored" ? <Sparkles size={15} /> : <Send size={15} />)}
-            {submitting ? "Submitting…" : (flowType === "tailored" ? "Launch Tailored Flow" : "Launch Flow")}
+            {submitting ? t("wiz.submitting") : (flowType === "tailored" ? t("wiz.launchTailored") : t("wiz.launchFlow"))}
           </button>
         )}
       </div>
