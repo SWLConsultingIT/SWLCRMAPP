@@ -51,6 +51,12 @@ export type ConsoleFilters = {
   from: string | null;
   to: string | null;
   bioId: string | null;
+  /**
+   * Seller-tier scope: campaigns.assigned_user_id. When set, this human may
+   * only see the leads assigned to them. The legacy dashboard enforces this
+   * and the console must too — without it a seller sees the whole workspace.
+   */
+  assignedUserId?: string | null;
   campaignNames?: string[];
   icpIds?: string[];
   sellerIds?: string[];
@@ -128,6 +134,11 @@ export function buildIndex(src: ConsoleSource, f: ConsoleFilters) {
   const campNameOfLead = (id: string | null) => (id ? campOfLead.get(id)?.name ?? null : null);
 
   /* ── active filters, as sets ──────────────────────────────────────── */
+  // Seller tier first: it is a permission, not a filter, so it applies
+  // before anything the user chose on screen.
+  const assignedLeadIds: Set<string> | null = f.assignedUserId
+    ? new Set(src.camps.filter(c => c.assigned_user_id === f.assignedUserId && c.lead_id).map(c => c.lead_id as string))
+    : null;
   const campSet = f.campaignNames?.length ? new Set(f.campaignNames) : null;
   const icpSet = f.icpIds?.length ? new Set(f.icpIds) : null;
   const sellerSet = f.sellerIds?.length ? new Set(f.sellerIds) : null;
@@ -136,6 +147,7 @@ export function buildIndex(src: ConsoleSource, f: ConsoleFilters) {
    *  per artefact (a call's seller is who dialled, a message's is the flow). */
   const leadInScope = (id: string | null): boolean => {
     if (!id) return false;
+    if (assignedLeadIds && !assignedLeadIds.has(id)) return false;
     if (campSet && !campSet.has(campNameOfLead(id) ?? "")) return false;
     if (icpSet && !icpSet.has(icpOfLead(id) ?? "")) return false;
     if (sellerSet) {
@@ -186,14 +198,14 @@ export function buildIndex(src: ConsoleSource, f: ConsoleFilters) {
   });
   const callScope = {
     ...emptyPhysicalCallScope(),
-    sellerIds: sellerSet, campaignNames: campSet, icpIds: icpSet,
+    sellerIds: sellerSet, campaignNames: campSet, icpIds: icpSet, assignedLeadIds,
   };
   const callGroups = allGroups.filter(g => callMatchesScope(g, callScope));
 
   return {
     win, prior, src,
     leadById, icpName, sellerById, sellerOfUser, campOfLead, campById, leadOfCampaign, campNameOfLead, icpOfLead,
-    campSet, icpSet, sellerSet, leadInScope,
+    campSet, icpSet, sellerSet, assignedLeadIds, leadInScope,
     msgsWin, msgsPrior, contacted, contactedPrior,
     inboundWin, cohortReplies, cohortRepliedLeads, cohortPositiveLeads, outsideCohort,
     priorRepliedLeads, priorPositiveLeads,
@@ -409,9 +421,11 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
   const timing = { tz: "America/Buenos_Aires", days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], blocks: BLOCKS, grid, total: ix.inboundWin.length };
 
   /* ── workspace stock: the three parts PARTITION the total ─────────── */
-  const everContacted = new Set(src.msgs.filter(m => m.status === "sent" && m.lead_id).map(m => m.lead_id as string));
-  const enrolled = new Set(src.camps.map(c => c.lead_id).filter((x): x is string => !!x));
-  const total = src.leads.length;
+  const visible = (id: string | null | undefined): id is string =>
+    !!id && (!ix.assignedLeadIds || ix.assignedLeadIds.has(id));
+  const everContacted = new Set(src.msgs.filter(m => m.status === "sent" && visible(m.lead_id)).map(m => m.lead_id as string));
+  const enrolled = new Set(src.camps.map(c => c.lead_id).filter(visible));
+  const total = ix.assignedLeadIds ? ix.assignedLeadIds.size : src.leads.length;
   const inFlowNeverMessaged = [...enrolled].filter(id => !everContacted.has(id)).length;
   const workspace = {
     total,
@@ -420,7 +434,7 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
       { label: "in a flow, never messaged", n: inFlowNeverMessaged },
       { label: "never enrolled", n: total - everContacted.size - inFlowNeverMessaged },
     ],
-    intake: { n: src.leads.filter(l => inWindow(l.created_at, ix.win)).length, label: "added during this period" },
+    intake: { n: src.leads.filter(l => visible(l.id) && inWindow(l.created_at, ix.win)).length, label: "added during this period" },
   };
 
   return {

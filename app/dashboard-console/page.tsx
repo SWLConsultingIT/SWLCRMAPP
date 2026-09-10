@@ -5,7 +5,7 @@
 // every other surface — cohort replies, business timezone, and calls counted
 // by canonical identity with Unknown always visible.
 import type { Metadata } from "next";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { getT } from "@/lib/i18n-server";
 import AuroraHero from "@/components/AuroraHero";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
@@ -29,7 +29,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const one = (k: string) => { const v = sp[k]; return Array.isArray(v) ? v[0] : v; };
   const many = (k: string) => { const v = sp[k]; return v ? (Array.isArray(v) ? v : v.split(",")).filter(Boolean) : undefined; };
 
-  const scope = await getUserScope().catch(() => null);
+  const [scope, myAssignedUserId] = await Promise.all([
+    getUserScope().catch(() => null),
+    getMyAssignedUserId().catch(() => null),
+  ]);
   const bioId = scope?.isScoped ? scope.companyBioId : null;
 
   const to = one("to") ?? day(new Date());
@@ -37,6 +40,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
   const filters = {
     from, to, bioId,
+    assignedUserId: myAssignedUserId,
     campaignNames: many("campaigns"),
     icpIds: many("icps"),
     sellerIds: many("sellers"),
