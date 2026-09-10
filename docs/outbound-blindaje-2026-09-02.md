@@ -19,7 +19,7 @@ contenido reescrito por una IA después de la aprobación.
   - WhatsApp (`dispatch-whatsapp`): tenía su **propia función privada
     `personalize()`** con solo 3 tokens y fallback `?? "there"`. **No pasaba por
     el motor central ni por ninguna validación.**
-  - Script legacy `scripts/dispatch-pathway-8.mjs`: **otra `personalize()`
+  - Script legacy `scripts/ops/dispatch-pathway-8.mjs`: **otra `personalize()`
     privada** de 2 tokens que enviaba a Unipile directo.
   - `inbox/reply`: renderizaba y **borraba a blanco** los tokens sin resolver
     (`.replace(/\{\{...\}\}/g, "")`) — justo el comportamiento "blanqueo
@@ -75,7 +75,7 @@ template aprobado → renderPlaceholders (determinístico, strict)
 | `app/api/campaigns/[id]/add-leads/route.ts` | Normalizo `content`/`subject` copiados del lead hermano con `autoNormalizePlaceholders` (de-hornea nombres). |
 | `app/api/campaigns/[id]/edit-flow/route.ts` | Normalizo `content`/`subject` en el RPC de edición y en la inserción de pasos nuevos. |
 | `app/api/messages/[id]/route.ts` | Normalizo el `content` editado a mano antes de guardar. |
-| `scripts/dispatch-pathway-8.mjs` | **Deshabilitado** (early exit) — enviaba a Unipile con `personalize()` propia, bypasseando el gate. |
+| `scripts/ops/dispatch-pathway-8.mjs` | **Deshabilitado** (early exit) — enviaba a Unipile con `personalize()` propia, bypasseando el gate. |
 | `scripts/test-outbound.mts` | **Nuevo** — suite de tests (Francisco + casos A–G + extras). |
 
 ## 4. Tabla de senders
