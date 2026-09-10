@@ -319,7 +319,7 @@ function TemplatesTab() {
         <FilterPill label={t("vc.step")} value={filterStep} onChange={setFilterStep}
           options={[{ value: "all", label: t("vc.all") }, ...STEP_POSITIONS.map(sp => ({ value: sp.value, label: t(sp.labelKey) }))]} />
         <FilterPill label={t("imp.status")} value={filterStatus} onChange={setFilterStatus}
-          options={[{ value: "all", label: "All" }, { value: "active", label: "Active" }, { value: "draft", label: "Draft" }, { value: "archived", label: "Archived" }]} />
+          options={[{ value: "all", label: t("vc.status.all") }, { value: "active", label: t("vc.status.active") }, { value: "draft", label: t("vc.status.draft") }, { value: "archived", label: t("vc.status.archived") }]} />
         <span className="ml-auto text-xs" style={{ color: C.textMuted }}>{filtered.length} of {templates.length}</span>
       </div>
 

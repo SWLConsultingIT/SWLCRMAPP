@@ -35,7 +35,7 @@ type PendingCall = {
   phone: string | null;
   secondaryPhone: string | null;
   // Surfaced from leads.allow_call so the Notifications card can flash a
-  // t("qc.cls.wrongNumber") badge next to the phone. false = the post-call popup
+  // Wrong-number badge next to the phone. false = the post-call popup
   // flagged the number; the badge clicks through to the lead detail
   // where the WrongNumberPill opens its inline replace flow.
   allowCall?: boolean | null;
@@ -1001,7 +1001,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
   // exclude events (accepted-connection / bounces) and already-resolved rows.
   // The tab badge + hero counts use THIS, not newReplies.length, so the number
   // matches what the seller actually has to work (was inflated by the synthetic
-  // t("qc.cls.accepted") entries, which live in neither Pending nor History).
+  // Accepted entries, which live in neither Pending nor History).
   const REPLY_EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
   const isReplyEvent = (r: NewReply) => REPLY_EVENT_CLASS.has(r.classification ?? "");
   const pendingReplyCount = newReplies.filter(

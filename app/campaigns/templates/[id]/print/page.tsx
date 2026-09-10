@@ -8,7 +8,7 @@ import PrintActions from "../../../../reports/print/PrintActions";
 // Branded, print-optimized view of a single outreach template. Opened in a
 // hidden iframe from the "Download" button on the template detail page + the
 // templates list, then auto-printed (Save-as-PDF). Mirrors the /icp/[id]/print
-// convention — zero PDF deps, tenant-scoped, GrowthAI header + t("tpp.preparedFor").
+// convention — zero PDF deps, tenant-scoped, GrowthAI header + "Prepared for".
 
 export const dynamic = "force-dynamic";
 

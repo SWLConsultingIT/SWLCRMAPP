@@ -1,6 +1,6 @@
 "use client";
 
-// Step 3 (tailored mode) — TAG GRID + t("ltg.validateAll") button.
+// Step 3 (tailored mode) — TAG GRID + Validate all button.
 // Runs every lead through the per-lead tailor prompt, validates the
 // substituted output via lib/message-validator, and renders each as a
 // compact chip (initials + green/red status). Click a chip → inline

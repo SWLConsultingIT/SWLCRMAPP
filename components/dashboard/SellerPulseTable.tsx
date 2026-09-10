@@ -138,7 +138,7 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
             </p>
             <span className="flex items-center gap-1 ml-1">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#22C55E", boxShadow: "0 0 0 2px rgba(34,197,94,0.3)", animation: "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite" }} />
-              <span className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "#22C55E" }}>Live</span>
+              <span className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "#22C55E" }}>{t("pulse.live")}</span>
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -168,14 +168,14 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
             className="text-[10px] uppercase tracking-wider border-b"
             style={{ color: C.textMuted, borderColor: C.border, background: "rgba(0,0,0,0.15)" }}
           >
-            <th className="px-4 py-2 text-left font-semibold">Seller</th>
-            <th className="px-3 py-2 text-left font-semibold">Status</th>
+            <th className="px-4 py-2 text-left font-semibold">{t("pulse.col.seller")}</th>
+            <th className="px-3 py-2 text-left font-semibold">{t("pulse.col.status")}</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">{t("pulse.col.lastSeen")}</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">{t("pulse.col.lastCall")}</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Today</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>Calls</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.today")}</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>{t("pulse.col.calls")}</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.replied")}</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Positive</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.positive")}</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.inQueue")}</th>
           </tr>
         </thead>

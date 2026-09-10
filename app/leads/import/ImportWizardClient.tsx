@@ -465,7 +465,7 @@ function IcpPickStep({
         <div>
           <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("imp.pickIcp")}</p>
           <p className="text-[11px]" style={{ color: C.textMuted }}>
-            Every lead lands attached to one ICP so a campaign can pull from it (one-ICP-per-campaign LAW).
+            {t("imp.pickIcpHint")}
           </p>
         </div>
       </div>
@@ -478,14 +478,14 @@ function IcpPickStep({
         <div className="rounded-xl border p-6 text-center" style={{ borderColor: C.border, backgroundColor: C.bg }}>
           <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>{t("imp.noIcps")}</p>
           <p className="text-xs mb-4" style={{ color: C.textMuted }}>
-            Create one first so the imported leads have somewhere to live.
+            {t("imp.noIcpsHint")}
           </p>
           <Link
             href="/icp"
             className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}
           >
-            Go to ICPs →
+            {t("imp.goToIcps")}
           </Link>
         </div>
       ) : (
@@ -521,7 +521,7 @@ function IcpPickStep({
                   ))}
                 </div>
                 <p className="text-[10px]" style={{ color: C.textDim }}>
-                  Status: <span style={{ color: icp.status === "approved" ? C.green : C.textBody }}>{icp.status ?? "—"}</span>
+                  {t("imp.statusLabel")} <span style={{ color: icp.status === "approved" ? C.green : C.textBody }}>{icp.status ?? "—"}</span>
                 </p>
               </button>
             );
@@ -536,7 +536,7 @@ function IcpPickStep({
           className="rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-40"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1A2E" }}
         >
-          Continue → Upload
+          {t("imp.continueUpload")}
         </button>
       </div>
     </div>
@@ -684,7 +684,7 @@ function MapStep({
         <div className="rounded-xl border px-4 py-2.5 flex items-center gap-2.5" style={{ borderColor: `color-mix(in srgb, ${gold} 40%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${gold} 7%, ${C.card})` }}>
           <CheckCircle2 size={14} style={{ color: gold, flexShrink: 0 }} />
           <p className="text-[11.5px]" style={{ color: C.textBody }}>
-            Reused your saved column mapping for <span style={{ color: gold, fontWeight: 600 }}>{sourceTool}</span>. Adjust anything below — your changes are remembered for next time.
+            {t("imp.reusedMappingFor")} <span style={{ color: gold, fontWeight: 600 }}>{sourceTool}</span>{t("imp.reusedMappingRest")}
           </p>
         </div>
       )}
@@ -725,11 +725,11 @@ function MapStep({
         <div className="rounded-xl border px-4 py-3 flex items-start gap-3" style={{ borderColor: `color-mix(in srgb, ${C.blue} 40%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${C.blue} 6%, ${C.card})` }}>
           <Phone size={15} style={{ color: C.blue, flexShrink: 0, marginTop: 1 }} />
           <p className="text-[11.5px] leading-snug" style={{ color: C.textBody }}>
-            <strong style={{ color: C.textPrimary }}>{phoneCols} phone columns detected.</strong>{" "}
-            No need to pick one — on import we keep the best number (mobile &gt; direct &gt; other) as the
-            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.primaryPhone")}</span>, the next as the
-            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.secondary")}</span>, company lines as
-            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.companyPhone")}</span>, and preserve any extras in enrichment. Nothing is dropped.
+            <strong style={{ color: C.textPrimary }}>{t("imp.phoneColsDetected", { n: phoneCols })}</strong>{" "}
+            {t("imp.phoneNoNeed")}
+            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.primaryPhone")}</span>{t("imp.phoneTheNextAs")}
+            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.secondary")}</span>{t("imp.phoneCompanyLinesAs")}
+            <span style={{ color: gold, fontWeight: 600 }}> {t("imp.companyPhone")}</span>{t("imp.phoneRest")}
           </p>
         </div>
       )}
@@ -749,7 +749,7 @@ function MapStep({
             />
           </div>
           <p className="text-[10.5px]" style={{ color: C.textMuted }}>
-            Showing {visible.length} of {mapping.length} · click <strong>{t("imp.mapsTo")}</strong> to override.
+            {t("imp.showingOfClick", { a: visible.length, b: mapping.length })} <strong>{t("imp.mapsTo")}</strong> {t("imp.toOverride")}
           </p>
         </div>
 
@@ -802,7 +802,7 @@ function MapStep({
               })}
               {visible.length === 0 && (
                 <tr><td colSpan={4} className="px-4 py-10 text-center text-[12px]" style={{ color: C.textMuted }}>
-                  No columns match your search / filter.
+                  {t("imp.noColumnsMatch")}
                 </td></tr>
               )}
             </tbody>
@@ -812,7 +812,7 @@ function MapStep({
 
       <div className="flex items-center justify-end gap-3">
         <button onClick={onBack} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>
-          Back
+          {t("imp.back")}
         </button>
         <button
           onClick={onContinue}
@@ -893,7 +893,7 @@ function TargetSelect({
       className="rounded-md px-2 py-1 text-xs focus:outline-none w-full max-w-[280px]"
       style={{ backgroundColor: C.bg, color: C.textPrimary, border: `1px solid ${C.border}` }}
     >
-      <option value="_skip">— Skip (don&apos;t import) —</option>
+      <option value="_skip">{t("imp.skipOption")}</option>
       <option value="_extra">{t("imp.customEnrichment")}</option>
       {isOrphan && <option value={value}>{value}</option>}
       <option disabled>──────────</option>
@@ -938,7 +938,7 @@ function ConfirmStep({
           maps 1:1 to what /commit will produce. */}
       <div className="rounded-2xl border p-5" style={{ borderColor: C.border, backgroundColor: C.card }}>
         <p className="text-sm font-bold mb-3" style={{ color: C.textPrimary }}>
-          Import preview · {parsed.totalRows.toLocaleString()} rows
+          {t("imp.importPreview", { n: parsed.totalRows.toLocaleString() })}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <PreviewTile label={t("imp.willInsert")}        value={dryRun.counts.insert}            color={C.green}    icon={CheckCircle2} accent />
@@ -972,8 +972,7 @@ function ConfirmStep({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("imp.encryptQuestion")}</p>
               <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
-                Default: <strong>off</strong> — leads stored as <code style={{ fontFamily: "monospace" }}>source=swl</code> plaintext.
-                Turn on only when uploading on behalf of a client that asked for at-rest encryption.
+                {t("imp.defaultLabel")} <strong>{t("imp.off")}</strong> {t("imp.encStoredAs")} <code style={{ fontFamily: "monospace" }}>source=swl</code> {t("imp.encPlaintextRest")}
               </p>
             </div>
             <button
@@ -1067,7 +1066,7 @@ function ReachabilityPanel({ reach }: { reach: Reach }) {
         <div className="mt-3 rounded-xl border px-4 py-2.5 flex items-start gap-2.5" style={{ borderColor: `${C.orange}40`, backgroundColor: C.orangeLight }}>
           <AlertTriangle size={14} style={{ color: C.orange, flexShrink: 0, marginTop: 1 }} />
           <p className="text-[11.5px] leading-snug" style={{ color: C.textBody }}>
-            <strong style={{ color: C.orange }}>{reach.none.toLocaleString()} new leads</strong> have no email, phone or LinkedIn — they&apos;ll import but can&apos;t be contacted on any channel. Check the file has the right columns mapped.
+            <strong style={{ color: C.orange }}>{t("imp.nNewLeads", { n: reach.none.toLocaleString() })}</strong> {t("imp.noChannelWarn")}
           </p>
         </div>
       )}
@@ -1131,7 +1130,7 @@ function DupSection({ title, rows, color }: { title: string; rows: DryRunOutcome
         </table>
         {rows.length > 200 && (
           <p className="px-4 py-2 text-[11px] text-center" style={{ color: C.textMuted, backgroundColor: C.surface }}>
-            Showing first 200 of {rows.length} rows.
+            {t("imp.showingFirst200", { n: rows.length })}
           </p>
         )}
       </div>
@@ -1161,11 +1160,11 @@ function DoneStep({
         </div>
         <div>
           <p className="text-lg font-bold" style={{ color: C.textPrimary }}>
-            {result.inserted.toLocaleString()} leads inserted
+            {t("imp.leadsInserted", { n: result.inserted.toLocaleString() })}
           </p>
           <p className="text-xs" style={{ color: C.textMuted }}>
-            of {total.toLocaleString()} rows processed
-            {result.encrypted ? " · stored encrypted" : " · stored plaintext"}
+            {t("imp.ofRowsProcessed", { n: total.toLocaleString() })}
+            {result.encrypted ? ` · ${t("imp.storedEncrypted")}` : ` · ${t("imp.storedPlaintext")}`}
           </p>
         </div>
       </div>
@@ -1180,7 +1179,7 @@ function DoneStep({
       {hasIssues && result.rowResults && result.rowResults.length > 0 && (
         <details className="mb-6 rounded-xl border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
           <summary className="px-4 py-3 cursor-pointer text-xs font-semibold flex items-center gap-2" style={{ color: C.textBody }}>
-            Show row-level details ({result.rowResults.filter(r => r.status !== "inserted").length} non-insert outcomes)
+            {t("imp.showRowDetails", { n: result.rowResults.filter(r => r.status !== "inserted").length })}
           </summary>
           <div className="max-h-72 overflow-y-auto border-t" style={{ borderColor: C.border }}>
             <table className="w-full text-xs">
@@ -1223,14 +1222,14 @@ function DoneStep({
 
       <div className="flex items-center justify-end gap-3">
         <button onClick={onAnother} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>
-          Import another file
+          {t("imp.importAnother")}
         </button>
         <button
           onClick={onView}
           className="rounded-lg px-5 py-2 text-sm font-semibold"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1A2E" }}
         >
-          View leads →
+          {t("imp.viewLeads")}
         </button>
       </div>
     </div>
@@ -1267,7 +1266,7 @@ function IcpChip({ icp, onChange }: { icp: IcpRow; onChange?: () => void }) {
           className="text-[10.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]"
           style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
         >
-          Change
+          {t("imp.change")}
         </button>
       )}
     </div>
