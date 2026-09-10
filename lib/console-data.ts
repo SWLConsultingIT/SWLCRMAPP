@@ -60,6 +60,8 @@ export type ConsoleFilters = {
   campaignNames?: string[];
   icpIds?: string[];
   sellerIds?: string[];
+  /** Which preset button produced this window, for the control's state. */
+  preset?: string | null;
 };
 
 async function page<T>(make: () => any, source: string): Promise<T[]> {
@@ -451,10 +453,27 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
     sellers,
     sellersNote: "Attribution is by the flow's assigned seller. Replies that arrive without a flow cannot be attributed and are excluded, not spread across the rows.",
     replyQuality, activity, timing, workspace,
+    // {id, label} pairs: the dropdowns send the id the server filters on.
+    // Campaigns filter by NAME (the wizard groups flows by name); ICPs and
+    // sellers by id. A label-only list could not do that.
     filters: {
-      campaigns: ["All campaigns", ...[...new Set(src.camps.map(c => c.name).filter((x): x is string => !!x))].sort()],
-      icps: ["All ICPs", ...src.icps.map(i => i.profile_name ?? "—").sort()],
-      sellers: ["All sellers", ...src.sellers.filter(s => s.active !== false).map(s => s.name).sort()],
+      campaigns: [{ id: "", label: "All campaigns" },
+        ...[...new Set(src.camps.map(c => c.name).filter((x): x is string => !!x))].sort()
+          .map(n => ({ id: n, label: n }))],
+      icps: [{ id: "", label: "All ICPs" },
+        ...src.icps.map(i => ({ id: i.id, label: i.profile_name ?? "—" }))
+          .sort((a, b) => a.label.localeCompare(b.label))],
+      sellers: [{ id: "", label: "All sellers" },
+        ...src.sellers.filter(s => s.active !== false).map(s => ({ id: s.id, label: s.name }))
+          .sort((a, b) => a.label.localeCompare(b.label))],
+    },
+    /** What is selected right now, so the controls can render their state. */
+    active: {
+      preset: f.preset ?? null,
+      from: f.from, to: f.to,
+      campaign: f.campaignNames?.[0] ?? "",
+      icp: f.icpIds?.[0] ?? "",
+      seller: f.sellerIds?.[0] ?? "",
     },
   };
 }

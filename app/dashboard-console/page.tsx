@@ -35,11 +35,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   ]);
   const bioId = scope?.isScoped ? scope.companyBioId : null;
 
-  const to = one("to") ?? day(new Date());
-  const from = one("from") ?? day(new Date(Date.now() - 29 * 86_400_000));
+  // "All time" is an explicit preset with no bounds — distinct from "no
+  // preset chosen", which defaults to the last 30 days.
+  const preset = one("preset") ?? "30 days";
+  const allTime = preset === "All time";
+  const to = allTime ? null : one("to") ?? day(new Date());
+  const from = allTime ? null : one("from") ?? day(new Date(Date.now() - 29 * 86_400_000));
 
   const filters = {
-    from, to, bioId,
+    from, to, bioId, preset,
     assignedUserId: myAssignedUserId,
     campaignNames: many("campaigns"),
     icpIds: many("icps"),

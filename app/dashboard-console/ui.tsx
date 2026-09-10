@@ -129,22 +129,27 @@ export type IconKey = keyof typeof ICONS;
 
 /* ── filters ────────────────────────────────────────────────────────────── */
 
+export type PickOption = { id: string; label: string };
+
+/** Options carry an id: the dropdown shows the label and sends the id, so a
+ *  seller or ICP can be filtered by its real key instead of its name. */
 export function Pick({ label, options, value, onChange }: {
-  label: string; options: string[]; value: string; onChange: (v: string) => void;
+  label: string; options: PickOption[]; value: string; onChange: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const on = value !== options[0];
+  const on = value !== "" && value !== options[0]?.id;
+  const current = options.find(o => o.id === value)?.label ?? label;
   return (
     <div className="relative">
       <div className="inline-flex items-center rounded-full border overflow-hidden"
         style={{ borderColor: on ? gold : C.border, backgroundColor: on ? `color-mix(in srgb, ${gold} 10%, transparent)` : "transparent" }}>
         <button onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 font-medium max-w-[180px]"
           style={{ fontSize: 12.5, color: on ? gold : C.textBody }}>
-          <span className="truncate">{on ? value : label}</span>
+          <span className="truncate">{on ? current : label}</span>
           <ChevronDown size={12} className="shrink-0" />
         </button>
         {on && (
-          <button onClick={() => onChange(options[0])} aria-label={`Clear ${label}`} className="pr-2.5 pl-1 py-1" style={{ color: gold }}>
+          <button onClick={() => onChange("")} aria-label={`Clear ${label}`} className="pr-2.5 pl-1 py-1" style={{ color: gold }}>
             <X size={11} />
           </button>
         )}
@@ -155,10 +160,11 @@ export function Pick({ label, options, value, onChange }: {
           <div className="absolute z-50 mt-1.5 min-w-[220px] rounded-2xl border py-1.5 shadow-xl left-0"
             style={{ borderColor: C.border, backgroundColor: C.card }}>
             {options.map(o => (
-              <button key={o} onClick={() => { onChange(o); setOpen(false); }} className="flex items-center gap-2 w-full text-left px-3.5 py-1.5"
-                style={{ fontSize: 12.5, color: o === value ? gold : C.textBody }}>
-                <span className="w-3 shrink-0">{o === value && <Check size={11} />}</span>
-                <span className="truncate">{o}</span>
+              <button key={o.id || "_all"} onClick={() => { onChange(o.id); setOpen(false); }}
+                className="flex items-center gap-2 w-full text-left px-3.5 py-1.5"
+                style={{ fontSize: 12.5, color: o.id === value ? gold : C.textBody }}>
+                <span className="w-3 shrink-0">{o.id === value && <Check size={11} />}</span>
+                <span className="truncate">{o.label}</span>
               </button>
             ))}
           </div>
