@@ -49,71 +49,22 @@ const POINT_LABEL_KEY: Record<PointType, string> = {
   objection:"brief.point.objection",
 };
 
-// Per-type visual language. Pain reads as urgency-red, fit as trust-blue,
-// opener as conversation-amber — distinct from the global brand gold.
-const POINT_META: Record<PointType, {
-  icon: typeof Target;
-  accent: string;
-  tint: string;
-  pillBg: string;
-  pillFg: string;
-}> = {
-  snapshot: {
-    icon: UserRound,
-    accent: "#64748B",
-    tint: "linear-gradient(135deg, rgba(248,250,252,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#E2E8F0",
-    pillFg: "#334155",
-  },
-  account: {
-    icon: Building2,
-    accent: "#0891B2",
-    tint: "linear-gradient(135deg, rgba(236,254,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#CFFAFE",
-    pillFg: "#155E75",
-  },
-  read: {
-    icon: Brain,
-    accent: "#DB2777",
-    tint: "linear-gradient(135deg, rgba(253,242,248,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#FCE7F3",
-    pillFg: "#9D174D",
-  },
-  pain: {
-    icon: Target,
-    accent: "#DC2626",
-    tint: "linear-gradient(135deg, rgba(254,242,242,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "color-mix(in srgb, #DC2626 14%, transparent)",
-    pillFg: "#991B1B",
-  },
-  fit: {
-    icon: Compass,
-    accent: "#2563EB",
-    tint: "linear-gradient(135deg, rgba(239,246,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "color-mix(in srgb, #2563EB 16%, transparent)",
-    pillFg: "#1E40AF",
-  },
-  hook: {
-    icon: Lightbulb,
-    accent: "#7C3AED",
-    tint: "linear-gradient(135deg, rgba(245,243,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "color-mix(in srgb, #7C3AED 16%, transparent)",
-    pillFg: "#5B21B6",
-  },
-  opener: {
-    icon: Quote,
-    accent: "#D97706",
-    tint: "linear-gradient(135deg, rgba(255,251,235,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "color-mix(in srgb, #D97706 16%, transparent)",
-    pillFg: "#92400E",
-  },
-  objection: {
-    icon: ShieldAlert,
-    accent: "#0D9488",
-    tint: "linear-gradient(135deg, rgba(240,253,250,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#CCFBF1",
-    pillFg: "#115E59",
-  },
+// Per-type icon only. The brief reads as one editorial piece, not eight
+// colour-coded categories: every card shares a neutral surface + neutral
+// label, and the icon (not a hue) carries the recognition. Emphasis is gold
+// (brand / AI / structure) and lives in the header, the group labels and the
+// Opener — never as a per-insight accent. These blocks are INSIGHTS, not
+// system states, so red/orange/green (error/overdue/callback) are reserved
+// and deliberately NOT used here. (Fran 2026-09-10: kill the rainbow.)
+const POINT_META: Record<PointType, { icon: typeof Target }> = {
+  snapshot:  { icon: UserRound },
+  account:   { icon: Building2 },
+  read:      { icon: Brain },
+  pain:      { icon: Target },
+  fit:       { icon: Compass },
+  hook:      { icon: Lightbulb },
+  opener:    { icon: Quote },
+  objection: { icon: ShieldAlert },
 };
 
 // The brief reads as two groups: "the read" (who they are + how to play it) and
@@ -122,41 +73,109 @@ const POINT_META: Record<PointType, {
 const READ_TYPES: PointType[] = ["snapshot", "account", "read"];
 const PLAY_TYPES: PointType[] = ["pain", "fit", "hook", "objection"];
 
-function GroupLabel({ children }: { children: string }) {
+type Family = "read" | "play";
+const familyOf = (t: PointType): Family => (READ_TYPES.includes(t) ? "read" : "play");
+
+// V3 visual language (Fran-approved 2026-09-10) — THREE families, never a
+// colour per insight. The read = cool slate, the play = warm gold-soft, the
+// opener = gold. Recognition comes from a family-coloured card rail + a filled
+// icon chip + a weighted label — not from eight hues. Container queries make
+// the grids reflow on the brief's REAL width (full-width inside Lead Detail),
+// independent of the viewport. All family hues are theme-aware CSS vars set
+// below; everything else keys off the existing --c-* / --brand tokens.
+const PCB_CSS = `
+.pcb{container-type:inline-size;container-name:pcb;
+  --pcb-read:#64748B;--pcb-read-label:#41506A;--pcb-play-label:#8A6B18;}
+[data-theme="dark"] .pcb{--pcb-read:#7C8BA5;--pcb-read-label:#B4BFD2;--pcb-play-label:#E6C661;}
+.pcb-read{--f:var(--pcb-read);--flabel:var(--pcb-read-label);
+  --fcardbg:color-mix(in srgb,var(--pcb-read) 4%,var(--c-card));
+  --fborder:color-mix(in srgb,var(--pcb-read) 26%,var(--c-border));}
+.pcb-play{--f:var(--brand,#c9a83a);--flabel:var(--pcb-play-label);
+  --fcardbg:color-mix(in srgb,var(--brand,#c9a83a) 5%,var(--c-card));
+  --fborder:color-mix(in srgb,var(--brand,#c9a83a) 28%,var(--c-border));}
+.pcb-card{position:relative;overflow:hidden;border-radius:12px;padding:13px 14px 13px 17px;height:100%;
+  background:var(--fcardbg);border:1px solid var(--fborder);transition:box-shadow .15s,transform .12s;}
+.pcb-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.07);transform:translateY(-1px);}
+.pcb-edge{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--f);}
+.pcb-chiprow{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.pcb-chip{width:28px;height:28px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--f);}
+.pcb-play .pcb-chip{background:color-mix(in srgb,var(--brand,#c9a83a) 86%,var(--c-card));}
+.pcb-clabel{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--flabel);}
+.pcb-text{font-size:13.5px;line-height:1.55;color:var(--c-textBody);margin:0;}
+.pcb-wash{border-radius:14px;padding:11px;}
+.pcb-washR{background:color-mix(in srgb,var(--pcb-read) 9%,transparent);border:1px solid color-mix(in srgb,var(--pcb-read) 16%,var(--c-border));}
+.pcb-washP{background:color-mix(in srgb,var(--brand,#c9a83a) 9%,transparent);border:1px solid color-mix(in srgb,var(--brand,#c9a83a) 17%,var(--c-border));}
+.pcb-gread,.pcb-gplay{display:grid;gap:11px;grid-template-columns:1fr;align-items:stretch;}
+@container pcb (min-width:560px){
+  .pcb-gread{grid-template-columns:1fr 1fr;}
+  .pcb-gread .pcb-span{grid-column:1 / -1;}
+  .pcb-gplay{grid-template-columns:1fr 1fr;}
+}
+@container pcb (min-width:900px){
+  .pcb-gread{grid-template-columns:1fr 1fr 1fr;}
+  .pcb-gread .pcb-span{grid-column:auto;}
+}
+.pcb-opener{position:relative;overflow:hidden;border-radius:13px;margin-top:12px;
+  background:color-mix(in srgb,var(--brand,#c9a83a) 9%,var(--c-card));
+  border:1px solid color-mix(in srgb,var(--brand,#c9a83a) 34%,var(--c-border));}
+.pcb-opener-edge{position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:linear-gradient(180deg,var(--brand,#c9a83a),color-mix(in srgb,var(--brand,#c9a83a) 72%,#000));}
+.pcb-wm{position:absolute;top:-16px;right:16px;font-family:Georgia,serif;font-size:92px;line-height:1;
+  color:color-mix(in srgb,var(--brand,#c9a83a) 7%,transparent);pointer-events:none;user-select:none;}
+.pcb-oin{position:relative;padding:14px 18px 16px 21px;}
+.pcb-ol{display:inline-flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pcb-ochip{width:22px;height:22px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--brand,#c9a83a);}
+.pcb-oltxt{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.11em;color:var(--pcb-play-label);}
+.pcb-osay{font-size:9px;font-weight:700;letter-spacing:.04em;color:var(--c-textMuted);border:1px solid var(--c-border);border-radius:20px;padding:2px 7px;}
+.pcb-oq{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:16px;line-height:1.6;margin:0;}
+`;
+
+function GroupLabel({ children, family }: { children: string; family: Family }) {
+  const color = family === "read" ? "var(--pcb-read-label)" : "var(--pcb-play-label)";
+  const bar = family === "read" ? "var(--pcb-read)" : gold;
   return (
-    <p className="text-[9.5px] font-bold uppercase tracking-wider mb-2" style={{ color: gold, letterSpacing: "0.12em" }}>
+    <p className="flex items-center gap-2 text-[10px] font-extrabold uppercase mb-2.5" style={{ color, letterSpacing: "0.12em" }}>
+      <span className="inline-block rounded-full" style={{ width: 16, height: 2, backgroundColor: bar }} />
       {children}
     </p>
   );
 }
 
-function BriefCard({ p }: { p: TalkingPoint }) {
+// Insight card (non-opener). Family-coloured rail + filled icon chip + weighted
+// label give it presence and let it be scanned in 2-3s, all without a per-insight
+// hue. `span` makes Snapshot full-width when the Read grid drops to two columns.
+function BriefCard({ p, family, span }: { p: TalkingPoint; family: Family; span?: boolean }) {
   const { t } = useLocale();
-  const meta = POINT_META[p.type];
-  const Icon = meta.icon;
-  const isOpener = p.type === "opener";
+  const Icon = POINT_META[p.type].icon;
   return (
-    <div className="relative rounded-xl overflow-hidden border transition-shadow hover:shadow-sm h-full"
-      style={{ background: `color-mix(in srgb, ${meta.accent} 7%, ${C.card})`, borderColor: `color-mix(in srgb, ${meta.accent} 22%, ${C.border})` }}>
-      <div className="absolute left-0 top-0 bottom-0" style={{ width: 3, backgroundColor: meta.accent }} />
-      <div className="flex gap-3.5 p-4 pl-5">
-        <div className="rounded-full flex items-center justify-center shrink-0 shadow-sm"
-          style={{ width: 34, height: 34, background: `linear-gradient(135deg, ${meta.accent}, color-mix(in srgb, ${meta.accent} 70%, white))` }}>
-          <Icon size={15} style={{ color: "#fff" }} strokeWidth={2.4} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mb-1.5"
-            style={{ backgroundColor: `color-mix(in srgb, ${meta.accent} 15%, transparent)`, color: `color-mix(in srgb, ${meta.accent}, white var(--c-accent-lift, 0%))`, letterSpacing: "0.08em" }}>
-            {t(POINT_LABEL_KEY[p.type])}
-          </span>
-          {isOpener ? (
-            <p className="text-[15px] leading-relaxed italic" style={{ color: C.textPrimary, fontFamily: "Georgia, 'Times New Roman', serif" }}>
-              &ldquo;{p.text}&rdquo;
-            </p>
-          ) : (
-            <p className="text-[14px] leading-relaxed" style={{ color: C.textBody }}>{p.text}</p>
-          )}
-        </div>
+    <div className={`pcb-card pcb-${family}${span ? " pcb-span" : ""}`}>
+      <div className="pcb-edge" />
+      <div className="pcb-chiprow">
+        <div className="pcb-chip"><Icon size={16} strokeWidth={2.3} style={{ color: "#fff" }} /></div>
+        <span className="pcb-clabel">{t(POINT_LABEL_KEY[p.type])}</span>
+      </div>
+      <p className="pcb-text">{p.text}</p>
+    </div>
+  );
+}
+
+// The Opener is the payoff — the verbatim line the seller reads aloud, so it's
+// the highest-priority element: full-width, serif italic, a gold rail and a
+// "say this" tag. A faint quotation watermark supports it without becoming
+// decoration in its own right.
+function OpenerCard({ p }: { p: TalkingPoint }) {
+  const { t } = useLocale();
+  return (
+    <div className="pcb-opener">
+      <div className="pcb-opener-edge" />
+      <div className="pcb-wm" aria-hidden>&rdquo;</div>
+      <div className="pcb-oin">
+        <span className="pcb-ol">
+          <span className="pcb-ochip"><Quote size={13} strokeWidth={2.4} style={{ color: "#fff" }} /></span>
+          <span className="pcb-oltxt">{t(POINT_LABEL_KEY.opener)}</span>
+          <span className="pcb-osay">{t("brief.opener.say")}</span>
+        </span>
+        <p className="pcb-oq" style={{ color: C.textPrimary }}>&ldquo;{p.text}&rdquo;</p>
       </div>
     </div>
   );
@@ -238,20 +257,13 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
     : null;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden mb-6 sheen-host"
+    <div className="pcb relative rounded-2xl overflow-hidden mb-6 sheen-host"
       style={{
-        background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 6%, var(--card)) 0%, var(--card) 40%)`,
-        border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 22%, var(--border))",
-        boxShadow: "0 8px 30px -8px rgba(201,168,58,0.18), 0 2px 8px rgba(0,0,0,0.04)",
+        background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 4%, var(--card)) 0%, var(--card) 32%)`,
+        border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, var(--border))",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
       }}>
-      {/* Decorative gold corner accent */}
-      <div className="absolute top-0 right-0 pointer-events-none"
-        style={{
-          width: 180,
-          height: 180,
-          background: `radial-gradient(circle at top right, color-mix(in srgb, ${gold} 18%, transparent), transparent 60%)`,
-        }} />
-
+      <style>{PCB_CSS}</style>
       {/* Header */}
       <div className="relative flex items-center justify-between px-6 pt-5 pb-4">
         <div className="flex items-center gap-3">
@@ -325,21 +337,25 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
             <div className="space-y-4">
               {read.length > 0 && (
                 <div>
-                  <GroupLabel>{t("brief.group.read")}</GroupLabel>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
-                    {read.map((p, i) => <BriefCard key={i} p={p} />)}
+                  <GroupLabel family="read">{t("brief.group.read")}</GroupLabel>
+                  <div className="pcb-wash pcb-washR">
+                    <div className="pcb-gread">
+                      {read.map((p, i) => <BriefCard key={i} p={p} family="read" span={p.type === "snapshot"} />)}
+                    </div>
                   </div>
                 </div>
               )}
               {(play.length > 0 || opener) && (
                 <div>
-                  <GroupLabel>{t("brief.group.play")}</GroupLabel>
+                  <GroupLabel family="play">{t("brief.group.play")}</GroupLabel>
                   {play.length > 0 && (
-                    <div className="grid gap-3 sm:grid-cols-2 items-stretch">
-                      {play.map((p, i) => <BriefCard key={i} p={p} />)}
+                    <div className="pcb-wash pcb-washP">
+                      <div className="pcb-gplay">
+                        {play.map((p, i) => <BriefCard key={i} p={p} family="play" />)}
+                      </div>
                     </div>
                   )}
-                  {opener && <div className="mt-3"><BriefCard p={opener} /></div>}
+                  {opener && <OpenerCard p={opener} />}
                 </div>
               )}
               {legacy.length > 0 && (
@@ -398,7 +414,9 @@ function CompactBrief({ talkingPoints }: { talkingPoints: AnyPoint[] | null }) {
             {orderPoints(talkingPoints).map((p, i) => {
               const structured = isStructured(p);
               const label = structured ? t(POINT_LABEL_KEY[p.type]) : `${i + 1}.`;
-              const labelColor = structured ? POINT_META[p.type].pillFg : gold;
+              // Neutral labels for the insight rows; gold only for the legacy
+              // numbered fallback (structure emphasis). No per-type colour.
+              const labelColor = structured ? C.textMuted : gold;
               const text = typeof p === "string" ? p : p.text;
               return (
                 <li key={i}>
