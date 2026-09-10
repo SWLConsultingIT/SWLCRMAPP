@@ -1,6 +1,6 @@
 "use client";
 
-// Step 3 (tailored mode) — TAG GRID + "Validate full batch" button.
+// Step 3 (tailored mode) — TAG GRID + t("ltg.validateAll") button.
 // Runs every lead through the per-lead tailor prompt, validates the
 // substituted output via lib/message-validator, and renders each as a
 // compact chip (initials + green/red status). Click a chip → inline
@@ -12,6 +12,7 @@
 // reuse them without burning Haiku a second time.
 
 import { useMemo, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, AlertCircle, ChevronDown, ChevronUp, Search, Filter, Check, Phone, Mail, Share2, Megaphone } from "lucide-react";
 import { C } from "@/lib/design";
 import { VIOLATION_LABELS, type ViolationCode } from "@/lib/message-validator";
@@ -66,6 +67,7 @@ function initialsOf(name: string): string {
 }
 
 export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, campaignRequestId, language, onResults }: Props) {
+  const { t } = useLocale();
   const [results, setResults] = useState<ResultRow[] | null>(null);
   const [summary, setSummary] = useState<BatchResponse["summary"] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -161,7 +163,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
               <Search size={12} style={{ color: C.textMuted }} />
               <input
                 type="text"
-                placeholder="Search by name, company, role…"
+                placeholder={t("ltg.searchPh")}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="flex-1 bg-transparent outline-none text-xs"
@@ -182,7 +184,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
         {!results && !loading && !err && (
           <div className="text-center py-10">
             <p className="text-sm mb-1.5" style={{ color: C.textBody }}>
-              Click <strong>Validate full batch</strong> to generate the per-lead hook + fit for every lead.
+              Click <strong>{t("ltg.validateAll")}</strong> to generate the per-lead hook + fit for every lead.
             </p>
             <p className="text-[11px]" style={{ color: C.textMuted }}>
               ~30 seconds for {leadIds.length} leads · ~${(leadIds.length * 0.001).toFixed(2)}
@@ -263,7 +265,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                         {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
                       </p>
                     </div>
-                    <button onClick={() => setOpenLeadId(null)} className="p-1 rounded hover:bg-black/[0.05]" title="Close">
+                    <button onClick={() => setOpenLeadId(null)} className="p-1 rounded hover:bg-black/[0.05]" title={t("ltg.close")}>
                       <ChevronUp size={14} style={{ color: C.textMuted }} />
                     </button>
                   </div>
@@ -283,11 +285,11 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                   {lead.slots && (
                     <div className="px-4 py-3 border-b grid grid-cols-1 md:grid-cols-2 gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Hook (per-lead)</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>{t("ltg.hookPerLead")}</p>
                         <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>{lead.slots.hook}</p>
                       </div>
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Fit (per-lead)</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>{t("ltg.fitPerLead")}</p>
                         <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>{lead.slots.fit}</p>
                       </div>
                     </div>
@@ -296,7 +298,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                   <div className="px-4 py-3 space-y-2.5">
                     {lead.rendered.connectionRequest && (
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>Connection Request</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>{t("tpp.connReq")}</p>
                         <p className="text-[11.5px] leading-snug whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                           {lead.rendered.connectionRequest}
                         </p>

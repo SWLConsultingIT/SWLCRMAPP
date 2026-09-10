@@ -16,15 +16,15 @@ import { useLocale } from "@/lib/i18n";
 
 // Call outcome → compact label + colour (mirrors the post-call popup + Calls
 // History so the wording reads the same across the app).
-function callOutcome(cls: string | null | undefined): { label: string; color: string } {
+function callOutcome(cls: string | null | undefined): { labelKey: string; color: string } {
   switch (cls) {
-    case "positive": return { label: "Interested", color: C.green };
-    case "negative": return { label: "Not interested", color: C.red };
-    case "follow_up": return { label: "Bad timing", color: "#D97706" };
-    case "voicemail": return { label: "Voicemail", color: "#0EA5E9" };
-    case "wrong_number": return { label: "Wrong number", color: C.textMuted };
-    case "not_now": return { label: "Not now", color: C.textMuted };
-    default: return { label: "Call logged", color: C.textMuted };
+    case "positive": return { labelKey: "lct.interested", color: C.green };
+    case "negative": return { labelKey: "lct.notInterested", color: C.red };
+    case "follow_up": return { labelKey: "lct.badTiming", color: "#D97706" };
+    case "voicemail": return { labelKey: "lct.voicemail", color: "#0EA5E9" };
+    case "wrong_number": return { labelKey: "lct.wrongNumber", color: C.textMuted };
+    case "not_now": return { labelKey: "lct.notNow", color: C.textMuted };
+    default: return { labelKey: "lct.callLogged", color: C.textMuted };
   }
 }
 function fmtDur(s: number | null | undefined): string | null {
@@ -179,7 +179,7 @@ export default function LeadChatThread({ leadId, leadName, readOnly = false, hig
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: oc.color }}>{oc.label}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: oc.color }}>{t(oc.labelKey)}</span>
                   {dur && <span className="text-[10px]" style={{ color: C.textDim }}>· {dur}</span>}
                   {entry.hasRecording && <span className="text-[10px]" style={{ color: C.textDim }}>· rec</span>}
                   <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>· {timeOnly(entry.at)}</span>

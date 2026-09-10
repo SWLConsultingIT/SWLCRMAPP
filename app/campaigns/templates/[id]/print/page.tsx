@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getT } from "@/lib/i18n-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import PrintTrigger from "../../../../reports/print/PrintTrigger";
@@ -7,7 +8,7 @@ import PrintActions from "../../../../reports/print/PrintActions";
 // Branded, print-optimized view of a single outreach template. Opened in a
 // hidden iframe from the "Download" button on the template detail page + the
 // templates list, then auto-printed (Save-as-PDF). Mirrors the /icp/[id]/print
-// convention — zero PDF deps, tenant-scoped, GrowthAI header + "Prepared for".
+// convention — zero PDF deps, tenant-scoped, GrowthAI header + t("tpp.preparedFor").
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ function Chip({ label, color }: { label: string; color: string }) {
 }
 
 export default async function TemplatePrintPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const scope = await getUserScope();
   if (!scope.userId) notFound();
@@ -76,17 +78,17 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
   if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
   const { data: tpl } = await q.maybeSingle();
   if (!tpl) notFound();
-  const t = tpl as Template;
+  const tmpl = tpl as Template;
 
   let icpName: string | null = null;
-  if (t.icp_profile_id) {
-    const { data: icp } = await svc.from("icp_profiles").select("profile_name").eq("id", t.icp_profile_id).maybeSingle();
+  if (tmpl.icp_profile_id) {
+    const { data: icp } = await svc.from("icp_profiles").select("profile_name").eq("id", tmpl.icp_profile_id).maybeSingle();
     icpName = icp?.profile_name ?? null;
   }
 
   const brand = await getBranding(scope.companyBioId);
-  const sm = t.step_messages ?? {};
-  const seq = Array.isArray(t.sequence_steps) ? t.sequence_steps : [];
+  const sm = tmpl.step_messages ?? {};
+  const seq = Array.isArray(tmpl.sequence_steps) ? tmpl.sequence_steps : [];
   const steps = Array.isArray(sm.steps) ? sm.steps : [];
   const cr = txt(sm.connectionRequest).trim();
   const generatedAt = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -117,12 +119,12 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
               <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>
                 GrowthAI <span style={{ color: brand.brandColor }}>— Outreach Flow™</span>
               </p>
-              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>by SWL Consulting · Outreach Template</p>
+              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>{t("tpp.byline")}</p>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>Prepared for</p>
+              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("tpp.preparedFor")}</p>
               <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", margin: "2px 0 0" }}>{brand.companyName}</p>
               <p style={{ fontSize: 10, color: "#9CA3AF", margin: "2px 0 0" }}>{generatedAt}</p>
             </div>
@@ -135,13 +137,13 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
 
         {/* Title + meta */}
         <div style={{ marginBottom: 22 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>{t.name}</h1>
-          {t.description && <p style={{ fontSize: 12.5, color: "#6B7280", margin: "6px 0 0", lineHeight: 1.5 }}>{t.description}</p>}
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>{tmpl.name}</h1>
+          {tmpl.description && <p style={{ fontSize: 12.5, color: "#6B7280", margin: "6px 0 0", lineHeight: 1.5 }}>{tmpl.description}</p>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
             {icpName && <Chip label={`ICP · ${icpName}`} color={brand.brandColor} />}
-            {t.tone_preset && <Chip label={`Tone · ${TONE_LABEL[t.tone_preset] ?? t.tone_preset}`} color="#0D9488" />}
-            {t.rewrite_mode && <Chip label={REWRITE_LABEL[t.rewrite_mode] ?? t.rewrite_mode} color="#2563EB" />}
-            {(t.channels ?? []).map(ch => <Chip key={ch} label={CHANNEL[ch]?.label ?? ch} color={CHANNEL[ch]?.color ?? "#6B7280"} />)}
+            {tmpl.tone_preset && <Chip label={`Tone · ${TONE_LABEL[tmpl.tone_preset] ?? tmpl.tone_preset}`} color="#0D9488" />}
+            {tmpl.rewrite_mode && <Chip label={REWRITE_LABEL[tmpl.rewrite_mode] ?? tmpl.rewrite_mode} color="#2563EB" />}
+            {(tmpl.channels ?? []).map(ch => <Chip key={ch} label={CHANNEL[ch]?.label ?? ch} color={CHANNEL[ch]?.color ?? "#6B7280"} />)}
           </div>
         </div>
 
@@ -149,7 +151,7 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
         {cr && (
           <div className="step-block" style={{ marginBottom: 18, border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
             <div style={{ padding: "8px 14px", backgroundColor: "color-mix(in srgb, #0A66C2 8%, white)", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#0A66C2", textTransform: "uppercase", letterSpacing: "0.05em" }}>Connection Request</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#0A66C2", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("tpp.connReq")}</span>
               <span style={{ fontSize: 10, color: "#9CA3AF" }}>· LinkedIn invite · sent before the sequence</span>
             </div>
             <p style={{ margin: 0, padding: "14px", fontSize: 13, lineHeight: 1.6, color: "#374151", whiteSpace: "pre-wrap" }}>{cr}</p>
@@ -159,7 +161,7 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
         {/* Sequence */}
         {steps.length > 0 && (
           <div style={{ marginBottom: 8 }}>
-            <p style={{ fontSize: 13, fontWeight: 800, color: "#111827", margin: "0 0 4px" }}>Sequence</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: "#111827", margin: "0 0 4px" }}>{t("tpp.sequence")}</p>
             <p style={{ fontSize: 11, color: "#9CA3AF", margin: "0 0 14px" }}>{steps.length} step{steps.length > 1 ? "s" : ""}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {steps.map((s, i) => {
@@ -173,7 +175,7 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
                       {typeof day === "number" && <span style={{ fontSize: 10, color: "#9CA3AF" }}>· {day === 0 ? "Same day" : `Day ${day}`}</span>}
                     </div>
                     <div style={{ padding: 14 }}>
-                      {s.subject && <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#111827" }}>Subject: <span style={{ fontWeight: 500, color: "#374151" }}>{txt(s.subject)}</span></p>}
+                      {s.subject && <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#111827" }}>{t("tpp.subject")} <span style={{ fontWeight: 500, color: "#374151" }}>{txt(s.subject)}</span></p>}
                       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "#374151", whiteSpace: "pre-wrap" }}>{txt(s.body)}</p>
                     </div>
                   </div>
@@ -185,7 +187,7 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
 
         {/* Footer */}
         <div style={{ marginTop: 28, paddingTop: 14, borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9CA3AF" }}>
-          <span>Generated by GrowthAI · SWL Consulting</span>
+          <span>{t("tpp.generatedBy")}</span>
           <span>{generatedAt}</span>
         </div>
       </div>
