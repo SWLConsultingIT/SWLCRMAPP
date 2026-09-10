@@ -11,8 +11,10 @@ import {
   isActivityStatus,
   isActivityType,
   isActivityPriority,
+  isValidTimeZone,
   type ActivityStatus,
 } from "@/lib/activities";
+import { logActivityEvent, type ActivityEventType } from "@/lib/activities-server";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
@@ -23,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: existing } = await svc
     .from("activities")
-    .select("id, company_bio_id, assigned_to, created_by, status, completed_at")
+    .select("id, company_bio_id, assigned_to, created_by, status, completed_at, due_at, due_tz")
     .eq("id", id)
     .maybeSingle();
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -34,6 +36,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     created_by: string | null;
     status: ActivityStatus;
     completed_at: string | null;
+    due_at: string | null;
+    due_tz: string | null;
   };
 
   // Tenant guard.
@@ -66,6 +70,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "invalid due_at" }, { status: 400 });
     }
   }
+  if ("due_tz" in body) {
+    if (body.due_tz === null || body.due_tz === "") patch.due_tz = null;
+    else if (typeof body.due_tz === "string" && isValidTimeZone(body.due_tz)) patch.due_tz = body.due_tz;
+    else return NextResponse.json({ error: "invalid due_tz" }, { status: 400 });
+  }
+  if ("reminder_offset_minutes" in body) {
+    if (body.reminder_offset_minutes === null || body.reminder_offset_minutes === "") {
+      patch.reminder_offset_minutes = null;
+    } else {
+      const n = Number(body.reminder_offset_minutes);
+      if (!Number.isFinite(n) || n < 0 || n > 10080) return NextResponse.json({ error: "invalid reminder offset" }, { status: 400 });
+      patch.reminder_offset_minutes = Math.round(n);
+    }
+  }
   if ("type" in body) {
     if (!isActivityType(body.type)) return NextResponse.json({ error: "invalid type" }, { status: 400 });
     patch.type = body.type;
@@ -90,6 +108,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // Rescheduling re-arms the reminder: a new due time should fire again even if
+  // the old one was already reminded.
+  const rescheduled = "due_at" in patch && patch.due_at !== ex.due_at;
+  if (rescheduled) patch.reminder_sent_at = null;
+
   const { data, error } = await svc
     .from("activities")
     .update(patch)
@@ -97,5 +120,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .select(ACTIVITY_SELECT)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Audit — classify the primary event and record it (append-only, best-effort).
+  let event: ActivityEventType = "edited";
+  if ("status" in patch) {
+    event = patch.status === "completed" ? "completed" : patch.status === "cancelled" ? "cancelled" : "reopened";
+  } else if (rescheduled) {
+    event = "rescheduled";
+  } else if ("assigned_to" in patch) {
+    event = "assigned";
+  }
+  const detail: Record<string, unknown> = {};
+  if (rescheduled) { detail.from = ex.due_at; detail.to = patch.due_at; detail.due_tz = patch.due_tz ?? ex.due_tz; }
+  if ("assigned_to" in patch) detail.assigned_to = patch.assigned_to;
+  if ("status" in patch) detail.status = patch.status;
+  await logActivityEvent({
+    activityId: id,
+    companyBioId: ex.company_bio_id,
+    actorUserId: scope.userId,
+    event,
+    detail: Object.keys(detail).length ? detail : null,
+  });
+
   return NextResponse.json({ activity: data });
 }

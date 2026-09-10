@@ -4,7 +4,7 @@
 // Pins the two rules that must not drift: bucket derivation from due_at (Overdue
 // / Today / Upcoming, in the team business tz) and create-payload validation.
 
-import { bucketActivity, normalizeActivityCreate } from "../lib/activities.ts";
+import { bucketActivity, normalizeActivityCreate, wallTimeToUtcIso, isValidTimeZone } from "../lib/activities.ts";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];
@@ -60,6 +60,18 @@ eq("invalid due_at rejected", normalizeActivityCreate({ title: "t", due_at: "nop
   }
 }
 eq("unknown type falls back to task", (() => { const r = normalizeActivityCreate({ title: "t", type: "weird" }); return r.ok && r.value.type; })(), "task");
+
+/* ── timezone: wall-clock in a zone → absolute UTC, DST-correct ── */
+console.log("\nwallTimeToUtcIso (due_tz semantics)");
+eq("Berlin winter 15:30 = 14:30Z (CET)", wallTimeToUtcIso("2026-01-15", "15:30", "Europe/Berlin"), "2026-01-15T14:30:00.000Z");
+eq("Berlin summer 15:30 = 13:30Z (CEST)", wallTimeToUtcIso("2026-07-15", "15:30", "Europe/Berlin"), "2026-07-15T13:30:00.000Z");
+eq("Buenos Aires 09:00 = 12:00Z (ART, no DST)", wallTimeToUtcIso("2026-07-15", "09:00", "America/Argentina/Buenos_Aires"), "2026-07-15T12:00:00.000Z");
+eq("New York winter 09:00 = 14:00Z (EST)", wallTimeToUtcIso("2026-01-15", "09:00", "America/New_York"), "2026-01-15T14:00:00.000Z");
+eq("New York summer 09:00 = 13:00Z (EDT)", wallTimeToUtcIso("2026-07-15", "09:00", "America/New_York"), "2026-07-15T13:00:00.000Z");
+eq("invalid tz → null", wallTimeToUtcIso("2026-07-15", "09:00", "Not/AZone"), null);
+eq("bad date → null", wallTimeToUtcIso("nope", "09:00", "Europe/Berlin"), null);
+eq("isValidTimeZone Europe/Berlin", isValidTimeZone("Europe/Berlin"), true);
+eq("isValidTimeZone junk", isValidTimeZone("Mars/Olympus"), false);
 
 console.log(`\nActivities: ${pass} passed, ${fail} failed`);
 if (fail > 0) { console.error("FAILURES:\n" + fails.map(f => "  - " + f).join("\n")); process.exit(1); }

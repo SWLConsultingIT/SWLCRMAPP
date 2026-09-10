@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAllTenantData, getMyAssignedLeadIds } from "@/lib/scope";
 import { ACTIVITY_SELECT, normalizeActivityCreate, isActivityType, isActivityStatus } from "@/lib/activities";
+import { logActivityEvent } from "@/lib/activities-server";
 
 export async function GET(req: NextRequest) {
   const scope = await getUserScope();
@@ -118,6 +119,8 @@ export async function POST(req: NextRequest) {
     assigned_to: assignedTo,
     created_by: scope.userId,
     due_at: v.due_at,
+    due_tz: v.due_tz,
+    reminder_offset_minutes: v.reminder_offset_minutes,
     status: "pending" as const,
     priority: v.priority,
     source: v.source,
@@ -127,5 +130,17 @@ export async function POST(req: NextRequest) {
   };
   const { data, error } = await svc.from("activities").insert(row).select(ACTIVITY_SELECT).maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Audit — append-only trail (block 1). Best-effort.
+  const created = data as { id?: string } | null;
+  if (created?.id) {
+    await logActivityEvent({
+      activityId: created.id,
+      companyBioId,
+      actorUserId: scope.userId,
+      event: "created",
+      detail: { type: v.type, title: v.title, due_at: v.due_at, due_tz: v.due_tz, source: v.source },
+    });
+  }
   return NextResponse.json({ activity: data }, { status: 201 });
 }

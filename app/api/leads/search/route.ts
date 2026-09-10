@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const supabase = getSupabaseService();
   let query = supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, primary_title_role, company_name, status, icp_profile_id")
+    .select("id, primary_first_name, primary_last_name, primary_title_role, company_name, company_country, status, icp_profile_id")
     .order("updated_at", { ascending: false })
     .limit(limit);
 
