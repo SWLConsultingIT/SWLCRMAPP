@@ -107,8 +107,8 @@ function dialedNumberLabel(e: CallHistoryEntry): { number: string; which: string
   const hasTwo = !!e.primaryPhone && !!e.secondaryPhone;
   let which: string | null = null;
   if (hasTwo && dialed) {
-    if (digits(e.primaryPhone) === dialed) which = "Personal";
-    else if (digits(e.secondaryPhone) === dialed) which = "Company";
+    if (digits(e.primaryPhone) === dialed) which = "queue.phone.personal";
+    else if (digits(e.secondaryPhone) === dialed) which = "queue.phone.company";
   }
   return { number: e.phoneNumber, which };
 }
@@ -122,10 +122,10 @@ type Props = {
   canViewAllSellers?: boolean;
 };
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
 };
 
 // Tinted backgrounds derived from the accent color (not hardcoded light
@@ -148,14 +148,14 @@ const classificationMeta: Record<string, { color: string; bg: string; labelKey: 
   connection_accepted: { color: "#0A66C2",   bg: tint("#0A66C2", 12),    labelKey: "qc.cls.accepted" },
 };
 
-function timeAgo(iso: string | null) {
+function timeAgo(iso: string | null, t: (k: string, vars?: Record<string, string | number>) => string) {
   if (!iso) return "";
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1)  return "Just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1)  return t("qc.justNow");
+  if (m < 60) return t("qc.ago.min", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return t("qc.ago.hour", { n: h });
+  return t("qc.ago.day", { n: Math.floor(h / 24) });
 }
 
 // Inline classifier for /queue Pending Calls. Reuses /api/calls/[id]/classify
@@ -198,7 +198,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
       }
       router.refresh();
     } catch (e: any) {
-      setErr(e?.message ?? "Network error");
+      setErr(e?.message ?? t("qc.err.network"));
       setBusy(null);
     }
   }
@@ -222,7 +222,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}>
         <Icon size={11} style={{ color }} />
         <span style={{ color, fontWeight: 600 }}>
-          {label} {timeAgo(call.latestCall.startedAt)}
+          {label} {timeAgo(call.latestCall.startedAt, t)}
         </span>
         <span style={{ color: C.textMuted }}>· {hint}</span>
         {err && <span className="ml-auto" style={{ color: C.red }}>{err}</span>}
@@ -237,7 +237,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
     <div className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
     <div className="px-5 py-2.5 flex items-center gap-2 flex-wrap">
       <span className="text-[11px] font-semibold mr-1" style={{ color: C.textBody }}>
-        {t("queue.classify.calledOutcome").replace("{timeAgo}", timeAgo(call.latestCall.startedAt))}
+        {t("queue.classify.calledOutcome").replace("{timeAgo}", timeAgo(call.latestCall.startedAt, t))}
       </span>
       <button
         onClick={() => classify("positive")}
@@ -382,9 +382,9 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ classification: c }),
       });
-      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? "Couldn't set outcome"); return; }
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? t("qc.err.outcome")); return; }
       setCls(c);
-    } catch { setErr("Network error"); }
+    } catch { setErr(t("qc.err.network")); }
     finally { setClassifying(null); }
   }
 
@@ -394,13 +394,13 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
 
   async function remove() {
     if (deleting) return;
-    if (!confirm("Delete this call from History? This removes the CRM row (a fresh Aircall sync can repull it if it still exists upstream).")) return;
+    if (!confirm(t("qc.confirmDelete"))) return;
     setDeleting(true); setErr(null);
     try {
       const r = await fetch(`/api/calls/${e.id}`, { method: "DELETE" });
-      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? "Couldn't delete"); setDeleting(false); return; }
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? t("qc.err.delete")); setDeleting(false); return; }
       setHidden(true);
-    } catch { setErr("Network error"); setDeleting(false); }
+    } catch { setErr(t("qc.err.network")); setDeleting(false); }
   }
 
   if (hidden) return null;
@@ -414,16 +414,16 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
         body: JSON.stringify({ callId: e.id }),
       });
       const body = await r.json().catch(() => ({}));
-      if (!r.ok) { setErr(body.error ?? "Couldn't transcribe"); return; }
+      if (!r.ok) { setErr(body.error ?? t("qc.err.transcribe")); return; }
       if (body.transcript) setTranscript(body.transcript);
       else router.refresh();
-    } catch { setErr("Network error"); }
+    } catch { setErr(t("qc.err.network")); }
     finally { setTranscribing(false); }
   }
 
   async function saveNote() {
     if (savingNote || !note.trim()) return;
-    if (!e.leadId) { setErr("No lead linked to this call."); return; }
+    if (!e.leadId) { setErr(t("qc.err.noLead")); return; }
     setSavingNote(true); setErr(null); setNoteSaved(false);
     try {
       // Saved as a LEAD note (type 'call') so it appears in the lead detail's
@@ -432,11 +432,11 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: note.trim(), note_type: "call", mentioned_user_ids: [...mentioned] }),
       });
-      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? "Couldn't save note"); return; }
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? t("qc.err.saveNote")); return; }
       setNoteSaved(true);
       setNote(""); setMentioned(new Set());
       window.setTimeout(() => setNoteSaved(false), 1800);
-    } catch { setErr("Network error"); }
+    } catch { setErr(t("qc.err.network")); }
     finally { setSavingNote(false); }
   }
 
@@ -560,7 +560,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
               {(() => {
                 const d = dialedNumberLabel(e);
                 if (!d) return null;
-                return <> · <span style={{ color: C.textBody, fontWeight: 600 }}>📞 {d.number}</span>{d.which && <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: C.surface, color: C.textMuted }}>{d.which}</span>}</>;
+                return <> · <span style={{ color: C.textBody, fontWeight: 600 }}>📞 {d.number}</span>{d.which && <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: C.surface, color: C.textMuted }}>{t(d.which)}</span>}</>;
               })()}
             </p>
           </div>
@@ -1144,7 +1144,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
               title: search ? t("queue.empty.noCallsSearch") : t("queue.empty.noCallsDue"),
               hint: search
                 ? t("queue.empty.searchHint")
-                : "Calls show up here the moment a sequence reaches a call step. Nothing for you to do right now — good time to triage your inbox or check Flows.",
+                : t("qc.empty.callsHint"),
               ctaLabel: search ? null : t("queue.empty.openInbox"),
               ctaTab: null,
               ctaHref: "/inbox",
@@ -1242,7 +1242,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                           <span className="text-[11px] font-bold shrink-0" style={{ color: "#F97316" }}>Available {avail}</span>
                           <button onClick={() => router.push(`/leads/${call.leadId}`)}
                             className="text-[11px] font-semibold px-2 py-1 rounded-md border shrink-0 transition-colors hover:bg-black/[0.03]"
-                            style={{ borderColor: C.border, color: C.textBody }}>Open</button>
+                            style={{ borderColor: C.border, color: C.textBody }}>{t("qc.open")}</button>
                         </div>
                       );
                     })}
@@ -1371,7 +1371,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                           {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
                           <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
                             {call.campaignName} · {t("queue.card.step").replace("{current}", String(call.currentStep + 1)).replace("{total}", String(call.totalSteps))}
-                            {call.lastStepAt && <> {t("queue.card.lastActivity").replace("{timeAgo}", timeAgo(call.lastStepAt))}</>}
+                            {call.lastStepAt && <> {t("queue.card.lastActivity").replace("{timeAgo}", timeAgo(call.lastStepAt, t))}</>}
                             {call.isOverdue && !awaitingOutcome && <> · {urgency.hint}</>}
                           </p>
                         </div>
@@ -1396,7 +1396,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                                 color: "#DC2626",
                                 border: "1px solid color-mix(in srgb, #DC2626 35%, transparent)",
                               }}
-                              title="Phone marked wrong via post-call outcome. Open lead detail to replace."
+                              title={t("qc.wrongTitle")}
                             >
                               <AlertTriangle size={11} />
                               {t("queue.card.wrongNumber")}
@@ -1407,7 +1407,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                               href={`/leads/${call.leadId}`}
                               className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-80"
                               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
-                              title="Open lead detail"
+                              title={t("qc.openLeadTitle")}
                             >
                               <User size={11} /> {t("queue.card.openLead")}
                             </Link>
@@ -1419,7 +1419,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                               href={`/campaigns/${call.campaignId}`}
                               className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-80"
                               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
-                              title="Open the flow this call belongs to"
+                              title={t("qc.openFlowTitle")}
                             >
                               <Megaphone size={11} /> {t("queue.card.openFlow")}
                             </Link>
@@ -1430,11 +1430,11 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                             // the `phone` prop and the picker stays hidden inside the
                             // CallButton component.
                             const phonesList = [
-                              ...(call.phone ? [{ label: "Personal", value: call.phone }] : []),
-                              ...(call.secondaryPhone ? [{ label: "Company", value: call.secondaryPhone }] : []),
+                              ...(call.phone ? [{ label: t("queue.phone.personal"), value: call.phone }] : []),
+                              ...(call.secondaryPhone ? [{ label: t("queue.phone.company"), value: call.secondaryPhone }] : []),
                             ];
                             return awaitingOutcome ? (
-                              <CallButton phone={call.phone ?? call.secondaryPhone ?? null} leadId={call.leadId} size="sm" variant="ghost" label="Call again" defaultNumberId={call.aircallNumberId ?? null} phones={phonesList} />
+                              <CallButton phone={call.phone ?? call.secondaryPhone ?? null} leadId={call.leadId} size="sm" variant="ghost" label={t("qc.callAgain")} defaultNumberId={call.aircallNumberId ?? null} phones={phonesList} />
                             ) : (
                               <CallButton phone={call.phone ?? call.secondaryPhone ?? null} leadId={call.leadId} size="md" defaultNumberId={call.aircallNumberId ?? null} phones={phonesList} />
                             );

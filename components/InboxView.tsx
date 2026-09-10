@@ -12,6 +12,7 @@ import {
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
+import { intlTag, type Locale } from "@/lib/i18n-locale";
 import InboxComposer from "./InboxComposer";
 import ReferralContactsPanel, { type ReferredContact } from "./ReferralContactsPanel";
 
@@ -40,9 +41,10 @@ type InboxReply = {
 // Fran said was too noisy — sellers were toggling instead of working.
 type Tab = "pending" | "history";
 
-const TAB_LABELS: Record<Tab, string> = {
-  pending: "Pending review",
-  history: "History",
+// Module scope, so keys. `Object.keys` still gives the tab order.
+const TAB_LABEL_KEYS: Record<Tab, string> = {
+  pending: "inbox.tab.pending",
+  history: "inbox.tab.history",
 };
 
 function channelIcon(ch: string | null) {
@@ -66,15 +68,17 @@ function classBadge(c: string | null, t: (k: string) => string): { label: string
   return { label: c, color: C.textMuted, bg: C.surface };
 }
 
-function relativeTime(iso: string) {
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+function relativeTime(iso: string, t: Tr) {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.floor(ms / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return t("inbox.justNow");
+  if (m < 60) return t("inbox.ago.min", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t("inbox.ago.hour", { n: h });
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
+  if (d < 7) return t("inbox.ago.day", { n: d });
   return new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
 }
 
@@ -154,21 +158,21 @@ function formatTimeOnly(iso: string): string {
   return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 }
 
-// Day separator label. "Hoy" / "Ayer" / "Domingo 24 may" depending on age.
-function formatDayLabel(iso: string): string {
+// Day separator label — today / yesterday / "Sunday 24 May" depending on age.
+function formatDayLabel(iso: string, t: Tr, locale: Locale): string {
   const d = new Date(iso);
   const today = new Date();
   const yest = new Date();
   yest.setDate(yest.getDate() - 1);
   const sameDay = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  if (sameDay(d, today)) return "Hoy";
-  if (sameDay(d, yest)) return "Ayer";
+  if (sameDay(d, today)) return t("inbox.today");
+  if (sameDay(d, yest)) return t("inbox.yesterday");
   const diffMs = today.getTime() - d.getTime();
   const days = Math.floor(diffMs / 86_400_000);
   // Recent week: weekday name. Otherwise the full date.
-  if (days < 7) return d.toLocaleDateString("es-AR", { weekday: "long" });
-  return d.toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "short" });
+  if (days < 7) return d.toLocaleDateString(intlTag(locale), { weekday: "long" });
+  return d.toLocaleDateString(intlTag(locale), { weekday: "long", day: "2-digit", month: "short" });
 }
 
 // First-letter initials for the avatar bubble. Falls back to "?" if empty.
@@ -290,7 +294,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
 
   // ONE row per LEAD, not per reply. A lead who sends two messages in a row
   // (e.g. "Hola" then "Mucho gusto!") used to show as TWO separate cards in
@@ -652,7 +656,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         // selection, so the seller lands back where they were.
         if (optimisticLeadId) setClearedLeadIds(prev => { const n = new Set(prev); n.delete(optimisticLeadId); return n; });
         if (wasSelected) setSelectedId(replyId);
-        toast.show({ kind: "error", title: "Couldn't classify", description: "Try again." });
+        toast.show({ kind: "error", title: t("inbox.err.classify"), description: t("inbox.tryAgainDot") });
         return;
       }
       // Read the clicked reply's auto-reply outcome so the seller knows whether
@@ -663,11 +667,11 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         : null;
       const ars = primary?.autoReplyStatus;
       const autoReplyDesc = classification === "follow_up" ? undefined
-        : !doSendAR ? "No auto-reply — reply yourself from the composer whenever you want."
-        : ars === "sent" ? "Auto-reply sent to the lead ✓ — check the thread on the lead."
-        : ars === "deduped" ? "We already replied just now — the message wasn't duplicated."
-        : ars === "no_template" ? "No message went out — reply from the composer if you want."
-        : ars === "failed" ? "⚠ Couldn't send the auto-reply — reply manually from the composer."
+        : !doSendAR ? t("inbox.ar.none")
+        : ars === "sent" ? t("inbox.ar.sent")
+        : ars === "deduped" ? t("inbox.ar.deduped")
+        : ars === "no_template" ? t("inbox.ar.noTemplate")
+        : ars === "failed" ? t("inbox.ar.failed")
         : undefined;
       // Mirror the API's cascade response: positive/negative now pause the
       // campaign + close the lead. Tell the seller so they don't expect
@@ -787,12 +791,12 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
         }).then(r => { if (!r.ok) throw new Error(String(r.status)); }),
       ));
       if (!results.some(r => r.status === "fulfilled")) {
-        toast.show({ kind: "error", title: "Couldn't update review", description: "Try again" });
+        toast.show({ kind: "error", title: t("inbox.err.review"), description: t("inbox.tryAgain") });
         return;
       }
       toast.show({
         kind: status === "approved" ? "success" : status === "rejected" ? "warning" : "info",
-        title: status === "approved" ? "Marked as reviewed" : status === "rejected" ? "Marked as rejected" : "Sent back to inbox",
+        title: status === "approved" ? t("inbox.markedReviewed") : status === "rejected" ? t("inbox.markedRejected") : t("inbox.sentBack"),
       });
       // Same treatment as quickClassify: hide the row and move on, instead of
       // leaving the same conversation on screen waiting for the refresh.
@@ -811,7 +815,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
     <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: `color-mix(in srgb, var(--brand, #c9a83a) 28%, ${C.border})`, boxShadow: `0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 16%, transparent), 0 10px 30px -12px rgba(0,0,0,0.4)` }}>
       {/* Tabs */}
       <div className="flex items-center gap-1 px-2 sm:px-3 pt-2 border-b overflow-x-auto" style={{ borderColor: C.border }}>
-        {(Object.keys(TAB_LABELS) as Tab[]).map(k => {
+        {(Object.keys(TAB_LABEL_KEYS) as Tab[]).map(k => {
           const active = tab === k;
           const n = counts[k];
           return (
@@ -1097,7 +1101,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                   </span>
                                 )}
                                 <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>
-                                  {relativeTime(r.receivedAt)}
+                                  {relativeTime(r.receivedAt, t)}
                                 </span>
                               </span>
                             </div>
@@ -1241,7 +1245,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                   <div className="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-xs" style={{ color: C.textMuted }}>
                     <span>{selected.company ?? "—"}</span>
                     {selected.campaignName && <span>· {selected.campaignName}</span>}
-                    <span>· {relativeTime(selected.receivedAt)}</span>
+                    <span>· {relativeTime(selected.receivedAt, t)}</span>
                     {stage && (
                       <>
                         <span style={{ color: C.textDim }}>·</span>
@@ -1300,8 +1304,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     href={`/leads/${selected.leadId}`}
                     className="w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-opacity hover:opacity-85"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
-                    title="Open lead"
-                    aria-label="Open lead"
+                    title={t("inbox.openLead")}
+                    aria-label={t("inbox.openLead")}
                   >
                     <ExternalLink size={14} />
                   </Link>
@@ -1424,18 +1428,18 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                       // A manual seller reply also lives at step -1, so check
                       // kind first: only a real bot auto-reply gets "Auto-reply".
                       const stepLabel = entry.kind === "manual_seller_reply"
-                        ? "Seller reply"
+                        ? t("inbox.sellerReply")
                         : (entry.kind === "auto_reply" || entry.stepNumber === -1)
-                          ? "Auto-reply"
+                          ? t("inbox.autoReply")
                           : (entry.source === "unipile" && isOut)
-                            ? "Seller reply"
+                            ? t("inbox.sellerReply")
                             : null;
                       const time = formatTimeOnly(entry.at);
                       const dayDate = new Date(entry.at);
                       const dayKey = `${dayDate.getFullYear()}-${dayDate.getMonth()}-${dayDate.getDate()}`;
                       const showDayHeader = dayKey !== lastDayKey;
                       lastDayKey = dayKey;
-                      const dayLabel = formatDayLabel(entry.at);
+                      const dayLabel = formatDayLabel(entry.at, t, locale);
                       const isLast = idx === visibleThread.length - 1;
                       const isEmail = entry.channel === "email";
                       return (
@@ -1481,9 +1485,9 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>
-                                    {isOut ? (selected.sellerName ?? "Tu equipo") : selected.leadName}
+                                    {isOut ? (selected.sellerName ?? t("inbox.yourTeam")) : selected.leadName}
                                     <span className="ml-2 text-[10px] font-normal" style={{ color: C.textMuted }}>
-                                      → {isOut ? selected.leadName : (selected.sellerName ?? "Tu equipo")}
+                                      → {isOut ? selected.leadName : (selected.sellerName ?? t("inbox.yourTeam"))}
                                     </span>
                                   </p>
                                   <p className="text-[10px]" style={{ color: C.textMuted }}>
@@ -1529,7 +1533,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                           className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs hover:opacity-85"
                                           style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}>
                                           <ExternalLink size={11} />
-                                          <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
+                                          <span className="truncate max-w-[180px]">{a.name ?? t("inbox.attachment")}</span>
                                           {a.size != null && (
                                             <span className="text-[10px]" style={{ color: C.textDim }}>{(a.size / 1024).toFixed(0)} KB</span>
                                           )}
@@ -1551,7 +1555,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                   ) : (
                                     <span className="inline-flex items-center gap-1" title={t("inbox.delivered")}>
                                       <span className="font-bold tracking-tighter">✓✓</span>
-                                      <span>Entregado</span>
+                                      <span>{t("inbox.delivered")}</span>
                                     </span>
                                   )}
                                 </div>
@@ -1614,7 +1618,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                           style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}
                                         >
                                           <ExternalLink size={11} />
-                                          <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
+                                          <span className="truncate max-w-[180px]">{a.name ?? t("inbox.attachment")}</span>
                                           {a.size != null && (
                                             <span className="text-[10px]" style={{ color: C.textDim }}>
                                               {(a.size / 1024).toFixed(0)} KB
@@ -1663,7 +1667,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                                     ) : (
                                       <span className="inline-flex items-center gap-1" title={t("inbox.delivered")}>
                                         <span className="font-bold tracking-tighter">✓✓</span>
-                                        <span>Entregado</span>
+                                        <span>{t("inbox.delivered")}</span>
                                       </span>
                                     )}
                                   </>
@@ -1777,7 +1781,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                 </div>
                 <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>{t("inbox.empty.pickReply")}</p>
                 <p className="text-[11px]" style={{ color: C.textMuted }}>
-                  Click any item on the left, or use <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>K</kbd> to navigate.
+                  {t("inbox.navHintPre")} <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>K</kbd> {t("inbox.navHintPost")}
                 </p>
               </div>
             </div>
