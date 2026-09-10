@@ -25,6 +25,7 @@ import {
 } from "./ui";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
+import { useLocale } from "@/lib/i18n";
 
 /* ── the card ───────────────────────────────────────────────────────────── */
 
@@ -92,16 +93,17 @@ function Card({ c }: { c: CT.ChannelCard }) {
 
 function HeadToHead() {
   const T = useT();
+  const { t } = useLocale();
   const rows = T.channelCards.filter(c => c.comparable);
   const [a, b] = rows;
   const maxRate = Math.max(a.rate, b.rate);
   const maxVol = Math.max(a.sent, b.sent);
 
   const LINES: { label: string; get: (c: CT.ChannelCard) => number; fmt: (v: number) => string; scale: number }[] = [
-    { label: "Reply rate", get: c => c.rate, fmt: v => `${v}%`, scale: maxRate },
-    { label: "Messages sent", get: c => c.sent, fmt: v => n(v), scale: maxVol },
-    { label: "Leads reached", get: c => c.reach, fmt: v => n(v), scale: maxVol },
-    { label: "Leads replied", get: c => c.result, fmt: v => n(v), scale: Math.max(a.result, b.result) },
+    { label: t("cons.chan.replyRate"), get: c => c.rate, fmt: v => `${v}%`, scale: maxRate },
+    { label: t("cons.chan.messagesSent"), get: c => c.sent, fmt: v => n(v), scale: maxVol },
+    { label: t("cons.chan.leadsReached"), get: c => c.reach, fmt: v => n(v), scale: maxVol },
+    { label: t("cons.chan.leadsReplied"), get: c => c.result, fmt: v => n(v), scale: Math.max(a.result, b.result) },
   ];
 
   return (
@@ -149,6 +151,7 @@ function HeadToHead() {
 
 function Volume() {
   const T = useT();
+  const { t } = useLocale();
   const cards = T.channelCards;
   const max = Math.max(...cards.map(c => c.sent));
   return (
@@ -183,9 +186,10 @@ function Volume() {
 
 export default function Channels({ label }: { label: string }) {
   const T = useT();
+  const { t } = useLocale();
   return (
     <>
-      <Opening question="Which channel earns a reply?" sub={`in ${label}`} aside={<Drill label="Inbox" />}>
+      <Opening question={t("cons.ov.q2")} sub={t("cons.ov.in", { label })} aside={<Drill label={t("cons.chan.inbox")} />}>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" style={{ gap: 16 }}>
           {T.channelCards.map(c => <Card key={c.key} c={c} />)}
         </div>
@@ -195,7 +199,7 @@ export default function Channels({ label }: { label: string }) {
         </Note>
       </Opening>
 
-      <Band question="Head to head" sub="the only two channels that are the same measurement">
+      <Band question={t("cons.chan.headToHead")} sub={t("cons.chan.headToHeadSub")}>
         <HeadToHead />
       </Band>
 
@@ -203,17 +207,17 @@ export default function Channels({ label }: { label: string }) {
         <WorthALook title={T.channelWorthALook.title} facts={T.channelWorthALook.facts} />
       </section>
 
-      <Band question="How much does each channel actually move?">
+      <Band question={t("cons.chan.q2")}>
         <Volume />
       </Band>
 
-      <Band question="What this tab no longer shows">
-        <Eyebrow>Removed</Eyebrow>
+      <Band question={t("cons.noLongerShows")}>
+        <Eyebrow>{t("cons.removed")}</Eyebrow>
         <ul className="flex flex-col" style={{ gap: 9, maxWidth: 800 }}>
           {[
-            ["The separate LinkedIn Connections card", "it rendered the same sent/accepted pair as the comparison bar with different arithmetic, so the screen showed one concept three ways and none of them was acceptance. Acceptance now has exactly one card and one number."],
-            ["Calls inside the ranking", "the call card stays — connect rate, outcome mix and all — but it is out of the head-to-head, because a connect rate and a reply rate are not the same measurement."],
-            ["The best-vs-worst gap sentence", "it subtracted an acceptance rate from a reply rate and printed the difference in points."],
+            [t("cons.chan.rm1"), t("cons.chan.rm1d")],
+            [t("cons.chan.rm2"), t("cons.chan.rm2d")],
+            [t("cons.chan.rm3"), t("cons.chan.rm3d")],
           ].map(([k, v]) => (
             <li key={k} className="flex items-baseline gap-2.5">
               <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, backgroundColor: C.textDim, transform: "translateY(-2px)" }} />

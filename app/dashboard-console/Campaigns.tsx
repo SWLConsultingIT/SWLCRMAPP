@@ -27,6 +27,7 @@ import {
 import { CH_KEYS, RATE_FLOOR } from "@/lib/console-data";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
+import { useLocale } from "@/lib/i18n";
 
 const K = CH_KEYS;
 const sum = (t: CT.Touch) => K.reduce((a, k) => a + t[k], 0);
@@ -36,6 +37,7 @@ const sum = (t: CT.Touch) => K.reduce((a, k) => a + t[k], 0);
    flow. The gold cap is the leads that replied, on the same scale. */
 
 function Spine({ steps }: { steps: CT.Step[] }) {
+  const { t } = useLocale();
   if (steps.length === 0) return null;
   const max = Math.max(...steps.map(s => s.leads), 1);
   const H = 76;
@@ -59,11 +61,11 @@ function Spine({ steps }: { steps: CT.Step[] }) {
             <div className="flex items-center justify-center gap-1 mt-0.5 min-w-0">
               <span className="rounded-sm shrink-0" style={{ width: 6, height: 6, backgroundColor: CH_COLOR[s.ch] }} />
               <span className="truncate" style={{ fontSize: 9.5, color: C.textBody }}>
-                {s.ch === "li_cr" ? "Invitation" : s.ch === "li_dm" ? "LinkedIn DM" : "Email"}
+                {s.ch === "li_cr" ? t("cons.camp.stepInvitation") : s.ch === "li_dm" ? t("cons.ch.liDm") : t("cons.ch.email")}
               </span>
             </div>
             <div className="text-center truncate" style={{ fontSize: 9, color: C.textDim }}>
-              {s.step === 0 ? "step 0" : `step ${s.step}`} · {n(s.sent)} sent
+              {s.step === 0 ? t("cons.camp.stepZero") : t("cons.camp.stepN", { n: s.step })} · {n(s.sent)} {t("cons.camp.sentSuffix")}
             </div>
           </div>
         );
@@ -97,6 +99,7 @@ function Cell({ v, label, accent, dim }: { v: string | number; label: string; ac
 function Mini({ label, rows, total }: {
   label: string; rows: { label: string; n: number; tone: string }[]; total: number;
 }) {
+  const { t } = useLocale();
   return (
     <div>
       <div className="font-semibold uppercase tracking-wider mb-2" style={{ fontSize: 9.5, color: C.textMuted }}>{label}</div>
@@ -109,7 +112,7 @@ function Mini({ label, rows, total }: {
             <span style={{ fontSize: 10.5, color: C.textMuted }}>{r.label}</span>
           </span>
         ))}
-        {total > 0 && rows.every(r => r.n === 0) && <span style={{ fontSize: 10.5, color: C.textDim }}>none classified</span>}
+        {total > 0 && rows.every(r => r.n === 0) && <span style={{ fontSize: 10.5, color: C.textDim }}>{t("cons.camp.noneClassified")}</span>}
       </div>
     </div>
   );
@@ -117,36 +120,37 @@ function Mini({ label, rows, total }: {
 
 function Detail({ c }: { c: CT.CampaignRow }) {
   const T = useT();
+  const { t } = useLocale();
   const d = T.flowDetail[c.name];
   if (!d) return null;
   const st = d.status;
   const stTotal = Math.max(st.active + st.completed + st.closedLost, 1);
 
   const replyRows = [
-    { label: "interested", n: d.replyCls.positive, tone: "good" },
-    { label: "needs info", n: d.replyCls.needsInfo, tone: "info" },
-    { label: "follow up", n: d.replyCls.followUp, tone: "neutral" },
-    { label: "not interested", n: d.replyCls.negative, tone: "bad" },
+    { label: t("cons.camp.cls.interested"), n: d.replyCls.positive, tone: "good" },
+    { label: t("cons.camp.cls.needsInfo"), n: d.replyCls.needsInfo, tone: "info" },
+    { label: t("cons.camp.cls.followUp"), n: d.replyCls.followUp, tone: "neutral" },
+    { label: t("cons.camp.cls.notInterested"), n: d.replyCls.negative, tone: "bad" },
   ];
   const callRows = [
-    { label: "interested", n: d.callCls.positive, tone: "good" },
-    { label: "needs info", n: d.callCls.needsInfo, tone: "info" },
-    { label: "follow up", n: d.callCls.followUp, tone: "neutral" },
-    { label: "not interested", n: d.callCls.negative, tone: "bad" },
-    { label: "voicemail", n: d.callCls.voicemail, tone: "muted" },
-    { label: "wrong number", n: d.callCls.wrongNumber, tone: "muted" },
-    { label: "no outcome", n: d.callCls.unclassified, tone: "warn" },
+    { label: t("cons.camp.cls.interested"), n: d.callCls.positive, tone: "good" },
+    { label: t("cons.camp.cls.needsInfo"), n: d.callCls.needsInfo, tone: "info" },
+    { label: t("cons.camp.cls.followUp"), n: d.callCls.followUp, tone: "neutral" },
+    { label: t("cons.camp.cls.notInterested"), n: d.callCls.negative, tone: "bad" },
+    { label: t("cons.camp.cls.voicemail"), n: d.callCls.voicemail, tone: "muted" },
+    { label: t("cons.camp.cls.wrongNumber"), n: d.callCls.wrongNumber, tone: "muted" },
+    { label: t("cons.camp.cls.noOutcome"), n: d.callCls.unclassified, tone: "warn" },
   ];
   const STATUS = [
-    { label: "still running", n: st.active, color: gold },
-    { label: "sequence finished", n: st.completed, color: C.border2 },
-    { label: "closed lost", n: st.closedLost, color: "#C0553F" },
+    { label: t("cons.camp.stillRunning"), n: st.active, color: gold },
+    { label: t("cons.camp.sequenceFinished"), n: st.completed, color: C.border2 },
+    { label: t("cons.camp.closedLost"), n: st.closedLost, color: "#C0553F" },
   ];
 
   return (
     <div className="rounded-xl px-5 py-5" style={{ backgroundColor: C.surface }}>
       <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-        <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textMuted }}>The sequence</span>
+        <span className="font-semibold uppercase tracking-wider" style={{ fontSize: 9.5, color: C.textMuted }}>{t("cons.camp.theSequence")}</span>
         <span style={{ fontSize: 10.5, color: C.textDim }}>
           {c.steps.length} steps · leads reached at each, and how many of them replied at any point
         </span>
@@ -156,16 +160,16 @@ function Detail({ c }: { c: CT.CampaignRow }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 mt-7 pt-5" style={{ gap: 34, borderTop: `1px solid ${C.border}` }}>
         <div>
           <div className="font-semibold uppercase tracking-wider mb-2.5" style={{ fontSize: 9.5, color: C.textMuted }}>
-            Replies <span className="font-normal normal-case tracking-normal" style={{ color: C.textDim }}>
-              · {d.replyEvents} from {d.replyLeads} {d.replyLeads === 1 ? "lead" : "leads"}
+            {t("cons.camp.repliesHead")} <span className="font-normal normal-case tracking-normal" style={{ color: C.textDim }}>
+              {t(d.replyLeads === 1 ? "cons.camp.fromLead" : "cons.camp.fromLeads", { events: d.replyEvents, leads: d.replyLeads })}
             </span>
           </div>
           {d.replyEvents === 0 ? (
-            <p style={{ fontSize: 11.5, color: C.textDim }}>No replies from this cohort in the period.</p>
+            <p style={{ fontSize: 11.5, color: C.textDim }}>{t("cons.camp.noReplies")}</p>
           ) : (
             <>
               <div className="flex" style={{ gap: 10 }}>
-                {([["li_dm", d.replyCh.linkedin, "on LinkedIn"], ["email", d.replyCh.email, "on email"]] as const).map(([k, v, lab]) => (
+                {([["li_dm", d.replyCh.linkedin, t("cons.camp.onLinkedIn")], ["email", d.replyCh.email, t("cons.camp.onEmail")]] as const).map(([k, v, lab]) => (
                   <div key={k} className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-1.5">
                       <span className="rounded-sm shrink-0 self-center" style={{ width: 7, height: 7, backgroundColor: CH_COLOR[k] }} />
@@ -179,7 +183,7 @@ function Detail({ c }: { c: CT.CampaignRow }) {
                 ))}
               </div>
               <div className="mt-4">
-                <Mini label="What they said" rows={replyRows} total={d.replyEvents} />
+                <Mini label={t("cons.camp.whatTheySaid")} rows={replyRows} total={d.replyEvents} />
               </div>
             </>
           )}
@@ -187,12 +191,12 @@ function Detail({ c }: { c: CT.CampaignRow }) {
 
         <div>
           <div className="font-semibold uppercase tracking-wider mb-2.5" style={{ fontSize: 9.5, color: C.textMuted }}>
-            Calls <span className="font-normal normal-case tracking-normal" style={{ color: C.textDim }}>
-              {d.calls > 0 ? `· ${d.connected} of ${d.calls} connected` : ""}
+            {t("cons.camp.callsHead")} <span className="font-normal normal-case tracking-normal" style={{ color: C.textDim }}>
+              {d.calls > 0 ? t("cons.camp.connectedOf", { connected: d.connected, calls: d.calls }) : ""}
             </span>
           </div>
           {d.calls === 0 ? (
-            <p style={{ fontSize: 11.5, color: C.textDim }}>Nobody dialled this cohort in the period.</p>
+            <p style={{ fontSize: 11.5, color: C.textDim }}>{t("cons.camp.nobodyDialled")}</p>
           ) : (
             <>
               <div className="flex items-baseline gap-2 mb-3">
@@ -200,16 +204,16 @@ function Detail({ c }: { c: CT.CampaignRow }) {
                 <span className="tabular-nums font-semibold" style={{ fontSize: 22, letterSpacing: "-0.02em", color: C.textPrimary }}>
                   {Math.round((d.connected / d.calls) * 100)}%
                 </span>
-                <span style={{ fontSize: 10.5, color: C.textMuted }}>connect rate</span>
+                <span style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.camp.connectRate")}</span>
               </div>
-              <Mini label="Outcome" rows={callRows} total={d.calls} />
+              <Mini label={t("cons.camp.outcome")} rows={callRows} total={d.calls} />
             </>
           )}
         </div>
 
         <div>
           <div className="font-semibold uppercase tracking-wider mb-2.5" style={{ fontSize: 9.5, color: C.textMuted }}>
-            Where the {n(c.contacted)} stand now
+            {t("cons.camp.whereTheyStand", { n: n(c.contacted) })}
           </div>
           <div className="flex h-2.5 rounded-full overflow-hidden mb-2.5" style={{ backgroundColor: C.card }}>
             {STATUS.filter(x => x.n > 0).map(x => (
@@ -227,11 +231,11 @@ function Detail({ c }: { c: CT.CampaignRow }) {
           </div>
           <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
             {d.medianDays === null ? (
-              <p style={{ fontSize: 11.5, color: C.textDim }}>No reply to time.</p>
+              <p style={{ fontSize: 11.5, color: C.textDim }}>{t("cons.camp.noReplyTime")}</p>
             ) : (
               <div className="flex items-baseline gap-2">
                 <span className="tabular-nums font-semibold shrink-0" style={{ fontSize: 20, letterSpacing: "-0.02em", color: C.textPrimary }}>
-                  {d.medianDays === 0 ? "same day" : `${d.medianDays}d`}
+                  {d.medianDays === 0 ? t("cons.camp.sameDay") : `${d.medianDays}d`}
                 </span>
                 <span style={{ fontSize: 10.5, color: C.textMuted, lineHeight: 1.35 }}>
                   median wait from this flow&apos;s first message to that lead&apos;s reply
@@ -248,6 +252,7 @@ function Detail({ c }: { c: CT.CampaignRow }) {
 function Flow({ c, best, open, onToggle }: {
   c: CT.CampaignRow; best: number; open: boolean; onToggle: () => void;
 }) {
+  const { t } = useLocale();
   const total = sum(c.touch);
   const thin = c.contacted < RATE_FLOOR;
   return (
@@ -265,11 +270,11 @@ function Flow({ c, best, open, onToggle }: {
 
         {/* the metrics that were missing */}
         <div className="w-[326px] shrink-0 grid grid-cols-5" style={{ gap: 8 }}>
-          <Cell v={c.enrolled} label="enrolled" dim />
-          <Cell v={c.contacted} label="contacted" />
-          <Cell v={c.followed} label="followed up" dim />
-          <Cell v={c.calls} label={c.calls ? `calls · ${c.connected} conn` : "calls"} dim={c.calls === 0} />
-          <Cell v={c.positive} label="positive" accent={c.positive > 0 ? C.green : undefined} dim={c.positive === 0} />
+          <Cell v={c.enrolled} label={t("cons.camp.enrolled")} dim />
+          <Cell v={c.contacted} label={t("cons.camp.contacted")} />
+          <Cell v={c.followed} label={t("cons.camp.followedUp")} dim />
+          <Cell v={c.calls} label={c.calls ? t("cons.camp.callsWithConn", { n: c.connected }) : t("cons.camp.calls")} dim={c.calls === 0} />
+          <Cell v={c.positive} label={t("cons.camp.positive")} accent={c.positive > 0 ? C.green : undefined} dim={c.positive === 0} />
         </div>
 
         <div className="w-[96px] shrink-0">
@@ -304,6 +309,7 @@ function Group({ g, best, open, toggle }: {
   toggle: (k: string) => void;
 }) {
   const T = useT();
+  const { t } = useLocale();
   const total = sum(g.touch);
   const flowBest = Math.max(...g.flows.map(f => (f.contacted >= RATE_FLOOR ? f.rate : 0)), 1);
   return (
@@ -313,7 +319,7 @@ function Group({ g, best, open, toggle }: {
       <div className="flex items-baseline gap-3 flex-wrap pb-2.5">
         <h3 className="font-semibold tracking-tight" style={{ fontSize: 14, color: C.textPrimary }}>{g.icp}</h3>
         <span className="tabular-nums" style={{ fontSize: 11.5, color: C.textMuted }}>
-          {g.flows.length} {g.flows.length === 1 ? "flow" : "flows"} · {n(g.contacted)} contacted · {n(total)} contact points
+          {t(g.flows.length === 1 ? "cons.camp.groupLineOne" : "cons.camp.groupLineMany", { n: g.flows.length, contacted: n(g.contacted), touch: n(total) })}
           {g.calls > 0 && ` · ${g.calls} calls`}
         </span>
         <div className="flex-1" />
@@ -334,6 +340,19 @@ function Group({ g, best, open, toggle }: {
 
 export default function Campaigns({ label }: { label: string }) {
   const T = useT();
+  const { t } = useLocale();
+  // The three widest sequences of the period, described from their own
+  // numbers. Ordered by contact points, because "where does it stall" is a
+  // question about the flows that consumed the most.
+  const shapeLines = [...T.campaigns]
+    .map(c => ({ c, touch: c.touch.li_cr + c.touch.li_dm + c.touch.email + c.touch.call }))
+    .sort((a, b) => b.touch - a.touch)
+    .slice(0, 3)
+    .map(({ c, touch }) => t("cons.camp.shapeLine", {
+      name: c.name, replies: c.replies, contacted: c.contacted,
+      steps: c.steps.length, touch: touch.toLocaleString(),
+    }));
+
   // Best group's best flow and the worst flow overall start open.
   const [open, setOpen] = useState<Record<string, boolean>>({
     [T.campaignGroups[0].flows[0].name]: true,
@@ -347,16 +366,16 @@ export default function Campaigns({ label }: { label: string }) {
 
   return (
     <>
-      <Opening question="Which sequence is working?" sub={`in ${label} · grouped by ICP`} aside={<Drill label="All flows" />}>
+      <Opening question={t("cons.camp.q1")} sub={t("cons.camp.q1sub", { label })} aside={<Drill label={t("cons.camp.allFlows")} />}>
         <div className="flex items-baseline gap-2 mb-6 flex-wrap">
           <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textPrimary }}>{T.campaigns.length}</span>
           <span style={{ fontSize: 12, color: C.textMuted }}>flows across {T.campaignGroups.length} ICPs</span>
           <span style={{ fontSize: 12, color: C.textDim }}>·</span>
           <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textBody }}>{n(totContacted)}</span>
-          <span style={{ fontSize: 12, color: C.textMuted }}>contacted</span>
+          <span style={{ fontSize: 12, color: C.textMuted }}>{t("cons.camp.contacted")}</span>
           <span style={{ fontSize: 12, color: C.textDim }}>·</span>
           <span className="font-semibold tabular-nums" style={{ fontSize: S.minor, color: C.textBody }}>{totReplies}</span>
-          <span style={{ fontSize: 12, color: C.textMuted }}>replied</span>
+          <span style={{ fontSize: 12, color: C.textMuted }}>{t("cons.camp.replied")}</span>
           <div className="flex-1" />
           <span className="inline-flex items-center gap-2">
             {K.map(k => (
@@ -377,12 +396,12 @@ export default function Campaigns({ label }: { label: string }) {
             <ChannelMark ch="call" size={28} />
             <div>
               <div className="font-semibold tabular-nums" style={{ fontSize: 15, color: C.textPrimary }}>{totCalls}</div>
-              <div style={{ fontSize: 10.5, color: C.textMuted }}>calls attached to a flow</div>
+              <div style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.camp.callsAttached")}</div>
             </div>
           </div>
           <div>
             <div className="font-semibold tabular-nums" style={{ fontSize: 15, color: C.textPrimary }}>{n(totTouch)}</div>
-            <div style={{ fontSize: 10.5, color: C.textMuted }}>contact points in total</div>
+            <div style={{ fontSize: 10.5, color: C.textMuted }}>{t("cons.camp.touchTotal")}</div>
           </div>
         </div>
 
@@ -390,16 +409,15 @@ export default function Campaigns({ label }: { label: string }) {
         <Note>{T.flowDetailNote}</Note>
       </Opening>
 
-      <Band question="Where does the sequence stall?" sub="expand any flow above">
+      <Band question={t("cons.camp.q2")} sub={t("cons.camp.q2sub")}>
         <div className="grid grid-cols-1 lg:grid-cols-12" style={{ gap: 48 }}>
           <div className="lg:col-span-7">
-            <Eyebrow note="three sequences that behave differently">Read the shape</Eyebrow>
+            <Eyebrow note={t("cons.camp.readShapeNote")}>{t("cons.camp.readShape")}</Eyebrow>
             <ul className="flex flex-col" style={{ gap: 10, maxWidth: 620 }}>
-              {[
-                "Growth AI Sales — LATAM holds its rate across all five steps: 16 of 197 on the invite, 15 of 201 on the first email, 13 of 54 on the DM. It is not leaking; it is simply small.",
-                "UK Growth AI Sales replies almost entirely on step 4 — 17 of 201 — against 2 of 100 on step 1. The two emails are not doing the same job, and only 23 of its 309 leads ever got a second message.",
-                "PE & VC — USA sends 1,064 first emails for 4 replies, then 506 more on step 4 for none. It is 42% of the period's contact points and 6% of its replies.",
-              ].map((s, i) => (
+              {/* Generated from the period's own flows. These were three fixed
+                  sentences carried over from the mock — real numbers once,
+                  frozen since, and presented as current analysis. */}
+              {(shapeLines.length ? shapeLines : [t("cons.camp.shapeEmpty")]).map((s, i) => (
                 <li key={i} className="flex items-baseline gap-2.5">
                   <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, backgroundColor: gold, transform: "translateY(-2px)" }} />
                   <span style={{ fontSize: 12.5, color: C.textBody, lineHeight: 1.55 }}>{s}</span>
@@ -408,22 +426,21 @@ export default function Campaigns({ label }: { label: string }) {
             </ul>
           </div>
           <div className="lg:col-span-5 lg:pl-11" style={{ borderLeft: `1px solid ${C.border}` }}>
-            <Eyebrow>How to read a step</Eyebrow>
+            <Eyebrow>{t("cons.camp.howToRead")}</Eyebrow>
             <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>{T.stepsNote}</p>
             <p className="mt-3" style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
-              Calls do not appear as a step. They live in their own table and attach to the flow through the lead, which is why a
-              flow can show 114 calls and no call step.
+              {t("cons.camp.callsNotStep")}
             </p>
           </div>
         </div>
       </Band>
 
-      <Band question="What this tab no longer shows">
-        <Eyebrow>Removed</Eyebrow>
+      <Band question={t("cons.noLongerShows")}>
+        <Eyebrow>{t("cons.removed")}</Eyebrow>
         <p style={{ fontSize: 12.5, color: C.textBody, lineHeight: 1.6, maxWidth: 800 }}>{T.campaignsRemoved}</p>
         <p className="mt-3" style={{ fontSize: 12.5, color: C.textBody, lineHeight: 1.6, maxWidth: 800 }}>
-          The <strong style={{ color: C.textPrimary }}>collapsed ICP accordion</strong> is gone but the{" "}
-          <strong style={{ color: C.textPrimary }}>grouping is not</strong> — the groups are open by default and each carries its own
+          The <strong style={{ color: C.textPrimary }}>{t("cons.camp.rmAccordion")}</strong> is gone but the{" "}
+          <strong style={{ color: C.textPrimary }}>{t("cons.camp.rmGrouping")}</strong> — the groups are open by default and each carries its own
           summary line, so the comparison happens on the page instead of one click at a time.
         </p>
       </Band>

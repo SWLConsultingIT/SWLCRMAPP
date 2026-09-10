@@ -30,6 +30,7 @@ import {
   emptyPhysicalCallScope, type CallGroupView,
 } from "@/lib/metrics/calls-read";
 import type { RawCallRow } from "@/lib/metrics/calls-identity";
+import { intlTag, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-locale";
 
 /* ═══ the four things we can do to a lead ═══════════════════════════════ */
 export const CH_KEYS = ["li_cr", "li_dm", "email", "call"] as const;
@@ -46,6 +47,11 @@ type MsgRow = { id: string; campaign_id: string | null; lead_id: string | null; 
 type ReplyRow = { id: string; lead_id: string | null; channel: string | null; classification: string | null; received_at: string | null };
 type SellerRow = { id: string; name: string; user_id: string | null; active: boolean | null };
 type IcpRowDb = { id: string; profile_name: string | null };
+
+/** The caller's bound translator. Passed in rather than imported so this
+ *  module works from a server component without pulling the dict bundle into
+ *  the client, and so a label can never be emitted in a fixed language. */
+export type Tr = (key: string, vars?: Record<string, string | number>) => string;
 
 export type ConsoleFilters = {
   from: string | null;
@@ -226,14 +232,14 @@ export function delta(now: number, before: number | null, unit: "pp" | "pct" = "
    OVERVIEW  — the `D` shape Console.tsx and Shell.tsx read.
    ═══════════════════════════════════════════════════════════════════════ */
 
-const fmtRange = (from: string | null, to: string | null) => {
-  const m = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  if (!from && !to) return "All time";
+const fmtRange = (from: string | null, to: string | null, t: Tr, locale: Locale) => {
+  const m = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(intlTag(locale), { day: "numeric", month: "short", year: "numeric" });
+  if (!from && !to) return t("cons.period.allTime");
   if (from && to) return `${m(from).replace(/ \d{4}$/, "")} – ${m(to)}`;
-  return from ? `since ${m(from)}` : `until ${m(to!)}`;
+  return from ? t("cons.range.since", { d: m(from) }) : t("cons.range.until", { d: m(to!) });
 };
 
-export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
+export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters, t: Tr, locale: Locale = DEFAULT_LOCALE) {
   const { src } = ix;
 
   /* ── funnel: one cohort, each stage a strict subset ───────────────── */
@@ -250,23 +256,23 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
 
   const funnel = {
     stages: [
-      { key: "contacted", label: "Contacted", n: contacted,
+      { key: "contacted", label: t("cons.funnel.contacted"), n: contacted,
         delta: delta(contacted, ix.contactedPrior.size || null),
-        def: "Leads that received at least one message in this period. Deduplicated by lead." },
-      { key: "replied", label: "Replied", n: replied,
+        def: t("cons.funnel.contactedDef") },
+      { key: "replied", label: t("cons.funnel.replied"), n: replied,
         delta: delta(replied, ix.priorRepliedLeads.size || null),
-        def: "Of the contacted cohort, the leads that wrote back within the period on LinkedIn, email or WhatsApp. A logged call outcome is not a reply." },
-      { key: "positive", label: "Positive", n: positive,
+        def: t("cons.funnel.repliedDef") },
+      { key: "positive", label: t("cons.funnel.positive"), n: positive,
         delta: delta(positive, ix.priorPositiveLeads.size || null),
-        def: "Replies classified positive or meeting-intent, from leads inside the contacted cohort." },
+        def: t("cons.funnel.positiveDef") },
     ],
     notAdvanced: [
-      { n: once, text: "of the contacted received a single message" },
-      { n: twicePlus, text: "received two or more" },
-      { n: ix.cohortReplies.filter(r => !isPositiveReply(r)).length, text: "replies were not classified positive" },
+      { n: once, text: t("cons.funnel.once") },
+      { n: twicePlus, text: t("cons.funnel.twicePlus") },
+      { n: ix.cohortReplies.filter(r => !isPositiveReply(r)).length, text: t("cons.funnel.notPositive") },
     ],
     cohortNote: ix.outsideCohort > 0
-      ? `${ix.outsideCohort} further ${ix.outsideCohort === 1 ? "reply" : "replies"} arrived in this period from leads contacted before it, so they sit outside this cohort.`
+      ? t(ix.outsideCohort === 1 ? "cons.funnel.cohortNoteOne" : "cons.funnel.cohortNoteMany", { n: ix.outsideCohort })
       : "",
   };
 
@@ -285,11 +291,11 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
   const dm = perChannel("li_dm"), email = perChannel("email");
 
   const replyRates = {
-    title: "Reply rates",
-    note: "same measurement, comparable",
+    title: t("cons.replyRates.title"),
+    note: t("cons.replyRates.note"),
     rows: [
-      { key: "dm", label: "LinkedIn DM", icon: "dm" as const, ...dm, rate: dm.rate ?? 0, delta: null as Delta },
-      { key: "email", label: "Email", icon: "email" as const, ...email, rate: email.rate ?? 0, delta: null as Delta },
+      { key: "dm", label: t("cons.ch.liDm"), icon: "dm" as const, ...dm, rate: dm.rate ?? 0, delta: null as Delta },
+      { key: "email", label: t("cons.ch.email"), icon: "email" as const, ...email, rate: email.rate ?? 0, delta: null as Delta },
     ],
   };
 
@@ -307,33 +313,33 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
   const calls = callMetrics(ix.callGroups);
 
   const otherChannel = {
-    title: "Other channel metrics",
-    note: "different measurement each — not reply rates",
+    title: t("cons.other.title"),
+    note: t("cons.other.note"),
     rows: [
-      { key: "invites", label: "LinkedIn invitation acceptance", icon: "in" as const,
+      { key: "invites", label: t("cons.other.acceptance"), icon: "in" as const,
         value: roundRate(acceptance.rate) ?? 0,
-        num: accepted, den: acceptance.invited, unit: "accepted",
+        num: accepted, den: acceptance.invited, unit: t("cons.other.accepted"),
         basis: acceptance.caveat,
         delta: null as Delta,
-        caveat: "acceptance has no timestamp, so this is anchored on the invitation date" },
+        caveat: t("cons.other.acceptCaveat") },
       // The canonical five. Unknown is stated in the caveat and never folded
       // into the denominator.
-      { key: "calls", label: "Confirmed connect rate", icon: "call" as const,
+      { key: "calls", label: t("cons.other.connectRate"), icon: "call" as const,
         value: calls.confirmedConnectRate == null ? 0 : Math.round(calls.confirmedConnectRate * 10) / 10,
         num: calls.confirmedConnected, den: calls.confirmedConnected + calls.confirmedNotConnected,
-        unit: "confirmed connected",
-        basis: "distinct physical calls with a human outcome logged",
+        unit: t("cons.other.connected"),
+        basis: t("cons.other.callBasis"),
         delta: null as Delta,
-        caveat: `${calls.unknown} of the ${calls.attempted} attempted have no outcome logged and are excluded from the rate` },
+        caveat: t("cons.other.callCaveat", { unknown: calls.unknown, attempted: calls.attempted }) },
     ],
   };
 
   const linkedinNote = {
-    title: "LinkedIn invitation acceptance deserves attention",
+    title: t("cons.liNote.title"),
     facts: [
-      `${accepted} of ${acceptance.invited} invitations sent this period have been accepted (${roundRate(acceptance.rate) ?? 0}%).`,
-      `LinkedIn DMs reached ${dm.reached} leads and ${dm.replies} of them replied (${dm.rate ?? 0}%).`,
-      `Email reached ${email.reached} leads and ${email.replies} of them replied (${email.rate ?? 0}%).`,
+      t("cons.liNote.accepted", { accepted, invited: acceptance.invited, rate: roundRate(acceptance.rate) ?? 0 }),
+      t("cons.liNote.dm", { reached: dm.reached, replies: dm.replies, rate: dm.rate ?? 0 }),
+      t("cons.liNote.email", { reached: email.reached, replies: email.replies, rate: email.rate ?? 0 }),
     ],
   };
 
@@ -371,11 +377,11 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
     events: ix.inboundWin.length,
     leads: new Set(ix.inboundWin.map(r => r.lead_id).filter(Boolean)).size,
     rows: [
-      { label: "Not interested", n: q(["negative", "not_interested"]), tone: "bad" as const },
-      { label: "Needs info", n: q(["needs_info"]), tone: "info" as const },
-      { label: "Follow up", n: q(["follow_up"]), tone: "neutral" as const },
-      { label: "Interested", n: q(["positive", "meeting_intent", "interested"]), tone: "good" as const },
-      { label: "Auto-reply", n: q(["auto_reply", "ooo"]), tone: "muted" as const },
+      { label: t("cons.reply.notInterested"), n: q(["negative", "not_interested"]), tone: "bad" as const },
+      { label: t("cons.reply.needsInfo"), n: q(["needs_info"]), tone: "info" as const },
+      { label: t("cons.reply.followUp"), n: q(["follow_up"]), tone: "neutral" as const },
+      { label: t("cons.reply.interested"), n: q(["positive", "meeting_intent", "interested"]), tone: "good" as const },
+      { label: t("cons.reply.autoReply"), n: q(["auto_reply", "ooo"]), tone: "muted" as const },
     ],
     note: "",
   };
@@ -420,7 +426,11 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
     if (wd == null) continue;
     grid[(wd + 6) % 7][blockOf(businessHour(r.received_at))]++;  // Monday-first
   }
-  const timing = { tz: "America/Buenos_Aires", days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], blocks: BLOCKS, grid, total: ix.inboundWin.length };
+  const timing = {
+    tz: "America/Buenos_Aires",
+    days: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map(d => t(`dashx.day.${d}`)),
+    blocks: BLOCKS, grid, total: ix.inboundWin.length,
+  };
 
   /* ── workspace stock: the three parts PARTITION the total ─────────── */
   const visible = (id: string | null | undefined): id is string =>
@@ -432,22 +442,24 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
   const workspace = {
     total,
     parts: [
-      { label: "contacted at some point", n: everContacted.size },
-      { label: "in a flow, never messaged", n: inFlowNeverMessaged },
-      { label: "never enrolled", n: total - everContacted.size - inFlowNeverMessaged },
+      { label: t("cons.ws.contactedEver"), n: everContacted.size },
+      { label: t("cons.ws.inFlowNever"), n: inFlowNeverMessaged },
+      { label: t("cons.ws.neverEnrolled"), n: total - everContacted.size - inFlowNeverMessaged },
     ],
-    intake: { n: src.leads.filter(l => visible(l.id) && inWindow(l.created_at, ix.win)).length, label: "added during this period" },
+    intake: { n: src.leads.filter(l => visible(l.id) && inWindow(l.created_at, ix.win)).length, label: t("cons.ws.addedThisPeriod") },
   };
 
   return {
     period: {
-      label: f.from && f.to ? "Selected period" : "All time",
-      range: fmtRange(f.from, f.to),
-      prior: ix.prior ? fmtRange(businessDayKey(new Date(ix.prior.fromMs!).toISOString()), businessDayKey(new Date(ix.prior.toMs!).toISOString())) : "—",
-      presets: ["Today", "7 days", "30 days", "90 days", "All time"],
+      label: f.from && f.to ? t("cons.period.selected") : t("cons.period.allTime"),
+      range: fmtRange(f.from, f.to, t, locale),
+      prior: ix.prior ? fmtRange(businessDayKey(new Date(ix.prior.fromMs!).toISOString()), businessDayKey(new Date(ix.prior.toMs!).toISOString()), t, locale) : "—",
+            // The id travels on the querystring; the label is what the chip shows.
+      presets: ["Today", "7 days", "30 days", "90 days", "All time"]
+        .map(id => ({ id, label: t(`cons.preset.${id}`) })),
     },
     funnel, replyRates, otherChannel, linkedinNote,
-    rankedBy: "Reply rate",
+    rankedBy: t("cons.rankedBy.replyRate"),
     campaigns,
     campaignsNote: `${totalCampaigns} campaigns sent in this period. Those with fewer than ${FLOOR} leads contacted are not shown — a rate off a handful of leads is noise.`,
     sellers,
@@ -457,13 +469,13 @@ export function buildOverview(ix: ConsoleIndex, f: ConsoleFilters) {
     // Campaigns filter by NAME (the wizard groups flows by name); ICPs and
     // sellers by id. A label-only list could not do that.
     filters: {
-      campaigns: [{ id: "", label: "All campaigns" },
+      campaigns: [{ id: "", label: t("cons.filter.allCampaigns") },
         ...[...new Set(src.camps.map(c => c.name).filter((x): x is string => !!x))].sort()
           .map(n => ({ id: n, label: n }))],
-      icps: [{ id: "", label: "All ICPs" },
+      icps: [{ id: "", label: t("cons.filter.allIcps") },
         ...src.icps.map(i => ({ id: i.id, label: i.profile_name ?? "—" }))
           .sort((a, b) => a.label.localeCompare(b.label))],
-      sellers: [{ id: "", label: "All sellers" },
+      sellers: [{ id: "", label: t("cons.filter.allSellers") },
         ...src.sellers.filter(s => s.active !== false).map(s => ({ id: s.id, label: s.name }))
           .sort((a, b) => a.label.localeCompare(b.label))],
     },
@@ -513,7 +525,7 @@ export const RATE_FLOOR = 25;
 /** A rate is only ranked above this many contacted leads. */
 export const MIN_SAMPLE = 100;
 
-export function buildTabs(ix: ConsoleIndex) {
+export function buildTabs(ix: ConsoleIndex, t: Tr, locale: Locale = DEFAULT_LOCALE) {
   const { src } = ix;
   const repliedLeads = ix.cohortRepliedLeads;
   const positiveLeads = ix.cohortPositiveLeads;
@@ -576,7 +588,7 @@ export function buildTabs(ix: ConsoleIndex) {
     }
     const calls = callMetrics(b.calls);
     return {
-      name, icp: ix.icpName.get(ix.icpOfLead([...b.leads][0] ?? "") ?? "") ?? "No ICP",
+      name, icp: ix.icpName.get(ix.icpOfLead([...b.leads][0] ?? "") ?? "") ?? t("cons.noIcp"),
       status: (b.camp.status === "paused" ? "paused" : b.camp.status === "completed" ? "completed" : "active") as "active" | "paused" | "completed",
       enrolled: b.enrolled.size, contacted: b.leads.size,
       followed: [...perLead.values()].filter(n => n >= 2).length,
@@ -617,36 +629,36 @@ export function buildTabs(ix: ConsoleIndex) {
   const outcomeCount = (names: string[]) => ix.callGroups.filter(g => names.includes((g.classification ?? "").toLowerCase())).length;
 
   const channelCards = [
-    { key: "li_cr" as ChKey, label: "LinkedIn invitation", icon: "in" as const,
-      sent: cr.sent, sentLabel: "invitations sent", reach: cr.reach, reachLabel: "leads invited",
-      result: crAccepted, resultLabel: "accepted", rate: rate(crAccepted, cr.reach), rateLabel: "accept rate",
+    { key: "li_cr" as ChKey, label: t("cons.ch.liInvite"), icon: "in" as const,
+      sent: cr.sent, sentLabel: t("cons.card.invitationsSent"), reach: cr.reach, reachLabel: t("cons.card.leadsInvited"),
+      result: crAccepted, resultLabel: t("cons.other.accepted"), rate: rate(crAccepted, cr.reach), rateLabel: t("cons.card.acceptRate"),
       delta: null as Delta, comparable: false,
-      outcomes: [{ label: "Accepted", n: crAccepted, tone: "good" as const },
-                 { label: "Still pending", n: Math.max(0, cr.reach - crAccepted), tone: "muted" as const }],
-      caveat: "acceptance has no timestamp; anchored on the invitation date" },
-    { key: "li_dm" as ChKey, label: "LinkedIn DM", icon: "dm" as const,
-      sent: dmS.sent, sentLabel: "messages sent", reach: dmS.reach, reachLabel: "leads reached",
-      result: dmS.replies, resultLabel: "replied", rate: rate(dmS.replies, dmS.reach), rateLabel: "reply rate",
+      outcomes: [{ label: t("cons.card.accepted"), n: crAccepted, tone: "good" as const },
+                 { label: t("cons.card.stillPending"), n: Math.max(0, cr.reach - crAccepted), tone: "muted" as const }],
+      caveat: t("cons.card.crCaveat") },
+    { key: "li_dm" as ChKey, label: t("cons.ch.liDm"), icon: "dm" as const,
+      sent: dmS.sent, sentLabel: t("cons.card.messagesSent"), reach: dmS.reach, reachLabel: t("cons.card.leadsReached"),
+      result: dmS.replies, resultLabel: t("cons.card.replied"), rate: rate(dmS.replies, dmS.reach), rateLabel: t("cons.card.replyRate"),
       delta: null as Delta, comparable: true, outcomes: [], caveat: "" },
-    { key: "email" as ChKey, label: "Email", icon: "email" as const,
-      sent: em.sent, sentLabel: "emails sent", reach: em.reach, reachLabel: "leads reached",
-      result: em.replies, resultLabel: "replied", rate: rate(em.replies, em.reach), rateLabel: "reply rate",
+    { key: "email" as ChKey, label: t("cons.ch.email"), icon: "email" as const,
+      sent: em.sent, sentLabel: t("cons.card.emailsSent"), reach: em.reach, reachLabel: t("cons.card.leadsReached"),
+      result: em.replies, resultLabel: t("cons.card.replied"), rate: rate(em.replies, em.reach), rateLabel: t("cons.card.replyRate"),
       delta: null as Delta, comparable: true, outcomes: [], caveat: "" },
     // Calls: the canonical five. Never "connect rate" without Unknown beside it.
-    { key: "call" as ChKey, label: "Calls", icon: "call" as const,
-      sent: callTotals.attempted, sentLabel: "calls attempted", reach: new Set(ix.callGroups.map(g => g.leadId).filter(Boolean)).size, reachLabel: "leads dialled",
-      result: callTotals.confirmedConnected, resultLabel: "confirmed connected",
+    { key: "call" as ChKey, label: t("cons.ch.calls"), icon: "call" as const,
+      sent: callTotals.attempted, sentLabel: t("cons.card.callsAttempted"), reach: new Set(ix.callGroups.map(g => g.leadId).filter(Boolean)).size, reachLabel: t("cons.card.leadsDialled"),
+      result: callTotals.confirmedConnected, resultLabel: t("cons.card.confirmedConnected"),
       rate: callTotals.confirmedConnectRate == null ? 0 : Math.round(callTotals.confirmedConnectRate * 10) / 10,
-      rateLabel: "confirmed connect rate", delta: null as Delta, comparable: false,
+      rateLabel: t("cons.card.connectRateLabel"), delta: null as Delta, comparable: false,
       outcomes: [
-        { label: "Interested", n: outcomeCount(["positive", "meeting_intent", "interested"]), tone: "good" as const },
-        { label: "Follow up", n: outcomeCount(["follow_up", "callback", "needs_info"]), tone: "neutral" as const },
-        { label: "Not interested", n: outcomeCount(["negative", "not_interested"]), tone: "bad" as const },
-        { label: "Voicemail", n: outcomeCount(["voicemail"]), tone: "muted" as const },
-        { label: "Wrong number", n: outcomeCount(["wrong_number"]), tone: "muted" as const },
-        { label: "Unknown", n: callTotals.unknown, tone: "muted" as const },
+        { label: t("cons.outcome.interested"), n: outcomeCount(["positive", "meeting_intent", "interested"]), tone: "good" as const },
+        { label: t("cons.outcome.followUp"), n: outcomeCount(["follow_up", "callback", "needs_info"]), tone: "neutral" as const },
+        { label: t("cons.outcome.notInterested"), n: outcomeCount(["negative", "not_interested"]), tone: "bad" as const },
+        { label: t("cons.outcome.voicemail"), n: outcomeCount(["voicemail"]), tone: "muted" as const },
+        { label: t("cons.outcome.wrongNumber"), n: outcomeCount(["wrong_number"]), tone: "muted" as const },
+        { label: t("cons.outcome.unknown"), n: callTotals.unknown, tone: "muted" as const },
       ],
-      caveat: `${callTotals.unknown} of ${callTotals.attempted} have no human outcome and are excluded from the rate` },
+      caveat: t("cons.card.callCaveat", { unknown: callTotals.unknown, attempted: callTotals.attempted }) },
   ];
 
   /* ── Sellers ───────────────────────────────────────────────────────── */
@@ -667,7 +679,7 @@ export function buildTabs(ix: ConsoleIndex) {
       replies, replyRate: rate(replies, leads.size),
       positive: [...leads].filter(l => positiveLeads.has(l)).length,
       queue,
-      lastActive: last ? new Date(last).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—",
+      lastActive: last ? new Date(last).toLocaleDateString(intlTag(locale), { day: "numeric", month: "short" }) : "—",
     };
   }).sort((a, b) => b.contacted - a.contacted);
 
@@ -682,7 +694,7 @@ export function buildTabs(ix: ConsoleIndex) {
   const ownerKeys = [...new Set(ix.callGroups.map(g => g.sellerId ?? "UNATTRIBUTED"))];
   for (const s of src.sellers) if (s.active !== false && !ownerKeys.includes(s.id)) ownerKeys.push(s.id);
   const sellerCalls = ownerKeys.map(key => {
-    const s = { id: key, name: key === "UNATTRIBUTED" ? "Unattributed" : callOwners.get(key) ?? key.slice(0, 8) };
+    const s = { id: key, name: key === "UNATTRIBUTED" ? t("cons.unattributed") : callOwners.get(key) ?? key.slice(0, 8) };
     const mine = ix.callGroups.filter(g => (g.sellerId ?? "UNATTRIBUTED") === key);
     const m = callMetrics(mine);
     const c = (names: string[]) => mine.filter(g => names.includes((g.classification ?? "").toLowerCase())).length;
@@ -707,7 +719,7 @@ export function buildTabs(ix: ConsoleIndex) {
     for (const k of ["attempted", "connected", "interested", "followUp", "negative", "noAnswer", "unclassified"] as const) a[k] += s[k];
     return a;
   }, { attempted: 0, connected: 0, interested: 0, followUp: 0, negative: 0, noAnswer: 0, unclassified: 0 });
-  const sellerCallsTotal = { ...sct, name: "Team", connectRate: rate(sct.connected, sct.connected + sct.noAnswer) };
+  const sellerCallsTotal = { ...sct, name: t("cons.team"), connectRate: rate(sct.connected, sct.connected + sct.noAnswer) };
 
   // Daily activity per seller: messages and calls, per business day.
   const dayKeys = [...new Set([...ix.msgsWin.map(m => businessDayKey(m.sent_at)), ...ix.callGroups.map(g => g.day)])].filter(Boolean).sort();
@@ -820,57 +832,57 @@ export function buildTabs(ix: ConsoleIndex) {
   /* ── alerts and insights, derived — never hand-written ─────────────── */
   const totalQueue = sellerRows.reduce((a, s) => a + s.queue, 0);
   const topQueue = [...sellerRows].sort((a, b) => b.queue - a.queue)[0];
-  const noCalls = sellerCalls.filter(s => s.attempted === 0 && s.name !== "Unattributed").length;
+  const noCalls = sellerCalls.filter(s => s.attempted === 0 && s.name !== t("cons.unattributed")).length;
   const teamAlerts: { level: "warn" | "info"; text: string }[] = [];
   if (callTotals.attempted > 0 && callTotals.unknown > 0)
-    teamAlerts.push({ level: "warn", text: `${callTotals.unknown} of ${callTotals.attempted} calls have no outcome logged (${rate(callTotals.unknown, callTotals.attempted)}%)` });
-  if (noCalls > 0) teamAlerts.push({ level: "warn", text: `${noCalls} of ${sellerCalls.length - 1} sellers made no calls` });
+    teamAlerts.push({ level: "warn", text: t("cons.alert.noOutcome", { n: callTotals.unknown, total: callTotals.attempted, pct: rate(callTotals.unknown, callTotals.attempted) }) });
+  if (noCalls > 0) teamAlerts.push({ level: "warn", text: t("cons.alert.noCalls", { n: noCalls, total: sellerCalls.length - 1 }) });
   if (topQueue && totalQueue > 0 && topQueue.queue / totalQueue > 0.5)
-    teamAlerts.push({ level: "warn", text: `${topQueue.name} holds ${topQueue.queue.toLocaleString()} of ${totalQueue.toLocaleString()} queued messages (${rate(topQueue.queue, totalQueue)}%)` });
-  const unattributedCalls = sellerCalls.find(s => s.name === "Unattributed")?.attempted ?? 0;
-  if (unattributedCalls > 0) teamAlerts.push({ level: "info", text: `${unattributedCalls} call${unattributedCalls === 1 ? "" : "s"} could not be attributed to a seller` });
-  if (ix.outsideCohort > 0) teamAlerts.push({ level: "info", text: `${ix.outsideCohort} replies came from leads contacted before this period` });
+    teamAlerts.push({ level: "warn", text: t("cons.alert.queueConcentration", { name: topQueue.name, n: topQueue.queue.toLocaleString(), total: totalQueue.toLocaleString(), pct: rate(topQueue.queue, totalQueue) }) });
+  const unattributedCalls = sellerCalls.find(s => s.name === t("cons.unattributed"))?.attempted ?? 0;
+  if (unattributedCalls > 0) teamAlerts.push({ level: "info", text: t(unattributedCalls === 1 ? "cons.alert.unattributedOne" : "cons.alert.unattributedMany", { n: unattributedCalls }) });
+  if (ix.outsideCohort > 0) teamAlerts.push({ level: "info", text: t("cons.alert.outsideCohort", { n: ix.outsideCohort }) });
 
   const ranked = sellerRows.filter(s => s.contacted >= MIN_SAMPLE).sort((a, b) => b.replyRate - a.replyRate)[0];
   const byVolume = [...sellerRows].sort((a, b) => b.contacted - a.contacted)[0];
   const byCalls = [...sellerCalls].sort((a, b) => b.attempted - a.attempted)[0];
   const byUnknown = [...sellerCalls].sort((a, b) => b.unclassified - a.unclassified)[0];
   const sellerInsights: { label: string; who: string; value: string; note: string; tone?: "warn" }[] = [];
-  if (ranked) sellerInsights.push({ label: "Highest reply rate", who: ranked.name, value: `${ranked.replyRate}%`, note: `${ranked.replies} of ${ranked.contacted} contacted · min ${MIN_SAMPLE} to rank` });
-  if (byVolume) sellerInsights.push({ label: "Highest volume", who: byVolume.name, value: byVolume.contacted.toLocaleString(), note: `contacted · ${rate(byVolume.contacted, ix.contacted.size)}% of the team` });
-  if (byCalls && byCalls.attempted > 0) sellerInsights.push({ label: "Most calls", who: byCalls.name, value: String(byCalls.attempted), note: `of ${callTotals.attempted} team dials` });
-  if (byUnknown && byUnknown.unclassified > 0) sellerInsights.push({ label: "Needs attention", who: byUnknown.name, value: String(byUnknown.unclassified), note: "calls with no outcome logged", tone: "warn" as const });
+  if (ranked) sellerInsights.push({ label: t("cons.insight.highestReply"), who: ranked.name, value: `${ranked.replyRate}%`, note: t("cons.insight.highestReplyNote", { replies: ranked.replies, contacted: ranked.contacted, min: MIN_SAMPLE }) });
+  if (byVolume) sellerInsights.push({ label: t("cons.insight.highestVolume"), who: byVolume.name, value: byVolume.contacted.toLocaleString(), note: t("cons.insight.highestVolumeNote", { pct: rate(byVolume.contacted, ix.contacted.size) }) });
+  if (byCalls && byCalls.attempted > 0) sellerInsights.push({ label: t("cons.insight.mostCalls"), who: byCalls.name, value: String(byCalls.attempted), note: t("cons.insight.mostCallsNote", { total: callTotals.attempted }) });
+  if (byUnknown && byUnknown.unclassified > 0) sellerInsights.push({ label: t("cons.insight.needsAttention"), who: byUnknown.name, value: String(byUnknown.unclassified), note: t("cons.insight.needsAttentionNote"), tone: "warn" as const });
 
   // toMs is the END of the last day, so the span already includes it.
   // Rounding up and then adding one produced 31 days for a 30-day window,
   // one more slot than the activity strip actually draws.
   const nDays = ix.win.fromMs !== null && ix.win.toMs !== null
     ? Math.round((ix.win.toMs - ix.win.fromMs) / 86_400_000) : dayKeys.length;
-  const fmtShort = (ms: number) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const fmtShort = (ms: number) => new Date(ms).toLocaleDateString(intlTag(locale), { day: "numeric", month: "short" });
 
   return {
     icps: icpRows, icpsTotals,
     icpsNote: `${icpRows.length} ICPs sent in this period and all ${icpRows.length} are listed — none is hidden behind a volume floor. The cohort is the ${ix.contacted.size.toLocaleString()} leads contacted in the window, so an ICP whose leads were loaded months ago still appears.`,
-    icpTouchNote: "Contact points, not leads: the large number is how many went out, the small one how many distinct people received them. Calls come from the calls table rather than the sequence, which is why a flow can show calls without having a call step.",
-    icpMatrixNote: "Read a cell as: of the leads this ICP reached on that channel, how many replied at all. A lead reached on two channels is counted in both, so the columns do not add up to the ICP total.",
+    icpTouchNote: t("cons.note.icpTouch"),
+    icpMatrixNote: t("cons.note.icpMatrix"),
     icpWorthALook: {
-      title: icpRows.length ? `${icpRows[0].name} has the highest reply rate` : "No ICP sent in this period",
-      facts: icpRows.slice(0, 3).map(r => `${r.name}: ${r.replies} of ${r.contacted} contacted replied (${r.rate}%), on ${(r.touch.li_cr + r.touch.li_dm + r.touch.email + r.touch.call).toLocaleString()} contact points.`),
+      title: icpRows.length ? t("cons.icp.worthTitle", { name: icpRows[0].name }) : t("cons.icp.worthNone"),
+      facts: icpRows.slice(0, 3).map(r => t("cons.icp.worthFact", { name: r.name, replies: r.replies, contacted: r.contacted, rate: r.rate, touch: (r.touch.li_cr + r.touch.li_dm + r.touch.email + r.touch.call).toLocaleString() })),
     },
     campaigns: campaignRows, campaignGroups, flowDetail,
-    campaignsNote: `${campaignRows.length} flows sent in this period, grouped by ICP so the rates inside a group are like-for-like. Below ${RATE_FLOOR} leads contacted a flow shows counts but no percentage.`,
-    flowDetailNote: "Everything here is measured on this flow's own cohort — the leads it contacted in the window — so the detail reconciles with the row above. Median days is from the flow's first message to that lead to their first reply. Calls attach through the lead, not through a step.",
-    stepsNote: "Each step shows the channel it actually used. 'Replied at step 2' means nothing until you know step 2 was a DM.",
-    campaignsRemoved: "Won and Lost are not shown. The won status has never been set on any flow, and lost mixes a negative reply with a manually closed lead — two different events under one number.",
+    campaignsNote: t("cons.note.campaigns", { n: campaignRows.length, floor: RATE_FLOOR }),
+    flowDetailNote: t("cons.note.flowDetail"),
+    stepsNote: t("cons.note.steps"),
+    campaignsRemoved: t("cons.note.campaignsRemoved"),
     channelCards,
-    channelWhatsApp: "WhatsApp is wired end-to-end but sent nothing in this period, so it has no card rather than a card of zeros.",
-    headToHeadNote: "Only LinkedIn DM and Email are ranked head to head: same measurement, same window, same unit — leads that replied over leads reached. Invitation acceptance and the confirmed connect rate are real numbers with real bases, but they measure different events.",
+    channelWhatsApp: t("cons.note.whatsapp"),
+    headToHeadNote: t("cons.note.headToHead"),
     channelWorthALook: {
-      title: "The two comparable channels are far apart",
+      title: t("cons.channel.worthTitle"),
       facts: [
-        `LinkedIn DM reached ${dmS.reach} leads and ${dmS.replies} replied (${rate(dmS.replies, dmS.reach)}%).`,
-        `Email reached ${em.reach.toLocaleString()} leads and ${em.replies} replied (${rate(em.replies, em.reach)}%).`,
-        `Calls: ${callTotals.attempted} attempted, ${callTotals.confirmedConnected} confirmed connected, ${callTotals.unknown} with no outcome logged.`,
+        t("cons.channel.worthDm", { reach: dmS.reach, replies: dmS.replies, rate: rate(dmS.replies, dmS.reach) }),
+        t("cons.channel.worthEmail", { reach: em.reach.toLocaleString(), replies: em.replies, rate: rate(em.replies, em.reach) }),
+        t("cons.channel.worthCalls", { attempted: callTotals.attempted, connected: callTotals.confirmedConnected, unknown: callTotals.unknown }),
       ],
     },
     sellers: sellerRows, sellerCalls, sellerCallsTotal, sellerDaily, teamHealth, teamAlerts, sellerInsights,

@@ -28,6 +28,7 @@ import Campaigns from "./Campaigns";
 import Channels from "./Channels";
 import Sellers from "./Sellers";
 import Portfolio from "./Portfolio";
+import { useLocale } from "@/lib/i18n";
 
 /** Which filters mean anything on which tab. Portfolio is cross-tenant, so
  *  a campaign / ICP / seller picker there would be filtering by something
@@ -55,6 +56,7 @@ function presetRange(p: string): { from: string; to: string } | null {
 }
 
 function Controls({ tab }: { tab: Tab }) {
+  const { t } = useLocale();
   const D = useD();
   const router = useRouter();
   const params = useSearchParams();
@@ -90,11 +92,11 @@ function Controls({ tab }: { tab: Tab }) {
                opacity: pending ? 0.55 : 1, transition: "opacity .15s" }}>
       <div className="inline-flex rounded-full border overflow-hidden" style={{ borderColor: C.border }}>
         {D.period.presets.map(p => {
-          const sel = a.preset ? a.preset === p : false;
+          const sel = a.preset ? a.preset === p.id : false;
           return (
-            <button key={p} onClick={() => setPreset(p)} className="px-3 py-1 font-medium"
+            <button key={p.id} onClick={() => setPreset(p.id)} className="px-3 py-1 font-medium"
               style={{ fontSize: 12.5, backgroundColor: sel ? gold : "transparent", color: sel ? "#1A1405" : C.textBody }}>
-              {p}
+              {p.label}
             </button>
           );
         })}
@@ -105,17 +107,17 @@ function Controls({ tab }: { tab: Tab }) {
       </span>
 
       {on.length > 0 && <span className="w-px h-4" style={{ backgroundColor: C.border }} />}
-      {on.includes("campaign") && <Pick label="Campaign" options={D.filters.campaigns} value={a.campaign} onChange={v => go({ campaigns: v })} />}
-      {on.includes("icp") && <Pick label="ICP" options={D.filters.icps} value={a.icp} onChange={v => go({ icps: v })} />}
-      {on.includes("seller") && <Pick label="Seller" options={D.filters.sellers} value={a.seller} onChange={v => go({ sellers: v })} />}
+      {on.includes("campaign") && <Pick label={t("cons.filter.campaign")} options={D.filters.campaigns} value={a.campaign} onChange={v => go({ campaigns: v })} />}
+      {on.includes("icp") && <Pick label={t("cons.filter.icp")} options={D.filters.icps} value={a.icp} onChange={v => go({ icps: v })} />}
+      {on.includes("seller") && <Pick label={t("cons.filter.seller")} options={D.filters.sellers} value={a.seller} onChange={v => go({ sellers: v })} />}
       {active > 0 && (
         <button onClick={() => go({ campaigns: null, icps: null, sellers: null })}
           className="inline-flex items-center gap-1 font-medium" style={{ fontSize: 12, color: C.textMuted }}>
-          <X size={11} /> Clear
+          <X size={11} /> {t("cons.filter.clear")}
         </button>
       )}
       {tab === "Portfolio" && (
-        <span style={{ fontSize: 11, color: C.textDim }}>filters apply within one client — not on this tab</span>
+        <span style={{ fontSize: 11, color: C.textDim }}>{t("cons.portfolioNote")}</span>
       )}
 
       <div className="flex-1" />
@@ -125,6 +127,7 @@ function Controls({ tab }: { tab: Tab }) {
 }
 
 export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; hero?: React.ReactNode }) {
+  const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("Overview");
   // The window is chosen on the server and arrives with the data, so the
   // label describes what was actually measured rather than what a local
@@ -145,14 +148,14 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
 
         {/* tabs — names, one underline, no chapter numerals */}
         <nav className="flex items-center gap-1 mt-5" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
-          {TABS.map(t => {
-            const on = t === tab;
+          {TABS.map(name => {
+            const on = name === tab;
             return (
-              <button key={t} role="tab" aria-selected={on} onClick={() => setTab(t)}
+              <button key={name} role="tab" aria-selected={on} onClick={() => setTab(name)}
                 className="px-3 py-2 font-medium relative"
                 style={{ fontSize: 13, color: on ? C.textPrimary : C.textMuted }}>
-                {t}
-                {t === "Portfolio" && (
+                {t(`cons.tab.${name.toLowerCase()}`)}
+                {name === "Portfolio" && (
                   <span className="ml-1.5 align-middle rounded-full px-1.5 py-px font-bold"
                     style={{ fontSize: 8.5, border: `1px solid ${C.border}`, color: C.textDim }}>SA</span>
                 )}
@@ -167,8 +170,8 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
         <Body label={label} />
 
         <p className="mt-16 text-center" style={{ fontSize: 10.5, color: C.textDim, lineHeight: 1.7 }}>
-          Growth Engine · live data · {D.period.range}<br />
-          Every figure is scoped to ACTIVITY in the period, not to leads loaded in it. Calls count distinct physical calls by canonical identity; Unknown is shown beside every rate and never inside it.
+          {t("cons.foot.brand")} {D.period.range}<br />
+          {t("cons.foot.note")}
         </p>
       </div>
     </div>

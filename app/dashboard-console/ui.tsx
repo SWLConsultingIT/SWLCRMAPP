@@ -18,6 +18,7 @@ import {
   Minus, Check, X, ArrowRight, HelpCircle,
 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 export const gold = "var(--brand, #c9a83a)";
 export const n = (x: number) => x.toLocaleString("en-US");
@@ -305,13 +306,14 @@ export function ChannelLegend({ keys = ["li_cr", "li_dm", "email", "call"] }: { 
 /** The banner used once per tab, at most, for the single thing worth saying
  *  out loud. Facts only — each line a measurement with its base. */
 export function WorthALook({ title, facts }: { title: string; facts: string[] }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-2xl px-7 py-6"
       style={{
         background: `linear-gradient(115deg, color-mix(in srgb, ${gold} 8%, ${C.card}) 0%, ${C.card} 60%)`,
         border: `1px solid color-mix(in srgb, ${gold} 24%, transparent)`,
       }}>
-      <div className="font-semibold uppercase tracking-wider mb-3" style={{ fontSize: S.label, color: gold }}>Worth a look</div>
+      <div className="font-semibold uppercase tracking-wider mb-3" style={{ fontSize: S.label, color: gold }}>{t("cons.worthALook")}</div>
       <p className="font-semibold tracking-tight mb-4" style={{ fontSize: 22, lineHeight: 1.3, color: C.textPrimary, letterSpacing: "-0.018em" }}>
         {title}
       </p>
@@ -330,9 +332,10 @@ export function WorthALook({ title, facts }: { title: string; facts: string[] })
 /** Rows the screen deliberately isn't ranking — kept visible rather than
  *  filtered away, so nothing silently disappears from a list. */
 export function Excluded({ children }: { children: React.ReactNode }) {
+  const { t } = useLocale();
   return (
     <div className="mt-6 pt-4 flex items-baseline gap-2 flex-wrap" style={{ borderTop: `1px dashed ${C.border}` }}>
-      <span className="font-semibold uppercase tracking-wider shrink-0" style={{ fontSize: 9.5, color: C.textDim }}>Not ranked</span>
+      <span className="font-semibold uppercase tracking-wider shrink-0" style={{ fontSize: 9.5, color: C.textDim }}>{t("cons.notRanked")}</span>
       <span style={{ fontSize: 11.5, color: C.textMuted, lineHeight: 1.5 }}>{children}</span>
     </div>
   );

@@ -1,9 +1,12 @@
 import { loadConsoleSource, buildIndex, buildOverview, buildTabs } from "../lib/console-data.ts";
+// The builders take the caller's translator. This harness checks SHAPE, not
+// copy, so it passes one that echoes the key.
+const t = (key: string) => key;
 process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.SUPABASE_URL;
 const day = (d: Date) => new Date(d.getTime() - 180 * 60_000).toISOString().slice(0, 10);
 const f = { from: day(new Date(Date.now() - 29 * 86_400_000)), to: day(new Date()), bioId: "7c02e222-be59-416d-9434-acf4685f8590" };
 const ix = buildIndex(await loadConsoleSource(f.bioId), f);
-const D = buildOverview(ix, f) as any, T = buildTabs(ix) as any;
+const D = buildOverview(ix, f, t) as any, T = buildTabs(ix, t) as any;
 let bad = 0;
 const need = (obj: any, keys: string[], label: string) => {
   for (const k of keys) if (obj[k] === undefined) { console.log(`  ✗ ${label}.${k} FALTA`); bad++; }
