@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Loader2, X, Check, Building2 } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -47,6 +48,7 @@ export default function AddPersonModal({
   // Force a single company (e.g. opened from a client's Users tab).
   lockedCompanyId?: string;
 }) {
+  const { t } = useLocale();
   const [email, setEmail] = useState(presetEmail ?? "");
   const [fullName, setFullName] = useState("");
   const [tier, setTier] = useState<Tier>("owner");
@@ -131,7 +133,7 @@ export default function AddPersonModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b flex items-center justify-between shrink-0" style={{ borderColor: C.border }}>
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Add person to companies</h2>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("apm.title")}</h2>
           <button onClick={onClose}><X size={16} style={{ color: C.textMuted }} /></button>
         </div>
 
@@ -142,7 +144,7 @@ export default function AddPersonModal({
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="teammate@example.com"
+              placeholder={t("ttt.emailPh")}
               autoFocus={!presetEmail}
               disabled={!!presetEmail}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none disabled:opacity-70"
@@ -151,12 +153,12 @@ export default function AddPersonModal({
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Full name (optional)</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("ttt.fullNameOpt")}</label>
             <input
               type="text"
               value={fullName}
               onChange={e => setFullName(e.target.value)}
-              placeholder="Juan Perez"
+              placeholder={t("ttt.namePh")}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
             />
@@ -172,14 +174,14 @@ export default function AddPersonModal({
                 type="text"
                 value={companyQuery}
                 onChange={e => setCompanyQuery(e.target.value)}
-                placeholder="Search companies…"
+                placeholder={t("apm.searchPh")}
                 className="w-full px-3 py-2 mb-2 text-xs rounded-lg border outline-none"
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               />
             )}
             <div className="rounded-lg border max-h-44 overflow-y-auto" style={{ borderColor: C.border }}>
               {filteredCompanies.length === 0 ? (
-                <p className="px-3 py-3 text-xs" style={{ color: C.textDim }}>No companies.</p>
+                <p className="px-3 py-3 text-xs" style={{ color: C.textDim }}>{t("apm.noCompanies")}</p>
               ) : filteredCompanies.map(c => {
                 const checked = selectedIds.includes(c.id);
                 const locked = !!lockedCompanyId;

@@ -89,11 +89,11 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
 
           {/* KPI row */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-px" style={{ backgroundColor: C.border }}>
-            <KpiTile icon={<Send size={14} />} label="Enviados" value={detail.messagesSent} tone="neutral" />
-            <KpiTile icon={<MessageSquare size={14} />} label="Respuestas" value={detail.replies} hint={`${detail.positiveReplies} positivas`} tone={detail.replies > 0 ? "good" : "neutral"} />
-            <KpiTile icon={<PauseCircle size={14} />} label="Trabados" value={detail.messagesStuck} tone={detail.messagesStuck > 10 ? "warning" : detail.messagesStuck > 0 ? "muted" : "neutral"} />
-            <KpiTile icon={<AlertOctagon size={14} />} label="Errores" value={detail.messagesFailed} tone={detail.messagesFailed >= 10 ? "critical" : detail.messagesFailed > 0 ? "warning" : "neutral"} />
-            <KpiTile icon={<Workflow size={14} />} label="En cola" value={detail.messagesQueued} tone="neutral" />
+            <KpiTile icon={<Send size={14} />} label={t("rel.sent")} value={detail.messagesSent} tone="neutral" />
+            <KpiTile icon={<MessageSquare size={14} />} label={t("cons.sell.replies")} value={detail.replies} hint={t("rel.nPositive", { n: detail.positiveReplies })} tone={detail.replies > 0 ? "good" : "neutral"} />
+            <KpiTile icon={<PauseCircle size={14} />} label={t("rel.stuck")} value={detail.messagesStuck} tone={detail.messagesStuck > 10 ? "warning" : detail.messagesStuck > 0 ? "muted" : "neutral"} />
+            <KpiTile icon={<AlertOctagon size={14} />} label={t("rel.errors")} value={detail.messagesFailed} tone={detail.messagesFailed >= 10 ? "critical" : detail.messagesFailed > 0 ? "warning" : "neutral"} />
+            <KpiTile icon={<Workflow size={14} />} label={t("rel.queued")} value={detail.messagesQueued} tone="neutral" />
           </div>
         </section>
       </div>
@@ -109,13 +109,13 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
             <table className="w-full text-[12px]">
               <thead>
                 <tr style={{ backgroundColor: C.bg }}>
-                  <th className="text-left px-6 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Step</th>
-                  <th className="text-left px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Canal</th>
-                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Sent</th>
-                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Queued</th>
-                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Stuck</th>
-                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Failed</th>
-                  <th className="text-right px-6 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Draft</th>
+                  <th className="text-left px-6 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("rel.step")}</th>
+                  <th className="text-left px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("rel.channel")}</th>
+                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("rel.sent")}</th>
+                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("rel.queued")}</th>
+                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("rel.stuck")}</th>
+                  <th className="text-right px-3 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("rel.failed")}</th>
+                  <th className="text-right px-6 py-2.5 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>{t("rel.draft")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,7 +208,7 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
                   <p className="text-[13.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>{r.reason}</p>
                   {r.sample && r.sample !== r.reason && (
                     <p className="text-[11px] truncate mt-1" style={{ color: C.textMuted }}>
-                      <span className="font-medium">Ejemplo:</span> <span className="font-mono text-[10.5px]">{r.sample}</span>
+                      <span className="font-medium">{t("rel.example")}</span> <span className="font-mono text-[10.5px]">{r.sample}</span>
                     </p>
                   )}
                 </div>

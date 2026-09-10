@@ -172,19 +172,19 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
             <div className="px-4 py-3 border-b" style={{ borderColor: C.border }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Workflow size={11} style={{ color: gold }} />
-                <span className="text-[9.5px] font-bold uppercase tracking-[0.08em]" style={{ color: gold }}>Per step</span>
+                <span className="text-[9.5px] font-bold uppercase tracking-[0.08em]" style={{ color: gold }}>{t("rel.perStep")}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-[10.5px]">
                   <thead>
                     <tr style={{ color: C.textMuted, borderBottom: `1px solid ${C.border}` }}>
-                      <th className="text-left py-1.5 font-semibold uppercase tracking-wider">Step</th>
-                      <th className="text-left font-semibold uppercase tracking-wider">Channel</th>
-                      <th className="text-right font-semibold uppercase tracking-wider">Sent</th>
-                      <th className="text-right font-semibold uppercase tracking-wider">Queued</th>
-                      <th className="text-right font-semibold uppercase tracking-wider">Stuck</th>
-                      <th className="text-right font-semibold uppercase tracking-wider">Failed</th>
-                      <th className="text-right font-semibold uppercase tracking-wider">Draft</th>
+                      <th className="text-left py-1.5 font-semibold uppercase tracking-wider">{t("rel.step")}</th>
+                      <th className="text-left font-semibold uppercase tracking-wider">{t("rel.channel")}</th>
+                      <th className="text-right font-semibold uppercase tracking-wider">{t("rel.sent")}</th>
+                      <th className="text-right font-semibold uppercase tracking-wider">{t("rel.queued")}</th>
+                      <th className="text-right font-semibold uppercase tracking-wider">{t("rel.stuck")}</th>
+                      <th className="text-right font-semibold uppercase tracking-wider">{t("rel.failed")}</th>
+                      <th className="text-right font-semibold uppercase tracking-wider">{t("rel.draft")}</th>
                     </tr>
                   </thead>
                   <tbody>

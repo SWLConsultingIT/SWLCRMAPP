@@ -55,8 +55,8 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
         <Kpi icon={<Clock size={15} />} label={t("rel.global.kpi.lastSend")} value={formatRelative(global.lastSendAt)} hint={global.lastSendAt ? new Date(global.lastSendAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "—"} />
         <Kpi icon={<PauseCircle size={15} />} label={t("rel.global.kpi.stuck")} value={global.totalStuck.toLocaleString()} tone={global.totalStuck > 10 ? "warning" : "neutral"} />
         <Kpi icon={<AlertOctagon size={15} />} label={t("rel.global.kpi.failed")} value={global.totalFailed.toLocaleString()} tone={global.totalFailed > 0 ? "critical" : "neutral"} />
-        <Kpi icon={<CheckCircle2 size={15} />} label="Healthy tenants" value={`${global.healthyCount}/${global.tenantCount}`} tone={global.healthyCount === global.tenantCount ? "good" : "neutral"} />
-        <Kpi icon={<AlertTriangle size={15} />} label="Tenants needing attention" value={`${global.warningCount + global.criticalCount}`} tone={global.criticalCount > 0 ? "critical" : global.warningCount > 0 ? "warning" : "good"} />
+        <Kpi icon={<CheckCircle2 size={15} />} label={t("rel.healthy")} value={`${global.healthyCount}/${global.tenantCount}`} tone={global.healthyCount === global.tenantCount ? "good" : "neutral"} />
+        <Kpi icon={<AlertTriangle size={15} />} label={t("rel.needAttention")} value={`${global.warningCount + global.criticalCount}`} tone={global.criticalCount > 0 ? "critical" : global.warningCount > 0 ? "warning" : "good"} />
       </div>
     </FoldableSection>
   );
@@ -126,10 +126,10 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-px" style={{ backgroundColor: tone.border }}>
-                <MiniStat label="Leads" value={tn.activeLeads} tone="neutral" />
-                <MiniStat label="Flows" value={tn.activeFlows} tone="neutral" />
-                <MiniStat label="Stuck" value={tn.stuckQueued} tone={tn.stuckQueued > 0 ? "warning" : "muted"} />
-                <MiniStat label="Failed" value={tn.failed} tone={tn.failed > 0 ? "critical" : "muted"} />
+                <MiniStat label={t("rel.leads")} value={tn.activeLeads} tone="neutral" />
+                <MiniStat label={t("rel.flows")} value={tn.activeFlows} tone="neutral" />
+                <MiniStat label={t("rel.stuck")} value={tn.stuckQueued} tone={tn.stuckQueued > 0 ? "warning" : "muted"} />
+                <MiniStat label={t("rel.failed")} value={tn.failed} tone={tn.failed > 0 ? "critical" : "muted"} />
               </div>
               <div className="px-4 py-2 flex items-center justify-between text-[10.5px] gap-2"
                 style={{ backgroundColor: C.card, borderTop: `1px solid ${tone.border}`, color: C.textMuted }}>

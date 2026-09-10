@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { AlertCircle, RotateCcw, Loader2, ChevronDown, ChevronRight, Info } from "lucide-react";
 import { C } from "@/lib/design";
@@ -30,12 +31,16 @@ type FailedRow = {
 // Add new entries here as we encounter recurring failure modes — the
 // table below this dictionary is the primary UX surface for sellers
 // who don't speak dispatcher-internal jargon.
-const ERROR_PLAYBOOK: { matcher: (msg: string) => boolean; title: string; cause: string; action: string }[] = [
+//
+// Module scope, so every field is a key. `matcher` stays code: it reads the
+// dispatcher's raw English error string, which is not copy and never changes
+// with the locale.
+const ERROR_PLAYBOOK: { matcher: (msg: string) => boolean; titleKey: string; causeKey: string; actionKey: string }[] = [
   {
     matcher: m => m.includes("no LinkedIn slug"),
-    title: "Lead has no LinkedIn URL",
-    cause: "The lead row doesn't carry primary_linkedin_url — either it was never imported, or (for client-source leads) the dispatcher couldn't decrypt it. The latter was a bug that's now fixed.",
-    action: "Retry. If they fail again, the lead truly has no LinkedIn URL — enrich the row or remove from the campaign.",
+    titleKey: "rel.fail.noLi",
+    causeKey: "rel.pb.noLi.cause",
+    actionKey: "rel.pb.noLi.action",
   },
   {
     // Match the specific 422 string Unipile returns when the *recipient*
@@ -43,42 +48,42 @@ const ERROR_PLAYBOOK: { matcher: (msg: string) => boolean; title: string; cause:
     // generic rate-limit matcher since both strings contain "422" — and a
     // locked profile has nothing to do with the seller's rate-limit state.
     matcher: m => m.includes("profile is not locked") || m.includes("recipient id is valid"),
-    title: "Recipient LinkedIn profile is locked or unreachable",
-    cause: "Unipile returned 422 because the lead's LinkedIn profile is private, restricted by LinkedIn, or has been deleted. The seller is fine — the issue is the recipient. Retrying will keep failing until the lead's profile becomes reachable again (which may never happen).",
-    action: "Don't retry. Cancel the campaign row for this lead and either remove them from the funnel or move to another channel (email / call) if you have those details. Mark the lead as archived so future imports don't re-add them.",
+    titleKey: "rel.fail.locked",
+    causeKey: "rel.pb.locked.cause",
+    actionKey: "rel.pb.locked.action",
   },
   {
     // Unipile's actual rate-limit string. We deliberately do NOT match plain
     // "422" here — Unipile uses 422 for several distinct errors and a blanket
     // match misclassified locked-profile failures as rate-limits.
     matcher: m => m.includes("temporary provider limit") || m.includes("too many requests") || m.includes("429"),
-    title: "LinkedIn rate-limited the seller",
-    cause: "Unipile returned a rate-limit error — the seller's LinkedIn account hit the daily invite cap or LinkedIn flagged the velocity.",
-    action: "Wait for the 4h cooldown to expire (rows auto-move to Cooldown bucket). Reduce daily limit on the seller if this keeps happening.",
+    titleKey: "rel.pb.rateLimit.title",
+    causeKey: "rel.pb.rateLimit.cause",
+    actionKey: "rel.pb.rateLimit.action",
   },
   {
     matcher: m => m.includes("already sent recently") || m.includes("already invited"),
-    title: "Invite already sent in the last 2-3 weeks",
-    cause: "LinkedIn blocks re-invites within ~3 weeks of a previous attempt. Often happens when a lead was re-uploaded under a different campaign.",
-    action: "Wait 3 weeks for LinkedIn's block to clear, then retry. Alternatively, move to email channel.",
+    titleKey: "rel.fail.dupInvite",
+    causeKey: "rel.pb.dupInvite.cause",
+    actionKey: "rel.pb.dupInvite.action",
   },
   {
     matcher: m => m.includes("restricted") || m.includes("linkedin is restricted"),
-    title: "Seller's LinkedIn account is restricted",
-    cause: "The seller's Unipile account is in restricted state — typically from too many invites flagged as spam.",
-    action: "Pause the seller. Have them warm up the account manually (login, engage 1-2 days), then resume.",
+    titleKey: "rel.pb.restricted.title",
+    causeKey: "rel.pb.restricted.cause",
+    actionKey: "rel.pb.restricted.action",
   },
   {
     matcher: m => m.includes("unipile_account_id"),
-    title: "Seller has no Unipile account connected",
-    cause: "The seller's user record lacks unipile_account_id — they're either not onboarded yet or their connection was deauth'd.",
-    action: "Reconnect the seller's LinkedIn in /admin/<tenant>/Sellers.",
+    titleKey: "rel.fail.noUnipile",
+    causeKey: "rel.pb.noUnipile.cause",
+    actionKey: "rel.pb.noUnipile.action",
   },
   {
     matcher: m => m.includes("lead or campaign missing"),
-    title: "Lead or campaign was deleted under the message",
-    cause: "Someone deleted the lead row (or the parent campaign) between when the message was queued and when the dispatcher ran.",
-    action: "These messages are zombies — safe to ignore. We should add a cron to garbage-collect them.",
+    titleKey: "rel.fail.deleted",
+    causeKey: "rel.pb.deleted.cause",
+    actionKey: "rel.pb.deleted.action",
   },
 ];
 
@@ -89,6 +94,7 @@ function explainError(rawError: string | null) {
 }
 
 export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
@@ -128,7 +134,7 @@ export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
       router.refresh();
     } catch (err) {
       console.error("[reliability] bulk retry failed", err);
-      alert(err instanceof Error ? err.message : "Bulk retry failed");
+      alert(err instanceof Error ? err.message : t("rel.fail.bulkRetry"));
     } finally {
       setBusy(null);
     }
@@ -139,7 +145,7 @@ export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
   return (
     <div className="px-5 py-4 space-y-3" style={{ backgroundColor: C.bg, borderBottom: `1px solid ${C.border}` }}>
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-        <Info size={12} /> Grouped by cause · click a row to expand
+        <Info size={12} /> {t("rel.groupedBy")}
       </div>
       {groups.map(g => {
         const playbook = explainError(g.error);
@@ -160,7 +166,7 @@ export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-                    {playbook?.title ?? g.error}
+                    {playbook ? t(playbook.titleKey) : g.error}
                   </span>
                   <span className="text-[11px] px-2 py-0.5 rounded-full font-bold tabular-nums"
                     style={{ backgroundColor: `${C.red}15`, color: C.red }}>
@@ -185,12 +191,12 @@ export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
             {isExpanded && playbook && (
               <div className="px-4 pb-4 pt-1 border-t space-y-2" style={{ borderColor: C.border }}>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>What this means</p>
-                  <p className="text-xs" style={{ color: C.textBody }}>{playbook.cause}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("rel.whatThisMeans")}</p>
+                  <p className="text-xs" style={{ color: C.textBody }}>{t(playbook.causeKey)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Recommended action</p>
-                  <p className="text-xs" style={{ color: C.textBody }}>{playbook.action}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("rel.recommended")}</p>
+                  <p className="text-xs" style={{ color: C.textBody }}>{t(playbook.actionKey)}</p>
                 </div>
               </div>
             )}

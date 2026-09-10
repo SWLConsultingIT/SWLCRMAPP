@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { Users, Share2, Phone, Mail, Loader2, CheckCircle } from "lucide-react";
 import TenantTeamTab from "../TenantTeamTab";
@@ -82,6 +83,7 @@ export default function ClientResourcesTabs({ companyBioId, companyName }: Props
 // Toggle persistence goes through PATCH /api/admin/sellers-access — never a
 // direct browser write to the sellers table (RLS would block it anyway).
 function ClientSellers({ companyBioId }: { companyBioId: string }) {
+  const { t } = useLocale();
   const [sellers, setSellers] = useState<SellerRow[]>([]);
   const [companies, setCompanies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -123,7 +125,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
   const sharable = sellers.filter(s => s.company_bio_id !== companyBioId);
 
   if (sellers.length === 0) {
-    return <TabEmptyState icon={Share2} text="No sellers in the system yet" sub="Add sellers from the global Sellers view first." />;
+    return <TabEmptyState icon={Share2} text={t("crt.noSellers")} sub={t("crt.addSellersFirst")} />;
   }
 
   const renderRow = (seller: SellerRow, mode: "owned" | "share") => {
@@ -188,7 +190,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
           Toggle to grant this client access to the seller&apos;s LinkedIn capacity. The seller&apos;s daily cap is shared across every tenant they serve.
         </p>
         {sharable.length === 0 ? (
-          <p className="text-xs italic py-2" style={{ color: C.textDim }}>No sellers from other tenants available.</p>
+          <p className="text-xs italic py-2" style={{ color: C.textDim }}>{t("crt.noShared")}</p>
         ) : (
           <div className="divide-y" style={{ borderColor: C.border }}>
             {sharable.map(s => renderRow(s, "share"))}
@@ -204,6 +206,7 @@ type AircallUser = { id: number; name: string; email: string | null; available: 
 type SellerAircallRow = { id: string; name: string; aircall_user_id: string | null; company_bio_id: string | null; active: boolean };
 
 function ClientAircall({ companyBioId }: { companyBioId: string }) {
+  const { t } = useLocale();
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [assigned, setAssigned] = useState<number[]>([]);
   const [tenantUserId, setTenantUserId] = useState<string | null>(null);
@@ -283,7 +286,7 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
           Click to toggle which Aircall numbers this client can dial from.
         </p>
         {numbers.length === 0 ? (
-          <p className="text-xs italic" style={{ color: C.textDim }}>No Aircall numbers available in the workspace.</p>
+          <p className="text-xs italic" style={{ color: C.textDim }}>{t("crt.noAircall")}</p>
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {numbers.map(n => {
@@ -346,7 +349,7 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
           Each seller dials from THEIR Aircall user. Without this binding the dispatcher falls back to "first available user" globally — which can ring on the wrong device when multiple sellers are signed in. Required when scaling beyond one active seller.
         </p>
         {sellersInScope.length === 0 ? (
-          <p className="text-xs italic" style={{ color: C.textDim }}>No sellers in scope for this client. Owned + shared sellers appear here.</p>
+          <p className="text-xs italic" style={{ color: C.textDim }}>{t("crt.noInScope")}</p>
         ) : (
           <div className="divide-y" style={{ borderColor: C.border }}>
             {sellersInScope.map(s => {
@@ -397,6 +400,7 @@ type WorkspaceSection = {
 };
 
 function ClientEmails({ companyBioId }: { companyBioId: string }) {
+  const { t } = useLocale();
   const [sections, setSections] = useState<WorkspaceSection[]>([]);
   const [assigned, setAssigned] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -457,7 +461,7 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
   if (loading) return <Spinner />;
 
   const totalInboxes = sections.reduce((n, s) => n + s.inboxes.length, 0);
-  if (totalInboxes === 0) return <TabEmptyState icon={Mail} text="No Instantly inboxes available" sub="Register a workspace from /admin → Email Access first." />;
+  if (totalInboxes === 0) return <TabEmptyState icon={Mail} text={t("crt.noInboxes")} sub={t("crt.registerFirst")} />;
 
   return (
     <div className="space-y-4">
