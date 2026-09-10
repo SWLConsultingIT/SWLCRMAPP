@@ -4,6 +4,12 @@ import { createServerClient } from "@supabase/ssr";
 const PUBLIC_PATHS = [
   "/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback",
   "/api/auth", "/api/aircall/webhook", "/api/unipile/webhook",
+  // Instantly delivers bounce/unsubscribe events server-to-server with no
+  // cookie. Omitting it here is why the handler sat dead for four months: every
+  // delivery got 307 -> /login and Instantly eventually disabled the webhooks.
+  // "Public" is only about the Growth Engine session — the route itself is
+  // fail-closed on INSTANTLY_WEBHOOK_SECRET (see lib/instantly-webhook-logic).
+  "/api/instantly/webhook",
   // Transcribe is fired server-to-server from the webhook (no cookie); it
   // already self-protects by being idempotent and no-op on already-transcribed
   // calls. The recording_url in the DB is the only thing it can act on.
