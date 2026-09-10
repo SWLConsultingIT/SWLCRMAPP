@@ -23,6 +23,16 @@ export const runtime = "nodejs";
 
 const DB_TIMEOUT_MS = 2000;
 
+// Which build is actually serving. Without this there is no way to tell a
+// deployed change from a cached page without access to the Vercel dashboard,
+// which cost an afternoon of "I see it the same" with no way to answer it.
+// Vercel injects these; locally they are simply absent.
+const BUILD = {
+  commit: (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 8),
+  branch: process.env.VERCEL_GIT_COMMIT_REF ?? "local",
+  deployedAt: process.env.VERCEL_DEPLOYMENT_ID ?? "local",
+};
+
 export async function GET() {
   const start = Date.now();
   const svc = getSupabaseService();
@@ -46,7 +56,7 @@ export async function GET() {
         { status: 503 }
       );
     }
-    return NextResponse.json({ ok: true, latencyMs: elapsed });
+    return NextResponse.json({ ok: true, latencyMs: elapsed, build: BUILD });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, latencyMs: Date.now() - start, error: e?.message ?? "probe failed" },
