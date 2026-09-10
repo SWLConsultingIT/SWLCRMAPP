@@ -887,18 +887,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
-      {/* ── Operational panel (phase 3): NEXT ACTION + Activities, prominent,
-          derived from the Activities source of truth. ── */}
-      <LeadActivitiesPanel
-        leadId={id}
-        leadLabel={contactName}
-        company={(lead as any).company_name ?? null}
-        leadPhone={(lead as any).primary_phone ?? null}
-        leadCountry={(lead as any).company_country ?? null}
-        leadStatus={(lead as any).status ?? null}
-        canAssignOthers={canAssignActivities}
-      />
-
       {/* Gruppo Everest demo: flex wrapper so we can CSS-`order` the Details
           zone (tabs + About This Person) above the Rooftop/Account trio without
           physically moving 500+ lines of JSX. For every other tenant this is a
@@ -1365,6 +1353,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <ZoneLabel title={t("lead.zone.details")} accent={ZONE.details} />
 
       <CompanyTabs tabs={[
+        { label: "Activities" },
         { label: "Profile Overview" },
         { label: "Campaign" },
         { label: "Calls", count: visibleCalls.length || undefined },
@@ -1372,6 +1361,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         { label: "Notes" },
         { label: "Social & Content" },
       ]}>
+
+        {/* ── TAB 0: Activities ── operational center: NEXT ACTION + Open/Completed.
+            Derived from the Activities source of truth; default tab so a seller
+            lands on "what to do next" when opening a lead. */}
+        <LeadActivitiesPanel
+          leadId={id}
+          leadLabel={contactName}
+          company={(lead as any).company_name ?? null}
+          leadPhone={(lead as any).primary_phone ?? null}
+          leadCountry={(lead as any).company_country ?? null}
+          leadStatus={(lead as any).status ?? null}
+          canAssignOthers={canAssignActivities}
+        />
 
         {/* ── TAB 1: Profile Overview ──
             Single-column full-width. The old 2-col grid (`[1fr 340px]`) left
