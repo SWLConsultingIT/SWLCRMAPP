@@ -486,7 +486,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
     <div className="p-6 w-full">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/campaigns" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> Campaigns</Link>
+        <Link href="/campaigns" className="hover:underline flex items-center gap-1"><ArrowLeft size={12} /> {t("lost.campaigns")}</Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{campaign.name}</span>
       </div>
@@ -591,7 +591,7 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
                 border: `1px solid var(--fg2)`,
                 boxShadow: `0 2px 9px color-mix(in srgb, ${gold} 34%, transparent)`,
               }}>
-              <UserPlus size={12} /> Add leads
+              <UserPlus size={12} /> {t("cd.addLeads")}
             </Link>
           </div>
         </div>

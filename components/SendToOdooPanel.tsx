@@ -120,13 +120,13 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
                   {/* Contact + Company (read-only) */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg border p-3" style={{ backgroundColor: C.bg, borderColor: C.border }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 inline-flex items-center gap-1" style={{ color: C.gold }}><User size={11} /> Contact</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 inline-flex items-center gap-1" style={{ color: C.gold }}><User size={11} /> {t("fld.contact")}</p>
                       <p className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{p.contact.name || "—"}</p>
                       <p className="text-[11.5px]" style={{ color: C.textMuted }}>{p.contact.role ?? ""}</p>
                       <p className="text-[11px] mt-1 break-words" style={{ color: C.textBody }}>{[p.contact.email, p.contact.phone].filter(Boolean).join(" · ")}</p>
                     </div>
                     <div className="rounded-lg border p-3" style={{ backgroundColor: C.bg, borderColor: C.border }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 inline-flex items-center gap-1" style={{ color: C.gold }}><Building2 size={11} /> Company</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 inline-flex items-center gap-1" style={{ color: C.gold }}><Building2 size={11} /> {t("imp.company")}</p>
                       <p className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{p.company.name || "—"}</p>
                       <p className="text-[11.5px]" style={{ color: C.textMuted }}>{p.company.industry ?? ""}</p>
                       {p.company.website && <p className="text-[11px] mt-1 truncate" style={{ color: C.blue }}>{p.company.website}</p>}

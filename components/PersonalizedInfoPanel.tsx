@@ -639,10 +639,10 @@ function PlantIntelSection({ intel }: { intel: any }) {
         <SubCard icon={CalendarClock} title={intel.conto_energia_scheme ? "State incentive (Conto Energia)" : "State incentive (GSE)"}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
             {intel.conto_energia_scheme && (
-              <div className="col-span-2"><Field label="Scheme" value={intel.conto_energia_scheme} /></div>
+              <div className="col-span-2"><Field label={t("pv.scheme")} value={intel.conto_energia_scheme} /></div>
             )}
             <Field label={t("pv.feedInTariff")} value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
-            <Field label="Granted" value={intel.incentive_granted} />
+            <Field label={t("pv.granted")} value={intel.incentive_granted} />
             <Field label={t("pv.validUntil")} value={intel.incentive_valid_until} />
             <Field label="Contributo" value={eur} />
             <Field label="Convenzione" value={intel.convenzione} />
@@ -655,11 +655,11 @@ function PlantIntelSection({ intel }: { intel: any }) {
         {/* Site & roof (location + roof merged so the space is used well) */}
         <SubCard icon={MapPin} title={t("pv.siteRoof")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-            <Field label="City" value={intel.city} />
-            <Field label="Province" value={intel.province} />
-            <Field label="Coordinates" value={typeof intel.geo_lat === "number" && typeof intel.geo_lng === "number" ? `${intel.geo_lat.toFixed(4)}, ${intel.geo_lng.toFixed(4)}` : null} />
+            <Field label={t("pv.city")} value={intel.city} />
+            <Field label={t("pv.province")} value={intel.province} />
+            <Field label={t("pv.coordinates")} value={typeof intel.geo_lat === "number" && typeof intel.geo_lng === "number" ? `${intel.geo_lat.toFixed(4)}, ${intel.geo_lng.toFixed(4)}` : null} />
             <Field label={t("pv.roofArea")} value={typeof intel.roof_area_m2 === "number" ? `${it(intel.roof_area_m2)} m²` : null} />
-            <Field label="Available" value={typeof intel.roof_available_m2 === "number" ? `${it(intel.roof_available_m2)} m²` : null} />
+            <Field label={t("acc.cap.available")} value={typeof intel.roof_available_m2 === "number" ? `${it(intel.roof_available_m2)} m²` : null} />
             <Field label={t("pv.expansion")} value={typeof intel.expansion_potential_kwp === "number" ? `+${it(intel.expansion_potential_kwp)} kWp` : null} />
           </div>
         </SubCard>

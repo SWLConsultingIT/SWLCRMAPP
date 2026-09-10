@@ -399,7 +399,7 @@ export default function FlowEditorPage() {
           <Link href="/campaigns"
             className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-70 cursor-pointer"
             style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
-            Cancel
+            {t("acc.cancel")}
           </Link>
           <SaveAsTemplateButton campaignId={campaignId} defaultName={flowName} />
           <button onClick={handleSave} disabled={saving || !flowName.trim()}
@@ -452,7 +452,7 @@ export default function FlowEditorPage() {
                   <select value={flowManagerId ?? ""} onChange={e => setFlowManagerId(e.target.value || null)}
                     className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
                     style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                    <option value="">Unassigned</option>
+                    <option value="">{t("icpx.unassigned")}</option>
                     {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   <User size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
@@ -679,7 +679,7 @@ export default function FlowEditorPage() {
                     <div className="grid grid-cols-3 gap-3">
                       {/* Channel */}
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Channel</label>
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("opp.col.channel")}</label>
                         <select value={step.channel} onChange={e => {
                           const newCh = e.target.value;
                           if (!allowedChannels.has(newCh)) return;

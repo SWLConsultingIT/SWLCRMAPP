@@ -274,18 +274,18 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
                 <Grid>
                   <Field label={t("pv.installedCapacity")} value={typeof intel.installed_power_kw === "number" ? `${it(intel.installed_power_kw)} kW` : null} />
                   <Field label={t("pv.installationType")} value={intel.installation_type} />
-                  <Field label="Segment" value={intel.segment} />
-                  <Field label="Coordinates" value={typeof intel.geo_lat === "number" && typeof intel.geo_lng === "number" ? `${intel.geo_lat}, ${intel.geo_lng}` : null} />
+                  <Field label={t("pv.segment")} value={intel.segment} />
+                  <Field label={t("pv.coordinates")} value={typeof intel.geo_lat === "number" && typeof intel.geo_lng === "number" ? `${intel.geo_lat}, ${intel.geo_lng}` : null} />
                   <Field label={t("pv.municipality")} value={intel.city} />
-                  <Field label="Province" value={intel.province} />
-                  <Field label="Address" value={lead.company_address_1} />
+                  <Field label={t("pv.province")} value={intel.province} />
+                  <Field label={t("fld.address")} value={lead.company_address_1} />
                 </Grid>
               </Section>
               <Section label={intel.conto_energia_scheme ? "Conto Energia" : "State Incentive (GSE)"} accent="#EA580C">
                 <Grid>
-                  {intel.conto_energia_scheme && <div style={{ gridColumn: "1 / -1" }}><Field label="Scheme" value={intel.conto_energia_scheme} /></div>}
+                  {intel.conto_energia_scheme && <div style={{ gridColumn: "1 / -1" }}><Field label={t("pv.scheme")} value={intel.conto_energia_scheme} /></div>}
                   <Field label={t("pv.feedInTariff")} value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
-                  <Field label="Granted" value={intel.incentive_granted} />
+                  <Field label={t("pv.granted")} value={intel.incentive_granted} />
                   <Field label={t("pv.validUntil")} value={intel.incentive_valid_until} />
                   <Field label="Contributo" value={typeof intel.contributo_eur === "number" ? `€${it(intel.contributo_eur)}` : null} />
                   <Field label="Convenzione" value={intel.convenzione} />
@@ -326,27 +326,27 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
           {/* Contact + Company */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Section label="Contact" accent="#2563EB">
+            <Section label={t("fld.contact")} accent="#2563EB">
               <Grid>
-                <Field label="Name" value={contactName} />
+                <Field label={t("auth.name")} value={contactName} />
                 <Field label={t("fld.roleTitle")} value={lead.primary_title_role} />
-                <Field label="Seniority" value={val(lead.primary_seniority) ? titleCase(String(lead.primary_seniority)) : null} />
+                <Field label={t("ld.seniority")} value={val(lead.primary_seniority) ? titleCase(String(lead.primary_seniority)) : null} />
                 <Field label={t("fld.workEmail")} value={lead.primary_work_email} />
                 <Field label={t("fld.personalEmail")} value={lead.primary_personal_email} />
-                <Field label="Phone" value={lead.primary_phone} />
-                <Field label="LinkedIn" value={lead.primary_linkedin_url} />
+                <Field label={t("fld.phone")} value={lead.primary_phone} />
+                <Field label={t("rep.export.item.linkedin")} value={lead.primary_linkedin_url} />
                 <Field label={t("fld.headline")} value={lead.primary_headline} />
               </Grid>
             </Section>
-            <Section label="Company" accent="#0D9488">
+            <Section label={t("imp.company")} accent="#0D9488">
               <Grid>
-                <Field label="Company" value={lead.company_name} />
-                <Field label="Website" value={lead.company_website} />
-                <Field label="Industry" value={lead.company_industry} />
-                <Field label="Employees" value={lead.employees} />
+                <Field label={t("imp.company")} value={lead.company_name} />
+                <Field label={t("cb.website")} value={lead.company_website} />
+                <Field label={t("ld.industry")} value={lead.company_industry} />
+                <Field label={t("cmp.employees")} value={lead.employees} />
                 <Field label="Annual revenue" value={lead.annual_revenue} />
-                <Field label="Address" value={lead.company_address_1} />
-                <Field label="City" value={lead.company_city} />
+                <Field label={t("fld.address")} value={lead.company_address_1} />
+                <Field label={t("pv.city")} value={lead.company_city} />
                 <Field label="Country" value={lead.company_country} />
               </Grid>
               {val(lead.organization_description) && <p style={{ fontSize: 11.5, color: "#6B7280", margin: "10px 0 0", lineHeight: 1.55 }}>{lead.organization_description}</p>}
@@ -359,10 +359,10 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
               <table style={{ fontSize: 11 }}>
                 <thead>
                   <tr style={{ textAlign: "left", color: "#6B7280", borderBottom: "1px solid #E5E7EB" }}>
-                    <th style={{ padding: "5px 8px 5px 0", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>Company</th>
-                    <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>Address</th>
+                    <th style={{ padding: "5px 8px 5px 0", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("imp.company")}</th>
+                    <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("fld.address")}</th>
                     <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>Dist.</th>
-                    <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>Phone</th>
+                    <th style={{ padding: "5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("fld.phone")}</th>
                     <th style={{ padding: "5px 0 5px 8px", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>Est. use</th>
                   </tr>
                 </thead>
@@ -392,7 +392,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
           {/* Notes */}
           {(val(lead.seller_notes) || val(lead.opportunity_notes)) && (
-            <Section label="Notes" accent="#D97706">
+            <Section label={t("ld.tab.notes")} accent="#D97706">
               {val(lead.seller_notes) && <p style={{ fontSize: 12, color: "#374151", margin: "0 0 6px", lineHeight: 1.55, whiteSpace: "pre-line" }}>{lead.seller_notes}</p>}
               {val(lead.opportunity_notes) && <p style={{ fontSize: 12, color: "#374151", margin: 0, lineHeight: 1.55, whiteSpace: "pre-line" }}>{lead.opportunity_notes}</p>}
             </Section>

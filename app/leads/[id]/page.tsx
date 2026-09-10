@@ -566,7 +566,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         <div className="flex items-center gap-4 p-5 pb-4">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ZONE.account}, color-mix(in srgb, ${ZONE.account} 70%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>Company</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>{t("imp.company")}</p>
             <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -873,7 +873,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
               style={{ backgroundColor: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "#8a6b18", border: `1px solid color-mix(in srgb, ${gold} 34%, transparent)` }}>
-              NEW
+              {t("icpx.new")}
             </span>
           )}
           {/* Teammate tags — pushed to the right edge on wider screens. */}
@@ -1238,7 +1238,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 </div>
                 <p className="text-center leading-tight px-1"
                   style={{ color: connectionStepSent ? C.textBody : "#9CA3AF", fontWeight: 500, fontSize: 12 }}>
-                  Invite
+                  {t("cons.abbr.invite")}
                 </p>
                 {connectionStepMsg.sent_at && (
                   <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
@@ -1424,7 +1424,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: bad ? `color-mix(in srgb, ${col} 10%, transparent)` : C.bg, border: bad ? `1px solid color-mix(in srgb, ${col} 32%, transparent)` : "none" }}>
                     <Mail size={14} style={{ color: bad ? col : C.email, marginTop: 2 }} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Email</p>
+                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("auth.email")}</p>
                       <EditableLeadField
                         leadId={id}
                         field="primary_work_email"
@@ -1447,7 +1447,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
                   <Phone size={14} style={{ color: C.phone, marginTop: 2 }} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Mobile</p>
+                    <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>{t("ld.mobile")}</p>
                     {lead.allow_call === false ? (
                       // Wrong-number flag from the post-call popup. Surface
                       // the same inline-replace flow we use in the header
@@ -1492,7 +1492,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                           LinkedIn
                           {disabled && (
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                              style={{ backgroundColor: "#DC2626", color: "#fff" }}>Disabled</span>
+                              style={{ backgroundColor: "#DC2626", color: "#fff" }}>{t("ld.disabled")}</span>
                           )}
                         </p>
                         {url && valid && (
@@ -1531,13 +1531,13 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       {lead.assigned_seller[0]}
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-wider" style={{ color: C.textDim, fontSize: 10 }}>Seller</p>
+                      <p className="text-xs uppercase tracking-wider" style={{ color: C.textDim, fontSize: 10 }}>{t("pulse.col.seller")}</p>
                       <p className="text-sm font-semibold" style={{ color: C.textBody }}>{lead.assigned_seller}</p>
                     </div>
                   </div>
                 )}
                 <div>
-                  <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: C.textDim, fontSize: 10 }}>Channels</p>
+                  <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: C.textDim, fontSize: 10 }}>{t("lost.channels")}</p>
                   <div className="flex items-center gap-2">
                     {[
                       { key: "allow_linkedin",  label: "LinkedIn",  icon: <LinkedInIcon size={15} /> },
@@ -1588,7 +1588,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>{t("ld.techStack")}</h3>
                 {technologies.length > 0 && (
                   <div className={keywords.length > 0 ? "mb-4" : ""}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Technologies</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>{t("ld.technologies")}</p>
                     <div className="flex flex-wrap gap-2">
                       {technologies.map((t: string) => (
                         <span key={t} className="text-xs font-medium px-2.5 py-1 rounded-lg"
@@ -1634,7 +1634,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         <LinkedInIcon size={14} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold mb-1" style={{ color: "#0A66C2" }}>LinkedIn</p>
+                        <p className="text-xs font-bold mb-1" style={{ color: "#0A66C2" }}>{t("rep.export.item.linkedin")}</p>
                         <p className="text-sm leading-relaxed line-clamp-3" style={{ color: C.textBody }}>{lead.recent_linkedin_post}</p>
                       </div>
                     </div>
@@ -1709,7 +1709,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("ld.websiteIntel")}</h3>
                 {lead.website_summary && (
                   <div className="mb-3">
-                    <p className="text-xs font-medium mb-1" style={{ color: C.textDim }}>Services</p>
+                    <p className="text-xs font-medium mb-1" style={{ color: C.textDim }}>{t("ld.services")}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {lead.website_summary.split(",").map((s: string) => s.trim()).filter(Boolean).map((s: string) => (
                         <span key={s} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: C.bg, color: C.textBody }}>{s}</span>

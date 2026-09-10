@@ -522,7 +522,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto] gap-x-3 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
             <span>{t("fmp.seller")}</span>
             <span className="text-right cursor-help" title={t("fmp.hint.li")}>{t("fmp.col.li")}</span>
-            <span className="text-right cursor-help" title={t("fmp.hint.email")}>Email</span>
+            <span className="text-right cursor-help" title={t("fmp.hint.email")}>{t("auth.email")}</span>
             <span className="text-right cursor-help" title={t("fmp.k.callsMade")}>{t("fmp.k.callsMade")}</span>
             <span className="text-right cursor-help" title={t("fmp.hint.conn")}>{t("fmp.col.conn")}</span>
             <span className="text-right cursor-help" title={t("fmp.hint.pos")}>{t("fmp.col.pos")}</span>
@@ -610,10 +610,10 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                 </button>
                 {expanded && (
                   <div className="ml-5 mb-2 mt-1 rounded-lg border divide-y" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                    <StepBucket label="Sent" leads={s.leads.sent} color={C.green} />
-                    <StepBucket label="Failed" leads={s.leads.failed} color={C.red} showDetail />
-                    <StepBucket label="Skipped" leads={s.leads.skipped} color={C.textMuted} showDetail />
-                    <StepBucket label="Pending" leads={s.leads.pending} color="#0A66C2" showDetail />
+                    <StepBucket label={t("kb.sent")} leads={s.leads.sent} color={C.green} />
+                    <StepBucket label={t("kb.failed")} leads={s.leads.failed} color={C.red} showDetail />
+                    <StepBucket label={t("imp.skipped")} leads={s.leads.skipped} color={C.textMuted} showDetail />
+                    <StepBucket label={t("opp.pending")} leads={s.leads.pending} color="#0A66C2" showDetail />
                     {total === 0 && <p className="px-3 py-1.5 text-[11px]" style={{ color: C.textDim }}>{t("fmp.nothingOnStep")}</p>}
                   </div>
                 )}
@@ -627,7 +627,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       <LeadsActivityTable rows={m.leadsActivity} />
 
       {/* ── ISSUES ── */}
-      <Section title="Issues" action={<span className="text-[11px] font-semibold" style={{ color: (m.steps.reduce((a, s) => a + s.failed, 0) || m.email?.bounced) ? C.red : C.textDim }}>{m.steps.reduce((a, s) => a + s.failed, 0)} failed · {m.email?.bounced ?? 0} bounced</span>}>
+      <Section title={t("fmp.issues")} action={<span className="text-[11px] font-semibold" style={{ color: (m.steps.reduce((a, s) => a + s.failed, 0) || m.email?.bounced) ? C.red : C.textDim }}>{m.steps.reduce((a, s) => a + s.failed, 0)} failed · {m.email?.bounced ?? 0} bounced</span>}>
         <div className="flex flex-wrap items-start gap-6">
           <div className="min-w-[220px]">
             <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("fmp.failureReasons")}</p>
@@ -737,12 +737,12 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
           <table className="w-full text-sm border-collapse">
             <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg, boxShadow: `inset 0 -1px 0 ${C.border}` }}>
               <tr className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
-                <Sortable k="name" label="Lead" />
+                <Sortable k="name" label={t("imp.lead")} />
                 <th className="text-left px-2 py-2.5">{t("fmp.col.channels")}</th>
-                <th className="text-left px-2 py-2.5">LinkedIn</th>
+                <th className="text-left px-2 py-2.5">{t("rep.export.item.linkedin")}</th>
                 <Sortable k="messaged" label={t("fmp.col.msgs")} align="center" />
                 <th className="text-left px-2 py-2.5">{t("fmp.col.replied")}</th>
-                <Sortable k="currentStep" label="Step" align="center" />
+                <Sortable k="currentStep" label={t("vc.step")} align="center" />
                 <th className="text-left px-2 py-2.5">{t("fmp.col.status")}</th>
                 <Sortable k="lastActivity" label={t("fmp.col.lastActivity")} />
               </tr>

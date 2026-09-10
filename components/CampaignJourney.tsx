@@ -223,11 +223,11 @@ function CampaignBlock({
                             backgroundColor: connectionSent ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.surface,
                             color: connectionSent ? "#22C55E" : "#9CA3AF",
                           }}>
-                          Invite
+                          {t("cons.abbr.invite")}
                         </span>
                         <LinkedInIcon size={13} />
                         <span className="text-sm font-medium" style={{ color: C.textBody }}>
-                          Connection Request
+                          {t("vc.step.cr")}
                         </span>
                       </div>
                       <div className="shrink-0">
@@ -376,7 +376,7 @@ function CampaignBlock({
                                 <button onClick={() => { setEditingId(msg.id); setEditContent(msg.content ?? ""); }}
                                   className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
                                   style={{ color: gold, backgroundColor: goldLight }}>
-                                  <Pencil size={10} /> Edit
+                                  <Pencil size={10} /> {t("acc.edit")}
                                 </button>
                               )}
                               {isSent && isExpanded && (
@@ -405,7 +405,7 @@ function CampaignBlock({
                                     <button onClick={() => setEditingId(null)}
                                       className="text-xs font-medium px-3 py-1.5 rounded-lg"
                                       style={{ color: C.textMuted }}>
-                                      Cancel
+                                      {t("acc.cancel")}
                                     </button>
                                   </div>
                                 </div>

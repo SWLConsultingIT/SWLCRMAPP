@@ -309,16 +309,16 @@ function TemplatesTab() {
         <button onClick={() => { setEditingId(null); setShowForm(true); }}
           className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shrink-0"
           style={{ backgroundColor: gold, color: "#fff" }}>
-          <Plus size={14} /> New Template
+          <Plus size={14} /> {t("tpl.newTemplate")}
         </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <FilterPill label="Channel" value={filterChannel} onChange={setFilterChannel}
+        <FilterPill label={t("opp.col.channel")} value={filterChannel} onChange={setFilterChannel}
           options={[{ value: "all", label: t("vc.all") }, ...CHANNELS.map(c => ({ value: c.value, label: c.label }))]} />
-        <FilterPill label="Step" value={filterStep} onChange={setFilterStep}
+        <FilterPill label={t("vc.step")} value={filterStep} onChange={setFilterStep}
           options={[{ value: "all", label: t("vc.all") }, ...STEP_POSITIONS.map(sp => ({ value: sp.value, label: t(sp.labelKey) }))]} />
-        <FilterPill label="Status" value={filterStatus} onChange={setFilterStatus}
+        <FilterPill label={t("imp.status")} value={filterStatus} onChange={setFilterStatus}
           options={[{ value: "all", label: "All" }, { value: "active", label: "Active" }, { value: "draft", label: "Draft" }, { value: "archived", label: "Archived" }]} />
         <span className="ml-auto text-xs" style={{ color: C.textMuted }}>{filtered.length} of {templates.length}</span>
       </div>
@@ -394,7 +394,7 @@ function TemplateCard({ tpl, icpName, onEdit, onDelete }: { tpl: Template; icpNa
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{t(statusMeta.labelKey)}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={onEdit} className="p-1.5 rounded hover:bg-black/5" title="Edit"><Pencil size={12} style={{ color: C.textMuted }} /></button>
+          <button onClick={onEdit} className="p-1.5 rounded hover:bg-black/5" title={t("acc.edit")}><Pencil size={12} style={{ color: C.textMuted }} /></button>
           <button onClick={onDelete} className="p-1.5 rounded hover:bg-red-50" title="Delete"><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
         </div>
       </div>
@@ -431,7 +431,7 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
           <button onClick={onCancel} className="p-1 rounded hover:bg-black/5"><X size={16} /></button>
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="Channel">
+          <Field label={t("opp.col.channel")}>
             <select value={form.channel} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
               {CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
@@ -479,16 +479,16 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
           <Field label={t("vc.perfScore")}>
             <input type="number" value={form.performance_score ?? ""} onChange={e => setForm(f => ({ ...f, performance_score: e.target.value ? parseFloat(e.target.value) : null }))} placeholder="e.g. 8.5" step="0.1" className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
           </Field>
-          <Field label="Status">
+          <Field label={t("imp.status")}>
             <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as "active" | "draft" | "archived" }))} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-              <option value="archived">Archived</option>
+              <option value="active">{t("pulse.active")}</option>
+              <option value="draft">{t("vc.status.draft")}</option>
+              <option value="archived">{t("vc.status.archived")}</option>
             </select>
           </Field>
         </div>
         <div className="flex items-center justify-end gap-2 border-t px-5 py-3" style={{ borderColor: C.border }}>
-          <button onClick={onCancel} className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: C.textBody }}>Cancel</button>
+          <button onClick={onCancel} className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: C.textBody }}>{t("acc.cancel")}</button>
           <button onClick={submit} disabled={saving} className="flex items-center gap-1.5 text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50" style={{ backgroundColor: gold, color: "#fff" }}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : null}
             {isEdit ? "Save Changes" : "Create Template"}
@@ -784,17 +784,17 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
 
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Name">
+            <Field label={t("auth.name")}>
               <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 placeholder='e.g. "Pathway hot lead — Asset finance"'
                 className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
             </Field>
-            <Field label="Status">
+            <Field label={t("imp.status")}>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as "active" | "draft" | "archived" }))}
                 className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <option value="active">Active</option>
-                <option value="draft">Draft</option>
-                <option value="archived">Archived</option>
+                <option value="active">{t("pulse.active")}</option>
+                <option value="draft">{t("vc.status.draft")}</option>
+                <option value="archived">{t("vc.status.archived")}</option>
               </select>
             </Field>
             <Field label={t("vc.icpOptional")} hint={<TermTooltip iconOnly definition="ICP = Ideal Customer Profile. Pick a profile to scope this template to a specific buyer segment. Leave empty to make it reusable across ICPs." />}>
@@ -810,7 +810,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
                 className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
             </Field>
             <div className="md:col-span-2">
-              <Field label="Description">
+              <Field label={t("cb.check.description")}>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder={t("vc.descriptionPh")}
                   rows={2}
@@ -851,7 +851,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
                       </select>
                       <button onClick={() => moveStep(i, -1)} disabled={i === 0} className="px-1.5 text-xs disabled:opacity-30" title={t("vc.moveUp")}>↑</button>
                       <button onClick={() => moveStep(i, 1)} disabled={i === form.steps.length - 1} className="px-1.5 text-xs disabled:opacity-30" title={t("vc.moveDown")}>↓</button>
-                      <button onClick={() => removeStep(i)} className="p-1 rounded hover:bg-red-50" title="Remove"><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
+                      <button onClick={() => removeStep(i)} className="p-1 rounded hover:bg-red-50" title={t("acc.remove")}><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
                     </div>
                   );
                 })}
@@ -864,7 +864,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t px-5 py-3" style={{ borderColor: C.border }}>
-          <button onClick={onCancel} className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: C.textBody }}>Cancel</button>
+          <button onClick={onCancel} className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: C.textBody }}>{t("acc.cancel")}</button>
           <button onClick={submit} disabled={saving} className="flex items-center gap-1.5 text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50" style={{ backgroundColor: gold, color: "#fff" }}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : null}
             {isEdit ? "Save Changes" : "Create Sequence"}

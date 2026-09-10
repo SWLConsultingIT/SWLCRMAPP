@@ -321,7 +321,7 @@ function EditPencil({ onClick }: { onClick: () => void }) {
     <button onClick={onClick} title={t("cb.editSection")}
       className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md"
       style={{ color: C.textMuted, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
-      <Pencil size={10} /> Edit
+      <Pencil size={10} /> {t("acc.edit")}
     </button>
   );
 }
@@ -1125,7 +1125,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
                   style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-                  <Upload size={12} /> Upload
+                  <Upload size={12} /> {t("imp.step.upload")}
                   <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -1136,7 +1136,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                 {form.logo_url && (
                   <button onClick={() => setForm(f => ({ ...f, logo_url: "" }))}
                     className="text-xs px-2 py-1.5 rounded-lg" style={{ color: C.red, backgroundColor: C.redLight }}>
-                    Remove
+                    {t("acc.remove")}
                   </button>
                 )}
               </div>
@@ -1158,7 +1158,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               placeholder="Short phrase that defines the company" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Industry</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("ld.industry")}</label>
             <select className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: form.industry ? C.textPrimary : C.textDim, backgroundColor: C.bg }}
               value={industryOptions.includes(form.industry) ? form.industry : form.industry ? "__custom" : ""}
@@ -1181,7 +1181,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Location</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("ld.location")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
@@ -1200,7 +1200,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               style={{ borderColor: C.border, color: form.team_size ? C.textPrimary : C.textDim, backgroundColor: C.bg }}
               value={form.team_size}
               onChange={e => setForm(f => ({ ...f, team_size: e.target.value }))}>
-              <option value="">Select</option>
+              <option value="">{t("inbox.select.one")}</option>
               {teamSizeOptions.map(o => <option key={o} value={o}>{o} people</option>)}
             </select>
           </div>
@@ -1238,7 +1238,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
         <SectionHeader icon={Globe} title={t("cb.linksSocial")} color="#0A66C2" />
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Website</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.website")}</label>
             <input className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
@@ -1295,7 +1295,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             onChange={v => setForm(f => ({ ...f, tone_by_channel: v }))}
           />
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Languages</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>{t("cb.languages")}</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {languageOptions.map(lang => {
                 const selected = (form.languages ?? []).includes(lang);
@@ -1379,7 +1379,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                           placeholder="https://..." />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Description</label>
+                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>{t("cb.check.description")}</label>
                         <textarea rows={2} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                           style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
                           value={cs.description} onChange={e => updateCaseStudy(i, "description", e.target.value)}
@@ -1396,7 +1396,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                             </a>
                             <button onClick={() => updateCaseStudy(i, "file_url", "")}
                               className="text-xs px-2 py-1.5 rounded-lg" style={{ color: C.red, backgroundColor: C.redLight }}>
-                              Remove
+                              {t("acc.remove")}
                             </button>
                           </div>
                         ) : (
@@ -1502,7 +1502,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               <button onClick={onCancel}
                 className="rounded-lg px-5 py-2.5 text-sm font-medium"
                 style={{ color: C.textMuted, backgroundColor: C.surface }}>
-                Cancel
+                {t("acc.cancel")}
               </button>
             )}
             {error ? (

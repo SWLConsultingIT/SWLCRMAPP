@@ -181,7 +181,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.gold }}>Database</p>
         <div className="flex items-end justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Leads</h1>
+            <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{t("ld.leads")}</h1>
             <span className="text-sm px-2 py-0.5 rounded-full font-medium"
               style={{ backgroundColor: C.goldGlow, color: C.gold }}>{leads.length}</span>
           </div>

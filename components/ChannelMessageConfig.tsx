@@ -349,6 +349,7 @@ function MessagePreview({ template, subject, channel, isConnectionRequest, leads
   leads: SampleLead[];
   sellerName: string;
 }) {
+  const { t } = useLocale();
   const [idx, setIdx] = useState(0);
   const lead = leads[Math.min(idx, Math.max(leads.length - 1, 0))];
   const meta = channelMeta[channel] || channelMeta.linkedin;
@@ -494,6 +495,7 @@ export function PlaceholdersHint({
    *  author has no way to know that from the token name alone. */
   coverage?: PlaceholderCoverage;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -547,7 +549,7 @@ export function PlaceholdersHint({
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
                 Found: <span className="font-mono">{suspicious.slice(0, 6).map(s => s.token).join(", ")}{suspicious.length > 6 ? ` +${suspicious.length - 6} more` : ""}</span>.
-                Use <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> etc. — not <span className="font-mono">[First Name]</span> or <span className="font-mono">%FIRST_NAME%</span>.
+                Use <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> etc. — not <span className="font-mono">[First Name]</span> {t("icpx.or")} <span className="font-mono">%FIRST_NAME%</span>.
               </p>
             </>
           ) : strayTailored.length > 0 ? (

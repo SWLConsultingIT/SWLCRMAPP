@@ -393,7 +393,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
             <div className="shrink-0 text-right">
               {lossReason === "negative" ? (
                 <div className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold" style={{ backgroundColor: C.redLight, color: C.red }}>
-                  <XCircle size={16} /> Negative Reply
+                  <XCircle size={16} /> {t("cd.negativeReply")}
                 </div>
               ) : (
                 <div className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold" style={{ backgroundColor: C.surface, color: C.textMuted }}>
@@ -571,12 +571,12 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                               )}
                               {isMsg && item.status === "skipped" && (
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-                                  Skipped (already connected)
+                                  {t("cd.skippedConnected")}
                                 </span>
                               )}
                               {isMsg && item.status === "sent" && (
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                                  Sent
+                                  {t("kb.sent")}
                                 </span>
                               )}
                               {isReply && cls && (

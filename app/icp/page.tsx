@@ -404,10 +404,10 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
               );
             })}
             <div className="flex items-center gap-2 ml-1">
-              <span className="text-xs font-medium" style={{ color: C.textDim }}>or</span>
+              <span className="text-xs font-medium" style={{ color: C.textDim }}>{t("icpx.or")}</span>
               <input
                 type="number" min={1} max={5000}
-                placeholder="Custom"
+                placeholder={t("icpx.custom")}
                 value={form.leads_requested !== null && ![25, 50, 100, 200, 500].includes(form.leads_requested) ? form.leads_requested : ""}
                 onChange={e => {
                   const v = e.target.value === "" ? null : parseInt(e.target.value);
@@ -440,7 +440,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
           </button>
           <button onClick={onCancel} className="rounded-lg px-5 py-2.5 text-sm font-medium"
             style={{ color: C.textMuted, backgroundColor: C.surface }}>
-            Cancel
+            {t("acc.cancel")}
           </button>
         </div>
       </div>
@@ -611,7 +611,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-5" style={{ color: C.textMuted }}>
         <button onClick={onClose} className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Lead Miner
+          <ArrowLeft size={12} /> {t("icpx.leadMiner")}
         </button>
         <span>/</span>
         <span style={{ color: C.textBody }}>{profile.profile_name}</span>
@@ -632,7 +632,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             {isRecentUpload(profile.executed_at) && (
               <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                 style={{ backgroundColor: gold, color: "#04070d" }}>
-                NEW
+                {t("icpx.new")}
               </span>
             )}
             {(profile.leads_uploaded ?? 0) > 0 && (
@@ -675,7 +675,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             <button onClick={onEdit}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
               style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-              <Pencil size={12} /> Edit
+              <Pencil size={12} /> {t("acc.edit")}
             </button>
           )}
         </div>
@@ -686,7 +686,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Overview — category cards with icons */}
       <div className="px-6 py-5 grid grid-cols-2 gap-3">
         {profile.target_industries?.length > 0 && (
-          <OverviewCard icon={Building2} label="Industries" accent={C.blue}>
+          <OverviewCard icon={Building2} label={t("icpx.industries")} accent={C.blue}>
             <div className="flex flex-wrap gap-1.5">
               {profile.target_industries.map(i => (
                 <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
@@ -779,7 +779,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               <Users size={13} />
             </span>
             <span className="relative text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              Leads
+              {t("ld.leads")}
             </span>
             {!loadingLeads && (
               <span className="relative text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full"
@@ -973,7 +973,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               Yes, delete
             </button>
             <button onClick={() => setConfirmDelete(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium"
-              style={{ color: C.textMuted, backgroundColor: C.surface }}>No</button>
+              style={{ color: C.textMuted, backgroundColor: C.surface }}>{t("icpx.no")}</button>
           </div>
         )}
       </div>
@@ -1013,7 +1013,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               onClick={clearSelection}
               className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
               style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
-              Clear
+              {t("cd.clear")}
             </button>
             {isLost ? (
               <button
@@ -1046,7 +1046,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                     color: "#1A1505",
                     boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
                   }}>
-                  <Send size={13} /> Create New Flow
+                  <Send size={13} /> {t("nfl.createNewFlow")}
                 </button>
               </>
             )}
@@ -1187,7 +1187,7 @@ export default function LeadGenPage() {
       {!selectedId && !showForm && !editingId && (
         <AuroraHero
           eyebrow="Growth Engine"
-          title="Lead Miner"
+          title={t("icpx.leadMiner")}
           subtitle={t("icpx.lede")}
           actions={profiles.length > 0 ? (
             <button onClick={() => setShowForm(true)} className="aurora-btn">
@@ -1334,7 +1334,7 @@ export default function LeadGenPage() {
                       <h3 className="font-bold text-[15px]" style={{ color: C.textPrimary }}>{p.profile_name}</h3>
                       {isRecentUpload(p.executed_at) && (
                         <span className="inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: "var(--fg3)", color: "#241B04" }}>NEW</span>
+                          style={{ backgroundColor: "var(--fg3)", color: "#241B04" }}>{t("icpx.new")}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2.5 text-[11.5px] mt-1 flex-wrap" style={{ color: C.textMuted }}>

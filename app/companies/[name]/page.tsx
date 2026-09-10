@@ -204,7 +204,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
           Leads sub-tab. */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
         <Link href="/leads?view=companies" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Companies
+          <ArrowLeft size={12} /> {t("cmd.hint.company")}
         </Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{companyName}</span>
@@ -353,13 +353,13 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                 <div className="flex items-center gap-6 pt-3 border-t" style={{ borderColor: C.border }}>
                   {lead.employees && (
                     <div>
-                      <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>Employees</p>
+                      <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>{t("cmp.employees")}</p>
                       <p className="text-lg font-bold" style={{ color: C.textPrimary }}>{lead.employees}</p>
                     </div>
                   )}
                   {lead.annual_revenue && (
                     <div>
-                      <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>Revenue</p>
+                      <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>{t("cmp.revenue")}</p>
                       <p className="text-lg font-bold" style={{ color: C.textPrimary }}>{formatRevenue(Number(lead.annual_revenue))}</p>
                     </div>
                   )}
@@ -551,7 +551,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <BookOpen size={12} style={{ color: C.blue }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>Blog</span>
+                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("ld.blog")}</span>
                       </div>
                       <p className="text-sm line-clamp-3" style={{ color: C.textBody }}>{lead.company_blog}</p>
                     </div>
