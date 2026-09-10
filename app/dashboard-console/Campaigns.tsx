@@ -277,7 +277,7 @@ function Flow({ c, best, open, onToggle }: {
         </div>
 
         <div className="flex-1 h-2 rounded-full min-w-[36px]" style={{ backgroundColor: C.surface }}>
-          {!thin && <div className="h-full rounded-full" style={{ width: `${(c.rate / best) * 100}%`, backgroundColor: gold, opacity: .9 }} />}
+          {!thin && <div className="h-full rounded-full" style={{ width: `${best > 0 ? (c.rate / best) * 100 : 0}%`, backgroundColor: gold, opacity: .9 }} />}
         </div>
 
         <div className="w-[70px] shrink-0 text-right">

@@ -134,7 +134,7 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
   const Body = { Overview, ICPs: Icps, Campaigns, Channels, Sellers, Portfolio }[tab];
 
   return (
-    <ConsoleProvider value={{ D, T }}>
+    <ConsoleProvider value={{ D, T, goTab: (t) => setTab(t as Tab) }}>
     <div className="p-4 sm:p-6 w-full">
       {/* Same width as every other view — app/page.tsx, /leads, /results all
           use p-4 sm:p-6 w-full. A centred 1180px column left ~250px of dead
