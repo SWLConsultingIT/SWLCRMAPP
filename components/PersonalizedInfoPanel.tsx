@@ -2,6 +2,7 @@ import { C, N } from "@/lib/design";
 import { Sparkles, TrendingUp, Building2, Info, Sun, FileText, Zap, CalendarClock, MapPin, Users, Maximize2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import RooftopMapThumb from "@/components/RooftopMapThumb";
+import { useLocale } from "@/lib/i18n";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.
@@ -134,6 +135,7 @@ function formatRooftopValue(key: string, value: unknown): string {
 }
 
 function RooftopSection({ data, leadId, companyName }: { data: Record<string, unknown>; leadId?: string; companyName?: string | null }) {
+  const { t } = useLocale();
   const photoUrl = data.rooftop_photo_url as string | undefined;
   const hasSolar = String(data.has_solar_panels ?? "").toLowerCase() === "yes";
   const angle = data.ai_outreach_angle as string | undefined;
@@ -141,22 +143,22 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
   const lng = typeof data.rooftop_lng === "number" ? data.rooftop_lng : null;
 
   const stats: Array<{ key: string; label: string }> = [
-    { key: "rooftop_area_m2", label: "Rooftop Area" },
-    { key: "annual_electricity_kwh", label: "Annual Use" },
-    { key: "estimated_bill_eur_year", label: "Energy Bill" },
-    { key: "proposed_system_kwp", label: "Proposed kWp" },
-    { key: "estimated_savings_pct_year1", label: "Year-1 Savings" },
+    { key: "rooftop_area_m2", label: t("pv.rooftopArea") },
+    { key: "annual_electricity_kwh", label: t("pv.annualUse") },
+    { key: "estimated_bill_eur_year", label: t("pv.energyBill") },
+    { key: "proposed_system_kwp", label: t("pv.proposedKwp") },
+    { key: "estimated_savings_pct_year1", label: t("pv.year1Savings") },
     { key: "payback_months", label: "Payback" },
-    { key: "co2_offset_tons_year", label: "CO₂ Offset" },
+    { key: "co2_offset_tons_year", label: t("pv.co2Offset") },
   ];
   const visibleStats = stats.filter(s => data[s.key] != null && data[s.key] !== "");
 
   const badgeColor = hasSolar
-    ? { bg: C.greenLight, fg: C.green, label: "HAS SOLAR PANELS" }
-    : { bg: C.redLight,   fg: C.red,   label: "NO SOLAR PANELS" };
+    ? { bg: C.greenLight, fg: C.green, label: t("pv.hasPanels") }
+    : { bg: C.redLight,   fg: C.red,   label: t("pv.noPanels") };
 
   return (
-    <SectionBlock icon={Sun} title="Rooftop Intelligence" accent={C.gold} bg={C.goldSoft}>
+    <SectionBlock icon={Sun} title={t("pv.rooftopIntel")} accent={C.gold} bg={C.goldSoft}>
       {/* Photo (floats left, expands in place) + outreach text wrapping beside it */}
       <div style={{ overflow: "hidden" }}>
         {photoUrl ? (
@@ -224,7 +226,7 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
             <Building2 size={18} />
           </span>
           <span className="flex-1 text-left leading-tight relative">
-            <span className="text-[14px]" style={{ color: "#fff" }}>Cross-sell — nearby energy consumers</span>
+            <span className="text-[14px]" style={{ color: "#fff" }}>{t("pv.crossSell")}</span>
             <span className="block text-[11.5px] font-medium mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
               {(data.nearby_companies as unknown[]).length} businesses around the plant · explore the producer ↔ consumer match
             </span>
@@ -576,6 +578,7 @@ function MeetingNotesSection({ notes }: { notes: any }) {
 
 // ── Plant Intelligence (Gruppo Everest) — the Opportunity-1 dossier per PV plant ──
 function PlantIntelSection({ intel }: { intel: any }) {
+  const { t } = useLocale();
   const accent = C.gold;
   const it = (n: number) => n.toLocaleString("it-IT");
   const kw  = typeof intel.installed_power_kw === "number" ? `${it(intel.installed_power_kw)} kW` : null;
@@ -585,10 +588,10 @@ function PlantIntelSection({ intel }: { intel: any }) {
   const term = gY != null && vY != null && vY > gY ? `${vY - gY} yrs` : null;
 
   const kpis = ([
-    { label: "Installed power", value: kw },
+    { label: t("pv.installedPower"), value: kw },
     { label: "Installation", value: intel.installation_type },
-    { label: "GSE segment", value: intel.segment },
-    { label: "Incentive term", value: term },
+    { label: t("pv.gseSegment"), value: intel.segment },
+    { label: t("pv.incentiveTerm"), value: term },
   ] as { label: string; value: React.ReactNode }[]).filter(k => k.value);
 
   const owners: [string, string][] = ([
@@ -621,9 +624,9 @@ function PlantIntelSection({ intel }: { intel: any }) {
   );
 
   return (
-    <SectionBlock icon={Zap} title="Plant Intelligence" accent={accent} bg={`color-mix(in srgb, ${accent} 9%, transparent)`}>
+    <SectionBlock icon={Zap} title={t("pv.plantIntel")} accent={accent} bg={`color-mix(in srgb, ${accent} 9%, transparent)`}>
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>Incentivised PV plant — structured dossier</span>
+        <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>{t("pv.plantDossier")}</span>
       </div>
 
       {/* Top KPIs */}
@@ -638,9 +641,9 @@ function PlantIntelSection({ intel }: { intel: any }) {
             {intel.conto_energia_scheme && (
               <div className="col-span-2"><Field label="Scheme" value={intel.conto_energia_scheme} /></div>
             )}
-            <Field label="Feed-in tariff" value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
+            <Field label={t("pv.feedInTariff")} value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
             <Field label="Granted" value={intel.incentive_granted} />
-            <Field label="Valid until" value={intel.incentive_valid_until} />
+            <Field label={t("pv.validUntil")} value={intel.incentive_valid_until} />
             <Field label="Contributo" value={eur} />
             <Field label="Convenzione" value={intel.convenzione} />
             <Field label="Atto di concessione" value={intel.atto_concessione} />
@@ -650,20 +653,20 @@ function PlantIntelSection({ intel }: { intel: any }) {
         </SubCard>
 
         {/* Site & roof (location + roof merged so the space is used well) */}
-        <SubCard icon={MapPin} title="Site & roof">
+        <SubCard icon={MapPin} title={t("pv.siteRoof")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
             <Field label="City" value={intel.city} />
             <Field label="Province" value={intel.province} />
             <Field label="Coordinates" value={typeof intel.geo_lat === "number" && typeof intel.geo_lng === "number" ? `${intel.geo_lat.toFixed(4)}, ${intel.geo_lng.toFixed(4)}` : null} />
-            <Field label="Roof area" value={typeof intel.roof_area_m2 === "number" ? `${it(intel.roof_area_m2)} m²` : null} />
+            <Field label={t("pv.roofArea")} value={typeof intel.roof_area_m2 === "number" ? `${it(intel.roof_area_m2)} m²` : null} />
             <Field label="Available" value={typeof intel.roof_available_m2 === "number" ? `${it(intel.roof_available_m2)} m²` : null} />
-            <Field label="Expansion potential" value={typeof intel.expansion_potential_kwp === "number" ? `+${it(intel.expansion_potential_kwp)} kWp` : null} />
+            <Field label={t("pv.expansion")} value={typeof intel.expansion_potential_kwp === "number" ? `+${it(intel.expansion_potential_kwp)} kWp` : null} />
           </div>
         </SubCard>
 
         {/* Ownership structure — full width, owners laid out across the row */}
         <div className="md:col-span-2">
-          <SubCard icon={Users} title="Ownership structure">
+          <SubCard icon={Users} title={t("pv.ownership")}>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                 style={singleOwner
@@ -691,6 +694,7 @@ function PlantIntelSection({ intel }: { intel: any }) {
 }
 
 export default function PersonalizedInfoPanel({ enrichment, leadId, companyName }: Props) {
+  const { t } = useLocale();
   if (!enrichment || typeof enrichment !== "object" || Object.keys(enrichment).length === 0) return null;
 
   const data = normalizeEnrichment(enrichment as Record<string, unknown>);
@@ -718,7 +722,7 @@ export default function PersonalizedInfoPanel({ enrichment, leadId, companyName 
             <Sparkles size={14} style={{ color: "#fff" }} />
           </div>
           <div>
-            <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Personalized Info</h3>
+            <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("pv.personalizedInfo")}</h3>
             <p className="text-[10px]" style={{ color: C.textMuted }}>
               Client-specific signals used by AI to personalize outreach
             </p>
@@ -739,7 +743,7 @@ export default function PersonalizedInfoPanel({ enrichment, leadId, companyName 
 
       {/* Priority KPI cards */}
       {priorityVisible.length > 0 && (
-        <SectionBlock icon={TrendingUp} title="Key Signals" accent={gold} bg={`color-mix(in srgb, ${gold} 6%, transparent)`}>
+        <SectionBlock icon={TrendingUp} title={t("pv.keySignals")} accent={gold} bg={`color-mix(in srgb, ${gold} 6%, transparent)`}>
           <div className="grid grid-cols-3 gap-2.5">
             {priorityVisible.map(key => (
               <StatCard
@@ -755,7 +759,7 @@ export default function PersonalizedInfoPanel({ enrichment, leadId, companyName 
 
       {/* Secondary groups — split short KV rows from long full-width rows so the grid stays aligned */}
       {[
-        { title: "Credit Rating & Financials", icon: TrendingUp, keys: rfaExtra, accent: C.blue,  bg: C.blueLight },
+        { title: t("pv.creditRating"), icon: TrendingUp, keys: rfaExtra, accent: C.blue,  bg: C.blueLight },
         { title: "Companies House",             icon: Building2, keys: chExtra,  accent: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 10%, transparent)" },
         { title: "Additional",                  icon: Info,       keys: other,    accent: C.textMuted, bg: "#F9FAFB" },
       ].map(group => {

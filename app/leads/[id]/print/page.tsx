@@ -4,6 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import PrintTrigger from "../../../reports/print/PrintTrigger";
 import PrintActions from "../../../reports/print/PrintActions";
+import { getT } from "@/lib/i18n-server";
 
 // Branded, print-optimized single-lead sheet ("Opportunity Sheet"). Opened in a
 // new tab from the "Export" button on the lead detail; auto-fires window.print()
@@ -20,22 +21,23 @@ export const dynamic = "force-dynamic";
 // Sheet.pdf") instead of the app default. Overrides the root layout title.
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await getT();
   try {
     const scope = await getUserScope();
-    if (!scope.userId) return { title: "Lead Sheet" };
+    if (!scope.userId) return { title: t("fld.leadSheet") };
     const svc = getSupabaseService();
     let q = svc.from("leads").select("id, source, encrypted_payload, company_bio_id, company_name, primary_first_name, primary_last_name").eq("id", id);
     if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
     const { data } = await q.maybeSingle();
-    if (!data) return { title: "Lead Sheet" };
+    if (!data) return { title: t("fld.leadSheet") };
     const [l] = await hydrateClientLeads([data as any]);
     const lead = l as any;
     const name = (lead.company_name && String(lead.company_name).trim())
       || `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim()
       || "Lead";
-    return { title: `${name} — Lead Sheet` };
+    return { title: `${name} — ${t("fld.leadSheet")}` };
   } catch {
-    return { title: "Lead Sheet" };
+    return { title: t("fld.leadSheet") };
   }
 }
 
@@ -105,6 +107,7 @@ const CONSUMED = new Set([
 ]);
 
 export default async function LeadPrintPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const scope = await getUserScope();
   if (!scope.userId) notFound();
@@ -139,15 +142,15 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
   const kpis: { label: string; value: React.ReactNode; accent: string }[] = [];
   if (intel) {
     if (val(intel.province)) kpis.push({ label: "Province", value: intel.province, accent: "#2563EB" });
-    if (val(intel.city)) kpis.push({ label: "Municipality", value: intel.city, accent: "#0D9488" });
-    if (typeof intel.installed_power_kw === "number") kpis.push({ label: "Installed capacity", value: `${it(intel.installed_power_kw)} kW`, accent });
+    if (val(intel.city)) kpis.push({ label: t("pv.municipality"), value: intel.city, accent: "#0D9488" });
+    if (typeof intel.installed_power_kw === "number") kpis.push({ label: t("pv.installedCapacity"), value: `${it(intel.installed_power_kw)} kW`, accent });
     if (val(intel.segment)) kpis.push({ label: "Segment", value: intel.segment, accent: "#7C3AED" });
     const gY = yr(intel.incentive_granted), vY = yr(intel.incentive_valid_until);
-    if (gY && vY && vY > gY) kpis.push({ label: "Incentive term", value: `${vY - gY} yrs`, accent: "#EA580C" });
+    if (gY && vY && vY > gY) kpis.push({ label: t("pv.incentiveTerm"), value: `${vY - gY} yrs`, accent: "#EA580C" });
   } else {
     if (val(lead.status)) kpis.push({ label: "Status", value: titleCase(String(lead.status)), accent: "#2563EB" });
-    if (val(icpName)) kpis.push({ label: "ICP / Ticket", value: icpName, accent: "#7C3AED" });
-    if (typeof lead.lead_score === "number" && lead.lead_score > 0) kpis.push({ label: "Lead score", value: lead.lead_score, accent: "#0D9488" });
+    if (val(icpName)) kpis.push({ label: t("fld.icpTicket"), value: icpName, accent: "#7C3AED" });
+    if (typeof lead.lead_score === "number" && lead.lead_score > 0) kpis.push({ label: t("fld.leadScore"), value: lead.lead_score, accent: "#0D9488" });
     if (val(lead.current_channel)) kpis.push({ label: "Channel", value: titleCase(String(lead.current_channel)), accent });
   }
 
@@ -160,14 +163,14 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
   const singleOwner = intel ? (intel.ownership_type ? intel.ownership_type === "single" : new Set(ownerFields.map(([, v]) => v)).size <= 1) : false;
 
   const rooftopStats: { label: string; value: React.ReactNode }[] = [];
-  if (val(enr.rooftop_area_m2)) rooftopStats.push({ label: "Roof area", value: `${it(Number(enr.rooftop_area_m2))} m²` });
-  if (val(intel?.roof_available_m2)) rooftopStats.push({ label: "Available roof", value: `${it(Number(intel!.roof_available_m2))} m²` });
-  if (val(intel?.expansion_potential_kwp)) rooftopStats.push({ label: "Expansion potential", value: `+${it(Number(intel!.expansion_potential_kwp))} kWp` });
+  if (val(enr.rooftop_area_m2)) rooftopStats.push({ label: t("pv.roofArea"), value: `${it(Number(enr.rooftop_area_m2))} m²` });
+  if (val(intel?.roof_available_m2)) rooftopStats.push({ label: t("pv.availableRoof"), value: `${it(Number(intel!.roof_available_m2))} m²` });
+  if (val(intel?.expansion_potential_kwp)) rooftopStats.push({ label: t("pv.expansion"), value: `+${it(Number(intel!.expansion_potential_kwp))} kWp` });
   if (val(enr.proposed_system_kwp)) rooftopStats.push({ label: "Proposed system", value: `${it(Number(enr.proposed_system_kwp))} kWp` });
-  if (val(enr.annual_electricity_kwh)) rooftopStats.push({ label: "Annual electricity", value: `${it(Number(enr.annual_electricity_kwh))} kWh/yr` });
-  if (val(enr.estimated_bill_eur_year)) rooftopStats.push({ label: "Estimated bill", value: `€${it(Number(enr.estimated_bill_eur_year))}/yr` });
+  if (val(enr.annual_electricity_kwh)) rooftopStats.push({ label: t("pv.annualElectricity"), value: `${it(Number(enr.annual_electricity_kwh))} kWh/yr` });
+  if (val(enr.estimated_bill_eur_year)) rooftopStats.push({ label: t("pv.estimatedBill"), value: `€${it(Number(enr.estimated_bill_eur_year))}/yr` });
   if (val(enr.payback_months)) rooftopStats.push({ label: "Payback", value: `${enr.payback_months} months` });
-  if (val(enr.co2_offset_tons_year)) rooftopStats.push({ label: "CO₂ reduction", value: `${enr.co2_offset_tons_year} t/yr` });
+  if (val(enr.co2_offset_tons_year)) rooftopStats.push({ label: t("pv.co2Reduction"), value: `${enr.co2_offset_tons_year} t/yr` });
 
   // Generic leftover enrichment (primitives only) so nothing is dropped.
   const extra = Object.entries(enr).filter(([k, v]) =>
@@ -199,12 +202,12 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
               <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>
                 GrowthAI <span style={{ color: accent }}>— Lead Sheet</span>
               </p>
-              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>by SWL Consulting · Executive Opportunity Sheet</p>
+              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>{t("fld.execSheet")}</p>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>Prepared for</p>
+              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("fld.preparedFor")}</p>
               <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", margin: "2px 0 0" }}>{brand.companyName}</p>
               <p style={{ fontSize: 10, color: "#9CA3AF", margin: "2px 0 0" }}>{generatedAt}</p>
             </div>
@@ -236,11 +239,11 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* Photo (rooftop satellite and/or person) */}
           {(val(enr.rooftop_photo_url) || val(lead.primary_photo_url)) && (
-            <Section label="Imagery" accent={accent}>
+            <Section label={t("pv.imagery")} accent={accent}>
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 {val(enr.rooftop_photo_url) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={enr.rooftop_photo_url} alt="Site / rooftop" style={{ width: "100%", maxWidth: 520, borderRadius: 8, border: "1px solid #E5E7EB", objectFit: "cover" }} />
+                  <img src={enr.rooftop_photo_url} alt={t("pv.siteRooftop")} style={{ width: "100%", maxWidth: 520, borderRadius: 8, border: "1px solid #E5E7EB", objectFit: "cover" }} />
                 )}
                 {val(lead.primary_photo_url) && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -257,7 +260,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
           {/* Opportunity summary / outreach angle */}
           {(val(enr.ai_outreach_angle) || val(lead.ai_summary)) && (
-            <Section label="Opportunity Summary" accent={accent}>
+            <Section label={t("pv.opportunitySummary")} accent={accent}>
               <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.65, color: "#374151", whiteSpace: "pre-line" }}>
                 {val(enr.ai_outreach_angle) ? enr.ai_outreach_angle : lead.ai_summary}
               </p>
@@ -267,13 +270,13 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
           {/* Plant profile + Conto Energia (plant leads) */}
           {intel && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Section label="Plant Profile" accent="#0D9488">
+              <Section label={t("pv.plantProfile")} accent="#0D9488">
                 <Grid>
-                  <Field label="Installed capacity" value={typeof intel.installed_power_kw === "number" ? `${it(intel.installed_power_kw)} kW` : null} />
-                  <Field label="Installation type" value={intel.installation_type} />
+                  <Field label={t("pv.installedCapacity")} value={typeof intel.installed_power_kw === "number" ? `${it(intel.installed_power_kw)} kW` : null} />
+                  <Field label={t("pv.installationType")} value={intel.installation_type} />
                   <Field label="Segment" value={intel.segment} />
                   <Field label="Coordinates" value={typeof intel.geo_lat === "number" && typeof intel.geo_lng === "number" ? `${intel.geo_lat}, ${intel.geo_lng}` : null} />
-                  <Field label="Municipality" value={intel.city} />
+                  <Field label={t("pv.municipality")} value={intel.city} />
                   <Field label="Province" value={intel.province} />
                   <Field label="Address" value={lead.company_address_1} />
                 </Grid>
@@ -281,9 +284,9 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
               <Section label={intel.conto_energia_scheme ? "Conto Energia" : "State Incentive (GSE)"} accent="#EA580C">
                 <Grid>
                   {intel.conto_energia_scheme && <div style={{ gridColumn: "1 / -1" }}><Field label="Scheme" value={intel.conto_energia_scheme} /></div>}
-                  <Field label="Feed-in tariff" value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
+                  <Field label={t("pv.feedInTariff")} value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
                   <Field label="Granted" value={intel.incentive_granted} />
-                  <Field label="Valid until" value={intel.incentive_valid_until} />
+                  <Field label={t("pv.validUntil")} value={intel.incentive_valid_until} />
                   <Field label="Contributo" value={typeof intel.contributo_eur === "number" ? `€${it(intel.contributo_eur)}` : null} />
                   <Field label="Convenzione" value={intel.convenzione} />
                   <Field label="Atto di concessione" value={intel.atto_concessione} />
@@ -296,7 +299,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
           {/* Ownership */}
           {intel && ownerFields.length > 0 && (
-            <Section label="Beneficiary & Ownership" accent="#7C3AED">
+            <Section label={t("pv.beneficiary")} accent="#7C3AED">
               <span style={{ display: "inline-block", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "2px 8px", borderRadius: 5, marginBottom: 10, color: singleOwner ? "#B45309" : "#DC2626", backgroundColor: singleOwner ? "#FEF3C7" : "#FEE2E2" }}>
                 {singleOwner ? "Single owner" : "Split ownership"}
               </span>
@@ -309,7 +312,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
 
           {/* Technical / rooftop stats */}
           {rooftopStats.length > 0 && (
-            <Section label="Technical Assessment" accent="#16A34A">
+            <Section label={t("pv.technicalAssessment")} accent="#16A34A">
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 10 }}>
                 {rooftopStats.map(s => (
                   <div key={s.label}>
@@ -326,13 +329,13 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
             <Section label="Contact" accent="#2563EB">
               <Grid>
                 <Field label="Name" value={contactName} />
-                <Field label="Role / title" value={lead.primary_title_role} />
+                <Field label={t("fld.roleTitle")} value={lead.primary_title_role} />
                 <Field label="Seniority" value={val(lead.primary_seniority) ? titleCase(String(lead.primary_seniority)) : null} />
-                <Field label="Work email" value={lead.primary_work_email} />
-                <Field label="Personal email" value={lead.primary_personal_email} />
+                <Field label={t("fld.workEmail")} value={lead.primary_work_email} />
+                <Field label={t("fld.personalEmail")} value={lead.primary_personal_email} />
                 <Field label="Phone" value={lead.primary_phone} />
                 <Field label="LinkedIn" value={lead.primary_linkedin_url} />
-                <Field label="Headline" value={lead.primary_headline} />
+                <Field label={t("fld.headline")} value={lead.primary_headline} />
               </Grid>
             </Section>
             <Section label="Company" accent="#0D9488">

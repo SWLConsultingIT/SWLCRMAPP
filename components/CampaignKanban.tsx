@@ -7,6 +7,7 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, u
 import { Share2, Mail, Phone, CheckCircle, Flag, User, Send, SkipForward, X, AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
 import { isTerminalCampaign } from "@/lib/campaign-status";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -57,7 +58,9 @@ type Campaign = {
   current_msg?: MsgState;
 };
 
-type CardBadge = { label: string; color: string; bg: string };
+// `vars` carries the channel name for the step badge, which composes a
+// state key with a data value.
+type CardBadge = { labelKey: string; color: string; bg: string; vars?: Record<string, string | number> };
 
 const CHANNEL_COLORS: Record<string, { color: string; bg: string }> = {
   linkedin: { color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" },
@@ -69,27 +72,27 @@ const CHANNEL_COLORS: Record<string, { color: string; bg: string }> = {
 function crBadge(camp: Campaign): CardBadge | null {
   const s = camp.step_0;
   if (!s) return null;
-  if (s.status === "sent") return { label: "CR SENT", color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
-  if (s.status === "failed") return { label: "CR FAILED", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
-  if (s.status === "dispatching") return { label: "CR SENDING…", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
+  if (s.status === "sent") return { labelKey: "kb.crSent", color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
+  if (s.status === "failed") return { labelKey: "kb.crFailed", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+  if (s.status === "dispatching") return { labelKey: "kb.crSending", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
   if (s.status === "skipped") {
     const reason = (s.skippedReason ?? "").toLowerCase();
-    if (reason.includes("first_degree") || reason.includes("already a 1st")) return { label: "ALREADY CONNECTED", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
-    if (reason.includes("pending") || reason.includes("invitation_sent")) return { label: "INVITE PENDING", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
-    if (reason.includes("withdrawn") || reason.includes("ignored")) return { label: "INVITE WITHDRAWN", color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
+    if (reason.includes("first_degree") || reason.includes("already a 1st")) return { labelKey: "kb.alreadyConnected", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
+    if (reason.includes("pending") || reason.includes("invitation_sent")) return { labelKey: "kb.invitePending", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+    if (reason.includes("withdrawn") || reason.includes("ignored")) return { labelKey: "kb.inviteWithdrawn", color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
     const url = camp.leads?.primary_linkedin_url ?? null;
     const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
-    if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
-    if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
-    return { label: "LOCKED PROFILE", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+    if (!url) return { labelKey: "kb.noLinkedin", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+    if (!looksLikeLinkedIn) return { labelKey: "kb.badUrl", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+    return { labelKey: "kb.lockedProfile", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
   }
-  if (s.status === "draft") return { label: "CR DRAFT", color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
+  if (s.status === "draft") return { labelKey: "kb.crDraft", color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
   if (s.status === "queued") {
     if (s.lastRateLimitAt) {
       const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-      if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) return { label: "CR COOLDOWN", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
+      if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) return { labelKey: "kb.crCooldown", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
     }
-    return { label: "CR QUEUED", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
+    return { labelKey: "kb.crQueued", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
   }
   return null;
 }
@@ -102,18 +105,18 @@ function stepBadge(camp: Campaign): CardBadge | null {
   const m = camp.current_msg;
   if (!m) return null;
   const channel = (m.channel ?? "linkedin").toUpperCase();
-  const colors = CHANNEL_COLORS[m.channel] ?? CHANNEL_COLORS.linkedin;
-  if (m.status === "failed") return { label: `${channel} FAILED`, color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
-  if (m.status === "dispatching") return { label: `${channel} SENDING…`, color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
-  if (m.status === "sent") return { label: `${channel} SENT`, color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
+  const colors = CHANNEL_COLORS[m.channel ?? "linkedin"] ?? CHANNEL_COLORS.linkedin;
+  if (m.status === "failed") return { labelKey: "kb.st.failed", vars: { channel }, color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+  if (m.status === "dispatching") return { labelKey: "kb.st.sending", vars: { channel }, color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
+  if (m.status === "sent") return { labelKey: "kb.st.sent", vars: { channel }, color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
   if (m.status === "queued") {
     if (m.lastRateLimitAt) {
       const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-      if (new Date(m.lastRateLimitAt).getTime() > fourHoursAgo) return { label: `${channel} COOLDOWN`, color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
+      if (new Date(m.lastRateLimitAt).getTime() > fourHoursAgo) return { labelKey: "kb.st.cooldown", vars: { channel }, color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
     }
-    return { label: `${channel} QUEUED`, color: colors.color, bg: colors.bg };
+    return { labelKey: "kb.st.queued", vars: { channel }, color: colors.color, bg: colors.bg };
   }
-  if (m.status === "draft") return { label: `${channel} DRAFT`, color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
+  if (m.status === "draft") return { labelKey: "kb.st.draft", vars: { channel }, color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
   return null;
 }
 
@@ -124,17 +127,17 @@ function stepBadge(camp: Campaign): CardBadge | null {
 // for in-flight active campaigns so the dispatch badges still show.
 function lifecycleBadge(camp: Campaign): CardBadge | null {
   const rc = (camp.reply_class ?? "").toLowerCase();
-  if (rc === "positive") return { label: "POSITIVE REPLY", color: "#15803D", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
-  if (rc === "negative") return { label: "NEGATIVE REPLY", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
-  if (rc === "question") return { label: "REPLIED · QUESTION", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
-  if (rc === "followup") return { label: "FOLLOW-UP · BAD TIMING", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
-  if (rc === "not_now") return { label: "NOT NOW", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
-  if (rc === "voicemail") return { label: "VOICEMAIL", color: "#0EA5E9", bg: "color-mix(in srgb, #0284C7 14%, transparent)" };
-  if (rc && rc !== "other") return { label: "REPLIED", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
-  if (rc === "other") return { label: "REPLIED", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
-  if (camp.status === "paused") return { label: "PAUSED", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
-  if (camp.status === "completed") return { label: "DONE", color: "#15803D", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
-  if (camp.status === "failed") return { label: "FLOW FAILED", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+  if (rc === "positive") return { labelKey: "kb.positiveReply", color: "#15803D", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
+  if (rc === "negative") return { labelKey: "kb.negativeReply", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+  if (rc === "question") return { labelKey: "kb.repliedQuestion", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
+  if (rc === "followup") return { labelKey: "kb.followUpBadTiming", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+  if (rc === "not_now") return { labelKey: "kb.notNow", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+  if (rc === "voicemail") return { labelKey: "kb.voicemail", color: "#0EA5E9", bg: "color-mix(in srgb, #0284C7 14%, transparent)" };
+  if (rc && rc !== "other") return { labelKey: "kb.replied", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
+  if (rc === "other") return { labelKey: "kb.replied", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
+  if (camp.status === "paused") return { labelKey: "kb.paused", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+  if (camp.status === "completed") return { labelKey: "kb.done", color: "#15803D", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
+  if (camp.status === "failed") return { labelKey: "kb.flowFailed", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
   return null;
 }
 
@@ -166,7 +169,7 @@ function deriveCardBadges(camp: Campaign): CardBadge[] {
   // CR badge becomes a small secondary marker (typically CR SENT / ALREADY
   // CONNECTED). Skip the trivial CR SENT once we're a couple of steps in
   // to keep the card clean.
-  const showCrSecondary = !!cr && cr.label !== "CR SENT" || cs <= 1;
+  const showCrSecondary = !!cr && cr.labelKey !== "kb.crSent" || cs <= 1;
   const secondary = showCrSecondary ? cr : null;
   return [step, secondary].filter((b): b is CardBadge => !!b);
 }
@@ -189,43 +192,48 @@ const CHIP_STYLE: Record<string, { c: string; bg: string }> = {
   fail:   { c: "#DC2626", bg: "color-mix(in srgb, #DC2626 15%, transparent)" },
   none:   { c: "#9CA3AF", bg: "color-mix(in srgb, #9CA3AF 12%, transparent)" },
 };
-type Chip = { channel: string; label: string; tone: keyof typeof CHIP_STYLE; count?: number };
+// A chip carries a dictionary key, not a label: channelChips runs at module
+// scope. `labelKey` is null for the em-dash placeholder.
+type Chip = { channel: string; labelKey: string | null; tone: keyof typeof CHIP_STYLE; count?: number };
 function channelChips(camp: Campaign): Chip[] {
   const seq = Array.isArray(camp.sequence_steps) ? camp.sequence_steps : [];
   const cur = camp.current_step ?? 0;
   const rc = (camp.reply_class ?? "").toLowerCase();
   const chips: Chip[] = [];
-  const prog = (channel: string): { label: string; tone: keyof typeof CHIP_STYLE; count: number } | null => {
+  const prog = (channel: string): { labelKey: string | null; tone: keyof typeof CHIP_STYLE; count: number } | null => {
     const idxs = seq.map((s, i) => (s.channel === channel ? i : -1)).filter(i => i >= 0);
     if (idxs.length === 0) return null;
     const sent = idxs.filter(i => i < cur).length; // steps of this channel already past the cursor
-    if (sent > 0) return { label: "Sent", tone: "sent", count: sent };
-    if (idxs.some(i => i === cur)) return { label: "Queued", tone: "queued", count: 0 };
-    return { label: "—", tone: "none", count: 0 };
+    if (sent > 0) return { labelKey: "kb.sent", tone: "sent", count: sent };
+    if (idxs.some(i => i === cur)) return { labelKey: "kb.queued", tone: "queued", count: 0 };
+    return { labelKey: null, tone: "none", count: 0 };
   };
   // CR — only when the flow uses LinkedIn at all.
   if (seq.some(s => s.channel === "linkedin") || camp.step_0) {
     const cr = crBadge(camp);
-    let label = "Pending", tone: keyof typeof CHIP_STYLE = "warn";
+    // Branch on the CR's own key rather than on its rendered text, which
+    // used to be matched with /SENT/i — a regex that only worked in English.
+    let labelKey = "kb.pending", tone: keyof typeof CHIP_STYLE = "warn";
     if (cr) {
-      if (/ACCEPT|CONNECT/i.test(cr.label)) { label = "Accepted"; tone = "done"; }
-      else if (/SENT/i.test(cr.label)) { label = "Sent"; tone = "sent"; }
-      else if (/FAIL/i.test(cr.label)) { label = "Failed"; tone = "fail"; }
-      else if (/PENDING|QUEUED/i.test(cr.label)) { label = "Pending"; tone = "warn"; }
+      const k = cr.labelKey;
+      if (k === "kb.alreadyConnected") { labelKey = "kb.accepted"; tone = "done"; }
+      else if (k === "kb.crSent") { labelKey = "kb.sent"; tone = "sent"; }
+      else if (k === "kb.crFailed") { labelKey = "kb.failed"; tone = "fail"; }
+      else if (k === "kb.invitePending" || k === "kb.crQueued" || k === "kb.crCooldown") { labelKey = "kb.pending"; tone = "warn"; }
     }
-    chips.push({ channel: "CR", label, tone });
+    chips.push({ channel: "CR", labelKey, tone });
   }
-  const li = prog("linkedin"); if (li) chips.push({ channel: "LinkedIn", label: li.label, tone: li.tone, count: li.count });
-  const em = prog("email");    if (em) chips.push({ channel: "Email", label: em.label, tone: em.tone, count: em.count });
+  const li = prog("linkedin"); if (li) chips.push({ channel: "LinkedIn", labelKey: li.labelKey, tone: li.tone, count: li.count });
+  const em = prog("email");    if (em) chips.push({ channel: "Email", labelKey: em.labelKey, tone: em.tone, count: em.count });
   if (seq.some(s => s.channel === "call")) {
     const c = prog("call");
-    let label: string, tone: keyof typeof CHIP_STYLE, count = c?.count ?? 0;
-    if (camp.leads?.allow_call === false) { label = "Wrong #"; tone = "fail"; count = 0; }
-    else if (rc === "not_now") { label = "Not now"; tone = "warn"; }
-    else if (rc === "voicemail") { label = "Voicemail"; tone = "info"; }
-    else if (rc === "followup") { label = "Bad timing"; tone = "warn"; }
-    else { label = c?.label ?? "—"; tone = c?.tone ?? "none"; }
-    chips.push({ channel: "Call", label, tone, count });
+    let labelKey: string | null, tone: keyof typeof CHIP_STYLE, count = c?.count ?? 0;
+    if (camp.leads?.allow_call === false) { labelKey = "kb.wrongNum"; tone = "fail"; count = 0; }
+    else if (rc === "not_now") { labelKey = "kb.notNowLow"; tone = "warn"; }
+    else if (rc === "voicemail") { labelKey = "kb.voicemailLow"; tone = "info"; }
+    else if (rc === "followup") { labelKey = "kb.badTimingLow"; tone = "warn"; }
+    else { labelKey = c?.labelKey ?? null; tone = c?.tone ?? "none"; }
+    chips.push({ channel: "Call", labelKey, tone, count });
   }
   return chips;
 }
@@ -249,6 +257,7 @@ function fullName(lead: Campaign["leads"]): string {
 
 // ─── Draggable card ─────────────────────────────────────────
 function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }) {
+  const { t } = useLocale();
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: camp.id,
     data: { currentStep: camp.current_step },
@@ -315,7 +324,7 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
               <span className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
                 style={{ backgroundColor: lc.bg, color: lc.color, letterSpacing: "0.04em" }}>
                 {camp.status === "completed" && rc === "positive" ? <CheckCircle size={9} className="inline mr-0.5" /> : null}
-                {lc.label}
+                {t(lc.labelKey, lc.vars)}
               </span>
             );
           })()}
@@ -330,7 +339,7 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
                 style={{ backgroundColor: s.bg, color: `color-mix(in srgb, ${s.c}, white var(--c-accent-lift, 0%))` }}
                 title={chip.channel === "CR" ? (camp.step_0?.errorDetails ?? undefined) : undefined}>
                 <span style={{ opacity: 0.65 }}>{chip.channel}</span>
-                {chip.label}{chip.count && chip.count > 0 ? ` ${chip.count}` : ""}
+                {chip.labelKey ? t(chip.labelKey) : "—"}{chip.count && chip.count > 0 ? ` ${chip.count}` : ""}
               </span>
             );
           })}
@@ -342,6 +351,7 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
 
 // ─── Droppable column ──────────────────────────────────────
 function Column({ stepIndex, step, children, count, activeDragStep, isPast }: { stepIndex: number; step: SequenceStep; children: React.ReactNode; count: number; activeDragStep: number | null; isPast: boolean }) {
+  const { t } = useLocale();
   // Past columns are not droppable at all — registering an inactive
   // useDroppable would still highlight on hover, which is the opposite
   // of the message we want to send ("nothing can land here").
@@ -381,7 +391,7 @@ function Column({ stepIndex, step, children, count, activeDragStep, isPast }: { 
               Step {stepIndex + 1}
               {isPast && (
                 <span className="text-[8px] font-bold px-1 py-px rounded" style={{ backgroundColor: C.surface, color: C.textDim }}>
-                  PAST
+                  {t("kb.past")}
                 </span>
               )}
             </p>
@@ -411,6 +421,7 @@ type PendingMove = {
 };
 
 export default function CampaignKanban({ sequence, campaigns }: Props) {
+  const { t } = useLocale();
   const router = useRouter();
   const [list, setList] = useState(campaigns);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -543,7 +554,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
   if (sequence.length === 0) {
     return (
       <div className="rounded-xl border py-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-sm" style={{ color: C.textMuted }}>No sequence steps defined.</p>
+        <p className="text-sm" style={{ color: C.textMuted }}>{t("kb.noSteps")}</p>
       </div>
     );
   }
@@ -552,8 +563,8 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     <div>
       <div className="rounded-xl border p-4 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>Drag a lead</span> to advance it to a later step.
-          Steps marked <span className="font-semibold" style={{ color: C.textBody }}>PAST</span> have already been completed and can&apos;t receive drops.
+          <span className="font-semibold" style={{ color: C.textBody }}>{t("kb.dragLead")}</span> to advance it to a later step.
+          Steps marked <span className="font-semibold" style={{ color: C.textBody }}>{t("kb.past")}</span> have already been completed and can&apos;t receive drops.
           Changes apply on the next orchestrator cycle.
         </p>
       </div>
@@ -651,6 +662,7 @@ function MoveModal({
   onCommit: (action: "skip" | "send") => void;
   onCancel: () => void;
 }) {
+  const { t } = useLocale();
   const chMeta = channelMeta[pending.targetChannel] ?? channelMeta.linkedin;
   const ChIcon = chMeta.icon;
 
@@ -721,7 +733,7 @@ function MoveModal({
               <Send size={14} />
               <span className="text-sm font-semibold">{sendLabel}</span>
             </span>
-            <span className="text-[10px] font-medium opacity-70">Lead receives it</span>
+            <span className="text-[10px] font-medium opacity-70">{t("kb.leadReceives")}</span>
           </button>
 
           <button onClick={() => onCommit("skip")} disabled={busy}
@@ -731,7 +743,7 @@ function MoveModal({
               <SkipForward size={14} style={{ color: C.textMuted }} />
               <span className="text-sm font-semibold">{skipLabel}</span>
             </span>
-            <span className="text-[10px] font-medium" style={{ color: C.textDim }}>Lead gets nothing</span>
+            <span className="text-[10px] font-medium" style={{ color: C.textDim }}>{t("kb.leadGetsNothing")}</span>
           </button>
         </div>
 
