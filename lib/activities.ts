@@ -9,14 +9,17 @@
 
 import { businessToday, businessDayStartMs, businessDayEndMs } from "@/lib/metric-defs";
 
+// Canonical activity types (boss-approved 2026-09-10), aligned to the app's
+// channels (call / email / chat) + commercial actions (meeting, proposal).
+// `message` = a LinkedIn/WhatsApp chat touch. `task` is the catch-all.
 export const ACTIVITY_TYPES = [
   "call",
-  "email",
   "follow_up",
-  "prepare_proposal",
+  "email",
+  "message",
   "meeting",
+  "send_proposal",
   "task",
-  "other",
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 

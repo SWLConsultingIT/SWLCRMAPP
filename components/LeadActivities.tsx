@@ -18,19 +18,19 @@ import {
   type ActivityBucket,
 } from "@/lib/activities";
 import {
-  Plus, Check, Clock, Calendar, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RotateCcw, X, Pencil,
+  Plus, Check, Clock, Calendar, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RotateCcw, RefreshCw, X, Pencil,
 } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
 const TYPE_ICON: Record<ActivityType, React.ElementType> = {
   call: Phone,
+  follow_up: RefreshCw,
   email: Mail,
-  follow_up: MessageSquare,
-  prepare_proposal: FileText,
+  message: MessageSquare,
   meeting: Users,
+  send_proposal: FileText,
   task: ListTodo,
-  other: ListTodo,
 };
 
 type TeamMember = { userId: string; displayName: string | null; email: string | null };
