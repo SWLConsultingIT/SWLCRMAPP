@@ -17,17 +17,17 @@ import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Linkedin, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,     color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,    color: "#F97316", label: "Call" },
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Linkedin, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,     color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,    color: "#F97316", labelKey: "chan.call" },
 };
 
-const classColors: Record<string, { color: string; bg: string; label: string }> = {
-  positive:       { color: C.green,   bg: C.greenLight, label: "Positive" },
-  meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting Intent" },
-  negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
-  question:       { color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",    label: "Question" },
+const classColors: Record<string, { color: string; bg: string; labelKey: string }> = {
+  positive:       { color: C.green,   bg: C.greenLight, labelKey: "od.cls.positive" },
+  meeting_intent: { color: C.green,   bg: C.greenLight, labelKey: "od.cls.meeting" },
+  negative:       { color: C.red,     bg: C.redLight,   labelKey: "od.cls.negative" },
+  question:       { color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",    labelKey: "od.cls.question" },
 };
 
 function formatDate(iso: string | null) {
@@ -293,8 +293,8 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
     <div className="p-4 sm:p-6 w-full">
       <Breadcrumb
         crumbs={[
-          { label: "Results", href: "/results" },
-          { label: isSwl ? "Positive Results" : "Won", href: "/results" },
+          { label: t("od.results"), href: "/results" },
+          { label: isSwl ? t("od.positiveResults") : t("od.won"), href: "/results" },
           { label: lead.fullName },
         ]}
       />
@@ -317,7 +317,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
           {/* Identity */}
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: C.green }}>
-              <Trophy size={11} className="inline mr-1 -mt-0.5" /> Won Opportunity
+              <Trophy size={11} className="inline mr-1 -mt-0.5" /> {t("od.wonOpportunity")}
             </p>
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{lead.fullName}</h1>
@@ -371,7 +371,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
             {lead.transferred ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-md"
                 style={{ backgroundColor: C.greenLight, color: C.green }}>
-                <ExternalLink size={11} /> In CRM
+                <ExternalLink size={11} /> {t("od.inCrm")}
               </span>
             ) : (
               <span className="text-[11px] font-bold px-3 py-1.5 rounded-md"
@@ -393,8 +393,8 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
           {[
             { labelKey: "od.daysToConvert", value: win?.daysToConvert != null ? `${win.daysToConvert}` : "—", color: gold, icon: Calendar },
             { labelKey: "od.repliedAtStep", value: win && win.totalSteps > 0 ? `${win.stepAtWin}/${win.totalSteps}` : "—", color: C.textBody, icon: Hash },
-            { labelKey: "od.winChannel", value: winChMeta.label, color: winChMeta.color, icon: WinChIcon },
-            { label: "Reply Type", value: cls.label, color: cls.color, icon: Sparkles },
+            { labelKey: "od.winChannel", value: t(winChMeta.labelKey), color: winChMeta.color, icon: WinChIcon },
+            { labelKey: "od.replyType", value: t(cls.labelKey), color: cls.color, icon: Sparkles },
           ].map((s, i) => {
             const Icon = s.icon;
             return (
@@ -402,7 +402,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
                 <Icon size={16} style={{ color: s.color }} />
                 <div>
                   <p className="text-lg font-bold tabular-nums leading-tight" style={{ color: s.color }}>{s.value}</p>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{s.label}</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t(s.labelKey)}</p>
                 </div>
               </div>
             );
@@ -430,10 +430,10 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
             </div>
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded"
               style={{ backgroundColor: cls.bg, color: cls.color }}>
-              {cls.label}
+              {t(cls.labelKey)}
             </span>
             <span className="text-[10px] flex items-center gap-1 ml-1" style={{ color: winChMeta.color }}>
-              <WinChIcon size={11} /> via {winChMeta.label}
+              <WinChIcon size={11} /> {t("od.via", { channel: t(winChMeta.labelKey) })}
             </span>
           </div>
           <blockquote className="text-base leading-relaxed italic pl-4 border-l-2"
@@ -504,19 +504,19 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
       {/* Footer */}
       <div className="flex items-center justify-between rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <Link href="/results" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
-          <ArrowLeft size={12} /> Back to Results
+          <ArrowLeft size={12} /> {t("od.backToResults")}
         </Link>
         <div className="flex items-center gap-2">
           <Link href={`/leads/${lead.id}`}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: C.blueLight, color: C.blue, border: `1px solid ${C.blue}30` }}>
-            <Star size={12} /> Full Lead Detail
+            <Star size={12} /> {t("od.fullLead")}
           </Link>
           {campaign && (
             <Link href={`/campaigns/${campaign.id}`}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
               style={{ backgroundColor: gold, color: "#04070d" }}>
-              <Megaphone size={12} /> View Campaign
+              <Megaphone size={12} /> {t("od.viewCampaign")}
             </Link>
           )}
         </div>
@@ -550,8 +550,8 @@ function JourneyTimeline({ events }: { events: any[] }) {
             bullet = { icon: Send, color: meta.color, bg: `color-mix(in srgb, ${meta.color} 12%, transparent)` };
             title = (
               <span className="text-xs" style={{ color: C.textBody }}>
-                <span className="font-semibold" style={{ color: meta.color }}>{meta.label}</span> message sent
-                <span className="ml-1" style={{ color: C.textMuted }}>· Step {ev.stepNumber}</span>
+                {t("od.messageSent", { channel: t(meta.labelKey) })}
+                <span className="ml-1" style={{ color: C.textMuted }}>{t("od.stepN", { n: ev.stepNumber })}</span>
               </span>
             );
             body = ev.body ? (
@@ -576,10 +576,10 @@ function JourneyTimeline({ events }: { events: any[] }) {
             title = (
               <span className="text-xs flex items-center gap-1.5 flex-wrap">
                 <span className="font-semibold" style={{ color: ev.isWin ? C.green : C.textBody }}>
-                  {ev.isWin ? "🏆 Winning reply" : "Reply received"}
+                  {ev.isWin ? t("od.winningReply") : t("od.replyReceived")}
                 </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>{cls.label}</span>
-                <span className="text-[10px]" style={{ color: meta.color }}>via {meta.label}</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>{t(cls.labelKey)}</span>
+                <span className="text-[10px]" style={{ color: meta.color }}>{t("od.via", { channel: t(meta.labelKey) })}</span>
               </span>
             );
             body = ev.text ? (
@@ -636,20 +636,20 @@ function CampaignOpportunityRollup({ data }: { data: NonNullable<Awaited<ReturnT
   const { t } = useLocale();
   return (
     <div className="p-6 w-full max-w-5xl mx-auto">
-      <Breadcrumb crumbs={[{ label: t("od.opportunities"), href: "/opportunities" }, { label: data.name ?? "Detail" }]} />
+      <Breadcrumb crumbs={[{ label: t("od.opportunities"), href: "/opportunities" }, { label: data.name ?? t("od.detail") }]} />
 
       <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="p-6">
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.green }}>{t("od.campaignRollup")}</p>
           <h1 className="text-2xl font-bold mb-2" style={{ color: C.textPrimary }}>{data.name}</h1>
-          {data.seller && <p className="text-xs" style={{ color: C.textMuted }}>Seller: {data.seller}</p>}
+          {data.seller && <p className="text-xs" style={{ color: C.textMuted }}>{t("od.sellerLabel", { name: data.seller })}</p>}
         </div>
         <div className="border-t grid grid-cols-4 divide-x" style={{ borderColor: C.border }}>
           {[
-            { label: "Total Leads",    value: data.totalLeads,           color: C.textBody },
-            { label: "Converted",      value: data.converted,            color: C.green },
-            { label: "Conversion",     value: `${data.conversionRate}%`, color: data.conversionRate >= 20 ? C.green : "#D97706" },
-            { label: "Transferred",    value: data.transferred,          color: C.accent },
+            { label: t("od.totalLeads"), value: data.totalLeads,           color: C.textBody },
+            { label: t("od.converted"),  value: data.converted,            color: C.green },
+            { label: t("od.conversion"), value: `${data.conversionRate}%`, color: data.conversionRate >= 20 ? C.green : "#D97706" },
+            { label: t("od.transferred"), value: data.transferred,         color: C.accent },
           ].map(s => (
             <div key={s.label} className="px-5 py-4 text-center" style={{ borderColor: C.border }}>
               <p className="text-xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
@@ -691,7 +691,7 @@ function CampaignOpportunityRollup({ data }: { data: NonNullable<Awaited<ReturnT
                 </div>
                 <div className="shrink-0 flex items-center gap-1.5 text-[10px]">
                   <ChIcon size={11} style={{ color: chMeta.color }} />
-                  <span style={{ color: chMeta.color }}>{chMeta.label}</span>
+                  <span style={{ color: chMeta.color }}>{t(chMeta.labelKey)}</span>
                 </div>
               </div>
             </Link>
@@ -701,13 +701,13 @@ function CampaignOpportunityRollup({ data }: { data: NonNullable<Awaited<ReturnT
 
       <div className="flex items-center justify-between rounded-xl border p-4 mt-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <Link href="/results" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
-          <ArrowLeft size={12} /> Back to Results
+          <ArrowLeft size={12} /> {t("od.backToResults")}
         </Link>
         {data.campaignId && (
           <Link href={`/campaigns/${data.campaignId}`}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: gold, color: "#04070d" }}>
-            <Megaphone size={12} /> View Campaign Detail
+            <Megaphone size={12} /> {t("od.viewCampaignDetail")}
           </Link>
         )}
       </div>

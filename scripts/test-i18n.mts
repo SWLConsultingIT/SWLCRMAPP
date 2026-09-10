@@ -4,6 +4,7 @@
 // `es`/`it` renders English inside an otherwise translated screen, and nobody
 // notices until a customer does. These assertions make that a build failure.
 
+import { readFileSync } from "node:fs";
 import { en, es, it, dicts, LOCALES, normalizeLocale, isLocale, intlTag, type Locale } from "@/lib/i18n-dicts";
 
 let failed = 0;
@@ -16,6 +17,28 @@ function ok(cond: boolean, msg: string) {
 const byLocale: Record<Locale, Record<string, string>> = { en, es, it };
 
 console.log("i18n · dictionary parity");
+
+// 0. No key declared twice in the same dictionary. A duplicate is invisible at
+//    runtime (the last one wins) but it means two people translated the same
+//    string and one of the two translations is silently dead. tsc flags it as
+//    TS1117; this catches it in `npm test` too, where a translator is looking.
+{
+  const SOURCES: Array<[string, string[]]> = [
+    ["en", ["export const en: Dict = {", "\n};"]],
+    ["es", ["export const es: Dict = {", "\n};"]],
+  ].map(([name, [open_, close]]) => {
+    const src = readFileSync("lib/i18n-dicts.ts", "utf8");
+    const i = src.indexOf(open_ as string);
+    const j = src.indexOf(close as string, i);
+    return [name as string, [...src.slice(i, j).matchAll(/^\s*"([^"]+)":/gm)].map(m => m[1])];
+  });
+  SOURCES.push(["it", [...readFileSync("lib/i18n-dict-it.ts", "utf8").matchAll(/^\s*"([^"]+)":/gm)].map(m => m[1])]);
+  for (const [name, keys] of SOURCES) {
+    const seen = new Set<string>();
+    const dupes = keys.filter(k => (seen.has(k) ? true : (seen.add(k), false)));
+    ok(dupes.length === 0, `${name}: ${dupes.length} duplicate key(s) → ${[...new Set(dupes)].slice(0, 8).join(", ")}`);
+  }
+}
 
 // 1. Every locale declared in LOCALES has a dictionary, and vice versa.
 ok(LOCALES.length === Object.keys(dicts).length, "LOCALES and dicts have the same size");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { X, Loader2, Users, Wand2 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -35,6 +36,7 @@ export default function ReassignSellersModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { t } = useLocale();
   const toast = useToast();
   const total = flowCampaignIds.length;
 
@@ -90,7 +92,7 @@ export default function ReassignSellersModal({
       .map(uid => ({ userId: uid, quota: quotas[uid] ?? 0 }))
       .filter(a => a.quota > 0);
     if (assignments.length === 0) {
-      toast.show({ kind: "error", title: "Pick at least one person", description: "Give someone a share of the leads." });
+      toast.show({ kind: "error", title: t("rsm.pickOne"), description: t("rsm.giveShare") });
       return;
     }
     setSaving(true);
@@ -102,18 +104,20 @@ export default function ReassignSellersModal({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) {
-        toast.show({ kind: "error", title: "Couldn't reassign", description: json.error ?? res.statusText });
+        toast.show({ kind: "error", title: t("rsm.err.reassign"), description: json.error ?? res.statusText });
         setSaving(false);
         return;
       }
       toast.show({
         kind: "success",
-        title: "Flow reassigned",
-        description: `${json.count} lead${json.count === 1 ? "" : "s"} split across ${assignments.length} ${assignments.length === 1 ? "person" : "people"}.`,
+        title: t("rsm.reassigned"),
+        description: json.count === 1 && assignments.length === 1
+          ? t("rsm.splitOne")
+          : t("rsm.splitAcross", { leads: json.count, n: assignments.length }),
       });
       onDone();
     } catch (e) {
-      toast.show({ kind: "error", title: "Couldn't reassign", description: e instanceof Error ? e.message : "Try again." });
+      toast.show({ kind: "error", title: t("rsm.err.reassign"), description: e instanceof Error ? e.message : t("rsm.retry") });
       setSaving(false);
     }
   };
@@ -136,11 +140,11 @@ export default function ReassignSellersModal({
               <Users className="w-4 h-4" style={{ color: gold }} />
             </div>
             <div>
-              <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Assign callers</h3>
-              <p className="text-[11px]" style={{ color: C.textMuted }}>Split this flow&apos;s {total} lead{total === 1 ? "" : "s"} across your team — who calls whom.</p>
+              <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("rsm.assignCallers")}</h3>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>{t("rsm.lede", { n: total })}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-black/5" aria-label="Close">
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-black/5" aria-label={t("rsm.close")}>
             <X className="w-4 h-4" style={{ color: C.textMuted }} />
           </button>
         </div>
@@ -152,7 +156,7 @@ export default function ReassignSellersModal({
               <Loader2 className="w-5 h-5 animate-spin" style={{ color: C.textMuted }} />
             </div>
           ) : roster.length === 0 ? (
-            <p className="text-[13px] py-6 text-center" style={{ color: C.textMuted }}>No teammates found for this tenant.</p>
+            <p className="text-[13px] py-6 text-center" style={{ color: C.textMuted }}>{t("rsm.noTeammates")}</p>
           ) : (
             <div className="flex flex-col gap-1.5">
               {roster.map(m => {
@@ -178,7 +182,7 @@ export default function ReassignSellersModal({
                           className="w-16 px-2 py-1 rounded-lg text-[13px] text-right tabular-nums"
                           style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.textPrimary }}
                         />
-                        <span className="text-[11px]" style={{ color: C.textMuted }}>leads</span>
+                        <span className="text-[11px]" style={{ color: C.textMuted }}>{t("rsm.leads")}</span>
                       </div>
                     )}
                   </div>
@@ -193,10 +197,10 @@ export default function ReassignSellersModal({
           {selected.length > 0 && (
             <div className="flex items-center justify-between mb-3">
               <button onClick={rebalance} className="flex items-center gap-1.5 text-[12px] font-medium" style={{ color: gold }}>
-                <Wand2 className="w-3.5 h-3.5" /> Split evenly
+                <Wand2 className="w-3.5 h-3.5" /> {t("rsm.splitEvenly")}
               </button>
               <span className="text-[12px] tabular-nums" style={{ color: remainder === 0 ? C.textMuted : "#D97706" }}>
-                {assigned} / {total} assigned{remainder !== 0 ? ` · ${remainder > 0 ? `${remainder} to last` : `${-remainder} over`}` : ""}
+                {t("rsm.assignedOf", { n: assigned, total })}{remainder !== 0 ? ` · ${remainder > 0 ? t("rsm.toLast", { n: remainder }) : t("rsm.over", { n: -remainder })}` : ""}
               </span>
             </div>
           )}
