@@ -1058,9 +1058,11 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
         actions={
           <span className="inline-flex items-center gap-2 aurora-btn plain" style={{ cursor: "default" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: totalCount > 0 ? "#F59E0B" : "#22C55E" }} />
-            {totalCount > 0
-              ? t("queue.hero.status.pending").replace("{n}", String(totalCount))
-              : t("queue.hero.status.clear")}
+            {totalCount === 0
+              ? t("queue.hero.status.clear")
+              : totalCount === 1
+                ? t("queue.hero.status.pendingOne")
+                : t("queue.hero.status.pending").replace("{n}", String(totalCount))}
           </span>
         }
         kpis={[

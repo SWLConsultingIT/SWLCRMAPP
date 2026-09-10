@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ChevronRight, Mail, Share2, Phone, Smartphone, Send, MessageSquare } from "lucide-react";
 import { C } from "@/lib/design";
-import { dicts, type Locale } from "@/lib/i18n-dicts";
+import { dicts, type Locale, intlTag } from "@/lib/i18n-dicts";
 
 export type MessageStepGroup = {
   step: number;
@@ -54,7 +54,7 @@ function tx(locale: Locale, key: string, vars?: Record<string, string | number>)
 }
 
 export default function MessagesByStep({ groups, locale }: { groups: MessageStepGroup[]; locale: Locale }) {
-  const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const dateLoc = intlTag(locale);
   const tr = (k: string, fallback: string, vars?: Record<string, string | number>) => {
     const v = tx(locale, k, vars);
     return v === k ? fallback : v;

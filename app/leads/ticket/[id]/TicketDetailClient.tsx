@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
+import type { Locale } from "@/lib/i18n-dicts";
 
 type Tr = (key: string) => string;
 
@@ -117,7 +118,7 @@ function timeAgo(iso: string | null, t: Tr) {
 }
 
 // ─── Campaign Card ────────────────────────────────────────────────────────────
-function CampaignCard({ camp, t, locale }: { camp: CampaignGroup; t: Tr; locale: "en" | "es" }) {
+function CampaignCard({ camp, t, locale }: { camp: CampaignGroup; t: Tr; locale: Locale }) {
   const active    = camp.statuses.active ?? 0;
   const paused    = camp.statuses.paused ?? 0;
   const completed = camp.statuses.completed ?? 0;
@@ -297,7 +298,7 @@ function UpdatesTab({ updates, t }: { updates: TicketUpdate[]; t: Tr }) {
 }
 
 // ─── Outreach Flows Tab ───────────────────────────────────────────────────────
-function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]; t: Tr; locale: "en" | "es" }) {
+function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]; t: Tr; locale: Locale }) {
   // Past Flows defaults to OPEN when there are no active cohorts, so an ICP
   // whose work is entirely historic doesn't look empty.
   const activeCamps = campaigns.filter(c => c.cohort === "active");

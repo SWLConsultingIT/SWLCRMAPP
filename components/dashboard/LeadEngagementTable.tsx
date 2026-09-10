@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Fragment, useState, useMemo } from "react";
 import { ChevronRight, Search, Mail, Share2, Phone, Smartphone, Send, MessageSquare } from "lucide-react";
 import { C } from "@/lib/design";
-import { dicts, type Locale } from "@/lib/i18n-dicts";
+import { dicts, type Locale, intlTag } from "@/lib/i18n-dicts";
 
 // Pure client-safe translator (mirrors lib/i18n-server.t signature) — only
 // imports the dict bundle, not the server-only locale resolver.
@@ -70,7 +70,7 @@ const classColor: Record<string, string> = {
 
 export default function LeadEngagementTable({ rows, locale }: { rows: LeadEngagementRow[]; locale: Locale }) {
   const t = (k: string, vars?: Record<string, string | number>) => tx(locale, k, vars);
-  const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const dateLoc = intlTag(locale);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "won" | "lost" | "replied" | "open">("all");

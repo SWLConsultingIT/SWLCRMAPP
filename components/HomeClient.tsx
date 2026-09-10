@@ -5,6 +5,7 @@ import Link from "next/link";
 import CopilotChat from "@/components/CopilotChat";
 import { useLocale } from "@/lib/i18n";
 import type { HomeData } from "@/lib/home-data";
+import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 const LOGO_URL = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
 
@@ -51,7 +52,7 @@ export default function HomeClient() {
 
   const hr = new Date().getHours();
   const greeting = t(`home.greeting.${hr < 12 ? "morning" : hr < 20 ? "afternoon" : "evening"}`);
-  const rawDate = new Intl.DateTimeFormat(locale === "es" ? "es-AR" : "en-US", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  const rawDate = new Intl.DateTimeFormat(intlTag(locale), { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const dateStr = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
 
   const noteFor = (c: Card): string => {

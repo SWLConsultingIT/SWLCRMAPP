@@ -15,29 +15,28 @@ import { cache } from "react";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getOrFetchProfile } from "@/lib/user-profile-cache";
 import { getUserScope } from "@/lib/scope";
-import { dicts, type Locale } from "@/lib/i18n-dicts";
+import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-dicts";
 
 export const getServerLocale = cache(async function getServerLocale(): Promise<Locale> {
   try {
     // Reuse getUserScope's (React.cache'd) auth.getUser() instead of a second
     // GoTrue round-trip — saves one serial network hop on every localized page.
     const { userId } = await getUserScope();
-    if (!userId) return "en";
+    if (!userId) return DEFAULT_LOCALE;
     // Use the shared profile cache — same source the rest of the app reads
     // for locale/theme. Avoids a duplicate user_profiles round-trip and
     // guarantees we see the column name everyone else uses (user_id, not id).
     const profile = await getOrFetchProfile(userId, getSupabaseService());
-    const l = profile?.locale;
-    return l === "es" ? "es" : "en";
+    return normalizeLocale(profile?.locale);
   } catch {
-    return "en";
+    return DEFAULT_LOCALE;
   }
 });
 
 /** Translate a key in a known locale. Falls back to EN then to the key itself.
  * Supports {n} / {kind} / {x} placeholder substitution. */
 export function t(locale: Locale, key: string, vars?: Record<string, string | number>): string {
-  let s = dicts[locale][key] ?? dicts.en[key] ?? key;
+  let s = dicts[locale]?.[key] ?? dicts.en[key] ?? key;
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
       s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));

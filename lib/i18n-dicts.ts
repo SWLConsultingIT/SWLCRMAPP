@@ -1,4 +1,27 @@
-export type Locale = "en" | "es";
+// ─────────────────────────────────────────────────────────────────────────
+// UI dictionaries. One entry per user-visible string, keyed identically in
+// every locale so a language switch can never leave half the screen behind.
+//
+// Adding a string: add the key to `en`, `es` AND `it`. `scripts/test-i18n.mts`
+// (part of `npm test`) fails the build when the three key sets diverge, so a
+// forgotten translation is caught before it reaches a user.
+//
+// Resolution order is `<locale> → en → the key itself`. A missing Italian
+// entry therefore shows English rather than a raw key — but the parity test
+// means that can only happen for a key added in the same commit.
+// ─────────────────────────────────────────────────────────────────────────
+
+import { it } from "@/lib/i18n-dict-it";
+
+// The locale type, registry and normalizer live in lib/i18n-locale.ts so a
+// caller that only validates a locale need not pull in the dictionaries.
+// Re-exported here because that is where most callers already import from.
+export {
+  LOCALES, DEFAULT_LOCALE, isLocale, normalizeLocale, intlTag,
+} from "@/lib/i18n-locale";
+export type { Locale } from "@/lib/i18n-locale";
+
+import type { Locale } from "@/lib/i18n-locale";
 
 export type Dict = Record<string, string>;
 
@@ -1082,6 +1105,7 @@ export const en: Dict = {
   "queue.hero.stat.replies": "New replies",
   "queue.hero.stat.review": "Need review",
   "queue.hero.status.pending": "{n} pending",
+  "queue.hero.status.pendingOne": "1 pending",
   "queue.hero.status.clear": "All Clear",
   "queue.calls.sub.toCall": "To Call",
   "queue.calls.sub.recall": "Call back",
@@ -2222,6 +2246,50 @@ export const en: Dict = {
   "rel.flows.callMode.mixed.hint": "Different leads in this flow have different call modes (legacy data).",
   "rel.stuck.reason.manualCall.expected": "Expected on manual-call flows — sellers dial when they can.",
   "rel.stuck.reason.manualCall.bug": "This flow is auto-call but cron isn't picking up — investigate.",
+  // Portfolio tab (cross-tenant, super-admin). Migrated out of an inline
+  // per-locale object in PortfolioView.tsx that defaulted to Spanish.
+  "portfolio.live": "Live",
+  "portfolio.title": "Company comparison",
+  "portfolio.allTime": "All",
+  "portfolio.note.allTime": "All-time · real-time data",
+  "portfolio.note.period": "Last {n} days vs. prior {n} · real-time",
+  "portfolio.pick": "Companies to compare",
+  "portfolio.noAct": "no activity",
+  "portfolio.pickPrompt": "Pick at least one company to compare.",
+  "portfolio.activity": "Activity this period",
+  "portfolio.metric": "Metric",
+  "portfolio.respRate": "Response rate",
+  "portfolio.contacted": "Contacted",
+  "portfolio.calls": "Calls",
+  "portfolio.replies": "Replies",
+  "portfolio.positives": "Positive",
+  "portfolio.winsPeriod": "Wins (period)",
+  "portfolio.sumTitle": "Executive summary",
+  "portfolio.sLeads": "leads contacted",
+  "portfolio.sCalls": "calls",
+  "portfolio.sPos": "positive",
+  "portfolio.sWins": "wins",
+  "portfolio.aCallsDown": "⚠ calls dropping sharply vs. the prior period",
+  "portfolio.aNoPos": "⚠ no positive replies this period",
+  "portfolio.aUp": "✓ activity trending up vs. the prior period",
+  "portfolio.pipeTitle": "Pipeline · current state",
+  "portfolio.pipeNote": "Current & cumulative totals — not affected by the period filter.",
+  "portfolio.totalLeads": "Total leads",
+  "portfolio.activeLeads": "In active flow",
+  "portfolio.activeFlows": "Active flows",
+  "portfolio.opportunities": "Opportunities (positive)",
+  "portfolio.wins": "Wins",
+  "portfolio.sellersTitle": "Sellers · activity this period",
+  "portfolio.seller": "Seller",
+  "portfolio.company": "Company",
+  "portfolio.leads": "Leads",
+  "portfolio.channelMix": "Contact by channel",
+  "portfolio.noSends": "No activity this period",
+  "portfolio.unassigned": "Unassigned",
+  "portfolio.flows": "flows",
+  "portfolio.msgs": "msgs",
+  "portfolio.leadsLow": "leads",
+  "portfolio.noSellers": "No seller activity this period",
 };
 
 export const es: Dict = {
@@ -3294,7 +3362,8 @@ export const es: Dict = {
   "queue.hero.stat.calls": "Llamadas por hacer",
   "queue.hero.stat.replies": "Respuestas nuevas",
   "queue.hero.stat.review": "Necesitan revisión",
-  "queue.hero.status.pending": "{n} pendiente{s}",
+  "queue.hero.status.pending": "{n} pendientes",
+  "queue.hero.status.pendingOne": "1 pendiente",
   "queue.hero.status.clear": "Todo al día",
   "queue.calls.sub.toCall": "Por llamar",
   "queue.calls.sub.recall": "Volver a llamar",
@@ -3347,7 +3416,7 @@ export const es: Dict = {
   "queue.history.noteSaved": "Guardada en lead ✓",
   "queue.history.changeOutcome": "Cambiar",
   "queue.history.cancelOutcome": "Cancelar",
-  "queue.bulk.selected": "{n} seleccionada{s}",
+  "queue.bulk.selected": "{n} seleccionadas",
   "queue.bulk.selectedOne": "1 seleccionada",
   "queue.bulk.selectAll": "Seleccionar todo",
   "queue.bulk.deselectAll": "Deseleccionar todo",
@@ -4433,6 +4502,52 @@ export const es: Dict = {
   "rel.flows.callMode.mixed.hint": "Distintos leads del flow tienen distinto modo de call (data legacy).",
   "rel.stuck.reason.manualCall.expected": "Esperado en flows de call manual — los sellers dialean cuando pueden.",
   "rel.stuck.reason.manualCall.bug": "Este flow es call automático pero el cron no levanta — investigar.",
+  // Portfolio tab (cross-tenant, super-admin). Migrated out of an inline
+  // per-locale object in PortfolioView.tsx that defaulted to Spanish.
+  "portfolio.live": "En vivo",
+  "portfolio.title": "Comparativo de empresas",
+  "portfolio.allTime": "Todo",
+  "portfolio.note.allTime": "Histórico completo · datos al instante",
+  "portfolio.note.period": "Últimos {n} días vs. los {n} previos · datos al instante",
+  "portfolio.pick": "Empresas a comparar",
+  "portfolio.noAct": "sin actividad",
+  "portfolio.pickPrompt": "Elegí al menos una empresa para comparar.",
+  "portfolio.activity": "Actividad del período",
+  "portfolio.metric": "Métrica",
+  "portfolio.respRate": "Tasa de respuesta",
+  "portfolio.contacted": "Contactados",
+  "portfolio.calls": "Llamadas",
+  "portfolio.replies": "Respuestas",
+  "portfolio.positives": "Positivas",
+  "portfolio.winsPeriod": "Wins (período)",
+  "portfolio.sumTitle": "Resumen ejecutivo",
+  "portfolio.sLeads": "leads contactados",
+  "portfolio.sCalls": "llamadas",
+  "portfolio.sPos": "positivas",
+  "portfolio.sWins": "wins",
+  "portfolio.aCallsDown": "⚠ llamadas en fuerte baja vs. el período previo",
+  "portfolio.aNoPos": "⚠ sin respuestas positivas en el período",
+  "portfolio.aUp": "✓ actividad en alza vs. el período previo",
+  "portfolio.pipeTitle": "Pipeline · estado actual",
+  "portfolio.pipeNote": "Totales actuales y acumulados — no varían con el filtro de período.",
+  "portfolio.totalLeads": "Leads totales",
+  "portfolio.activeLeads": "En flujo activo",
+  "portfolio.activeFlows": "Flows activos",
+  "portfolio.opportunities": "Oportunidades (positivas)",
+  "portfolio.wins": "Wins",
+  "portfolio.sellersTitle": "Sellers · actividad del período",
+  "portfolio.seller": "Seller",
+  "portfolio.company": "Empresa",
+  "portfolio.leads": "Leads",
+  "portfolio.channelMix": "Contacto por canal",
+  "portfolio.noSends": "Sin actividad este período",
+  "portfolio.unassigned": "Sin asignar",
+  "portfolio.flows": "flows",
+  "portfolio.msgs": "msgs",
+  "portfolio.leadsLow": "leads",
+  "portfolio.noSellers": "Sin actividad de sellers en el período",
 };
 
-export const dicts: Record<Locale, Dict> = { en, es };
+export { it };
+
+export const dicts: Record<Locale, Dict> = { en, es, it };

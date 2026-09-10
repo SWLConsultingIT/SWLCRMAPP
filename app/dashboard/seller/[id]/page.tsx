@@ -22,6 +22,7 @@ import MultiLineChart from "@/components/dashboard/MultiLineChart";
 import Heatmap from "@/components/dashboard/Heatmap";
 import Donut from "@/components/dashboard/Donut";
 import SwlSignature from "@/components/dashboard/SwlSignature";
+import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
@@ -390,7 +391,7 @@ export default async function SellerDetailPage({
     getT(),
     getServerLocale(),
   ]);
-  const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const dateLoc = intlTag(locale);
   const periodChip = periodFrom && periodTo
     ? `${new Date(periodFrom).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(periodTo).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
     : null;

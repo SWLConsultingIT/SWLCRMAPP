@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getOrFetchProfile, invalidateProfileCache } from "@/lib/user-profile-cache";
+import { isLocale, normalizeLocale } from "@/lib/i18n-locale";
 
 const THEME_COOKIE = "swl-theme";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -35,7 +36,9 @@ export async function GET() {
   // calls/min on 2026-05-15.
   const profile = await getOrFetchProfile(user.id, getSupabaseService());
   const theme = profile?.theme === "dark" ? "dark" : "light";
-  const locale = profile?.locale ?? "en";
+  // Normalized on read too: a row holding a locale we no longer ship would
+  // otherwise reach the client and fall through every dictionary lookup.
+  const locale = normalizeLocale(profile?.locale);
 
   const res = NextResponse.json({
     userId: user.id,
@@ -56,7 +59,7 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const update: Record<string, any> = {};
   if (body.theme === "light" || body.theme === "dark") update.theme = body.theme;
-  if (body.locale === "en" || body.locale === "es") update.locale = body.locale;
+  if (isLocale(body.locale)) update.locale = body.locale;
   if (Object.keys(update).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
   const svc = getSupabaseService();

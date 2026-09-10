@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/lib/i18n-dicts";
 import {
   ACTIVITY_TYPES,
   ACTIVITY_PRIORITIES,
@@ -153,7 +154,7 @@ export default function LeadActivities({ leadId, canAssignOthers = false }: { le
   }, [items]);
 
   // IT locale lands in Phase 9; until then Locale is "en" | "es".
-  const intlLocale = locale === "es" ? "es-AR" : "en-US";
+  const intlLocale = intlTag(locale);
   const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleString(intlLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
 
   const bucketColor: Partial<Record<ActivityBucket, string>> = { overdue: C.red, today: gold, upcoming: C.blue };

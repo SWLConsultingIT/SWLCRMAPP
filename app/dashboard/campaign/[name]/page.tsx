@@ -20,6 +20,7 @@ import StepPerformance from "@/components/dashboard/StepPerformance";
 import SwlSignature from "@/components/dashboard/SwlSignature";
 import LeadEngagementTable, { type LeadEngagementRow } from "@/components/dashboard/LeadEngagementTable";
 import MessagesByStep, { type MessageStepGroup } from "@/components/dashboard/MessagesByStep";
+import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
@@ -473,7 +474,7 @@ export default async function CampaignDetailPage({
     getT(),
     getServerLocale(),
   ]);
-  const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const dateLoc = intlTag(locale);
   const periodChip = periodFrom && periodTo
     ? `${new Date(periodFrom).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(periodTo).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
     : null;

@@ -15,6 +15,7 @@ import { useLocale } from "@/lib/i18n";
 import { bucketActivity, wallTimeToUtcIso, type ActivityType } from "@/lib/activities";
 import type { BoardActivity } from "@/components/ActivitiesBoard";
 import { Check, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw, ChevronRight, Building2, CalendarClock } from "lucide-react";
+import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -40,7 +41,7 @@ export default function ActivitiesList({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState<string | null>(null);
 
-  const intlLocale = locale === "es" ? "es-AR" : "en-US";
+  const intlLocale = intlTag(locale);
   const now = Date.now();
 
   const sections = useMemo<Section[]>(() => {

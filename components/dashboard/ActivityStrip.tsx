@@ -10,6 +10,7 @@
 import { Send, MessageSquare, ThumbsUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -28,7 +29,7 @@ export default function ActivityStrip({
 }: {
   current: ActivitySeries;
   prior?: ActivitySeries;
-  locale?: "en" | "es";
+  locale?: Locale;
   labels: {
     sent: string;
     replies: string;
@@ -39,7 +40,7 @@ export default function ActivityStrip({
   };
   hrefs?: { sent?: string; replies?: string; positives?: string };
 }) {
-  const dateLocStr = locale === "es" ? "es-AR" : "en-US";
+  const dateLocStr = intlTag(locale);
 
   const sum = (a: number[]) => a.reduce((acc, v) => acc + v, 0);
   const totalSent = sum(current.sent);
@@ -116,9 +117,9 @@ function ActivityCard({
   vsPriorLabel: string;
   noPriorLabel: string;
   href?: string;
-  locale: "en" | "es";
+  locale: Locale;
 }) {
-  const dateLocStr = locale === "es" ? "es-AR" : "en-US";
+  const dateLocStr = intlTag(locale);
   const delta = prior !== null && prior > 0
     ? Math.round(((total - prior) / prior) * 100)
     : (prior === 0 && total > 0 ? 100 : null);
