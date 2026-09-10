@@ -115,7 +115,7 @@ export default function TenantTabsNav({
                   color: T.fg,
                   border: `1px solid ${T.border}`,
                 }}>
-                {tab.health === "healthy" ? "ok" : tab.health === "warning" ? "atención" : "crítico"}
+                {tab.health === "healthy" ? "ok" : tab.health === "warning" ? t("rel.flows.cards.health.warning") : t("rel.flows.cards.health.critical")}
               </span>
             </Link>
           );

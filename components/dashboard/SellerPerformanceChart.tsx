@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useId } from "react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const PALETTE = ["#C9A83A", "#38BDF8"];
 
@@ -121,6 +122,7 @@ const CW  = VW - PAD.left - PAD.right;
 const CH  = VH - PAD.top  - PAD.bottom;
 
 export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }) {
+  const { t } = useLocale();
   const uid = useId().replace(/:/g, "");
 
   const [selected, setSelected] = useState<string[]>(() =>
@@ -233,7 +235,7 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
             );
           })}
           {selected.length >= 2 && (
-            <span style={{ fontSize: 10, color: C.textDim, alignSelf: "center" }}>máx. 2</span>
+            <span style={{ fontSize: 10, color: C.textDim, alignSelf: "center" }}>{t("sellerChart.max2")}</span>
           )}
         </div>
       </div>
@@ -241,7 +243,7 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
       {/* ── SVG Chart ──────────────────────────────────────────────────────── */}
       {allDays.length === 0 ? (
         <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <p style={{ fontSize: 13, color: C.textMuted }}>Sin datos en el período</p>
+          <p style={{ fontSize: 13, color: C.textMuted }}>{t("sellerChart.noData")}</p>
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>

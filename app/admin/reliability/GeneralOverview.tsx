@@ -97,9 +97,9 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-6">
         {global.tenants.map(tn => {
           const tone = tn.health === "critical"
-            ? { fg: "#DC2626", bg: "color-mix(in srgb, #DC2626 6%, transparent)", border: "color-mix(in srgb, #DC2626 32%, transparent)", icon: AlertTriangle, label: "crítico" }
+            ? { fg: "#DC2626", bg: "color-mix(in srgb, #DC2626 6%, transparent)", border: "color-mix(in srgb, #DC2626 32%, transparent)", icon: AlertTriangle, label: t("rel.flows.cards.health.critical") }
             : tn.health === "warning"
-              ? { fg: "#D97706", bg: "color-mix(in srgb, #D97706 6%, transparent)", border: "color-mix(in srgb, #D97706 32%, transparent)", icon: AlertCircle, label: "atención" }
+              ? { fg: "#D97706", bg: "color-mix(in srgb, #D97706 6%, transparent)", border: "color-mix(in srgb, #D97706 32%, transparent)", icon: AlertCircle, label: t("rel.flows.cards.health.warning") }
               : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 6%, transparent)`, border: `color-mix(in srgb, ${C.green} 30%, transparent)`, icon: CheckCircle2, label: "ok" };
           const Icon = tone.icon;
           return (
@@ -133,7 +133,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
               </div>
               <div className="px-4 py-2 flex items-center justify-between text-[10.5px] gap-2"
                 style={{ backgroundColor: C.card, borderTop: `1px solid ${tone.border}`, color: C.textMuted }}>
-                <span>{tn.lastSendAt ? `last send ${formatRelative(tn.lastSendAt)}` : "sin envíos"}</span>
+                <span>{tn.lastSendAt ? `last send ${formatRelative(tn.lastSendAt)}` : t("rel.tenant.noSends")}</span>
                 <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider transition-transform group-hover:translate-x-0.5" style={{ color: gold }}>
                   abrir <ChevronRight size={11} />
                 </span>
@@ -170,7 +170,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
             const missingUnipile = !s.unipileAccountId;
             const pct = s.dailyLimit ? Math.min(100, Math.round((s.dailySentLast24h / s.dailyLimit) * 100)) : null;
             const barColor = pct !== null && pct >= 90 ? "#DC2626" : pct !== null && pct >= 75 ? "#D97706" : gold;
-            const stateLabel = missingUnipile ? "sin unipile" : onCooldown ? "cooldown" : "operativo";
+            const stateLabel = missingUnipile ? t("rel.tenant.noUnipile") : onCooldown ? "cooldown" : "operativo";
             const stateColor = missingUnipile ? "#DC2626" : onCooldown ? "#D97706" : C.green;
             const stateBg = `color-mix(in srgb, ${stateColor} 10%, transparent)`;
             return (
@@ -223,7 +223,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px]" style={{ color: C.textMuted }}>Sin límite diario configurado.</p>
+                  <p className="text-[11px]" style={{ color: C.textMuted }}>{t("rel.sellers.noDailyLimit")}</p>
                 )}
               </div>
             );
@@ -239,7 +239,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
       {healthGrid}
       <WorkflowsSection />
       {sellersList}
-      <QABot bioId="general" bioName="Todos los tenants" />
+      <QABot bioId="general" bioName={t("rel.tenant.allTenants")} />
     </>
   );
 }

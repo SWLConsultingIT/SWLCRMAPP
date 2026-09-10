@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Brain, Loader2, Plus } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 type Turn = { role: "user" | "assistant"; text: string };
@@ -26,6 +27,7 @@ const SUGGESTIONS = [
 // header) → we drop our internal header + card chrome to avoid a header-in-a-
 // header and a box-in-a-box. The standalone /copilot page keeps the full card.
 export default function CopilotChat({ initialQuestion, embedded = false }: { initialQuestion?: string; embedded?: boolean }) {
+  const { t } = useLocale();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
@@ -98,7 +100,7 @@ export default function CopilotChat({ initialQuestion, embedded = false }: { ini
       disabled={loading}
       className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors disabled:opacity-40 hover:shadow-sm shrink-0"
       style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${gold} 6%, transparent)` }}
-      title="Empezar una conversación nueva">
+      title={t("copilot.newConversation")}>
       <Plus size={12} /> Nueva conversación
     </button>
   );

@@ -48,7 +48,7 @@ export default async function ReliabilityPage({
   if (all.length === 0) {
     return (
       <div className="px-6 py-12 max-w-2xl mx-auto text-center">
-        <p style={{ color: C.textBody }}>No hay company_bios configurados todavía.</p>
+        <p style={{ color: C.textBody }}>{t("rel.tenant.noBios")}</p>
       </div>
     );
   }

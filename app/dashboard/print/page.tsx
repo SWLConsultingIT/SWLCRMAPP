@@ -2,6 +2,8 @@ import { getDashboardData, getSellerActivity } from "@/lib/dashboard-data";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import PrintTrigger from "@/app/reports/print/PrintTrigger";
+import { isLocale, type Locale } from "@/lib/i18n-locale";
+import { getServerLocale } from "@/lib/i18n-server";
 
 // ─── Branding ─────────────────────────────────────────────────────────────────
 
@@ -124,9 +126,61 @@ const LABELS = {
     callOutcomes:         "Call outcomes by seller",
     callOutcomeHeaders:   ["Seller", "Made", "Positive", "Negative", "Voicemail", "No answer", "Positive %"] as string[],
   },
+  it: {
+    locale:      "it-IT",
+    salesReport: "Report vendite",
+    generatedOn: (d: string) => `Generato il ${d}`,
+    footerBrand: "Growth AI Engine — SWL Consulting",
+    allTime:     "Tutto lo storico",
+    dateStart:   "inizio",
+    dateEnd:     "oggi",
+    never:       "Mai",
+    justNow:     "Proprio ora",
+    minsAgo:     (m: number) => `${m} min fa`,
+    hoursAgo:    (h: number) => `${h} h fa`,
+    daysAgo:     (d: number) => `${d} g fa`,
+    noData:      "Nessun dato per il periodo selezionato",
+    // Cover KPIs
+    kpiLabels:   ["Importati", "Contattati", "Hanno risposto", "Positive"] as string[],
+    // Overview
+    overviewTitle:  "Panoramica",
+    overviewSub:    "Pipeline e performance per ICP",
+    pipelineKpis:   "KPI della pipeline",
+    statLabels:     ["Importati", "Contattati", "Hanno risposto", "Positive", "Vinti", "Campagne attive"] as string[],
+    totalPipeline:  "totale in pipeline",
+    ofTotal:        "del totale",
+    activeNow:      "attive ora",
+    icpPerfLabel:   "Performance per ICP",
+    icpHeaders:     ["ICP", "Lead", "Contattati", "Risp.", "Risposta %", "Positive", "Flow"] as string[],
+    // Outreach
+    outreachTitle:    "Outreach",
+    outreachSub:      "Campagne e attività per canale",
+    channelBreakdown: "Ripartizione per canale",
+    channelHeaders:   ["Canale", "Inviati", "Contattati", "Hanno risposto", "Risposta %", "Positive", "Conv %"] as string[],
+    campaignPerf:     "Performance per campagna (top 10)",
+    campaignHeaders:  ["Campagna", "Canale", "Inviati", "Hanno risposto", "Risposta %", "Positive"] as string[],
+    // Channels
+    channelsTitle: "Canali",
+    channelsSub:   "Statistiche dettagliate per canale",
+    liStats:       ["Messaggi inviati", "Contattati", "Richieste inviate", "Accettate", "Hanno risposto", "Tasso di risposta", "Positive"] as string[],
+    emailStats:    ["Inviate", "Contattati", "Hanno risposto", "Tasso di risposta", "Positive", "Tasso di conv."] as string[],
+    callStats:     ["Effettuate", "Con risposta", "Positive", "Negative", "In attesa", "Tasso di risposta"] as string[],
+    // Sellers
+    sellersTitle:         "Venditori",
+    sellersSub:           "Attività, classifica ed esiti delle chiamate",
+    sellerActivity:       "Attività dei venditori",
+    activityHeaders:      ["Venditore", "Ultimo accesso", "Chiamate oggi", "Chiamate 7 g", "Contattati", "Positive"] as string[],
+    leaderboard:          "Classifica di performance",
+    leaderboardHeaders:   ["Venditore", "Inviati", "Contattati", "Hanno risposto", "Risposta %", "Positive", "Campagne"] as string[],
+    callOutcomes:         "Esiti delle chiamate per venditore",
+    callOutcomeHeaders:   ["Venditore", "Effettuate", "Positive", "Negative", "Segreteria", "Nessuna risposta", "Positive %"] as string[],
+  },
 } as const;
 
-type LangKey = keyof typeof LABELS;
+type LangKey = Locale;
+// A compile error here means LABELS is missing a locale that LOCALES ships.
+const _labelsCoverEveryLocale: Record<Locale, unknown> = LABELS;
+void _labelsCoverEveryLocale;
 type L = typeof LABELS[LangKey];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -175,7 +229,10 @@ export default async function DashboardPrintPage({
   const sp       = await searchParams;
   const sections = new Set((sp.sections ?? "").split(",").filter(Boolean));
   const has      = (k: string) => sections.has(k);
-  const lang     = (sp.lang === "en" ? "en" : "es") as LangKey;
+  // Defaults to the signed-in user's language. It used to default to Spanish,
+  // so the Download-PDF button — which sends no `lang` — always produced a
+  // Spanish report regardless of the interface language.
+  const lang: LangKey = isLocale(sp.lang) ? sp.lang : await getServerLocale();
   const L        = LABELS[lang];
 
   const filters = {

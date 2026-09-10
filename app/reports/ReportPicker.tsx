@@ -7,32 +7,36 @@
 import { useState, useMemo } from "react";
 import { FileDown, Check, CheckSquare, Square } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
 type Option = { id: string; label: string };
 
-type Section = { key: string; label: string; description: string; default: boolean };
+// The label and description are dictionary keys, resolved at render — the
+// section identity (`key`) is what goes on the querystring.
+type Section = { key: string; default: boolean };
 
 const SECTIONS: Section[] = [
-  { key: "headline", label: "Resumen general", description: "KPIs principales (leads, contactados, respuestas, positivas, reuniones, ganados)", default: true },
-  { key: "funnel",   label: "Embudo de conversión", description: "Drop-off entre importados → contactados → respondieron → positivos → ganados", default: true },
-  { key: "trend",    label: "Tendencia 30 días", description: "Gráfico de actividad diaria (enviados / respuestas / positivos)", default: true },
-  { key: "channels", label: "Performance por canal", description: "LinkedIn, Email, Llamadas (volumen + tasa de respuesta + conversión)", default: true },
-  { key: "icps",     label: "Performance por ICP", description: "Comparativo de perfiles ideales — cuál convierte mejor", default: true },
-  { key: "campaigns", label: "Performance por campaña", description: "Comparativo de secuencias activas y pasadas con tasa de conversión", default: true },
-  { key: "sellers",  label: "Leaderboard de sellers", description: "Quién mueve más volumen y mejor reply rate", default: true },
-  { key: "insights", label: "Insights automáticos", description: "Movimientos y outliers detectados en el período (deltas, gaps)", default: true },
+  { key: "headline",  default: true },
+  { key: "funnel",    default: true },
+  { key: "trend",     default: true },
+  { key: "channels",  default: true },
+  { key: "icps",      default: true },
+  { key: "campaigns", default: true },
+  { key: "sellers",   default: true },
+  { key: "insights",  default: true },
 ];
 
-const PERIODS: { id: string; label: string; days: number | null }[] = [
-  { id: "7d", label: "Últimos 7 días", days: 7 },
-  { id: "30d", label: "Últimos 30 días", days: 30 },
-  { id: "90d", label: "Últimos 90 días", days: 90 },
-  { id: "all", label: "Todo el histórico", days: null },
+const PERIODS: { id: string; days: number | null }[] = [
+  { id: "7d",  days: 7 },
+  { id: "30d", days: 30 },
+  { id: "90d", days: 90 },
+  { id: "all", days: null },
 ];
 
 export default function ReportPicker({ options }: { options: { campaigns: Option[]; sellers: Option[]; icps: Option[] } }) {
+  const { t } = useLocale();
   const [selected, setSelected] = useState<Record<string, boolean>>(
     () => Object.fromEntries(SECTIONS.map(s => [s.key, s.default])),
   );
@@ -110,8 +114,8 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
       <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
           <div>
-            <p className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Secciones a incluir</p>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Tildeá las secciones que querés en el PDF</p>
+            <p className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rep.pick.sections")}</p>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("rep.pick.sectionsHint")}</p>
           </div>
           <button
             type="button"
@@ -137,8 +141,8 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
                     {on ? <Check size={12} strokeWidth={3} /> : null}
                   </span>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{s.label}</p>
-                    <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{s.description}</p>
+                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t(`rep.section.${s.key}`)}</p>
+                    <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>t(`rep.section.${s.key}.desc`)</p>
                   </div>
                 </button>
               </li>
@@ -150,7 +154,7 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
       {/* Right column: period + filters + download CTA */}
       <div className="space-y-4">
         <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <p className="text-sm font-bold mb-3" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Período</p>
+          <p className="text-sm font-bold mb-3" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rep.pick.period")}</p>
           <div className="flex flex-wrap gap-1.5">
             {PERIODS.map(p => {
               const on = period === p.id;
@@ -158,7 +162,7 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
                 <button key={p.id} onClick={() => setPeriod(p.id)} type="button"
                   className="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors"
                   style={{ backgroundColor: on ? `color-mix(in srgb, ${gold} 14%, transparent)` : C.bg, borderColor: on ? `color-mix(in srgb, ${gold} 40%, transparent)` : C.border, color: on ? gold : C.textBody }}>
-                  {p.label}
+                  {t(`rep.period.${p.id}`)}
                 </button>
               );
             })}
@@ -166,18 +170,18 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
         </div>
 
         <div className="rounded-2xl border p-5 space-y-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <p className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Filtros (opcional)</p>
+          <p className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rep.pick.filters")}</p>
           <div>
-            <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Campañas</p>
-            <MultiToggle items={options.campaigns} value={campaignFilter} onChange={setCampaignFilter} placeholder="Sin campañas en este tenant." />
+            <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("rep.pick.campaigns")}</p>
+            <MultiToggle items={options.campaigns} value={campaignFilter} onChange={setCampaignFilter} placeholder={t("rep.pick.noCampaigns")} />
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>ICPs</p>
-            <MultiToggle items={options.icps} value={icpFilter} onChange={setIcpFilter} placeholder="Sin ICPs aprobados." />
+            <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("rep.pick.icps")}</p>
+            <MultiToggle items={options.icps} value={icpFilter} onChange={setIcpFilter} placeholder={t("rep.pick.noIcps")} />
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Sellers</p>
-            <MultiToggle items={options.sellers} value={sellerFilter} onChange={setSellerFilter} placeholder="Sin sellers asignados." />
+            <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>{t("rep.pick.sellers")}</p>
+            <MultiToggle items={options.sellers} value={sellerFilter} onChange={setSellerFilter} placeholder={t("rep.pick.noSellers")} />
           </div>
         </div>
 
@@ -201,7 +205,7 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
           <FileDown size={14} className="inline mr-2" /> Descargar PDF
         </a>
         {!anyChecked && (
-          <p className="text-[11px] text-center" style={{ color: C.textDim }}>Tildeá al menos una sección para habilitar la descarga.</p>
+          <p className="text-[11px] text-center" style={{ color: C.textDim }}>{t("rep.pick.needOne")}</p>
         )}
       </div>
     </div>

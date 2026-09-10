@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import AddToFlowModal from "@/components/icp/AddToFlowModal";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
+import { useLocale } from "@/lib/i18n";
 
 const gold = C.gold;
 const goldLight = C.goldGlow;
@@ -451,6 +452,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
   onDelete: () => void;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   const st = statusConfig[profile.status] ?? statusConfig.pending;
   const [confirmDelete, setConfirmDelete] = useState(false);
   type LeadRow = {
@@ -501,7 +503,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("[icp leads csv]", e);
-      alert("No se pudo generar el CSV. Probá de nuevo.");
+      alert(t("icp.err.csv"));
     } finally {
       setCsvBusy(false);
     }

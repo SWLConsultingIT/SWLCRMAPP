@@ -4,49 +4,52 @@ import { useState } from "react";
 import { FileDown, FileSpreadsheet, X, ChevronDown, ChevronRight, Loader2, Check, Minus } from "lucide-react";
 import { printPdf } from "@/lib/print-pdf";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
+import { LOCALES, type Locale } from "@/lib/i18n-locale";
 
 const gold = "var(--brand, #C9A83A)";
 
-type SubItem = { id: string; label: string };
-type TabSection = { id: string; label: string; description: string; items: SubItem[] };
+// Labels are dictionary keys; the ids are what the querystring carries.
+type SubItem = { id: string; labelKey: string };
+type TabSection = { id: string; labelKey: string; descKey: string; items: SubItem[] };
 
 const TABS: TabSection[] = [
   {
     id: "overview",
-    label: "Overview",
-    description: "KPIs del pipeline + desglose por ICP",
+    labelKey: "rep.export.tab.overview",
+    descKey: "rep.export.headlineDesc",
     items: [
-      { id: "kpis",  label: "Pipeline KPIs" },
-      { id: "icps",  label: "Tabla de ICPs" },
+      { id: "kpis",  labelKey: "rep.export.item.kpis" },
+      { id: "icps",  labelKey: "rep.export.item.icps" },
     ],
   },
   {
     id: "outreach",
-    label: "Outreach",
-    description: "Campañas activas + canales",
+    labelKey: "rep.export.tab.outreach",
+    descKey: "rep.export.campsDesc",
     items: [
-      { id: "campaigns", label: "Performance por campaña" },
-      { id: "channels",  label: "Desglose por canal" },
+      { id: "campaigns", labelKey: "rep.export.item.campaigns" },
+      { id: "channels",  labelKey: "rep.export.item.channels" },
     ],
   },
   {
     id: "channels",
-    label: "Channels",
-    description: "Email, LinkedIn y Calls detallado",
+    labelKey: "rep.export.tab.channels",
+    descKey: "rep.export.channelsDesc",
     items: [
-      { id: "email",    label: "Email" },
-      { id: "linkedin", label: "LinkedIn" },
-      { id: "calls",    label: "Calls" },
+      { id: "email",    labelKey: "rep.export.item.email" },
+      { id: "linkedin", labelKey: "rep.export.item.linkedin" },
+      { id: "calls",    labelKey: "rep.export.item.callsCh" },
     ],
   },
   {
     id: "sellers",
-    label: "Sellers",
-    description: "Activity, leaderboard y call outcomes",
+    labelKey: "rep.export.tab.sellers",
+    descKey: "rep.export.sellersDesc",
     items: [
-      { id: "activity", label: "Seller activity" },
-      { id: "table",    label: "Leaderboard" },
-      { id: "calls",    label: "Call outcomes" },
+      { id: "activity", labelKey: "rep.export.item.activity" },
+      { id: "table",    labelKey: "rep.export.item.table" },
+      { id: "calls",    labelKey: "rep.export.item.calls" },
     ],
   },
 ];
@@ -81,12 +84,15 @@ export default function DashboardExportModal({
   periodLabel: string;
   searchParams: Record<string, string | undefined>;
 }) {
+  const { t, locale } = useLocale();
   const [open, setOpen]         = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set(TABS.map(t => t.id)));
   const [selected, setSelected] = useState<Set<string>>(allKeys());
   const [loading, setLoading]     = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
-  const [lang, setLang]           = useState<"es" | "en">("es");
+  // Defaults to the interface language rather than always Spanish: the
+  // report should come out in the language the user is reading.
+  const [lang, setLang]           = useState<Locale>(locale);
 
   function toggleTab(tabId: string) {
     const items   = TABS.find(t => t.id === tabId)?.items ?? [];
@@ -191,8 +197,8 @@ export default function DashboardExportModal({
                   <FileDown size={15} style={{ color: "var(--brand, #C9A83A)" }} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-bold leading-tight" style={{ color: C.textPrimary }}>Exportar PDF</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>Elegí qué secciones incluir</p>
+                  <p className="text-[13px] font-bold leading-tight" style={{ color: C.textPrimary }}>{t("rep.export.title")}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{t("rep.export.pickSections")}</p>
                 </div>
               </div>
               <button
@@ -207,7 +213,7 @@ export default function DashboardExportModal({
             {/* Period chip */}
             <div className="px-5 py-3 shrink-0 border-b" style={{ borderColor: C.border }}>
               <div className="flex items-center gap-2">
-                <span className="text-[9px] uppercase tracking-[0.14em] font-bold" style={{ color: C.textDim }}>Período</span>
+                <span className="text-[9px] uppercase tracking-[0.14em] font-bold" style={{ color: C.textDim }}>{t("rep.export.period")}</span>
                 <span
                   className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}
@@ -234,10 +240,10 @@ export default function DashboardExportModal({
                       <Checkbox checked={allSel} partial={someSel && !allSel} />
                       <div className="flex-1 min-w-0">
                         <p className="text-[12.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>
-                          {tab.label}
+                          {t(tab.labelKey)}
                         </p>
                         <p className="text-[10.5px] leading-tight mt-0.5" style={{ color: C.textMuted }}>
-                          {tab.description}
+                          {t(tab.descKey)}
                         </p>
                       </div>
                       <button
@@ -263,7 +269,7 @@ export default function DashboardExportModal({
                             >
                               <Checkbox checked={checked} />
                               <span className="text-[11.5px]" style={{ color: C.textBody }}>
-                                {item.label}
+                                {t(item.labelKey)}
                               </span>
                             </div>
                           );
@@ -280,10 +286,10 @@ export default function DashboardExportModal({
               {/* Language picker */}
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-[10px] uppercase tracking-[0.12em] font-bold" style={{ color: C.textDim }}>
-                  Idioma
+                  {t("rep.export.language")}
                 </span>
                 <div className="flex gap-1.5">
-                  {(["es", "en"] as const).map(l => (
+                  {LOCALES.map(({ id: l }) => (
                     <button
                       key={l}
                       onClick={() => setLang(l)}

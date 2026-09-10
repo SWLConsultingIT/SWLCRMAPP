@@ -10,6 +10,8 @@ import {
   ChevronUp, ChevronsUpDown, CheckSquare, Square, Loader,
 } from "lucide-react";
 import LeadStatusSelect from "@/components/LeadStatusSelect";
+import { intlTag, type Locale } from "@/lib/i18n-locale";
+import { useLocale } from "@/lib/i18n";
 
 type Lead = {
   id: string; first_name: string; last_name: string; company: string;
@@ -35,23 +37,26 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   nurturing:     { label: "Nurturing",    color: C.textMuted, bg: C.surface,      icon: MinusCircle },
 };
 
-function relativeTime(iso: string) {
+type T = (key: string, vars?: Record<string, string | number>) => string;
+
+function relativeTime(iso: string, t: T, locale: Locale) {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 2)  return "ahora";
-  if (m < 60) return `hace ${m}m`;
+  if (m < 2)  return t("time.now");
+  if (m < 60) return t("time.minsAgo", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `hace ${h}h`;
+  if (h < 24) return t("time.hoursAgo", { n: h });
   const d = Math.floor(h / 24);
-  if (d < 7)  return `hace ${d}d`;
-  return new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+  if (d < 7)  return t("time.daysAgo", { n: d });
+  return new Date(iso).toLocaleDateString(intlTag(locale), { day: "2-digit", month: "2-digit" });
 }
 
-function exportCSV(leads: Lead[]) {
-  const headers = ["Nombre","Email","Empresa","Rol","Estado","Seller","Mensajes","Respuestas","Odoo","Creado"];
+function exportCSV(leads: Lead[], t: T, locale: Locale) {
+  const headers = ["name","email","company","role","status","seller","messages","replies","odoo","created"]
+    .map(k => t(`csv.${k}`));
   const rows = leads.map(l => [
     `${l.first_name} ${l.last_name}`, l.email ?? "", l.company ?? "", l.role ?? "",
     l.status, l.assigned_seller ?? "", l.messages_sent, l.reply_count,
-    l.odoo_lead_id ?? "", new Date(l.created_at).toLocaleDateString("es-AR"),
+    l.odoo_lead_id ?? "", new Date(l.created_at).toLocaleDateString(intlTag(locale)),
   ]);
   const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -72,6 +77,15 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortKey; sortCol: SortKey; s
 }
 
 export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers: string[] }) {
+  const { t, locale } = useLocale();
+  // The chips key off lead_status values, and the canonical labels for those
+  // already live in the dictionary as leadsPage.status.*.
+  const STATUS_KEY: Record<string, string> = {
+    new: "new", contacted: "contacted", connected: "connected", responded: "responded",
+    qualified: "qualified", proposal_sent: "proposalSent", closed_won: "won",
+    closed_lost: "lost", nurturing: "nurturing",
+  };
+  const statusLabel = (key: string) => t(`leadsPage.status.${STATUS_KEY[key] ?? key}`);
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState(ALL);
@@ -175,7 +189,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
             {filtered.length !== leads.length && (
               <span className="text-sm" style={{ color: C.textMuted }}>{filtered.length} filtered</span>
             )}
-            <button onClick={() => exportCSV(filtered)}
+            <button onClick={() => exportCSV(filtered, t, locale)}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border"
               style={{ backgroundColor: C.goldGlow, borderColor: `color-mix(in srgb, ${C.gold} 19%, transparent)`, color: C.gold }}>
               <Download size={12} /> Export CSV
@@ -191,13 +205,13 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
         <button onClick={() => changeFilter(setFilterStatus, ALL)}
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-[opacity,transform,box-shadow,background-color,border-color]"
           style={{ backgroundColor: filterStatus === ALL ? C.accentLight : "transparent", color: filterStatus === ALL ? C.accent : C.textMuted, borderColor: filterStatus === ALL ? `${C.accent}30` : C.border }}>
-          <Users size={11} /> Todos <span className="font-bold">{leads.length}</span>
+          <Users size={11} /> {t("leadsTbl.all")} <span className="font-bold">{leads.length}</span>
         </button>
-        {(Object.entries(statusConfig) as [string, typeof statusConfig[string]][]).map(([key, { label, color, bg, icon: Icon }]) => (
+        {(Object.entries(statusConfig) as [string, typeof statusConfig[string]][]).map(([key, { color, bg, icon: Icon }]) => (
           <button key={key} onClick={() => changeFilter(setFilterStatus, filterStatus === key ? ALL : key)}
             className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-[opacity,transform,box-shadow,background-color,border-color]"
             style={{ backgroundColor: filterStatus === key ? bg : "transparent", color: filterStatus === key ? color : C.textMuted, borderColor: filterStatus === key ? `${color}30` : C.border }}>
-            <Icon size={11} /> {label} <span className="font-bold">{counts[key] ?? 0}</span>
+            <Icon size={11} /> {statusLabel(key)} <span className="font-bold">{counts[key] ?? 0}</span>
           </button>
         ))}
       </div>
@@ -206,14 +220,14 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
       <div className="flex items-center gap-3 mb-5">
         <div className="relative flex-1 max-w-xs">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
-          <input type="text" placeholder="Buscar nombre, empresa, email..." value={search}
+          <input type="text" placeholder={t("leadsTbl.search")} value={search}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
             className="w-full pl-8 pr-3 py-2 rounded-lg border text-sm outline-none"
             style={{ backgroundColor: C.card, borderColor: C.border, color: C.textPrimary }} />
         </div>
         {[
-          { value: filterSeller, setter: setFilterSeller, options: sellers.map(s => ({ v: s, l: s })), placeholder: "Todos los sellers" },
-          { value: filterChannel, setter: setFilterChannel, options: [{ v:"linkedin",l:"LinkedIn"},{v:"email",l:"Email"},{v:"whatsapp",l:"WhatsApp"},{v:"call",l:"Call"}], placeholder: "Todos los canales" },
+          { value: filterSeller, setter: setFilterSeller, options: sellers.map(s => ({ v: s, l: s })), placeholder: t("leadsTbl.allSellers") },
+          { value: filterChannel, setter: setFilterChannel, options: [{ v:"linkedin",l:"LinkedIn"},{v:"email",l:"Email"},{v:"whatsapp",l:"WhatsApp"},{v:"call",l:"Call"}], placeholder: t("leadsTbl.allChannels") },
         ].map(({ value, setter, options, placeholder }, i) => (
           <div key={i} className="relative">
             <select value={value} onChange={e => changeFilter(setter, e.target.value)}
@@ -232,14 +246,14 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
         <div className="flex items-center gap-3 mb-4 px-4 py-2.5 rounded-xl border fade-in"
           style={{ backgroundColor: C.accentLight, borderColor: `${C.accent}25` }}>
           <span className="text-sm font-semibold" style={{ color: C.gold }}>
-            {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
+            {selected.size === 1 ? t("leadsTbl.selectedOne") : t("leadsTbl.selectedMany", { n: selected.size })}
           </span>
-          <span className="text-xs" style={{ color: C.textMuted }}>Cambiar estado a:</span>
-          {Object.entries(statusConfig).map(([key, { label, color }]) => (
+          <span className="text-xs" style={{ color: C.textMuted }}>{t("leadsTbl.changeStatus")}</span>
+          {Object.entries(statusConfig).map(([key, { color }]) => (
             <button key={key} onClick={() => bulkChangeStatus(key)} disabled={bulkLoading}
               className="text-xs px-2.5 py-1 rounded-lg font-medium transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-50"
               style={{ backgroundColor: C.card, color, border: `1px solid ${color}25` }}>
-              {label}
+              {statusLabel(key)}
             </button>
           ))}
           {bulkLoading && <Loader size={13} style={{ color: C.gold }} className="animate-spin ml-auto" />}
@@ -262,13 +276,13 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
                 </button>
               </th>
               {[
-                { label: "Nombre", col: "first_name" as SortKey },
-                { label: "Empresa / Rol", col: "company" as SortKey },
-                { label: "Canales", col: null },
-                { label: "Mensajes", col: "messages_sent" as SortKey },
-                { label: "Estado", col: null },
-                { label: "Seller", col: null },
-                { label: "Última actividad", col: "last_activity" as SortKey },
+                { label: t("leadsTbl.col.name"), col: "first_name" as SortKey },
+                { label: t("leadsTbl.col.company"), col: "company" as SortKey },
+                { label: t("leadsTbl.col.channels"), col: null },
+                { label: t("leadsTbl.col.messages"), col: "messages_sent" as SortKey },
+                { label: t("leadsTbl.col.status"), col: null },
+                { label: t("leadsTbl.col.seller"), col: null },
+                { label: t("leadsTbl.col.activity"), col: "last_activity" as SortKey },
               ].map(({ label, col }) => (
                 <th key={label}
                   className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider ${col ? "cursor-pointer select-none" : ""}`}
@@ -342,14 +356,14 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
                   )}
                 </td>
                 <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{lead.assigned_seller ?? "—"}</td>
-                <td className="px-4 py-3 text-xs tabular-nums" style={{ color: C.textMuted }}>{relativeTime(lead.last_activity)}</td>
+                <td className="px-4 py-3 text-xs tabular-nums" style={{ color: C.textMuted }}>{relativeTime(lead.last_activity, t, locale)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {filtered.length === 0 && (
           <div className="py-16 text-center">
-            <p className="text-sm" style={{ color: C.textMuted }}>Sin leads con esos filtros</p>
+            <p className="text-sm" style={{ color: C.textMuted }}>{t("leadsTbl.empty")}</p>
           </div>
         )}
       </div>

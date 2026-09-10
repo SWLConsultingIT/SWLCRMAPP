@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Send, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 export default function InboxComposer({
   leadId,
@@ -39,6 +40,7 @@ export default function InboxComposer({
    *  used when channel === "email". */
   defaultSubject?: string | null;
 }) {
+  const { t } = useLocale();
   const [text, setText] = useState("");
   const [subject, setSubject] = useState("");
   const [lang, setLang] = useState("auto");
@@ -78,10 +80,10 @@ export default function InboxComposer({
         }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { setError(data?.error || "No se pudo generar el borrador"); return; }
+      if (!r.ok) { setError(data?.error || t("composer.err.draft")); return; }
       if (data?.draft) setText(data.draft);
     } catch {
-      setError("No se pudo generar el borrador");
+      setError(t("composer.err.draft"));
     } finally {
       setSuggesting(false);
     }
@@ -146,7 +148,7 @@ export default function InboxComposer({
       >
         <Sparkles size={14} style={{ color: "var(--brand, #c9a83a)" }} />
         <span className="text-sm">
-          Responder{channelLabel ? ` por ${channelLabel}` : ""}…
+          {t("composer.replyCta", { suffix: channelLabel ? ` ${t("composer.viaChannel", { channel: channelLabel })}` : "" })}
         </span>
         <span
           className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
@@ -181,10 +183,10 @@ export default function InboxComposer({
         onChange={(e) => setText(e.target.value)}
         placeholder={
           isEmail
-            ? "Cuerpo del email…"
+            ? t("composer.emailBodyPh")
             : channelLabel
-            ? `Responder por ${channelLabel}…`
-            : "Escribí tu respuesta…"
+            ? t("composer.replyVia", { channel: channelLabel })
+            : t("composer.placeholder")
         }
         rows={compact ? 3 : 6}
         disabled={sending}
@@ -207,7 +209,7 @@ export default function InboxComposer({
             style={{ color: "var(--brand, #c9a83a)", backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)` }}
           >
             {suggesting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            Sugerir respuesta
+            {t("composer.suggest")}
           </button>
           {/* Language picker — forces the draft language. "auto" detects from the
               conversation (default). Switching while a draft exists regenerates it. */}
@@ -219,7 +221,7 @@ export default function InboxComposer({
               setLang(v);
               if (text.trim()) void suggest(v); // regenerate the existing draft in the new language
             }}
-            title="Idioma de la respuesta"
+            title={t("composer.replyLanguage")}
             className="text-xs font-medium px-1.5 py-1.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
             style={{ color: C.textBody, backgroundColor: C.surface, border: `1px solid ${C.border}` }}
           >
@@ -235,7 +237,7 @@ export default function InboxComposer({
         </div>
         <div className="flex items-center gap-2">
           {showChannelPicker ? (
-            <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: C.border }} title="Elegí por qué canal responder">
+            <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: C.border }} title={t("composer.pickChannel")}>
               {pickable.map((ch) => {
                 const active = effectiveChannel === ch;
                 return (

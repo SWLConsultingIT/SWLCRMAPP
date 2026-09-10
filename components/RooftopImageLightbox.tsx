@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ZoomIn, ZoomOut, X, Maximize2 } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 export default function RooftopImageLightbox({
   photoUrl,
@@ -18,6 +19,7 @@ export default function RooftopImageLightbox({
   lat?: number | null;
   lng?: number | null;
 }) {
+  const { t } = useLocale();
   const hasMap = typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng);
   const mapEmbed = hasMap ? `https://maps.google.com/maps?q=${lat},${lng}&t=k&z=18&hl=es&output=embed` : null;
   const mapLink  = hasMap ? `https://www.google.com/maps/@${lat},${lng},19z/data=!3m1!1e3` : null;
@@ -85,7 +87,7 @@ export default function RooftopImageLightbox({
         onClick={openLightbox}
         className="relative block rounded-lg overflow-hidden border group shrink-0 cursor-zoom-in"
         style={{ borderColor: "var(--border, #1E2238)", width: 220, height: 165 }}
-        title="Ver foto a tamaño completo"
+        title={t("rooftop.viewFull")}
         type="button"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}

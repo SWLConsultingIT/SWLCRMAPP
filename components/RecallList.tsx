@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Check, Clock, RotateCcw, X, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 export type RecallItem = {
   leadId: string;
@@ -40,12 +41,14 @@ function whenLabel(iso: string, now: Date): { top: string; bottom: string; bucke
 }
 
 const BUCKET = {
-  over:  { label: "Atrasadas", dot: "🔴", color: C.red,      mk: C.red },
-  today: { label: "Hoy",       dot: "🟡", color: "#F0A73A",  mk: "#F0A73A" },
-  up:    { label: "Próximas",  dot: "⚪", color: C.textMuted, mk: "#3a3f5e" },
+  // labelKey, not label: this is module scope, with no translator in hand.
+  over:  { labelKey: "recall.overdue",  dot: "🔴", color: C.red,        mk: C.red },
+  today: { labelKey: "recall.today",    dot: "🟡", color: "#F0A73A",    mk: "#F0A73A" },
+  up:    { labelKey: "recall.upcoming", dot: "⚪", color: C.textMuted,  mk: "#3a3f5e" },
 } as const;
 
 export default function RecallList({ recalls, mySellerNames = [] }: { recalls: RecallItem[]; mySellerNames?: string[] }) {
+  const { t } = useLocale();
   const router = useRouter();
   const now = useMemo(() => new Date(), []);
   const mine = new Set(mySellerNames);
@@ -133,8 +136,8 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
           <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
             <Check size={22} style={{ color: C.green }} />
           </div>
-          <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>Sin recalls pendientes</p>
-          <p className="text-xs" style={{ color: C.textMuted }}>Cuando marques &ldquo;Volver a llamar&rdquo; en una llamada, el lead aparece acá.</p>
+          <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{t("recall.empty")}</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>{t("recall.emptyHint")}</p>
         </div>
       ) : (
         (["over", "today", "up"] as const).map(bk => {
@@ -144,7 +147,7 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
           return (
             <div key={bk} className="mb-1">
               <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-wider mt-3 mb-2" style={{ color: meta.color }}>
-                {meta.dot} {meta.label} <span className="font-semibold" style={{ color: C.textDim, letterSpacing: 0 }}>· {rows.length}</span>
+                {meta.dot} {t(meta.labelKey)} <span className="font-semibold" style={{ color: C.textDim, letterSpacing: 0 }}>· {rows.length}</span>
               </p>
               <div className="space-y-1.5">
                 {rows.map(r => (
@@ -173,7 +176,7 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
                           {r.w.top}<br />{r.w.bottom}
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <button onClick={() => router.push(`/leads/${r.leadId}`)} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors" style={{ borderColor: `color-mix(in srgb, ${C.green} 45%, transparent)`, color: C.green }} title="Abrir para llamar"><Phone size={14} /></button>
+                          <button onClick={() => router.push(`/leads/${r.leadId}`)} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors" style={{ borderColor: `color-mix(in srgb, ${C.green} 45%, transparent)`, color: C.green }} title={t("recall.openToCall")}><Phone size={14} /></button>
                           <button onClick={() => markDone(r.leadId)} disabled={busy === r.leadId} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title="Hecho">
                             {busy === r.leadId ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} />}
                           </button>

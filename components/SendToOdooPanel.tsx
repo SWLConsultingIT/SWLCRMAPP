@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Send, X, Loader2, Copy, Check, MessageSquare, Building2, User, ExternalLink, Trophy, AlertTriangle } from "lucide-react";
 import { C, N } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -22,6 +23,7 @@ type Payload = {
 };
 
 export default function SendToOdooPanel({ leadId, transferred = false }: { leadId: string; transferred?: boolean }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -135,26 +137,26 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
                   <div className="rounded-lg border p-3" style={{ backgroundColor: C.bg, borderColor: C.border }}>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1" style={{ color: C.gold }}><MessageSquare size={11} /> Full conversation ({p.conversation.count})</p>
-                      <a href={p.conversation.link} className="text-[11px] font-semibold inline-flex items-center gap-0.5" style={{ color: C.blue }}>Última conversación <ExternalLink size={10} /></a>
+                      <a href={p.conversation.link} className="text-[11px] font-semibold inline-flex items-center gap-0.5" style={{ color: C.blue }}>{t("odoo.viewConversation")} <ExternalLink size={10} /></a>
                     </div>
                     <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                       {p.conversation.history.slice(-12).map((h, i) => (
                         <div key={i} className="text-[11.5px] leading-snug" style={{ color: h.from === "us" ? C.textMuted : C.textBody }}>
-                          <span className="font-bold" style={{ color: h.from === "us" ? C.textDim : C.green }}>{h.from === "us" ? "Nosotros" : "Lead"}:</span> {h.text.slice(0, 220)}
+                          <span className="font-bold" style={{ color: h.from === "us" ? C.textDim : C.green }}>{h.from === "us" ? t("odoo.us") : "Lead"}:</span> {h.text.slice(0, 220)}
                         </div>
                       ))}
-                      {p.conversation.count === 0 && <p className="text-[11.5px]" style={{ color: C.textDim }}>Sin mensajes registrados.</p>}
+                      {p.conversation.count === 0 && <p className="text-[11.5px]" style={{ color: C.textDim }}>{t("odoo.noMessages")}</p>}
                     </div>
                   </div>
 
                   {/* Editable GROWTH ENGINE drafts */}
                   <div className="space-y-3">
-                    <Field k="profileSummary" label="Resumen del perfil" />
-                    <Field k="companySummary" label="Resumen de la empresa" rows={3} />
-                    <Field k="conversationSummary" label="Resumen de la conversación" rows={3} placeholder="Se genera con IA (n8n) en la Fase 3 — o escribilo acá." />
-                    <Field k="highlights" label="Highlights del lead" rows={2} placeholder="Puntos clave del lead…" />
-                    <Field k="sellerComments" label="Comentarios del vendedor" rows={3} />
-                    <Field k="nextAction" label="Próxima acción" rows={1} />
+                    <Field k="profileSummary" label={t("odoo.profileSummary")} />
+                    <Field k="companySummary" label={t("odoo.companySummary")} rows={3} />
+                    <Field k="conversationSummary" label={t("odoo.conversationSummary")} rows={3} placeholder={t("odoo.aiHint")} />
+                    <Field k="highlights" label={t("odoo.highlights")} rows={2} placeholder={t("odoo.highlightsPh")} />
+                    <Field k="sellerComments" label={t("odoo.sellerComments")} rows={3} />
+                    <Field k="nextAction" label={t("odoo.nextAction")} rows={1} />
                   </div>
                 </>
               )}
@@ -165,7 +167,7 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
               <div className="px-5 py-3 shrink-0 flex items-start gap-2" style={{ backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)", borderTop: `1px solid ${C.border}` }}>
                 <AlertTriangle size={15} className="mt-0.5 shrink-0" style={{ color: "#B45309" }} />
                 <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>
-                  Esto crea el prospecto en el <b>Odoo CRM de SWL</b> (columna PROSPECT) con todo este payload y lo marca como enviado. Revisá que los resúmenes estén bien — <b>no se puede deshacer desde acá</b>.
+                  {t("odoo.confirmPre")} <b>{t("odoo.confirmCrm")}</b> {t("odoo.warnAfter")} <b>{t("odoo.warnIrreversible")}</b>.
                 </p>
               </div>
             )}

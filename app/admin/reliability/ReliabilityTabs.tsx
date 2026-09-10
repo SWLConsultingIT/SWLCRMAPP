@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
 import { Activity, Workflow, History, type LucideIcon } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 export type ReliabilityTabKey = "status" | "pipeline" | "history";
 
@@ -30,6 +31,7 @@ export default function ReliabilityTabs({
   active: ReliabilityTabKey;
   counts: Counts;
 }) {
+  const { t } = useLocale();
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -42,9 +44,9 @@ export default function ReliabilityTabs({
   };
 
   const tabs: Array<{ key: ReliabilityTabKey; label: string; sub: string; icon: LucideIcon; tone: "danger" | "neutral" | "muted" }> = [
-    { key: "status",   label: "Status",   sub: "Acción + salud por tenant",     icon: Activity, tone: counts.status > 0 ? "danger" : "neutral" },
-    { key: "pipeline", label: "Pipeline", sub: "Queue, cooldowns, en vuelo",    icon: Workflow, tone: counts.pipeline > 0 ? "neutral" : "muted" },
-    { key: "history",  label: "History",  sub: "24h enviado, skipped, expired", icon: History,  tone: "muted" },
+    { key: "status",   label: "Status",   sub: t("rel.tabs.generalHint"),     icon: Activity, tone: counts.status > 0 ? "danger" : "neutral" },
+    { key: "pipeline", label: "Pipeline", sub: t("rel.tabs.pipelineHint"),     icon: Workflow, tone: counts.pipeline > 0 ? "neutral" : "muted" },
+    { key: "history",  label: "History",  sub: t("rel.tabs.historyHint"),      icon: History,  tone: "muted" },
   ];
 
   return (
