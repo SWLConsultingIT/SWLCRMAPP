@@ -53,7 +53,7 @@ function Controls({ tab, period, setPeriod }: { tab: Tab; period: string; setPer
   ].filter(Boolean).length;
 
   return (
-    <div className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 flex items-center gap-2.5 flex-wrap"
+    <div className="sticky top-0 z-40 py-3 flex items-center gap-2.5 flex-wrap"
       style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 92%, transparent)`, backdropFilter: "blur(12px)" }}>
       <div className="inline-flex rounded-full border overflow-hidden" style={{ borderColor: C.border }}>
         {D.period.presets.map(p => (
@@ -101,9 +101,13 @@ export default function Shell({ D, T, hero }: { D: OverviewData; T: TabsData; he
   return (
     <ConsoleProvider value={{ D, T }}>
     <div className="p-4 sm:p-6 w-full">
-      <div className="w-full" style={{ paddingBottom: 64 }}>
+      {/* The hero spans the full width, like every other view. The ANALYSIS
+          does not: a funnel and a stock bar stretched across 1600px read as
+          empty space with numbers floating in it. Capped and centred, the
+          eye can travel a row without losing the line. */}
+      {hero}
 
-        {hero}
+      <div className="mx-auto w-full" style={{ maxWidth: 1180, paddingBottom: 64 }}>
 
         {/* tabs — names, one underline, no chapter numerals */}
         <nav className="flex items-center gap-1 mt-5" style={{ borderBottom: `1px solid ${C.border}` }} role="tablist">
