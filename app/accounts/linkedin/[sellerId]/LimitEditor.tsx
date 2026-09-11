@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Settings, Info, Check, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useRouter } from "next/navigation";
 
+// stageKey/whyKey, not prose: module scope, no translator here.
 const RECOMMENDATIONS = [
-  { stage: "Week 1 (warmup)",     range: "8–10",  why: "New automation pattern — LinkedIn watching closely" },
-  { stage: "Weeks 2–4",         range: "10–15", why: "Ramping up, account proving non-spam" },
-  { stage: "Month 2+",            range: "15–20", why: "Trusted pattern, full pace" },
-  { stage: "Veteran (6m+ clean)", range: "20–30", why: "Cap rises with sustained acceptance rate" },
+  { stageKey: "lim.stage.week1",   range: "8–10",  whyKey: "lim.why.week1" },
+  { stageKey: "lim.stage.weeks24", range: "10–15", whyKey: "lim.why.weeks24" },
+  { stageKey: "lim.stage.month2",  range: "15–20", whyKey: "lim.why.month2" },
+  { stageKey: "lim.stage.veteran", range: "20–30", whyKey: "lim.why.veteran" },
 ];
 
 export default function LimitEditor({
@@ -19,6 +21,7 @@ export default function LimitEditor({
   sellerId: string;
   initialLimit: number;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [limit, setLimit] = useState<number>(initialLimit);
   const [saving, setSaving] = useState(false);
@@ -51,17 +54,17 @@ export default function LimitEditor({
       <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
         <Settings size={14} style={{ color: C.textMuted }} />
         <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-          Outreach Limits
+          {t("lim.title")}
         </h3>
       </div>
 
       <div className="p-5">
         <label className="block">
           <span className="text-xs font-semibold" style={{ color: C.textBody }}>
-            Daily LinkedIn invites
+            {t("lim.dailyInvites")}
           </span>
           <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-            Hard cap per 24h window. Dispatcher skips this seller once reached.
+            {t("lim.dailyInvitesHint")}
           </p>
           <div className="flex items-center gap-2 mt-2">
             <input
@@ -83,35 +86,35 @@ export default function LimitEditor({
               }}
             >
               {saving ? (
-                <span className="inline-flex items-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Saving</span>
+                <span className="inline-flex items-center gap-1.5"><Loader2 size={12} className="animate-spin" /> {t("lim.saving")}</span>
               ) : savedAt && Date.now() - savedAt < 3000 ? (
-                <span className="inline-flex items-center gap-1.5"><Check size={12} /> Saved</span>
+                <span className="inline-flex items-center gap-1.5"><Check size={12} /> {t("lim.saved")}</span>
               ) : (
                 "Save"
               )}
             </button>
           </div>
-          {err && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>Error: {err}</p>}
+          {err && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>{t("lim.errorLabel")} {err}</p>}
         </label>
 
         <div className="mt-5 rounded-xl p-4" style={{ backgroundColor: C.bg, borderColor: C.border, border: `1px solid ${C.border}` }}>
           <div className="flex items-center gap-1.5 mb-3">
             <Info size={12} style={{ color: C.linkedin }} />
             <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textBody }}>
-              Recommended ramp by account age
+              {t("lim.rampTitle")}
             </p>
           </div>
           <div className="space-y-1.5">
             {RECOMMENDATIONS.map((r) => (
-              <div key={r.stage} className="grid grid-cols-[140px_70px_1fr] gap-3 items-baseline">
-                <span className="text-[11px] font-semibold" style={{ color: C.textPrimary }}>{r.stage}</span>
+              <div key={r.stageKey} className="grid grid-cols-[140px_70px_1fr] gap-3 items-baseline">
+                <span className="text-[11px] font-semibold" style={{ color: C.textPrimary }}>{t(r.stageKey)}</span>
                 <span className="text-[11px] tabular-nums font-mono" style={{ color: C.linkedin }}>{r.range}/day</span>
-                <span className="text-[10px]" style={{ color: C.textMuted }}>{r.why}</span>
+                <span className="text-[10px]" style={{ color: C.textMuted }}>{t(r.whyKey)}</span>
               </div>
             ))}
           </div>
           <p className="text-[10px] mt-3 leading-relaxed" style={{ color: C.textDim }}>
-            Strong profile content (posts, connections, activity) doesn&apos;t bypass these limits — LinkedIn evaluates pattern velocity, not just trust. Burst protection (&gt;3 invites in 5 min) triggers a 1–4h cooldown regardless of daily cap.
+            {t("lim.burstNote")}
           </p>
         </div>
       </div>

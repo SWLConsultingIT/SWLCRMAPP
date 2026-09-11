@@ -50,11 +50,12 @@ function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number })
   return <span className={s}>💬</span>;
 }
 
-const channelIcons: Record<string, { icon?: typeof Mail; color: string; bg: string; label: string }> = {
-  linkedin: { color: C.linkedin, bg: "color-mix(in srgb, #2563EB 12%, transparent)",   label: "LinkedIn" },
-  email:    { color: C.email,    bg: "color-mix(in srgb, #16A34A 12%, transparent)",   label: "Email" },
-  call:     { color: C.phone,    bg: "color-mix(in srgb, #EA580C 13%, transparent)",   label: "Phone" },
-  whatsapp: { color: "#25D366",  bg: "#F0FDF4",   label: "WhatsApp" },
+// labelKey, not label: module scope, no translator here.
+const channelIcons: Record<string, { icon?: typeof Mail; color: string; bg: string; labelKey: string }> = {
+  linkedin: { color: C.linkedin, bg: "color-mix(in srgb, #2563EB 12%, transparent)",   labelKey: "chan.linkedin" },
+  email:    { color: C.email,    bg: "color-mix(in srgb, #16A34A 12%, transparent)",   labelKey: "chan.email" },
+  call:     { color: C.phone,    bg: "color-mix(in srgb, #EA580C 13%, transparent)",   labelKey: "chan.phone" },
+  whatsapp: { color: "#25D366",  bg: "#F0FDF4",   labelKey: "chan.whatsapp" },
 };
 
 const classificationStyles: Record<string, { labelKey: string; color: string; bg: string }> = {
@@ -246,7 +247,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
             <button onClick={() => setFilter("replies")}
               className="text-xs font-bold px-3 py-1.5 rounded-full border-l-4 ml-2"
               style={{ borderLeftColor: C.orange, backgroundColor: C.orangeLight, color: C.orange }}>
-              Needs Review ({needsReviewCount})
+              {t("at.needsReview", { n: needsReviewCount })}
             </button>
           )}
 
@@ -278,7 +279,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
               <MessageSquare size={22} style={{ color: "var(--brand, #c9a83a)" }} />
             </div>
             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("at.noActivity")}</p>
-            <p className="text-xs mt-1.5" style={{ color: C.textDim }}>Messages, replies and calls will appear here as they happen.</p>
+            <p className="text-xs mt-1.5" style={{ color: C.textDim }}>{t("at.noActivityHint")}</p>
           </div>
         ) : (
           <div className="space-y-6 px-2">
@@ -333,10 +334,10 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                               </div>
                               <div>
                                 <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-                                  {item.contactName} replied via {ch.label}
+                                  {t("at.repliedVia", { name: item.contactName, channel: t(ch.labelKey) })}
                                 </p>
                                 <p className="text-xs" style={{ color: C.textMuted }}>
-                                  {ch.label} Message · {timeAgo(item.timestamp)}
+                                  {t("at.channelMessage", { channel: t(ch.labelKey) })} · {timeAgo(item.timestamp)}
                                 </p>
                               </div>
                             </div>
@@ -353,7 +354,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                               </span>
                               {item.aiConfidence && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-                                  {Math.round(item.aiConfidence * 100)}% AI
+                                  {t("at.aiConfidence", { n: Math.round(item.aiConfidence * 100) })}
                                 </span>
                               )}
                             </div>
@@ -377,7 +378,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                                 className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
                                 style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d" }}
                               >
-                                Reply Now
+                                {t("at.replyNow")}
                               </button>
                               <button className="text-xs font-medium hover:underline" style={{ color: C.textMuted }}>{t("at.dismiss")}</button>
                             </div>
@@ -409,7 +410,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-                              Campaign started — {item.content ?? "Outreach"}
+                              {t("at.campaignStarted", { name: item.content ?? t("at.outreach") })}
                             </p>
                             {item.sellerName && (
                               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("at.assignedTo")} <span className="font-semibold" style={{ color: "var(--brand, #c9a83a)" }}>{item.sellerName}</span></p>
@@ -477,7 +478,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                                 className="ml-2 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded"
                                 style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)", color: "var(--brand, #c9a83a)" }}
                               >
-                                STEP {item.stepNumber}
+                                {t("at.stepN", { n: item.stepNumber })}
                               </span>
                             ) : ""}
                           </p>
@@ -541,7 +542,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
         >
           <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>{t("at.channelIndicators")}</h3>
           <div className="space-y-2.5">
-            {Object.entries(channelIcons).map(([key, { color, bg, label }]) => (
+            {Object.entries(channelIcons).map(([key, { color, bg, labelKey }]) => (
               <div
                 key={key}
                 className="flex items-center gap-3 px-3 py-2 rounded-lg"
@@ -552,7 +553,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
               >
                 <ChannelIcon channel={key} size={14} />
                 <span className="text-sm font-medium" style={{ color: color }}>
-                  {label}
+                  {t(labelKey)}
                 </span>
                 <span className="text-xs ml-auto" style={{ color: C.textMuted }}>
                   {key === "linkedin" ? "Integration" : key === "email" ? "Outreach" : "Logs"}

@@ -177,7 +177,8 @@ async function getReportData() {
 
 const channelLabel: Record<string, string> = { linkedin: "LinkedIn", email: "Email", call: "Call", whatsapp: "WhatsApp", sms: "SMS" };
 const channelColor: Record<string, string> = { linkedin: "#0A66C2", email: "#7C3AED", call: "#F97316", whatsapp: "#25D366", sms: "#64748B" };
-const classLabel: Record<string, string> = { positive: "Positive", meeting_intent: "Meeting Intent", negative: "Negative", question: "Question", unclassified: "Unclassified" };
+// labelKey, not label: module scope, no translator here.
+const classLabelKey: Record<string, string> = { positive: "cls.positive", meeting_intent: "cls.meetingIntent", negative: "cls.negative", question: "cls.question", unclassified: "cls.unclassified" };
 const classColor: Record<string, string> = { positive: "#16A34A", meeting_intent: "#059669", negative: "#DC2626", question: "#D97706", unclassified: "#9CA3AF" };
 
 export default async function ReportsPrintPage({
@@ -250,11 +251,11 @@ export default async function ReportsPrintPage({
         {include.has("headline") && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 24 }}>
           {[
-            { label: "Total Leads",     value: data.totalLeads,       color: "#374151" },
-            { label: "Contacted",       value: data.contactedLeads,   color: "var(--brand, #c9a83a)" },
-            { label: "Messages Sent",   value: data.totalMessages,    color: "#0A66C2" },
-            { label: "Replied",         value: data.repliedCount,     color: "#2563EB" },
-            { label: "Positive",        value: data.positiveCount,    color: "#16A34A" },
+            { label: t("rp.totalLeads"),     value: data.totalLeads,       color: "#374151" },
+            { label: t("rp.contacted"),       value: data.contactedLeads,   color: "var(--brand, #c9a83a)" },
+            { label: t("rp.messagesSent"),   value: data.totalMessages,    color: "#0A66C2" },
+            { label: t("rp.replied"),         value: data.repliedCount,     color: "#2563EB" },
+            { label: t("rp.positive"),        value: data.positiveCount,    color: "#16A34A" },
             { label: t("rp.activeCampaigns"),value: data.activeCampaigns,  color: "#7C3AED" },
           ].map(k => (
             <div key={k.label} style={{ border: "1px solid #E5E7EB", borderRadius: 10, padding: "12px 10px", borderTop: `3px solid ${k.color}` }}>
@@ -299,7 +300,7 @@ export default async function ReportsPrintPage({
                 <tr key={c.name} style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
                   <td style={{ padding: "8px 10px", border: "1px solid #E5E7EB" }}>
                     <p style={{ fontWeight: 600, color: "#111827", margin: 0 }}>{c.name}</p>
-                    <p style={{ fontSize: 10, color: "#9CA3AF", margin: "2px 0 0" }}>{c.totalSteps} steps</p>
+                    <p style={{ fontSize: 10, color: "#9CA3AF", margin: "2px 0 0" }}>{c.totalSteps} {t(c.totalSteps === 1 ? "u.step" : "u.steps")}</p>
                   </td>
                   <td style={{ padding: "8px 10px", textAlign: "center", border: "1px solid #E5E7EB" }}>
                     {c.channels.map(ch => (
@@ -370,7 +371,7 @@ export default async function ReportsPrintPage({
           {/* Reply Breakdown */}
           <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
             <div style={{ backgroundColor: C.surface, padding: "10px 14px", borderBottom: "1px solid #E5E7EB" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Reply Classification</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>{t("rp.replyClassification")}</p>
             </div>
             <div style={{ padding: 14 }}>
               {Object.entries(data.replyBreakdown).sort(([, a], [, b]) => b - a).map(([cls, count]) => {
@@ -379,7 +380,7 @@ export default async function ReportsPrintPage({
                 return (
                   <div key={cls} style={{ marginBottom: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontWeight: 600, color }}>{classLabel[cls] ?? cls}</span>
+                      <span style={{ fontWeight: 600, color }}>{classLabelKey[cls] ? t(classLabelKey[cls]) : cls}</span>
                       <span style={{ color: "#6B7280" }}>{count} <span style={{ fontSize: 10 }}>({pct}%)</span></span>
                     </div>
                     <div style={{ height: 8, borderRadius: 4, backgroundColor: C.border, overflow: "hidden" }}>
@@ -445,7 +446,7 @@ export default async function ReportsPrintPage({
           <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>
             GrowthAI Sales Engine · SWL Consulting · Confidential
             <span style={{ color: "#D1D5DB", margin: "0 6px" }}>·</span>
-            Prepared for {brand.companyName}
+            {t("rp.preparedFor", { name: brand.companyName })}
           </p>
           <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>{data.generatedAt}</p>
         </div>

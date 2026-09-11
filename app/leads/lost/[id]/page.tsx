@@ -511,15 +511,14 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
               <div>
                 <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>{t("lost.repliedNegatively")}</p>
                 <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-                  After {stats.stepsCompleted} touchpoints across {stats.channels.length} channel{stats.channels.length > 1 ? "s" : ""} ({stats.channels.join(", ")}),
-                  the lead responded with a negative reply. The full sequence was {stats.stepsCompleted === stats.totalSteps ? "completed" : `${stats.stepsCompleted}/${stats.totalSteps} steps in`} before receiving the response.
+                  {t("lost.negativeSummary", { steps: stats.stepsCompleted, ch: stats.channels.length, unit: t(stats.channels.length === 1 ? "u.channel" : "u.channels"), list: stats.channels.join(", "), progress: stats.stepsCompleted === stats.totalSteps ? t("lost.completed") : t("lost.stepsIn", { a: stats.stepsCompleted, b: stats.totalSteps }) })}
                 </p>
               </div>
             ) : (
               <div>
                 <p className="text-xs font-semibold mb-1" style={{ color: C.textBody }}>{t("lost.noResponse")}</p>
                 <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-                  The complete sequence of {stats.totalSteps} steps across {stats.channels.length} channel{stats.channels.length > 1 ? "s" : ""} ({stats.channels.join(", ")}) was executed over {stats.daysSinceCreated} days with no reply from the lead.
+                  {t("lost.noReplySummary", { steps: stats.totalSteps, ch: stats.channels.length, unit: t(stats.channels.length === 1 ? "u.channel" : "u.channels"), list: stats.channels.join(", "), days: stats.daysSinceCreated })}
                 </p>
               </div>
             )}

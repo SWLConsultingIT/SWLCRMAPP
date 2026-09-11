@@ -208,7 +208,7 @@ export default function DemosClient({
                 {/* Delete button (top-right, appears on hover) */}
                 <button
                   onClick={() => setDeleteFor(d)}
-                  title="Delete demo"
+                  title={t("demos.deleteDemo")}
                   className="absolute top-3 right-3 rounded-lg p-1.5 border transition-all opacity-0 group-hover/card:opacity-100 hover:scale-105"
                   style={{
                     backgroundColor: C.card,
@@ -572,7 +572,7 @@ function ShapeSliders({ value, onChange }: { value: ShapeState; onChange: (next:
           </div>
           {value.wonLeads + value.lostLeads > value.totalLeads && (
             <p className="text-[10px]" style={{ color: C.red }}>
-              Won + lost ({value.wonLeads + value.lostLeads}) exceeds total leads ({value.totalLeads}). The server will cap the lost count.
+              {t("demos.wonLostExceeds", { wl: value.wonLeads + value.lostLeads, total: value.totalLeads })}
             </p>
           )}
         </>
@@ -718,7 +718,7 @@ function BuildDemoModal({
         )}
         {done && (
           <div className="mt-3 rounded-lg px-3 py-2 text-xs" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 25%, transparent)` }}>
-            <Check size={11} className="inline mr-1" /> Added {done.insertedLeads} leads · {done.insertedIcps} ICPs · {done.insertedCampaigns} campaigns
+            <Check size={11} className="inline mr-1" /> {t("demos.addedSummary", { l: done.insertedLeads, i: done.insertedIcps, c: done.insertedCampaigns })}
           </div>
         )}
 
@@ -801,7 +801,7 @@ function DeleteDemoModal({
           <p className="text-xs font-semibold mb-1" style={{ color: C.red }}>{t("dem.aboutToDelete")} <span className="font-bold">{demo.company_name}</span></p>
           {total > 0 ? (
             <p className="text-[11px]" style={{ color: C.red }}>
-              Cascade: {demo.leads} lead{demo.leads === 1 ? "" : "s"} · {demo.profiles} ICP{demo.profiles === 1 ? "" : "s"} · {demo.campaigns} campaign{demo.campaigns === 1 ? "" : "s"}
+              {t("demos.cascade")} {demo.leads} {t(demo.leads === 1 ? "u.lead" : "u.leads")} · {demo.profiles} ICP{demo.profiles === 1 ? "" : "s"} · {demo.campaigns} {t(demo.campaigns === 1 ? "u.campaign" : "u.campaigns")}
             </p>
           ) : (
             <p className="text-[11px]" style={{ color: C.red }}>{t("dem.emptyDemo")}</p>
