@@ -174,7 +174,7 @@ function UsersTab() {
             className="text-xs rounded-lg border px-2.5 py-1.5 outline-none max-w-[180px]"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}
           >
-            <option value="">— no company —</option>
+            <option value="">{t("adm.noCompanyOpt")}</option>
             {companies.map(c => (
               <option key={c.id} value={c.id}>{c.company_name}</option>
             ))}
@@ -294,7 +294,7 @@ function SellersTab() {
               className="text-xs rounded-lg border px-2.5 py-1.5 outline-none max-w-[200px]"
               style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}
             >
-              <option value="">— no company —</option>
+              <option value="">{t("adm.noCompanyOpt")}</option>
               {companies.map(c => (
                 <option key={c.id} value={c.id}>{c.company_name}</option>
               ))}
@@ -534,7 +534,7 @@ function EmailAccessTab() {
           <div>
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textBody }}>{t("adm.workspaces")}</p>
             <p className="text-[11px]" style={{ color: C.textDim }}>
-              {sections.length} {sections.length === 1 ? "workspace" : "workspaces"} · {totalInboxes} {totalInboxes === 1 ? "inbox" : "inboxes"} total
+              {sections.length} {t(sections.length === 1 ? "adm.workspace" : "adm.workspaces")} · {t("adm.nInboxesTotal", { n: totalInboxes, unit: t(totalInboxes === 1 ? "adm.inbox" : "adm.inboxes") })}
             </p>
           </div>
           <button
@@ -548,7 +548,7 @@ function EmailAccessTab() {
         <div>
           {sections.length === 0 ? (
             <p className="text-xs italic px-5 py-6" style={{ color: C.textDim }}>
-              No workspaces registered. Add one to start listing inboxes.
+              {t("adm.noWorkspaces")}
             </p>
           ) : sections.map((s, i) => (
             <WorkspaceRow
@@ -611,7 +611,7 @@ function EmailAccessTab() {
                       className="w-full text-xs px-2.5 py-1.5 rounded border outline-none"
                       style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
                     >
-                      <option value="">— Use env fallback —</option>
+                      <option value="">{t("adm.useEnvFallback")}</option>
                       {workspaces.map(w => (
                         <option key={w.id} value={w.id}>{w.label}</option>
                       ))}
@@ -638,7 +638,7 @@ function EmailAccessTab() {
                             {section.label}
                           </span>
                           <span className="text-[10px]" style={{ color: C.textDim }}>
-                            {sectionAssignedCount}/{sectionInboxes.length} assigned
+                            {t("adm.nAssigned", { a: sectionAssignedCount, b: sectionInboxes.length })}
                           </span>
                           {section.error && (
                             <span className="text-[10px]" style={{ color: C.red }}>· {section.error}</span>
@@ -970,7 +970,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
         actions={
           <span className="inline-flex items-center gap-2 aurora-btn plain" style={{ cursor: "default" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#8B5CF6" }} />
-            Internal
+            {t("adm.internal")}
           </span>
         }
       />
@@ -1036,7 +1036,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           style={{ color: C.textMuted }}
         >
           <Theater size={14} />
-          Demos
+          {t("adm.demos")}
           <ArrowRight size={11} style={{ opacity: 0.5 }} />
         </Link>
 
@@ -1049,7 +1049,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           style={{ color: C.textMuted }}
         >
           <Zap size={14} />
-          Reliability
+          {t("adm.reliability")}
           <ArrowRight size={11} style={{ opacity: 0.5 }} />
         </Link>
 
@@ -1061,7 +1061,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
           style={{ color: C.textMuted }}
         >
           <LifeBuoy size={14} />
-          Requests
+          {t("adm.requests")}
           {openRequests > 0 && (
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
               style={{ backgroundColor: "color-mix(in srgb, #D97706 15%, transparent)", color: "#D97706" }}>
@@ -1127,7 +1127,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
                     {totalPending > 0 && (
                       <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold shrink-0"
                         style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
-                        <Clock size={10} /> {totalPending} pending
+                        <Clock size={10} /> {t("adm.nPending", { n: totalPending })}
                       </span>
                     )}
                   </div>
@@ -1162,7 +1162,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
                 <div className="flex items-center gap-2 mb-3">
                   <Target size={14} style={{ color: C.blue }} />
                   <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                    Lead Gen Profiles ({profiles.length})
+                    {t("adm.leadGenProfiles", { n: profiles.length })}
                   </h3>
                 </div>
                 <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -1193,7 +1193,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
                 <div className="flex items-center gap-2 mb-3">
                   <Megaphone size={14} style={{ color: gold }} />
                   <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                    Campaign Requests ({campaigns.length})
+                    {t("adm.campaignRequests", { n: campaigns.length })}
                   </h3>
                 </div>
                 <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -1215,7 +1215,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
                       <Link href={item.href}
                         className="text-[10px] font-medium flex items-center gap-1 mr-2 hover:underline"
                         style={{ color: gold }}>
-                        Review <ArrowRight size={10} />
+                        {t("adm.review")} <ArrowRight size={10} />
                       </Link>
                       <AdminActions id={item.id} table="campaign_requests" />
                     </div>

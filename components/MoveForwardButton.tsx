@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { SkipForward, Send, AlertTriangle, X, Share2, Mail, Phone } from "lucide-react";
 import { C } from "@/lib/design";
@@ -44,6 +45,7 @@ export default function MoveForwardButton({
   nextChannel?: string;
   size?: "sm" | "md";
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -89,7 +91,7 @@ export default function MoveForwardButton({
         }}
       >
         <SkipForward size={size === "sm" ? 10 : 13} />
-        {size === "md" && <span>Advance to Step {nextStep} · {channelLabel}</span>}
+        {size === "md" && <span>{t("mfb.advanceToStep", { n: nextStep })} · {channelLabel}</span>}
       </button>
 
       {open && (
@@ -113,10 +115,10 @@ export default function MoveForwardButton({
                 </div>
                 <div>
                   <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>
-                    Advance to Step {nextStep}
+                    {t("mfb.advanceToStep", { n: nextStep })}
                   </h2>
                   <p className="text-xs" style={{ color: C.textMuted }}>
-                    Decide what happens with the pending {noun}.
+                    {t("mfb.decideWhat", { noun })}
                   </p>
                 </div>
               </div>
@@ -135,9 +137,9 @@ export default function MoveForwardButton({
                 <div className="flex items-start gap-2">
                   <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: "#D97706" }} />
                   <p className="text-[11px] leading-relaxed" style={{ color: "#D97706" }}>
-                    <strong>Send</strong> delivers the {noun} on the next orchestrator cycle (up to 1 h).
+                    <strong>{t("mfb.send")}</strong> {t("mfb.sendExplain", { noun })}
                     <br />
-                    <strong>Skip</strong> advances without sending — the {noun} is never delivered.
+                    <strong>{t("mfb.skip")}</strong> {t("mfb.skipExplain", { noun })}
                   </p>
                 </div>
               </div>
@@ -152,7 +154,7 @@ export default function MoveForwardButton({
                   <Send size={14} />
                   <span className="text-sm font-semibold">{sendLabel[ch]}</span>
                 </span>
-                <span className="text-[10px] font-medium opacity-70">Lead receives it</span>
+                <span className="text-[10px] font-medium opacity-70">{t("mfb.leadReceives")}</span>
               </button>
 
               <button
@@ -165,7 +167,7 @@ export default function MoveForwardButton({
                   <SkipForward size={14} style={{ color: C.textMuted }} />
                   <span className="text-sm font-semibold">{skipLabel[ch]}</span>
                 </span>
-                <span className="text-[10px] font-medium" style={{ color: C.textDim }}>Lead gets nothing</span>
+                <span className="text-[10px] font-medium" style={{ color: C.textDim }}>{t("mfb.leadGetsNothing")}</span>
               </button>
             </div>
 
@@ -178,7 +180,7 @@ export default function MoveForwardButton({
                 className="text-xs font-semibold px-3 py-1.5 rounded hover:opacity-80"
                 style={{ color: C.textMuted }}
               >
-                Cancel
+                {t("mfb.cancel")}
               </button>
             </div>
           </div>

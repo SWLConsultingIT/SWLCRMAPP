@@ -67,12 +67,13 @@ type DrillKey = keyof FlowMetrics["drill"];
 // Channels are identified by their LOGO tinted with the SWL gold ramp (--fg*)
 // — one gold spectrum instead of a per-channel rainbow (boss 2026-08). Dark→
 // light: LinkedIn (deepest) · WhatsApp · Email · Call (lightest).
+// labelKey, not label: module scope, no translator here.
 const CH = {
-  linkedin: { label: "LinkedIn", color: "var(--fg1)", Icon: Share2 },
-  email: { label: "Email", color: "var(--fg3)", Icon: Mail },
-  call: { label: "Call", color: "var(--fg4)", Icon: Phone },
-  whatsapp: { label: "WhatsApp", color: "var(--fg2)", Icon: MessageSquare },
-} as Record<string, { label: string; color: string; Icon: typeof Mail }>;
+  linkedin: { labelKey: "chan.linkedin", color: "var(--fg1)", Icon: Share2 },
+  email: { labelKey: "chan.email", color: "var(--fg3)", Icon: Mail },
+  call: { labelKey: "chan.call", color: "var(--fg4)", Icon: Phone },
+  whatsapp: { labelKey: "chan.whatsapp", color: "var(--fg2)", Icon: MessageSquare },
+} as Record<string, { labelKey: string; color: string; Icon: typeof Mail }>;
 
 // Section wrapper with the app's gold "─ TITLE" header + premium card body.
 function Section({ title, action, children, pad = true }: { title: string; action?: React.ReactNode; children: React.ReactNode; pad?: boolean }) {
@@ -277,11 +278,11 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         {updating && (
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--fg1)" }}>
             <span className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: `color-mix(in srgb, ${gold} 60%, transparent)`, borderTopColor: "transparent" }} />
-            Updating…
+            {t("fmp.updating")}
           </span>
         )}
         {!updating && curRange !== "all" && curRange !== "custom" && (
-          <span className="text-[11px]" style={{ color: C.textDim }}>· cohort = leads started in period{curSeller ? " · seller-scoped" : ""}</span>
+          <span className="text-[11px]" style={{ color: C.textDim }}>· {t("fmp.cohortNote")}{curSeller ? ` · ${t("fmp.sellerScoped")}` : ""}</span>
         )}
       </div>
       {/* Everything below the filter bar dims while a new cohort loads — the
@@ -298,7 +299,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           </div>
           <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("fmp.noLeadsInView")}</p>
           <p className="text-xs mt-1 max-w-xs" style={{ color: C.textMuted }}>
-            No leads were enrolled in the selected period{curSeller ? " for this seller" : ""}. Adjust the filters above to see activity.
+            {t("fmp.noneEnrolled")}{curSeller ? ` ${t("fmp.forThisSeller")}` : ""}{t("fmp.adjustFilters")}
           </p>
         </div>
       ) : (
@@ -371,7 +372,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                       </div>
                       <div>
                         <div className="text-[13px] font-bold" style={{ color: C.textPrimary }}>{st.label}</div>
-                        <div className="text-[10px]" style={{ color: C.textDim }}>{st.reached} leads reached</div>
+                        <div className="text-[10px]" style={{ color: C.textDim }}>{t("fmp.leadsReached", { n: st.reached })}</div>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-x-6 gap-y-2 flex-1">
@@ -431,12 +432,12 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                 <div className="mt-4 pt-3 border-t flex flex-wrap gap-2 items-center" style={{ borderColor: C.border }}>
                   <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: C.textDim }}>{t("fmp.timeInStage")}</span>
                   {agingRows.map(([ch, a]) => {
-                    const meta = CH[ch] ?? { label: ch, color: C.textMuted, Icon: Mail };
+                    const meta = CH[ch] ?? { labelKey: ch, color: C.textMuted, Icon: Mail };
                     const warn = a.stuckOver3d > 0;
                     return (
                       <span key={ch} className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border"
                         style={{ borderColor: warn ? "color-mix(in srgb, #D97706 34%, transparent)" : C.border, backgroundColor: warn ? "color-mix(in srgb, #D97706 8%, transparent)" : C.bg, color: warn ? "#B45309" : C.textMuted }}>
-                        {meta.label}: {a.active} active{a.avgDays != null ? ` · avg ${a.avgDays}d` : ""}{warn ? ` · ${a.stuckOver3d} stuck >3d` : ""}
+                        {t(meta.labelKey)}: {t("fmp.nActive", { n: a.active })}{a.avgDays != null ? ` · ${t("fmp.avgDays", { n: a.avgDays })}` : ""}{warn ? ` · ${t("fmp.stuckOver3d", { n: a.stuckOver3d })}` : ""}
                       </span>
                     );
                   })}
@@ -532,7 +533,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
           <div className="space-y-0.5">
             {m.sellers.map(s => (
               <div key={s.sellerId} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto] gap-x-3 items-center text-[13px] py-1.5">
-                <span className="font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}<span className="text-[10px] font-normal ml-1.5" style={{ color: C.textDim }}>{s.leads} leads</span></span>
+                <span className="font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}<span className="text-[10px] font-normal ml-1.5" style={{ color: C.textDim }}>{s.leads} {t(s.leads === 1 ? "u.lead" : "u.leads")}</span></span>
                 <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.linkedinSent}</span>
                 <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.emailsSent}</span>
                 <span className="text-right tabular-nums" style={{ color: C.textBody }}>{s.callsMade}</span>
@@ -576,7 +577,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
         </div>
         <div className="space-y-0.5">
           {m.steps.map((s, i) => {
-            const meta = CH[s.channel] ?? { label: s.channel, color: C.textMuted, Icon: Mail };
+            const meta = CH[s.channel] ?? { labelKey: s.channel, color: C.textMuted, Icon: Mail };
             const total = s.sent + s.failed + s.skipped + s.pending;
             const expanded = stepOpen === i;
             return (
@@ -588,7 +589,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
                     <ChevronRight size={12} style={{ color: C.textDim, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
                     <span className="font-medium truncate" style={{ color: C.textBody }}>{s.label}</span>
-                    <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{meta.label}</span>
+                    <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{t(meta.labelKey)}</span>
                     {/* Segmented bar — shows the step's real composition
                         (sent / skipped / pending) so you see at a glance where
                         leads pile up, instead of a decorative full-width bar. */}
@@ -627,7 +628,7 @@ export default function FlowMetricsPanel({ metrics, sellers = [], filters, campa
       <LeadsActivityTable rows={m.leadsActivity} />
 
       {/* ── ISSUES ── */}
-      <Section title={t("fmp.issues")} action={<span className="text-[11px] font-semibold" style={{ color: (m.steps.reduce((a, s) => a + s.failed, 0) || m.email?.bounced) ? C.red : C.textDim }}>{m.steps.reduce((a, s) => a + s.failed, 0)} failed · {m.email?.bounced ?? 0} bounced</span>}>
+      <Section title={t("fmp.issues")} action={<span className="text-[11px] font-semibold" style={{ color: (m.steps.reduce((a, s) => a + s.failed, 0) || m.email?.bounced) ? C.red : C.textDim }}>{t("fmp.failedBounced", { f: m.steps.reduce((a, s) => a + s.failed, 0), b: m.email?.bounced ?? 0 })}</span>}>
         <div className="flex flex-wrap items-start gap-6">
           <div className="min-w-[220px]">
             <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("fmp.failureReasons")}</p>
@@ -710,7 +711,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
 
   return (
     <Section title={t("fmp.leadsActivity")} pad={false}
-      action={<span className="text-[10px]" style={{ color: C.textDim }}>{filtered.length} of {rows.length}</span>}>
+      action={<span className="text-[10px]" style={{ color: C.textDim }}>{t("fmp.nOfM", { a: filtered.length, b: rows.length })}</span>}>
       <div className="px-4 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: C.border }}>
         <div className="flex items-center gap-1.5 flex-wrap">
           {(["all", "accepted", "replied", "pending", "bounced"] as const).map(f => (
@@ -788,7 +789,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                       <td className="px-2 py-2 text-xs capitalize" style={{ color: C.textMuted }}>{r.status}</td>
                       <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: C.textMuted }}>
                         {fmt(r.lastActivity)}
-                        {r.daysInFlow != null && <span style={{ color: C.textDim }}> · {r.daysInFlow}d en flujo</span>}
+                        {r.daysInFlow != null && <span style={{ color: C.textDim }}> · {t("fmp.daysInFlow", { n: r.daysInFlow })}</span>}
                       </td>
                     </tr>
                     {expanded && r.replyText && (
@@ -797,7 +798,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                           <div className="rounded-lg border px-3 py-2" style={{ borderColor: `color-mix(in srgb, ${rc} 30%, ${C.border})`, backgroundColor: C.card }}>
                             <div className="flex items-center gap-1.5 mb-1">
                               <MessageSquare size={11} style={{ color: rc }} />
-                              <span className="text-[10px] font-bold uppercase tracking-wider capitalize" style={{ color: rc }}>{rlabel} reply</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider capitalize" style={{ color: rc }}>{t("fmp.nReply", { kind: rlabel ?? "" })}</span>
                             </div>
                             <p className="text-xs whitespace-pre-wrap" style={{ color: C.textBody }}>{r.replyText}</p>
                           </div>
@@ -906,7 +907,8 @@ function StepBucket({ label, leads, color, showDetail }: { label: string; leads:
 }
 
 function ChannelCard({ ch, stats, danger }: { ch: string; stats: [string, string | number, string?][]; danger?: boolean }) {
-  const meta = CH[ch] ?? { label: ch, color: "#888", Icon: Mail };
+  const { t } = useLocale();
+  const meta = CH[ch] ?? { labelKey: ch, color: "#888", Icon: Mail };
   const Icon = meta.Icon;
   return (
     <div className="flex-1 min-w-[180px] rounded-xl border overflow-hidden" style={{ borderColor: danger ? `color-mix(in srgb, ${C.red} 35%, ${C.border})` : C.border, backgroundColor: C.bg }}>
@@ -914,7 +916,7 @@ function ChannelCard({ ch, stats, danger }: { ch: string; stats: [string, string
       <div className="p-3">
         <div className="flex items-center gap-1.5 mb-2.5">
           <Icon size={14} style={{ color: meta.color }} />
-          <span className="text-xs font-bold" style={{ color: C.textPrimary }}>{meta.label}</span>
+          <span className="text-xs font-bold" style={{ color: C.textPrimary }}>{t(meta.labelKey)}</span>
         </div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
           {stats.map(([k, v, color]) => (

@@ -469,7 +469,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
 
   // The earliest column any visible lead currently sits at. Columns to the
   // left of this index are "past" — leads can only move forward, so they
-  // can never receive a drop, and showing t("kb.dropLeadsHere") on them is a
+  // can never receive a drop, and showing "Drop leads here" on them is a
   // lie that confuses sellers. We use this to dim those columns and swap
   // the empty-state copy.
   const minActiveStep = useMemo(() => {

@@ -115,12 +115,12 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
               {isIndividual && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
                   style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                  <User size={10} /> Individual
+                  <User size={10} /> {t("rev.individual")}
                 </span>
               )}
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md"
                 style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
-                Pending Review
+                {t("rev.pendingReview")}
               </span>
             </div>
             <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{req.name}</h1>
@@ -129,7 +129,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
               <span>·</span>
               <span>{req.target_leads_count} {req.target_leads_count === 1 ? "lead" : "leads"}</span>
               <span>·</span>
-              <span>{sequence.length} steps · ~{totalDays} days</span>
+              <span>{t("rev.stepsDaysApprox", { s: sequence.length, d: totalDays })}</span>
               {prompts.language && <><span>·</span><span className="uppercase">{prompts.language}</span></>}
             </div>
           </div>
@@ -173,7 +173,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("rev.duration")}</p>
-            <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{sequence.length} steps · {totalDays} days</p>
+            <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("rev.stepsDays", { s: sequence.length, d: totalDays })}</p>
           </div>
         </div>
       </div>
@@ -187,7 +187,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
             </p>
             {sellerRows.length > 1 && (
               <span className="text-xs" style={{ color: C.textDim }}>
-                {quotaSum} {quotaSum === 1 ? "lead" : "leads"} across {sellerRows.length} sellers
+                {t("rev.leadsAcrossSellers", { n: quotaSum, unit: t(quotaSum === 1 ? "u.lead" : "u.leads"), s: sellerRows.length })}
               </span>
             )}
           </div>
@@ -235,7 +235,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
                   </div>
                   <div>
                     <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{t(meta.labelKey)}</p>
-                    <p className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i]}{i > 0 ? ` (+${step.daysAfter}d)` : ""}</p>
+                    <p className="text-xs" style={{ color: C.textDim }}>{t("rev.day", { n: dayPerStep[i] })}{i > 0 ? ` (+${step.daysAfter}d)` : ""}</p>
                   </div>
                 </div>
                 {i < sequence.length - 1 && <div className="w-6 h-px" style={{ backgroundColor: C.border }} />}
@@ -251,7 +251,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border, background: `${C.linkedin}06` }}>
             <UserPlus size={14} style={{ color: C.linkedin }} />
             <span className="text-sm font-bold" style={{ color: C.linkedin }}>{t("rev.connectionRequest")}</span>
-            <span className="text-xs ml-auto" style={{ color: C.textDim }}>Max 200 chars · {connectionRequest.length}/200</span>
+            <span className="text-xs ml-auto" style={{ color: C.textDim }}>{t("rev.maxCharsOf", { n: connectionRequest.length })}</span>
           </div>
           <div className="px-5 py-4">
             <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionRequest}</p>
@@ -280,16 +280,16 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
                   <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: meta.color }}>
                     <Icon size={12} color="#fff" />
                   </div>
-                  <span className="text-sm font-bold" style={{ color: C.textPrimary }}>Step {displayNum}</span>
+                  <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("rev.stepN", { n: displayNum })}</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
                     {msg.label || t(meta.labelKey)}
                   </span>
-                  <span className="text-xs ml-auto tabular-nums" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}</span>
+                  <span className="text-xs ml-auto tabular-nums" style={{ color: C.textDim }}>{t("rev.day", { n: dayPerStep[i] ?? 0 })}</span>
                 </div>
                 <div className="px-5 py-4">
                   {msg.subject && (
                     <p className="text-xs font-semibold mb-2" style={{ color: C.textMuted }}>
-                      Subject: <span style={{ color: C.textPrimary }}>{msg.subject}</span>
+                      {t("rev.subjectLabel")} <span style={{ color: C.textPrimary }}>{msg.subject}</span>
                     </p>
                   )}
                   <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
