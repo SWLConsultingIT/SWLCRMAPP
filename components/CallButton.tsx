@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw } from "lucide-react";
 import { C } from "@/lib/design";
@@ -97,6 +98,34 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     return phoneOptions[0]?.value ?? null;
   });
   const [phonePicker, setPhonePicker] = useState(false);
+
+  // The phone + outgoing-number dropdowns are PORTALED to <body> with fixed
+  // coords computed from their trigger button — otherwise the lead hero's
+  // `overflow-hidden` (rounded corners + gold strip) clips them (Fran
+  // 2026-09-11: "arreglame ese desplegable"). Works everywhere CallButton lives.
+  const phoneBtnRef = useRef<HTMLButtonElement>(null);
+  const phoneMenuRef = useRef<HTMLDivElement>(null);
+  const numBtnRef = useRef<HTMLButtonElement>(null);
+  const numMenuRef = useRef<HTMLDivElement>(null);
+  const [phonePos, setPhonePos] = useState<{ top: number; left: number } | null>(null);
+  const [numPos, setNumPos] = useState<{ top: number; right: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const placePhone = useCallback(() => { const r = phoneBtnRef.current?.getBoundingClientRect(); if (r) setPhonePos({ top: r.bottom + 4, left: Math.max(8, r.left) }); }, []);
+  const placeNum = useCallback(() => { const r = numBtnRef.current?.getBoundingClientRect(); if (r) setNumPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) }); }, []);
+  useEffect(() => {
+    if (!phonePicker && !picker) return;
+    const onDown = (e: MouseEvent) => {
+      const tg = e.target as Node;
+      if (phoneBtnRef.current?.contains(tg) || phoneMenuRef.current?.contains(tg) || numBtnRef.current?.contains(tg) || numMenuRef.current?.contains(tg)) return;
+      setPhonePicker(false); setPicker(false);
+    };
+    const onSR = () => { setPhonePicker(false); setPicker(false); };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onSR, true);
+    window.addEventListener("resize", onSR);
+    return () => { document.removeEventListener("mousedown", onDown); window.removeEventListener("scroll", onSR, true); window.removeEventListener("resize", onSR); };
+  }, [phonePicker, picker]);
 
   // Save phone preference (#15)
   useEffect(() => {
@@ -308,7 +337,8 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
       {phoneOptions.length > 1 && (
         <>
           <button
-            onClick={() => setPhonePicker(v => !v)}
+            ref={phoneBtnRef}
+            onClick={() => { if (!phonePicker) placePhone(); setPhonePicker(v => !v); }}
             className={`flex items-center gap-1 rounded-lg ${padding} ${text} font-medium`}
             style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}
             title={t("call.changePhoneTitle")}
@@ -317,10 +347,11 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
             <span className="font-semibold">{selectedPhoneOpt?.label ?? t("call.phoneFallback")}</span>
             <ChevronDown size={10} />
           </button>
-          {phonePicker && (
+          {mounted && phonePicker && phonePos && createPortal(
             <div
-              className="absolute top-full left-0 mt-1 rounded-lg border shadow-lg z-50 min-w-[220px]"
-              style={{ backgroundColor: C.card, borderColor: C.border }}
+              ref={phoneMenuRef}
+              className="fixed z-[1100] rounded-lg border shadow-lg min-w-[220px]"
+              style={{ top: phonePos.top, left: phonePos.left, backgroundColor: C.card, borderColor: C.border }}
             >
               <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
                 <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("call.whichNumber")}</p>
@@ -346,14 +377,16 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
                   </button>
                 );
               })}
-            </div>
+            </div>,
+            document.body
           )}
         </>
       )}
 
       {numbers.length > 0 && (
         <button
-          onClick={() => setPicker(v => !v)}
+          ref={numBtnRef}
+          onClick={() => { if (!picker) placeNum(); setPicker(v => !v); }}
           className={`flex items-center gap-1 rounded-lg ${padding} ${text} font-medium`}
           style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}
           title={t("call.changeOutgoing")}
@@ -368,10 +401,11 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         </button>
       )}
 
-      {picker && (
+      {mounted && picker && numPos && createPortal(
         <div
-          className="absolute top-full right-0 mt-1 rounded-lg border shadow-lg z-50 min-w-[240px]"
-          style={{ backgroundColor: C.card, borderColor: C.border }}
+          ref={numMenuRef}
+          className="fixed z-[1100] rounded-lg border shadow-lg min-w-[240px]"
+          style={{ top: numPos.top, right: numPos.right, backgroundColor: C.card, borderColor: C.border }}
         >
           <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
             <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("call.callFrom")}</p>
@@ -412,7 +446,8 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
 
       </div>
