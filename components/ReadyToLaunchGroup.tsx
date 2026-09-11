@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { Target, Megaphone, Share2, Mail, Check } from "lucide-react";
@@ -33,6 +34,7 @@ function scoreBadge(score: number | null) {
 }
 
 export default function ReadyToLaunchGroup({ profileId, profileName, profileDetail, leads }: Props) {
+  const { t } = useLocale();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   function toggle(id: string) {
@@ -93,7 +95,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
         </div>
 
         <span className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: `${C.blue}12`, color: C.blue }}>
-          {leads.length} leads
+          {leads.length} {t(leads.length === 1 ? "u.lead" : "u.leads")}
         </span>
       </div>
 
@@ -112,7 +114,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
         <Link href={someSelected ? launchUrl : (profileId ? `/campaigns/new/${profileId}` : "#")}
           className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-bold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-          <Megaphone size={13} /> Create Outreach Flow{someSelected ? ` with ${selected.size} ${selected.size === 1 ? "Lead" : "Leads"}` : ` with All ${leads.length} Leads`}
+          <Megaphone size={13} /> {someSelected ? t("rtl.createWithN", { n: selected.size, unit: t(selected.size === 1 ? "u.lead" : "u.leads") }) : t("rtl.createWithAll", { n: leads.length })}
         </Link>
       </div>
 
@@ -165,7 +167,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
                       <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#7C3AED" }}><Mail size={8} /> Email</span>
                     )}
                     {!lead.primary_linkedin_url && !lead.primary_work_email && (
-                      <span className="text-[9px]" style={{ color: C.textDim }}>No channels</span>
+                      <span className="text-[9px]" style={{ color: C.textDim }}>{t("rtl.noChannels")}</span>
                     )}
                   </div>
                 </div>
@@ -180,10 +182,10 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
       {someSelected && (
         <div className="px-5 py-3 flex items-center gap-3 border-t" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
           <span className="text-xs font-semibold" style={{ color: gold }}>
-            {selected.size} of {leads.length} selected
+            {t("rtl.nOfMSelected", { a: selected.size, b: leads.length })}
           </span>
           <button onClick={() => setSelected(new Set())} className="text-xs font-medium underline" style={{ color: C.textMuted }}>
-            Clear
+            {t("rtl.clear")}
           </button>
         </div>
       )}

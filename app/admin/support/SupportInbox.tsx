@@ -119,7 +119,7 @@ export default function SupportInbox() {
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-8">
       <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs font-semibold mb-4" style={{ color: C.textMuted }}>
-        <ArrowLeft size={14} /> Back to Admin
+        <ArrowLeft size={14} /> {t("sup.backToAdmin")}
       </Link>
 
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
@@ -130,7 +130,7 @@ export default function SupportInbox() {
           </div>
           <div>
             <h1 className="text-lg font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              Requests
+              {t("sup.requests")}
             </h1>
             <p className="text-[11px]" style={{ color: C.textMuted }}>{t("sup.lede")}</p>
           </div>
@@ -144,7 +144,7 @@ export default function SupportInbox() {
           </div>
           <button onClick={load} className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-lg border px-3 py-2"
             style={{ borderColor: C.border, color: C.textMuted }}>
-            <RefreshCw size={13} /> Refresh
+            <RefreshCw size={13} /> {t("sup.refresh")}
           </button>
         </div>
       </div>
@@ -237,13 +237,13 @@ export default function SupportInbox() {
               <p className="text-xs whitespace-pre-wrap" style={{ color: C.textPrimary }}>{selected.body}</p>
               {selected.author_email && (
                 <p className="text-[11px] mt-3" style={{ color: C.textMuted }}>
-                  Reply to: <a href={`mailto:${selected.author_email}`} className="font-semibold" style={{ color: "var(--fg1)" }}>{selected.author_email}</a>
+                  {t("sup.replyTo")} <a href={`mailto:${selected.author_email}`} className="font-semibold" style={{ color: "var(--fg1)" }}>{selected.author_email}</a>
                 </p>
               )}
 
               <div className="mt-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: C.textDim }}>
-                  Note to requester <span style={{ fontWeight: 400 }}>(optional — shown to them; use it for a rejection reason)</span>
+                  {t("sup.noteToRequester")} <span style={{ fontWeight: 400 }}>{t("sup.noteHint")}</span>
                 </p>
                 <textarea
                   value={notesDraft[selected.id] ?? ""}
@@ -261,7 +261,7 @@ export default function SupportInbox() {
                     className="text-[11px] font-semibold px-2.5 py-1 disabled:opacity-40"
                     style={{ color: "var(--fg1)" }}
                   >
-                    Save note
+                    {t("sup.saveNote")}
                   </button>
                 </div>
               </div>

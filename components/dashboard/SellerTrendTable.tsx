@@ -5,6 +5,7 @@
 // a delta chip (▲/▼ + %) vs the immediately preceding window of equal length.
 
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 
 const OUTFIT = "var(--font-outfit), system-ui, sans-serif";
@@ -31,6 +32,7 @@ function DeltaChip({ curr, prior, fmt }: {
   prior: number;
   fmt?: (n: number) => string;
 }) {
+  const { t } = useLocale();
   const delta = pctDelta(curr, prior);
   const fmtN = fmt ?? ((n: number) => String(n));
   const color  = delta == null || delta === 0 ? C.textMuted : delta > 0 ? "#22C55E" : "#EF4444";
@@ -47,7 +49,7 @@ function DeltaChip({ curr, prior, fmt }: {
         {label}
         {prior > 0 && (
           <span style={{ color: C.textDim, fontWeight: 400, marginLeft: 2 }}>
-            was {fmtN(prior)}
+            {t("strend.was", { n: fmtN(prior) })}
           </span>
         )}
       </span>
@@ -64,15 +66,16 @@ export default function SellerTrendTable({
   prior: Record<string, PriorStats>;
   periodLabel: string;
 }) {
+  const { t } = useLocale();
   if (!rows || rows.length === 0) return null;
 
   const answerPct = (made: number, answered: number) =>
     made === 0 ? 0 : Math.round((answered / made) * 100);
 
   const cols = [
-    { label: "Calls",       key: "made" as const },
-    { label: "Answer %",    key: "answerPct" as const },
-    { label: "Interested",  key: "interested" as const },
+    { label: t("strend.calls"),      key: "made" as const },
+    { label: t("strend.answerPct"),  key: "answerPct" as const },
+    { label: t("strend.interested"), key: "interested" as const },
   ];
 
   return (
@@ -81,7 +84,7 @@ export default function SellerTrendTable({
         <thead>
           <tr style={{ borderBottom: `1px solid ${C.border}` }}>
             <th className="text-left px-3 py-2.5" style={{ fontSize: 10, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: OUTFIT }}>
-              Seller
+              {t("strend.seller")}
             </th>
             {cols.map(c => (
               <th key={c.key} className="text-center px-3 py-2.5" style={{ fontSize: 10, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: OUTFIT }}>
@@ -115,7 +118,7 @@ export default function SellerTrendTable({
                     </span>
                     {inactive && (
                       <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(107,114,128,0.12)", color: "#6B7280" }}>
-                        left
+                        {t("strend.left")}
                       </span>
                     )}
                   </span>
@@ -135,7 +138,7 @@ export default function SellerTrendTable({
         </tbody>
       </table>
       <p style={{ fontSize: 10, color: C.textDim, padding: "6px 12px 10px", textAlign: "right" }}>
-        vs the prior equal-length period ({periodLabel})
+        {t("strend.vsPrior", { period: periodLabel })}
       </p>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { useLocale } from "@/lib/i18n";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, AtSign, Tag, MessageSquare, CheckCheck, FileText, CalendarClock, Inbox as InboxIcon } from "lucide-react";
@@ -54,6 +55,7 @@ function ago(iso: string): string {
 }
 
 export default function NotificationBell() {
+  const { t } = useLocale();
   const router = useRouter();
   const user = useAuthUser();
   const userId = user?.id ?? null;
@@ -135,14 +137,14 @@ export default function NotificationBell() {
           </p>
           {unread > 0 && (
             <button onClick={markAllRead} className="inline-flex items-center gap-1 text-[10px] font-semibold transition-opacity hover:opacity-70" style={{ color: "var(--brand, #c9a83a)" }}>
-              <CheckCheck size={11} /> Mark all read
+              <CheckCheck size={11} /> {t("nb.markAllRead")}
             </button>
           )}
         </div>
         {items.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <Bell size={18} className="mx-auto mb-1.5" style={{ color: C.textDim }} />
-            <p className="text-[11px]" style={{ color: C.textMuted }}>Nothing yet.</p>
+            <p className="text-[11px]" style={{ color: C.textMuted }}>{t("nb.nothingYet")}</p>
           </div>
         ) : (
           <div className="max-h-[380px] overflow-y-auto py-1">
@@ -160,7 +162,7 @@ export default function NotificationBell() {
                     <p className="text-xs leading-snug" style={{ color: C.textPrimary }}>
                       {n.actor_name && <span className="font-semibold">{n.actor_name}</span>} <span style={{ color: C.textBody }}>{n.body}</span>
                     </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{ago(n.created_at)} ago</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{t("nb.ago", { ago: ago(n.created_at) })}</p>
                   </div>
                   {!n.read_at && <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: "var(--brand, #c9a83a)" }} />}
                 </button>
@@ -171,7 +173,7 @@ export default function NotificationBell() {
         <Link href="/notifications" onClick={() => setOpen(false)}
           className="block px-3.5 py-2.5 text-center text-[11px] font-semibold border-t transition-opacity hover:opacity-70"
           style={{ borderColor: C.border, color: "var(--brand, #c9a83a)" }}>
-          See all notifications
+          {t("nb.seeAll")}
         </Link>
       </div>
     </>
@@ -182,8 +184,8 @@ export default function NotificationBell() {
       <button
         ref={btnRef}
         onClick={() => setOpen(v => !v)}
-        title="Notifications"
-        aria-label="Notifications"
+        title={t("nb.notifications")}
+        aria-label={t("nb.notifications")}
         className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100 relative"
         style={{ color: C.textMuted }}
       >
