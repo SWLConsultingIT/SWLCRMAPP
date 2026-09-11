@@ -179,7 +179,7 @@ function CampaignBlock({
           {steps.length > 0 && (
             <span>
               {connectionSent && <>{t("jrn.inviteSent")} </>}
-              {currentStep > 0 ? currentStep - 1 : 0} of {steps.length} follow-ups completed
+              {t("jrn.followupsCompleted", { a: currentStep > 0 ? currentStep - 1 : 0, b: steps.length })}
             </span>
           )}
         </div>
@@ -234,8 +234,8 @@ function CampaignBlock({
                     {connectionMsg.sent_at && (
                       <div className="flex items-center gap-4 mt-1.5 text-xs" style={{ color: C.textMuted }}>
                         <span>
-                          Sent: <span className="font-medium" style={{ color: C.textBody }}>
-                            {new Date(connectionMsg.sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          {t("jrn.sentLabel")} <span className="font-medium" style={{ color: C.textBody }}>
+                            {new Date(connectionMsg.sent_at).toLocaleDateString(intlTag(locale), { day: "numeric", month: "short", year: "numeric" })}
                             {" · "}
                             {new Date(connectionMsg.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                           </span>
@@ -303,7 +303,7 @@ function CampaignBlock({
                               backgroundColor: isCompleted ? "color-mix(in srgb, #16A34A 16%, transparent)" : isCurrent ? goldLight : C.surface,
                               color: isCompleted ? "#22C55E" : isCurrent ? gold : "#9CA3AF",
                             }}>
-                            Step {stepNum}
+                            {t("jrn.stepN", { n: stepNum })}
                           </span>
                           <ChannelIcon channel={stepChannel} size={13} />
                           <span className="text-sm font-medium"
@@ -331,8 +331,8 @@ function CampaignBlock({
                       <div className="flex items-center gap-4 mt-1.5 text-xs" style={{ color: C.textMuted }}>
                         {msg?.sent_at && (
                           <span>
-                            Sent: <span className="font-medium" style={{ color: C.textBody }}>
-                              {new Date(msg.sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            {t("jrn.sentLabel")} <span className="font-medium" style={{ color: C.textBody }}>
+                              {new Date(msg.sent_at).toLocaleDateString(intlTag(locale), { day: "numeric", month: "short", year: "numeric" })}
                               {" · "}
                               {new Date(msg.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                             </span>
@@ -435,7 +435,7 @@ function CampaignBlock({
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <span className="text-xs font-bold px-2 py-0.5 rounded"
                           style={{ backgroundColor: goldLight, color: gold }}>
-                          Step {msg.step_number}
+                          {t("jrn.stepN", { n: msg.step_number ?? 0 })}
                         </span>
                         <ChannelIcon channel={msg.channel} size={13} />
                         {msg.sent_at && (
@@ -485,7 +485,7 @@ export default function CampaignJourney({
   messages: Message[];
   replies: Reply[];
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   const toggleStep = (key: string) => {

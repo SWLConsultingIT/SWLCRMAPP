@@ -63,7 +63,7 @@ export default function CommandPalette() {
     { id: "admin",      label: t("nav.admin"),        hint: t("cmd.hint.admin"),      icon: Shield,          href: "/admin",         group: "navigation", keywords: ["admin", "internal"] },
     { id: "settings",   label: t("nav.settings"),     hint: t("cmd.hint.settings"),                  icon: Settings,        href: "/settings",      group: "navigation", keywords: ["account", "preferences", "language"] },
     // Quick actions
-    { id: "new-flow",  label: t("cmd.action.newFlow"),  hint: "Outreach Flow™",            icon: Megaphone, href: "/campaigns?tab=new",       group: "actions", keywords: ["flow", "campaign", "campaña", "outreach", "nuevo", "new", "create", "crear"] },
+    { id: "new-flow",  label: t("cmd.action.newFlow"),  hint: "Outreach Flow\u2122",            icon: Megaphone, href: "/campaigns?tab=new",       group: "actions", keywords: ["flow", "campaign", "campaña", "outreach", "nuevo", "new", "create", "crear"] },
     { id: "import-leads", label: t("cmd.action.import"), hint: t("cmd.action.importHint"), icon: Users, href: "/leads/import", group: "actions", keywords: ["import", "importar", "csv", "excel", "upload", "subir", "leads"] },
     // Real actions (client-side, no navigation) — turn ⌘K into a command runner,
     // not just a jump list. Safe: theme/language are per-user prefs, no data writes.
@@ -213,7 +213,7 @@ export default function CommandPalette() {
             className="text-[10px] px-1.5 py-0.5 rounded font-mono"
             style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
           >
-            esc
+            {t("cmd.esc")}
           </kbd>
         </div>
 
@@ -231,8 +231,8 @@ export default function CommandPalette() {
                 <Sparkles size={13} style={{ color: "#04070d" }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }}>Ask the Copilot: &ldquo;{query.trim()}&rdquo;</p>
-                <p className="text-[11px]" style={{ color: C.textMuted }}>Search across all your prospects</p>
+                <p className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }}>{t("cmd.askCopilot", { q: query.trim() })}</p>
+                <p className="text-[11px]" style={{ color: C.textMuted }}>{t("cmd.searchAcross")}</p>
               </div>
               <ArrowRight size={12} style={{ color: C.textDim }} className="shrink-0" />
             </button>

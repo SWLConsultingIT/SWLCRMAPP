@@ -36,7 +36,7 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
     setShowCountInput(false);
     if (!r.ok) {
       const { error } = await r.json().catch(() => ({ error: "Request failed" }));
-      alert(`Failed to update status: ${error ?? "unknown error"}`);
+      alert(t("exa.updateFailed", { error: error ?? t("exa.unknownError") }));
       return;
     }
     router.refresh();
@@ -81,14 +81,14 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity disabled:opacity-50"
             style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
             {acting ? <Loader2 size={12} className="animate-spin" /> : <Clock size={12} />}
-            Mark as In Progress
+            {t("exa.markInProgress")}
           </button>
         )}
         {currentStatus === "in_progress" && (
           <button onClick={() => setShowCountInput(true)} disabled={acting}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity disabled:opacity-50"
             style={{ backgroundColor: C.blueLight, color: C.blue }}>
-            <Upload size={12} /> Mark Leads as Uploaded
+            <Upload size={12} /> {t("exa.markUploaded")}
           </button>
         )}
         {currentStatus === "uploaded" && (
@@ -96,12 +96,12 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity disabled:opacity-50"
             style={{ backgroundColor: C.greenLight, color: C.green }}>
             {acting ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-            Mark as Completed
+            {t("exa.markCompleted")}
           </button>
         )}
         {currentStatus === "completed" && (
           <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.green }}>
-            <CheckCircle size={13} /> Done — {leadsUploaded} leads uploaded
+            <CheckCircle size={13} /> {t("exa.doneUploaded", { n: leadsUploaded })}
           </span>
         )}
 
@@ -111,11 +111,11 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
             <input type="number" className="w-24 rounded-lg border px-3 py-2 text-sm focus:outline-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={count} onChange={e => setCount(Number(e.target.value))}
-              placeholder="# leads" min={0} />
+              placeholder={t("exa.leadsPh")} min={0} />
             <button onClick={() => updateStatus("uploaded", { leads_uploaded: count })} disabled={acting}
               className="rounded-lg px-4 py-2 text-xs font-semibold"
               style={{ backgroundColor: C.blue, color: "#fff" }}>
-              {acting ? <Loader2 size={12} className="animate-spin" /> : "Confirm"}
+              {acting ? <Loader2 size={12} className="animate-spin" /> : t("exa.confirm")}
             </button>
             <button onClick={() => setShowCountInput(false)} className="text-xs" style={{ color: C.textMuted }}>{t("exa.cancel")}</button>
           </div>

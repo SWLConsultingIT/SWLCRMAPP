@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { StickyNote, Phone, Trash2, Loader2, Star, AtSign, Send } from "lucide-react";
 
@@ -44,6 +45,7 @@ function highlight(text: string, names: string[]): (string | ReactElement)[] | s
 }
 
 export default function LeadNotes({ leadId }: { leadId: string }) {
+  const { t } = useLocale();
   // notes kept oldest → newest for top-to-bottom reading.
   const [notes, setNotes] = useState<Note[]>([]);
   const [roster, setRoster] = useState<Member[]>([]);
@@ -112,14 +114,14 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
     <div className="rounded-2xl border flex flex-col" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)", maxHeight: "70vh" }}>
       <div className="flex items-center gap-2 px-5 py-4 border-b shrink-0" style={{ borderColor: C.border }}>
         <StickyNote size={16} style={{ color: "var(--brand, #c9a83a)" }} />
-        <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Notes</h3>
+        <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("ln.notes")}</h3>
         <span className="text-xs" style={{ color: C.textDim }}>· {notes.length}</span>
       </div>
 
       {/* List (top, scrolls) */}
       <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ minHeight: 160 }}>
         {notes.length === 0 ? (
-          <p className="text-xs text-center py-8" style={{ color: C.textDim }}>No notes yet — write the first one below.</p>
+          <p className="text-xs text-center py-8" style={{ color: C.textDim }}>{t("ln.noNotes")}</p>
         ) : notes.map(n => {
           const names = (n.mentioned_user_ids ?? []).map(uid => rosterMap.get(uid)).filter((x): x is string => !!x);
           return (
@@ -129,11 +131,11 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ backgroundColor: n.note_type === "call" ? C.phone : "var(--brand, #c9a83a)" }}>
                     {n.note_type === "call" ? <Phone size={12} /> : (n.author_name ?? "?")[0]?.toUpperCase()}
                   </div>
-                  <span className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{n.author_name ?? "Team"}</span>
-                  {n.note_type === "call" && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${C.phone} 14%, transparent)`, color: C.phone }}>Call</span>}
+                  <span className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{n.author_name ?? t("ln.team")}</span>
+                  {n.note_type === "call" && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${C.phone} 14%, transparent)`, color: C.phone }}>{t("ln.call")}</span>}
                   <span className="text-xs tabular-nums" style={{ color: C.textDim }}>{timeAgo(n.created_at)}</span>
                 </div>
-                <button onClick={() => del(n)} disabled={busyId === n.id} title="Delete note" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.04] shrink-0">
+                <button onClick={() => del(n)} disabled={busyId === n.id} title={t("ln.deleteNote")} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.04] shrink-0">
                   {busyId === n.id ? <Loader2 size={11} className="animate-spin" style={{ color: C.textDim }} /> : <Trash2 size={11} style={{ color: C.textDim }} />}
                 </button>
               </div>
@@ -163,7 +165,7 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
         </div>
         <div className="relative">
           <textarea ref={ref} value={text} onChange={e => onChange(e.target.value)} rows={2}
-            placeholder="Write a note… type @ to mention a teammate"
+            placeholder={t("ln.notePh")}
             className="w-full text-sm px-3 py-2 rounded-lg border resize-none outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }} />
           {mentionQuery !== null && matches.length > 0 && (
             <div className="absolute z-30 left-2 right-2 bottom-full mb-1 rounded-lg border shadow-lg max-h-48 overflow-y-auto" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -183,7 +185,7 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
             {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
           </div>
           <button onClick={post} disabled={saving || !text.trim()} className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40 shrink-0" style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
-            {saving ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Add note
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} {t("ln.addNote")}
           </button>
         </div>
       </div>

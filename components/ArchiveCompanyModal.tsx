@@ -89,7 +89,7 @@ export default function ArchiveCompanyModal({
             <div className="rounded-xl border p-3.5 mb-4 flex items-start gap-2.5" style={{ borderColor: `${C.red}55`, backgroundColor: `${C.red}12` }}>
               <AlertTriangle size={16} style={{ color: C.red, flexShrink: 0, marginTop: 1 }} />
               <p className="text-[11.5px] leading-relaxed" style={{ color: C.textBody }}>
-                <strong style={{ color: C.red }}>{t("acm.breaks")}</strong> Active campaigns stop sending, the AI loses the context it uses to write messages / score ICPs / suggest replies, and the team loses access. Don't archive unless you're certain.
+                <strong style={{ color: C.red }}>{t("acm.breaks")}</strong> {t("acm.breaksBody")}
               </p>
             </div>
 
@@ -110,14 +110,14 @@ export default function ArchiveCompanyModal({
               <Archive size={14} style={{ color: C.textMuted, flexShrink: 0, marginTop: 2 }} />
               <p className="text-[11px] leading-relaxed" style={{ color: C.textBody }}>
                 <strong>{t("acm.recoverable")}</strong> {t("acm.from")} <span className="font-mono">/admin/recovery</span>.
-                After that, the data is <strong>{t("acm.permanently")}</strong> by an automatic cleanup.
+                {t("acm.afterThat")} <strong>{t("acm.permanently")}</strong> {t("acm.byCleanup")}
               </p>
             </div>
 
             {/* Type-to-confirm */}
             <div className="mb-5">
               <label className="text-[11px] font-semibold block mb-1.5" style={{ color: C.textMuted }}>
-                Type <strong style={{ color: C.textPrimary }}>{companyName}</strong> to confirm
+                {t("acm.typeWord")} <strong style={{ color: C.textPrimary }}>{companyName}</strong> {t("acm.toConfirm")}
               </label>
               <input
                 type="text"

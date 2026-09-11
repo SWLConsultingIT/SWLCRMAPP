@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { Trash2, Loader2, AlertTriangle } from "lucide-react";
 
 export default function DeleteLeadButton({ leadId, leadName }: { leadId: string; leadName: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -35,7 +37,7 @@ export default function DeleteLeadButton({ leadId, leadName }: { leadId: string;
       <button onClick={() => setShowConfirm(true)}
         className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
         style={{ backgroundColor: C.redLight, color: C.red }}>
-        <Trash2 size={12} /> Delete Lead
+        <Trash2 size={12} /> {t("dlb.deleteLead")}
       </button>
 
       {showConfirm && (
@@ -47,13 +49,13 @@ export default function DeleteLeadButton({ leadId, leadName }: { leadId: string;
                 <AlertTriangle size={20} style={{ color: C.red }} />
               </div>
               <div>
-                <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Delete Lead</h3>
-                <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>This action cannot be undone.</p>
+                <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("dlb.deleteLead")}</h3>
+                <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("dlb.cannotUndo")}</p>
               </div>
             </div>
 
             <p className="text-sm mb-5" style={{ color: C.textBody }}>
-              Are you sure you want to delete <strong>{leadName}</strong>? All campaigns, messages, and replies associated with this lead will be permanently removed.
+              {t("dlb.confirmPre")} <strong>{leadName}</strong>{t("dlb.confirmPost")}
             </p>
 
             {error && (
@@ -67,7 +69,7 @@ export default function DeleteLeadButton({ leadId, leadName }: { leadId: string;
               <button onClick={() => setShowConfirm(false)} disabled={deleting}
                 className="rounded-lg px-4 py-2 text-sm font-medium"
                 style={{ backgroundColor: C.surface, color: C.textBody }}>
-                Cancel
+                {t("dlb.cancel")}
               </button>
               <button onClick={handleDelete} disabled={deleting}
                 className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"

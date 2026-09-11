@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, Check, X } from "lucide-react";
 import { C } from "@/lib/design";
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export default function WrongNumberPill({ leadId, currentPhone }: Props) {
+  const { t } = useLocale();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(currentPhone ?? "");
@@ -66,7 +68,7 @@ export default function WrongNumberPill({ leadId, currentPhone }: Props) {
       >
         {currentPhone && (
           <div className="flex items-center gap-2 text-[11px]" style={{ color: C.textMuted }}>
-            <span>Old:</span>
+            <span>{t("wnp.oldLabel")}</span>
             <span style={{ textDecoration: "line-through", color: C.textMuted }}>{currentPhone}</span>
           </div>
         )}
@@ -89,7 +91,7 @@ export default function WrongNumberPill({ leadId, currentPhone }: Props) {
             type="button"
             onClick={save}
             disabled={saving}
-            aria-label="Save new number"
+            aria-label={t("wnp.saveNew")}
             className="rounded-md p-1.5 transition-opacity hover:opacity-85 disabled:opacity-50"
             style={{ backgroundColor: "#16A34A", color: "#fff" }}
           >
@@ -99,7 +101,7 @@ export default function WrongNumberPill({ leadId, currentPhone }: Props) {
             type="button"
             onClick={() => { setEditing(false); setValue(currentPhone ?? ""); setErr(null); }}
             disabled={saving}
-            aria-label="Cancel"
+            aria-label={t("wnp.cancel")}
             className="rounded-md p-1.5 transition-opacity hover:opacity-85 disabled:opacity-50"
             style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
           >
@@ -115,7 +117,7 @@ export default function WrongNumberPill({ leadId, currentPhone }: Props) {
     <button
       type="button"
       onClick={() => setEditing(true)}
-      title="Phone marked wrong. Click to replace and re-enable the Call channel."
+      title={t("wnp.pillTitle")}
       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-85"
       style={{
         backgroundColor: "color-mix(in srgb, #DC2626 14%, transparent)",
@@ -124,8 +126,8 @@ export default function WrongNumberPill({ leadId, currentPhone }: Props) {
       }}
     >
       <AlertTriangle size={14} />
-      Wrong number
-      <span className="opacity-60 font-normal hidden sm:inline">· click to replace</span>
+      {t("wnp.wrongNumber")}
+      <span className="opacity-60 font-normal hidden sm:inline">· {t("wnp.clickToReplace")}</span>
     </button>
   );
 }
