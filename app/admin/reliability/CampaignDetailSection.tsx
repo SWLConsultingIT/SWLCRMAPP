@@ -55,7 +55,7 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
           style={{ color: C.textMuted }}
         >
           <ArrowLeft size={12} />
-          Volver a {detail.bioName}
+          {t("rel.backTo", { name: detail.bioName })}
         </Link>
 
         <section className="rounded-2xl border overflow-hidden" style={{
@@ -76,7 +76,7 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
                 <p className="text-[11px]" style={{ color: C.textMuted }}>
                   <span className="uppercase tracking-wider font-semibold">{detail.status}</span>
                   {detail.channels.length > 0 && <> · {detail.channels.join(" + ")}</>}
-                  {detail.totalSteps > 0 && <> · {detail.totalSteps} steps</>}
+                  {detail.totalSteps > 0 && <> · {detail.totalSteps} {t(detail.totalSteps === 1 ? "u.step" : "u.steps")}</>}
                 </p>
               </div>
             </div>
@@ -175,12 +175,12 @@ export default function CampaignDetailSection({ detail }: { detail: CampaignDeta
                       <div key={j} className="text-[11px] flex items-center gap-2 pt-1.5" style={{ color: C.textBody }}>
                         <span className="font-medium">{s.leadName}</span>
                         <span style={{ color: C.textMuted }}>· {s.channel}</span>
-                        <span style={{ color: C.textMuted }}>· step {s.stepNumber}</span>
-                        <span style={{ color: C.textMuted }}>· hace {s.ageDays}d</span>
+                        <span style={{ color: C.textMuted }}>· {t("rel.stepN", { n: s.stepNumber })}</span>
+                        <span style={{ color: C.textMuted }}>· {t("rel.ageDays", { n: s.ageDays })}</span>
                       </div>
                     ))}
                     {b.count > b.samples.length && (
-                      <p className="text-[10.5px] pt-1.5 italic" style={{ color: C.textMuted }}>+ {b.count - b.samples.length} más con el mismo problema</p>
+                      <p className="text-[10.5px] pt-1.5 italic" style={{ color: C.textMuted }}>{t("rel.moreSameIssue", { n: b.count - b.samples.length })}</p>
                     )}
                   </div>
                 )}

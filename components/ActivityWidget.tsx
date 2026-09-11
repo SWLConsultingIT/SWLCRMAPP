@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useLocale } from "@/lib/i18n";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import { Activity, Clock, Circle } from "lucide-react";
@@ -42,6 +43,7 @@ function initials(name: string): string {
 }
 
 export default function ActivityWidget() {
+  const { t } = useLocale();
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [presenceIds, setPresenceIds] = useState<Set<string>>(new Set());
   const [meId, setMeId] = useState<string | null>(null);
@@ -125,9 +127,9 @@ export default function ActivityWidget() {
       <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center gap-2 mb-3">
           <Activity size={14} style={{ color: C.gold }} />
-          <h3 className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>Activity</h3>
+          <h3 className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{t("aw.activity")}</h3>
         </div>
-        <p className="text-[11px]" style={{ color: C.textMuted }}>Loading…</p>
+        <p className="text-[11px]" style={{ color: C.textMuted }}>{t("aw.loading")}</p>
       </div>
     );
   }
@@ -140,12 +142,12 @@ export default function ActivityWidget() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Activity size={14} style={{ color: C.gold }} />
-          <h3 className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>Activity</h3>
+          <h3 className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{t("aw.activity")}</h3>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
           <span className="text-[10px] font-bold tracking-[0.16em] uppercase" style={{ color: C.green }}>
-            Live
+            {t("aw.live")}
           </span>
         </div>
       </div>
@@ -199,6 +201,7 @@ function Bucket({ label, accent, accentBg, users, emptyText, meId, timestampFiel
   meId: string | null;
   timestampField: "presence" | "seen";
 }) {
+  const { t } = useLocale();
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-2">
@@ -222,7 +225,7 @@ function Bucket({ label, accent, accentBg, users, emptyText, meId, timestampFiel
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-medium truncate" style={{ color: C.textPrimary }}>
                   {u.name}
-                  {meId === u.id && <span className="ml-1.5 text-[10px]" style={{ color: C.textDim }}>(you)</span>}
+                  {meId === u.id && <span className="ml-1.5 text-[10px]" style={{ color: C.textDim }}>{t("aw.you")}</span>}
                 </p>
                 <div className="flex items-center gap-1.5 text-[10px]" style={{ color: C.textMuted }}>
                   {u.company_name && <span className="truncate">{u.company_name}</span>}
