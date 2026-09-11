@@ -59,7 +59,7 @@ export default function AutoRefresh() {
           color: gold,
         }}>
         <RefreshCw size={11} className={auto ? "animate-spin-slow" : ""} style={{ animationDuration: "6s" }} />
-        <span className="text-[11px] font-semibold tabular-nums">Updated {ageLabel}</span>
+        <span className="text-[11px] font-semibold tabular-nums">{t("ar.updated", { ago: ageLabel })}</span>
       </div>
       <button
         onClick={() => { router.refresh(); setLastRefresh(Date.now()); }}
@@ -70,7 +70,7 @@ export default function AutoRefresh() {
           color: C.textBody,
         }}
         title={t("adm.refreshNow")}>
-        <RefreshCw size={11} /> Refresh
+        <RefreshCw size={11} /> {t("ar.refresh")}
       </button>
       <button
         onClick={() => setAuto(a => !a)}
@@ -91,7 +91,7 @@ export default function AutoRefresh() {
         }
         title={auto ? `Auto-refresh every ${REFRESH_INTERVAL_MS / 1000}s — click to pause` : "Click to start auto-refresh"}>
         {auto ? <Pause size={11} /> : <Play size={11} />}
-        Auto {auto ? "on" : "off"}
+        {t("ar.auto")} {t(auto ? "ar.on" : "ar.off")}
       </button>
     </div>
   );

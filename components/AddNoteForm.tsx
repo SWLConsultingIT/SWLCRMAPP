@@ -44,7 +44,7 @@ export default function AddNoteForm({ leadId }: { leadId: string }) {
       <div className="px-4 py-3 border-b flex items-center gap-2"
         style={{ borderColor: C.border, background: "linear-gradient(90deg, color-mix(in srgb, var(--brand, #c9a83a) 5%, transparent) 0%, transparent 60%)" }}>
         <StickyNote size={13} style={{ color: C.gold }} />
-        <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>Agregar nota</span>
+        <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("anf.title")}</span>
       </div>
       <div className="p-4">
         <textarea
@@ -63,7 +63,7 @@ export default function AddNoteForm({ leadId }: { leadId: string }) {
           style={{ backgroundColor: C.goldGlow, color: C.gold, border: `1px solid color-mix(in srgb, ${C.gold} 19%, transparent)` }}
         >
           {loading ? <Loader size={12} className="animate-spin" /> : null}
-          Guardar nota
+          {t("anf.save")}
         </button>
       </div>
     </form>

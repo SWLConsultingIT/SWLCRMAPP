@@ -101,7 +101,7 @@ export default function KeyboardCheatsheet() {
               <Keyboard size={14} />
             </div>
             <h2 className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              Keyboard Shortcuts
+              {t("kbd.title")}
             </h2>
           </div>
           <button onClick={() => setOpen(false)} aria-label={t("pool.close")} className="rounded p-1 hover:bg-black/[0.04] transition-colors" style={{ color: C.textMuted }}>
@@ -146,7 +146,7 @@ export default function KeyboardCheatsheet() {
         </div>
 
         <div className="border-t px-5 py-2.5 text-[10px]" style={{ borderColor: C.border, color: C.textDim }}>
-          Press <kbd className="px-1 rounded border" style={{ borderColor: C.border, color: C.textBody }}>?</kbd> any time to re-open this list.
+          {t("kbd.pressWord")} <kbd className="px-1 rounded border" style={{ borderColor: C.border, color: C.textBody }}>?</kbd> {t("kbd.reopenHint")}
         </div>
       </div>
     </div>

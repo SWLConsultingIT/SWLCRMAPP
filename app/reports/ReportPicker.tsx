@@ -142,7 +142,7 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
                   </span>
                   <div className="flex-1">
                     <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t(`rep.section.${s.key}`)}</p>
-                    <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>t(`rep.section.${s.key}.desc`)</p>
+                    <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t(`rep.section.${s.key}.desc`)}</p>
                   </div>
                 </button>
               </li>
@@ -202,7 +202,7 @@ export default function ReportPicker({ options }: { options: { campaigns: Option
             opacity: anyChecked ? 1 : 0.6,
           }}
         >
-          <FileDown size={14} className="inline mr-2" /> Descargar PDF
+          <FileDown size={14} className="inline mr-2" /> {t("rep.downloadPdf")}
         </a>
         {!anyChecked && (
           <p className="text-[11px] text-center" style={{ color: C.textDim }}>{t("rep.pick.needOne")}</p>

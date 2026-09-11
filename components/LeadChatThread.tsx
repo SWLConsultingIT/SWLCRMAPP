@@ -136,7 +136,7 @@ export default function LeadChatThread({ leadId, leadName, readOnly = false, hig
         <div className="rounded-2xl border py-14 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <p className="text-sm font-semibold" style={{ color: C.textBody }}>{t("chat.noMessages")}</p>
           <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-            Cuando el lead responda o le mandes algo, va a aparecer acá.
+            {t("lct.emptyHint")}
           </p>
         </div>
         {!readOnly && leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} availableChannels={composerChannels} onSent={reload} defaultSubject={lastEmailSubject} />}
@@ -181,7 +181,7 @@ export default function LeadChatThread({ leadId, leadName, readOnly = false, hig
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: oc.color }}>{t(oc.labelKey)}</span>
                   {dur && <span className="text-[10px]" style={{ color: C.textDim }}>· {dur}</span>}
-                  {entry.hasRecording && <span className="text-[10px]" style={{ color: C.textDim }}>· rec</span>}
+                  {entry.hasRecording && <span className="text-[10px]" style={{ color: C.textDim }}>· {t("lct.rec")}</span>}
                   <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>· {timeOnly(entry.at)}</span>
                 </div>
                 {entry.body && <p className="text-xs mt-0.5 truncate" style={{ color: C.textBody }}>{entry.body}</p>}
@@ -230,7 +230,7 @@ export default function LeadChatThread({ leadId, leadName, readOnly = false, hig
               <div className={`flex flex-col max-w-[78%] ${isOut ? "items-end" : "items-start"}`}>
                 {isWin && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold mb-1" style={{ color: C.green }}>
-                    <Trophy size={10} /> Winning reply
+                    <Trophy size={10} /> {t("lct.winningReply")}
                   </span>
                 )}
                 <div className="rounded-2xl px-4 py-2.5 shadow-sm"

@@ -146,7 +146,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
           <div className="mb-5 pb-4 border-b space-y-3" style={{ borderColor: C.border }}>
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-                Instantly API key
+                {t("pool.instantlyApiKey")}
               </label>
               <input
                 type="password"
@@ -228,7 +228,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
             className="text-xs font-medium px-3 py-2 rounded-lg border"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}
           >
-            Cancel
+            {t("pool.cancel")}
           </button>
           <button
             onClick={save}
@@ -237,7 +237,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
             style={{ backgroundColor: C.gold, color: "#04070d" }}
           >
             {saving && <Loader2 size={12} className="animate-spin" />}
-            Save ({selected.size})
+            {t("pool.saveN", { n: selected.size })}
           </button>
         </div>
       </div>

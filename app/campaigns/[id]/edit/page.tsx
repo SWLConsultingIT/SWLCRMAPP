@@ -811,7 +811,7 @@ export default function FlowEditorPage() {
                         style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}
                       />
                       <p className="text-[10px] mt-1 mb-2" style={{ color: C.textDim }}>
-                        Leave empty for AI-generated content, or write a template. Use {"{{first_name}}"}, {"{{company}}"}, {"{{role}}"} as placeholders.
+                        {t("ce.templateHintPre")} {"{{first_name}}"}, {"{{company}}"}, {"{{role}}"} {t("ce.templateHintPost")}
                       </p>
                       {step.channel !== "call" && (
                         <MessageAttachments

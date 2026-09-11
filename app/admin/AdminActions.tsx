@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 export default function AdminActions({ id, table }: { id: string; table: "icp_profiles" | "campaign_requests" }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
   const [result, setResult] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -64,13 +66,13 @@ export default function AdminActions({ id, table }: { id: string; table: "icp_pr
         className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
         style={{ backgroundColor: C.greenLight, color: C.green }}>
         {acting === "approved" ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-        Approve
+        {t("adm.approve")}
       </button>
       <button onClick={() => handleAction("rejected")} disabled={!!acting}
         className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
         style={{ backgroundColor: C.redLight, color: C.red }}>
         {acting === "rejected" ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
-        Reject
+        {t("adm.reject")}
       </button>
     </div>
   );

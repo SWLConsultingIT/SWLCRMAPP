@@ -175,7 +175,7 @@ export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
                 </div>
                 {playbook && (
                   <p className="text-[11px] mt-1 italic" style={{ color: C.textMuted }}>
-                    Raw error: <code style={{ fontFamily: "monospace" }}>{g.error}</code>
+                    {t("fs.rawError")} <code style={{ fontFamily: "monospace" }}>{g.error}</code>
                   </p>
                 )}
               </div>
@@ -185,7 +185,7 @@ export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
                 className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 shrink-0 transition-opacity hover:opacity-90 disabled:opacity-50"
                 style={{ backgroundColor: C.gold, color: "#04070d" }}>
                 {busy === g.error ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
-                Retry all {g.count}
+                {t("fs.retryAll", { n: g.count })}
               </button>
             </button>
             {isExpanded && playbook && (
@@ -203,7 +203,7 @@ export default function FailedSummary({ rows }: { rows: FailedRow[] }) {
             {isExpanded && !playbook && (
               <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: C.border }}>
                 <p className="text-xs italic" style={{ color: C.textMuted }}>
-                  No playbook entry for this error yet. Treat as one-off — retry once, escalate if it persists.
+                  {t("fs.noPlaybook")}
                 </p>
               </div>
             )}

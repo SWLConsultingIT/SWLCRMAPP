@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Phone, X } from "lucide-react";
 import { C } from "@/lib/design";
 import CallOutcomePrompt from "./CallOutcomePrompt";
@@ -55,6 +56,7 @@ export function useAircallPhone(): Ctx {
 const gold = "var(--brand, #c9a83a)";
 
 export default function AircallPhoneProvider({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sdkRef = useRef<AircallSDK | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -299,7 +301,7 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
                 <p style={{
                   margin: 0, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase",
                   letterSpacing: "0.22em", color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                }}>SWL Phone</p>
+                }}>{t("app.swlPhone")}</p>
                 <p style={{
                   margin: "2px 0 0", fontSize: 14, fontWeight: 600, color: "#fff",
                   letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -318,7 +320,7 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
                 type="button"
                 onClick={closePhone}
                 onMouseDown={(e) => e.stopPropagation()}
-                aria-label="Close phone"
+                aria-label={t("app.closePhone")}
                 style={{
                   width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
                   background: "color-mix(in srgb, white 8%, transparent)",
@@ -377,7 +379,7 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
             letterSpacing: "0.04em",
             borderTop: `1px solid color-mix(in srgb, var(--c-border, color-mix(in srgb, #6B7280 24%, transparent)) 60%, transparent)`,
           }}>
-            Audio runs through your browser · no desktop app required
+            {t("app.audioNote")}
           </div>
         </div>
       </div>
