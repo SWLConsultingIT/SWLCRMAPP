@@ -26,7 +26,8 @@ export type TimelineEvent = {
   title: string;
   body?: string | null;
   tone?: TimelineTone;
-  meta?: string | null;       // seller · duration · step, etc.
+  meta?: string | null;       // seller · duration · step · contact, etc.
+  contactId?: string;         // account-level timeline: which contact this event belongs to
 };
 
 const gold = "var(--brand, #c9a83a)";

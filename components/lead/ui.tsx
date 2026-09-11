@@ -102,3 +102,30 @@ export function EmptyLine({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+/** Chip cloud with progressive disclosure — shows top N, "+ K more" reveals the
+ *  rest. Essential-first / detail-on-demand for tech stacks, keywords, etc. */
+export function ChipCloud({ label, items, tone = "blue", initial = 10 }: {
+  label?: string; items: string[]; tone?: "blue" | "gold" | "neutral"; initial?: number;
+}) {
+  const [all, setAll] = useState(false);
+  if (!items?.length) return null;
+  const shown = all ? items : items.slice(0, initial);
+  const color = tone === "gold" ? "var(--brand, #c9a83a)" : tone === "neutral" ? C.textMuted : C.blue;
+  return (
+    <div>
+      {label && <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>{label}</p>}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        {shown.map((it, i) => (
+          <span key={`${it}-${i}`} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
+            style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`, color }}>{it}</span>
+        ))}
+        {items.length > initial && (
+          <button onClick={() => setAll(a => !a)} className="text-[11px] font-bold px-1.5" style={{ color: C.blue }}>
+            {all ? "− less" : `+ ${items.length - initial} more`}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

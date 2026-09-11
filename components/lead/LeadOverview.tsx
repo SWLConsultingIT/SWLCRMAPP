@@ -132,7 +132,7 @@ export default function LeadOverview({
         {/* Company snapshot */}
         <Card>
           <SectionHeader title={t("ld2.companySnapshot")} action={lead.company_name ? (
-            <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-[12px] font-bold inline-flex items-center gap-1 hover:underline" style={{ color: C.blue }}>
+            <Link href={`/companies/${encodeURIComponent(lead.company_name)}?fromLead=${leadId}`} className="text-[12px] font-bold inline-flex items-center gap-1 hover:underline" style={{ color: C.blue }}>
               {t("ld.viewCompany")} <ExternalLink size={12} />
             </Link>
           ) : undefined} />

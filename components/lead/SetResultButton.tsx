@@ -24,7 +24,7 @@ export default function SetResultButton({
     <>
       <button type="button" onClick={() => setOpen(true)}
         className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold border transition-colors hover:bg-black/[0.03] ${pad}`}
-        style={{ borderColor: `color-mix(in srgb, var(--brand,#c9a83a) 40%, ${C.border})`, color: C.textBody }}
+        style={{ borderColor: C.border, color: C.textBody }}
         title={t("ld2.setResult")}>
         <ClipboardCheck size={14} style={{ color: "var(--brand,#c9a83a)" }} /> {t("ld2.setResult")}
       </button>

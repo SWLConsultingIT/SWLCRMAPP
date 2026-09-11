@@ -1,673 +1,322 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
+import { selectByIds } from "@/lib/supabase-bulk";
+import { ACTIVITY_SELECT, bucketActivity } from "@/lib/activities";
 import { C } from "@/lib/design";
-import { getT } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/lib/i18n-server";
+import { intlTag } from "@/lib/i18n-locale";
+import { countryToTimeZone } from "@/lib/prospect-time";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowLeft, Globe, MapPin, Users as UsersIcon, Mail, Phone,
-  Star, ExternalLink, Share2,
-  Newspaper, BookOpen, Building2,
-} from "lucide-react";
-import { LinkedInIcon, InstagramIcon, TwitterXIcon, FacebookIcon, GoogleIcon, WebsiteIcon } from "@/components/SocialIcons";
+import { ArrowLeft } from "lucide-react";
 import CompanyTabs from "@/components/CompanyTabs";
-import ContactCards from "@/components/ContactCards";
-import ActivityTimeline from "@/components/ActivityTimeline";
-import CompanyHooksPanel from "@/components/CompanyHooksPanel";
-import { useLocale } from "@/lib/i18n";
+import CompanyHero from "@/components/company/CompanyHero";
+import AccountIntelligence from "@/components/company/AccountIntelligence";
+import CompanyOverview from "@/components/company/CompanyOverview";
+import CompanyContacts, { type ContactRow } from "@/components/company/CompanyContacts";
+import CompanyEngagement, { type CampaignRollup } from "@/components/company/CompanyEngagement";
+import CompanyResearch from "@/components/company/CompanyResearch";
+import type { TimelineEvent } from "@/components/lead/LeadTimeline";
+
+export const dynamic = "force-dynamic";
 
 const gold = "var(--brand, #c9a83a)";
-const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
-const goldGlow = "color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent)";
 
-// ── Data fetchers ──
-//
-// Encrypted tenants (`source='client'`, encryption_mode='standard') store
-// company_name inside encrypted_payload, so `.eq("company_name", ...)` against
-// the column returns 0 rows. We work around it by fetching all leads in the
-// tenant scope (RLS already narrows this) and filtering on the decrypted
-// value in memory.
-
+// ── Data ──
+// Encrypted tenants keep company_name inside encrypted_payload, so we fetch the
+// plaintext match + the tenant's encrypted rows and merge (RLS scopes both).
 async function getCompanyLeads(companyName: string) {
   const supabase = await getSupabaseServer();
-  // Filter by company at the DB level instead of fetching top-N-by-score and
-  // matching in memory. The old query ordered by lead_score and took the first
-  // page — capped at 1000 rows by PostgREST — so a company whose leads scored
-  // low (e.g. freshly imported leads with score 0) fell outside the page and
-  // its company detail 404'd. Two paths, both RLS-scoped to the tenant:
-  //   1) plaintext company_name (swl-source + any row with the column set)
-  //      filters directly in SQL.
-  //   2) client-source leads keep company_name inside encrypted_payload, so
-  //      they can't be filtered in SQL — fetch the tenant's encrypted rows and
-  //      match after decrypt.
   const [{ data: plain }, { data: enc }] = await Promise.all([
     supabase.from("leads").select("*").eq("company_name", companyName).limit(2000),
     supabase.from("leads").select("*").eq("source", "client").not("encrypted_payload", "is", null).limit(2000),
   ]);
-  const hydratedEnc = await hydrateClientLeads((enc ?? []) as Record<string, unknown>[] as Array<{ id?: string; source?: string | null; encrypted_payload?: unknown; company_bio_id?: string | null; company_name?: string | null }>);
-  const byId = new Map<string, Record<string, unknown>>();
-  for (const l of (plain ?? []) as Array<Record<string, unknown>>) byId.set(l.id as string, l);
-  for (const l of hydratedEnc as Array<Record<string, unknown>>) {
-    if ((l as { company_name?: string }).company_name === companyName) byId.set(l.id as string, l);
-  }
-  return [...byId.values()];
+  const hydratedEnc = await hydrateClientLeads((enc ?? []) as any);
+  const byId = new Map<string, any>();
+  for (const l of (plain ?? []) as any[]) byId.set(l.id, l);
+  for (const l of hydratedEnc as any[]) { if (l.company_name === companyName) byId.set(l.id, l); }
+  // Sort by score desc so the representative row (company-level fields, hooks)
+  // is the strongest lead, not an arbitrary first row.
+  return [...byId.values()].sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
 }
 
-async function getCampaignStats(leadIds: string[]) {
-  const supabase = await getSupabaseServer();
-  if (!leadIds.length) return { campaigns: 0, messages: 0, replies: 0 };
-  const [{ count: campaigns }, { count: messages }, { count: replies }] = await Promise.all([
-    supabase.from("campaigns").select("*", { count: "exact", head: true }).in("lead_id", leadIds),
-    supabase.from("campaign_messages").select("*", { count: "exact", head: true }).in("lead_id", leadIds).eq("status", "sent"),
-    supabase.from("lead_replies").select("*", { count: "exact", head: true }).in("lead_id", leadIds),
+async function getAngleContext(icpId: string | null, bioId: string | null) {
+  const s = await getSupabaseServer();
+  const [icpRes, bioRes] = await Promise.all([
+    icpId ? s.from("icp_profiles").select("profile_name, solutions_offered, pain_points").eq("id", icpId).maybeSingle() : Promise.resolve({ data: null } as any),
+    bioId ? s.from("company_bios").select("main_services, value_proposition").eq("id", bioId).maybeSingle() : Promise.resolve({ data: null } as any),
   ]);
-  return { campaigns: campaigns ?? 0, messages: messages ?? 0, replies: replies ?? 0 };
+  return { icp: icpRes.data as any, bio: bioRes.data as any };
 }
 
 // ── Helpers ──
+const STATUS_COLOR: Record<string, string> = {
+  new: C.blue, contacted: C.orange, connected: C.accent, responded: C.green,
+  qualified: C.green, proposal_sent: C.accent, closed_won: C.green, closed_lost: C.red, nurturing: C.textMuted,
+};
+const statusColor = (s: string) => STATUS_COLOR[s] ?? C.textMuted;
 
-function formatRevenue(val: number | null) {
-  if (!val) return null;
-  if (val >= 1_000_000) return `£${(val / 1_000_000).toFixed(val % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (val >= 1_000) return `£${(val / 1_000).toFixed(0)}K`;
-  return `£${val}`;
+function isValidLinkedInUrl(url?: string | null): boolean {
+  if (!url) return false;
+  try { const u = new URL(url); return /(^|\.)linkedin\.com$/i.test(u.hostname) && /\/in\//.test(u.pathname); } catch { return false; }
+}
+function urlify(v: string | null | undefined): string | null {
+  if (!v) return null;
+  return String(v).startsWith("http") ? String(v) : `https://${v}`;
+}
+function fmtRel(iso: string | null, tag: string): string | null {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms)) return null;
+  const m = Math.floor(ms / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d < 30) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString(tag, { day: "numeric", month: "short" });
 }
 
-function StarRating({ rating }: { rating: number }) {
-  const full = Math.floor(rating);
-  const half = rating - full >= 0.3;
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star key={i} size={14} fill={i < full ? "#F59E0B" : i === full && half ? "#F59E0B" : "none"}
-          style={{ color: i < full || (i === full && half) ? "#F59E0B" : "#D1D5DB" }} />
-      ))}
-      <span className="text-xs font-medium ml-1" style={{ color: C.textBody }}>{rating}</span>
-    </div>
-  );
-}
-
-function scoreBadge(score: number | null, priority: boolean) {
-  if (priority || (score && score >= 80)) return { label: "HOT", color: C.hot, bg: C.hotBg };
-  if (score && score >= 50) return { label: "WARM", color: C.warm, bg: C.warmBg };
-  return { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
-}
-
-// ── Page ──
-
-export default async function CompanyDetailPage({ params }: { params: Promise<{ name: string }> }) {
-  const supabase = await getSupabaseServer();
-  const { name } = await params;
+export default async function CompanyDetailPage({ params, searchParams }: {
+  params: Promise<{ name: string }>;
+  searchParams: Promise<{ fromLead?: string; tab?: string }>;
+}) {
+  const [{ name }, sp, t, locale] = await Promise.all([params, searchParams, getT(), getServerLocale()]);
   const companyName = decodeURIComponent(name);
+  const tag = intlTag(locale);
 
-  const [allContacts, t] = await Promise.all([
-    getCompanyLeads(companyName),
-    getT(),
-  ]);
+  const allContacts = await getCompanyLeads(companyName);
   if (!allContacts.length) notFound();
-  // Use the highest-scoring lead as the source of company-level fields.
-  const lead = allContacts[0] as Record<string, any>;
-
-  const contactIds = allContacts.map((c: any) => c.id);
-  const stats = await getCampaignStats(contactIds);
-
-  const technologies: string[] = lead.organization_technologies ?? [];
-  const keywords = lead.keywords ? lead.keywords.split(",").map((k: string) => k.trim()).filter(Boolean) : [];
-
-  const score = scoreBadge(lead.lead_score, lead.is_priority);
-
-  // Count positive replies across all contacts
-  const { data: allReplies } = await supabase
-    .from("lead_replies")
-    .select("classification")
-    .in("lead_id", contactIds)
-    .in("classification", ["positive", "meeting_intent"]);
-  const positiveReplies = allReplies?.length ?? 0;
-
-  // Build activity timeline from all contacts
-  const contactNameMap: Record<string, string> = {};
-  allContacts.forEach((c: any) => {
-    contactNameMap[c.id] = `${c.primary_first_name ?? ""} ${c.primary_last_name ?? ""}`.trim() || c.company_name || "Unknown";
-  });
-
-  const { data: allCampaigns } = await supabase
-    .from("campaigns")
-    .select("id, lead_id, name, channel, status, started_at, sellers(name)")
-    .in("lead_id", contactIds)
-    .order("started_at", { ascending: false });
-
-  const campaignIds = (allCampaigns ?? []).map((c: any) => c.id);
-
-  const [{ data: allMessages }, { data: allReplyData }] = await Promise.all([
-    campaignIds.length > 0
-      ? supabase.from("campaign_messages").select("id, campaign_id, lead_id, step_number, channel, content, status, sent_at")
-          .in("campaign_id", campaignIds).eq("status", "sent").order("sent_at", { ascending: false })
-      : { data: [] },
-    supabase.from("lead_replies").select("id, lead_id, campaign_id, channel, reply_text, received_at, classification, ai_confidence, requires_human_review")
-      .in("lead_id", contactIds).order("received_at", { ascending: false }),
-  ]);
-
-  type ActivityItem = {
-    id: string; type: "message_sent" | "reply" | "campaign_start" | "lead_created";
-    contactName: string; channel: string; content: string | null; timestamp: string;
-    stepNumber?: number; classification?: string; aiConfidence?: number; requiresReview?: boolean; sellerName?: string;
+  const lead = allContacts[0] as any;
+  const bioId = lead.company_bio_id ?? null;
+  const contactIds: string[] = allContacts.map((c: any) => c.id);
+  const nameOf = (id: string) => {
+    const c = allContacts.find((x: any) => x.id === id);
+    return c ? (`${c.primary_first_name ?? ""} ${c.primary_last_name ?? ""}`.trim() || c.company_name || "Unknown") : "Unknown";
   };
 
-  const activityItems: ActivityItem[] = [];
+  // Return-to-lead: only honour ?fromLead when it's one of THIS company's
+  // contacts the viewer can see (RLS already scoped allContacts to the tenant),
+  // so no cross-tenant / cross-company back-link is ever shown.
+  const scope = await getUserScope();
+  const fromLeadId = sp.fromLead && contactIds.includes(sp.fromLead) ? sp.fromLead : null;
+  const fromLeadName = fromLeadId ? nameOf(fromLeadId) : null;
 
-  (allMessages ?? []).forEach((m: any) => {
-    const camp = (allCampaigns ?? []).find((c: any) => c.id === m.campaign_id);
-    activityItems.push({
-      id: m.id, type: "message_sent",
-      contactName: contactNameMap[m.lead_id ?? camp?.lead_id] ?? "Unknown",
-      channel: m.channel ?? camp?.channel ?? "email",
-      content: m.content?.substring(0, 100) ?? null,
-      timestamp: m.sent_at, stepNumber: m.step_number,
-    });
-  });
+  const supabase = await getSupabaseServer();
 
-  (allReplyData ?? []).forEach((r: any) => {
-    activityItems.push({
-      id: r.id, type: "reply",
-      contactName: contactNameMap[r.lead_id] ?? "Unknown",
-      channel: r.channel ?? "email",
-      content: r.reply_text, timestamp: r.received_at,
-      classification: r.classification, aiConfidence: r.ai_confidence,
-      requiresReview: r.requires_human_review,
-    });
-  });
+  // Batched, chunked+paged reads (no N+1, no 1000-row truncation).
+  const [activities, messages, replies, calls, campaigns, angle] = await Promise.all([
+    selectByIds<any>("activities", contactIds, (chunk) =>
+      supabase.from("activities").select(ACTIVITY_SELECT).in("lead_id", chunk).order("due_at", { ascending: true, nullsFirst: false }) as any),
+    selectByIds<any>("campaign_messages", contactIds, (chunk) =>
+      supabase.from("campaign_messages").select("id, campaign_id, lead_id, channel, content, status, sent_at").in("lead_id", chunk).eq("status", "sent").order("sent_at", { ascending: false }) as any),
+    selectByIds<any>("lead_replies", contactIds, (chunk) =>
+      supabase.from("lead_replies").select("id, lead_id, campaign_id, channel, reply_text, received_at, classification").in("lead_id", chunk).order("received_at", { ascending: false }) as any),
+    selectByIds<any>("calls", contactIds, (chunk) =>
+      supabase.from("calls").select("id, lead_id, started_at, duration, classification, ai_summary, notes, aircall_call_id").in("lead_id", chunk).order("started_at", { ascending: false }) as any),
+    selectByIds<any>("campaigns", contactIds, (chunk) =>
+      supabase.from("campaigns").select("id, lead_id, name, channel, status, started_at, sellers(name)").in("lead_id", chunk).order("started_at", { ascending: false }) as any),
+    getAngleContext(lead.icp_profile_id ?? null, bioId),
+  ]);
 
-  (allCampaigns ?? []).forEach((c: any) => {
-    if (c.started_at) {
-      activityItems.push({
-        id: `camp-${c.id}`, type: "campaign_start",
-        contactName: contactNameMap[c.lead_id] ?? "Unknown",
-        channel: c.channel ?? "email", content: c.name,
-        timestamp: c.started_at, sellerName: c.sellers?.name,
-      });
-    }
-  });
+  const visibleCalls = calls.filter((c: any) => c.aircall_call_id != null || c.classification != null);
+  const positive = replies.filter((r: any) => ["positive", "meeting_intent"].includes(r.classification ?? "")).length;
 
-  activityItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-  const teamNotes: { author: string; text: string; time: string }[] = [];
-  if (lead.seller_notes) {
-    teamNotes.push({ author: lead.assigned_seller ?? "Team", text: lead.seller_notes, time: "Recently" });
+  // Per-contact grouping (single JS pass each — no per-contact query).
+  const nextByLead = new Map<string, any>();
+  for (const a of activities) { // activities already ordered by due_at asc
+    if (a.status !== "pending") continue;
+    if (!nextByLead.has(a.lead_id)) nextByLead.set(a.lead_id, a);
   }
+  const lastByLead = new Map<string, number>();
+  const bump = (id: string | null, iso: string | null) => {
+    if (!id || !iso) return; const ts = Date.parse(iso); if (Number.isNaN(ts)) return;
+    if (!lastByLead.has(id) || ts > (lastByLead.get(id) as number)) lastByLead.set(id, ts);
+  };
+  for (const m of messages) bump(m.lead_id, m.sent_at);
+  for (const r of replies) bump(r.lead_id, r.received_at);
+  for (const c of visibleCalls) bump(c.lead_id, c.started_at);
+
+  // Contacts table rows (sorted by score desc = allContacts order).
+  const contactRows: ContactRow[] = allContacts.map((c: any) => {
+    const na = nextByLead.get(c.id);
+    let nextAction: ContactRow["nextAction"] = null;
+    if (na) {
+      const b = bucketActivity(na);
+      const tone = b === "overdue" ? "overdue" : b === "today" ? "today" : "upcoming";
+      const due = na.due_at ? new Date(na.due_at).toLocaleDateString(tag, { day: "2-digit", month: "short" }) : "";
+      nextAction = { label: `${na.title}${due ? ` · ${due}` : ""}`, tone };
+    }
+    const lastTs = lastByLead.get(c.id) ?? null;
+    return {
+      id: c.id,
+      name: `${c.primary_first_name ?? ""} ${c.primary_last_name ?? ""}`.trim() || c.company_name || "Unknown",
+      role: c.primary_title_role ?? null,
+      seniority: c.primary_seniority ? String(c.primary_seniority).replace(/_/g, " ") : null,
+      seller: c.assigned_seller ?? null,
+      lifecycle: t(`ld.status.${c.status === "proposal_sent" ? "proposalSent" : c.status === "closed_won" ? "won" : c.status === "closed_lost" ? "lost" : c.status}`) || c.status,
+      lifecycleColor: statusColor(c.status),
+      nextAction,
+      lastInteraction: lastTs ? fmtRel(new Date(lastTs).toISOString(), tag) : null,
+      channels: {
+        linkedin: isValidLinkedInUrl(c.primary_linkedin_url) && c.allow_linkedin !== false,
+        email: !!c.primary_work_email && c.allow_email !== false,
+        phone: !!c.primary_phone && c.allow_call !== false,
+      },
+    };
+  });
+
+  // Campaign rollups grouped by flow name.
+  const campByName = new Map<string, any[]>();
+  for (const c of campaigns) { const k = c.name ?? "—"; (campByName.get(k) ?? campByName.set(k, []).get(k)!).push(c); }
+  const campaignRollups: CampaignRollup[] = [...campByName.entries()].map(([nm, rows]) => {
+    const ids = new Set(rows.map(r => r.id));
+    const leadIds = new Set(rows.map(r => r.lead_id));
+    const statuses = rows.map(r => r.status);
+    const status = statuses.includes("active") ? "active" : statuses.includes("paused") ? "paused" : statuses[0] ?? "—";
+    const msgs = messages.filter((m: any) => ids.has(m.campaign_id)).length;
+    const reps = replies.filter((r: any) => leadIds.has(r.lead_id)).length;
+    const pos = replies.filter((r: any) => leadIds.has(r.lead_id) && ["positive", "meeting_intent"].includes(r.classification ?? "")).length;
+    const seller = rows.find(r => r.sellers?.name)?.sellers?.name ?? null;
+    return { id: rows[0].id, name: nm, status, contacts: leadIds.size, messages: msgs, replies: reps, positive: pos, seller };
+  }).sort((a, b) => (a.status === "active" ? -1 : 1) - (b.status === "active" ? -1 : 1));
+  const activeCampaignsCount = campaignRollups.filter(c => c.status === "active" || c.status === "paused").length;
+
+  // Account-level engagement timeline (each event tagged with its contact).
+  const events: TimelineEvent[] = [];
+  const chLabels: Record<string, string> = { linkedin: t("chan.linkedin"), email: t("chan.email"), call: t("chan.call"), whatsapp: t("chan.whatsapp"), sms: t("chan.sms") };
+  for (const m of messages) {
+    if (!m.sent_at) continue;
+    const ch = (m.channel || "email") as string;
+    events.push({ id: `m-${m.id}`, kind: "message", at: m.sent_at, channel: ch, title: `${chLabels[ch.toLowerCase()] ?? ch} ${t("ld2.tl.sent")}`, body: (m.content ?? "").slice(0, 200) || null, meta: nameOf(m.lead_id), contactId: m.lead_id });
+  }
+  for (const r of replies) {
+    if (!r.received_at || (r.channel || "") === "call") continue;
+    const cls = r.classification || "";
+    const tone = ["positive", "meeting_intent"].includes(cls) ? "positive" : ["negative", "unsubscribe", "spam"].includes(cls) ? "negative" : "neutral";
+    events.push({ id: `r-${r.id}`, kind: "reply", at: r.received_at, channel: r.channel || "email", title: t("ld2.tl.reply"), body: r.reply_text, tone, meta: `${nameOf(r.lead_id)}${cls ? ` · ${cls}` : ""}`, contactId: r.lead_id });
+  }
+  for (const c of visibleCalls) {
+    if (!c.started_at) continue;
+    const cls = (c.classification || "").toLowerCase();
+    const tone = /positive|interest|qualified|meeting/.test(cls) ? "positive" : /callback|call back|follow/.test(cls) ? "warning" : /not|negative|wrong|no answer|voicemail/.test(cls) ? "negative" : "neutral";
+    events.push({ id: `c-${c.id}`, kind: "call", at: c.started_at, channel: "call", title: t("ld2.tl.call"), body: c.classification || c.ai_summary || c.notes || null, tone, meta: nameOf(c.lead_id), contactId: c.lead_id });
+  }
+  for (const c of campaigns) {
+    if (c.started_at) events.push({ id: `camp-${c.id}`, kind: "campaign", at: c.started_at, title: `${t("ld2.tl.campaignStarted")} · ${c.name ?? ""}`.trim(), meta: nameOf(c.lead_id), contactId: c.lead_id });
+  }
+  for (const a of activities) {
+    const at = a.due_at || a.completed_at || a.created_at;
+    if (!at) continue;
+    const isCb = a.source === "call_callback";
+    events.push({ id: `a-${a.id}`, kind: "activity", at, channel: a.type === "call" ? "call" : null, title: a.title, body: a.description, tone: a.status === "completed" ? "neutral" : isCb ? "warning" : "info", meta: `${nameOf(a.lead_id)}${isCb ? " · callback" : ""}`, contactId: a.lead_id });
+  }
+
+  // Account intelligence facts + signals (derived; no invented data).
+  const enr = (lead.enrichment as any) ?? {};
+  const scrape = (lead.company_scrape as any) ?? null;
+  const whatTheyDo = scrape?.summary || lead.organization_description || lead.website_summary || null;
+  const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
+  const whyMatters = [
+    `${contactIds.length} ${contactIds.length === 1 ? t("co.contactSingular") : t("ld2.contacts")}`,
+    activeCampaignsCount ? `${activeCampaignsCount} ${t("co.activeCampaigns")}` : null,
+    positive ? `${positive} ${t("ld2.metric.positive").toLowerCase()}` : null,
+  ].filter(Boolean).join(" · ");
+  const facts = [
+    { label: t("lead.company.whatTheyDo"), text: whatTheyDo ? String(whatTheyDo).slice(0, 400) : null },
+    { label: t("co.whyMatters"), text: whyMatters || null },
+    { label: t("brief.point.pain"), text: angle.icp?.pain_points ? String(angle.icp.pain_points).slice(0, 300) : null },
+    { label: t("co.suggestedAngle"), text: ourPlay ? String(ourPlay).slice(0, 300) : null },
+  ];
+  const signals: string[] = [];
+  if (lead.recent_website_news) signals.push(String(lead.recent_website_news).slice(0, 160));
+  if (replies.length) signals.push(`${replies.length} ${replies.length === 1 ? t("co.replyInAccount") : t("co.repliesInAccount")}`);
+  if (lead.recent_linkedin_post) signals.push(t("co.engagingLinkedin"));
+
+  // Overview data
+  const location = [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null;
+  const websiteUrl = urlify(lead.company_website);
+  const presence = [
+    websiteUrl ? { label: t("co.website"), href: websiteUrl, kind: "website" as const } : null,
+    lead.company_linkedin ? { label: "LinkedIn", href: urlify(lead.company_linkedin)!, kind: "linkedin" as const } : null,
+    lead.company_blog ? { label: t("ld.companyBlog"), href: urlify(lead.company_blog)!, kind: "blog" as const } : null,
+    lead.company_instagram ? { label: "Instagram", href: `https://instagram.com/${String(lead.company_instagram).replace(/^@/, "")}`, kind: "instagram" as const } : null,
+  ].filter(Boolean) as { label: string; href: string; kind: "website" | "linkedin" | "blog" | "instagram" }[];
+  const revenueStr = lead.annual_revenue ? `$${lead.annual_revenue}` : null;
+  const employees = lead.employees ?? lead.company_employee_count ?? null;
+  const icp = typeof lead.lead_score === "number" ? lead.lead_score : null;
+  const milestone = campaignRollups.find(c => c.status === "active")
+    ? t("co.milestoneActive", { name: campaignRollups.find(c => c.status === "active")!.name })
+    : positive ? t("co.milestonePositive") : null;
+
+  // Research
+  const technologies: string[] = (Array.isArray(lead.organization_technologies) ? lead.organization_technologies : (Array.isArray(enr.technologies) ? enr.technologies : [])) as string[];
+  const keywords: string[] = lead.keywords ? String(lead.keywords).split(",").map((k: string) => k.trim()).filter(Boolean) : [];
+  const websiteServices: string[] = lead.website_summary ? String(lead.website_summary).split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+  const social = [
+    lead.company_posts_content ? { platform: t("ld.companyPost"), content: String(lead.company_posts_content).slice(0, 400) } : null,
+    lead.recent_linkedin_post ? { platform: "LinkedIn", content: String(lead.recent_linkedin_post).slice(0, 400) } : null,
+  ].filter(Boolean) as { platform: string; content: string }[];
+  const sourceMeta = [
+    lead.source_universe ? { label: t("co.sourceUniverse"), value: String(lead.source_universe) } : null,
+    lead.company_founded_year ? { label: t("co.founded"), value: String(lead.company_founded_year) } : null,
+    lead.company_sub_industry ? { label: t("lead.company.industry"), value: String(lead.company_sub_industry) } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  const contactsForFilter = allContacts.map((c: any) => ({ id: c.id, name: `${c.primary_first_name ?? ""} ${c.primary_last_name ?? ""}`.trim() || "—" }));
 
   return (
     <div className="p-6 w-full fade-in">
-
-      {/* Breadcrumb — back to the Companies sub-tab on /leads. The
-          ?view=companies param lands the operator on the Companies grid
-          (where this detail was clicked from) instead of the default
-          Leads sub-tab. */}
+      {/* Return-to-lead / breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/leads?view=companies" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> {t("cmd.hint.company")}
-        </Link>
+        {fromLeadId ? (
+          <Link href={`/leads/${fromLeadId}`} className="hover:underline flex items-center gap-1 font-semibold" style={{ color: C.blue }}>
+            <ArrowLeft size={13} /> {t("co.backToLead", { name: fromLeadName ?? "" })}
+          </Link>
+        ) : (
+          <Link href="/leads?view=companies" className="hover:underline flex items-center gap-1">
+            <ArrowLeft size={12} /> {t("cmd.hint.company")}
+          </Link>
+        )}
         <span>/</span>
         <span style={{ color: C.textBody }}>{companyName}</span>
       </div>
 
-      {/* ═══ COMPANY HEADER ═══ */}
-      <div className="rounded-xl border mb-0" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <CompanyHero
+        name={companyName}
+        industry={[lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null}
+        location={location} website={websiteUrl}
+        metrics={{ employees, revenue: revenueStr, contacts: contactIds.length, activeCampaigns: activeCampaignsCount, icp, messages: messages.length, replies: replies.length, positive }}
+      />
 
-        {/* Top row: Logo + Name + Badges */}
-        <div className="p-6 flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
-            {lead.organization_logo_url ? (
-              <img src={lead.organization_logo_url} alt="" className="w-16 h-16 rounded-xl object-cover border" style={{ borderColor: C.border }} />
-            ) : (
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shrink-0"
-                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
-                {(companyName ?? "?")[0].toUpperCase()}
-              </div>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>
-                {companyName}
-              </h1>
-              <div className="flex items-center gap-2 mt-1.5">
-                {lead.company_industry && (
-                  <span className="flex items-center gap-1.5 text-sm" style={{ color: C.textBody }}>
-                    <Building2 size={13} style={{ color: gold }} />
-                    {lead.company_industry}{lead.company_sub_industry ? ` · ${lead.company_sub_industry}` : ""}
-                  </span>
-                )}
-                <span className="text-sm" style={{ color: C.textDim }}>·</span>
-                {(lead.company_city || lead.company_country) && (
-                  <span className="flex items-center gap-1 text-sm" style={{ color: C.textMuted }}>
-                    <MapPin size={12} /> {[lead.company_city, lead.company_country].filter(Boolean).join(", ")}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div />
-        </div>
+      <AccountIntelligence facts={facts} signals={signals} hookLeadId={lead.id ?? null} companyName={companyName} />
 
-        {/* Divider */}
-        <div className="border-t" style={{ borderColor: C.border }} />
-
-        {/* Metrics row */}
-        <div className="px-6 py-4 grid grid-cols-4 gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.icpScore")}</p>
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-8 rounded-full" style={{ backgroundColor: score.color }} />
-              <span className="text-xs font-bold px-2 py-1 rounded"
-                style={{ color: score.color, backgroundColor: score.bg }}>
-                {score.label}
-              </span>
-              {lead.lead_score > 0 && (
-                <span className="text-lg font-bold" style={{ color: C.textPrimary }}>{lead.lead_score}/100</span>
-              )}
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.employees")}</p>
-            <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{lead.employees ? `${lead.employees}+` : "—"}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.annualRevenue")}</p>
-            <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{formatRevenue(Number(lead.annual_revenue)) ?? "—"}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.currentActivity")}</p>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stats.campaigns > 0 ? C.green : C.textDim }} />
-              <p className="text-lg font-bold" style={{ color: C.textPrimary }}>
-                {stats.campaigns === 0
-                  ? t("companies.hero.noCampaigns")
-                  : stats.campaigns === 1
-                    ? t("companies.hero.activeCampaign")
-                    : t("companies.hero.activeCampaigns").replace("{n}", String(stats.campaigns))}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Outreach stats bar */}
-        <div className="mx-6 mb-4 px-5 py-3 rounded-lg flex items-center gap-8" style={{ backgroundColor: goldLight, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)` }}>
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold" style={{ color: C.textPrimary }}>{stats.messages}</span>
-            <span className="text-sm" style={{ color: C.textMuted }}>{t("companies.hero.messagesSent")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold" style={{ color: C.textPrimary }}>{stats.replies}</span>
-            <span className="text-sm" style={{ color: C.textMuted }}>{t("companies.hero.replies")}</span>
-          </div>
-          {stats.replies > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold" style={{ color: C.green }}>
-                {positiveReplies} ({stats.replies > 0 ? Math.round((positiveReplies / stats.replies) * 100) : 0}%)
-              </span>
-              <span className="text-sm" style={{ color: C.textMuted }}>{t("companies.hero.positiveSentiment")}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Tabs */}
+      <section className="reveal rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: C.shadow }}>
         <CompanyTabs tabs={[
-          { label: t("companies.tab.overview") },
-          { label: t("companies.tab.contacts"), count: allContacts.length },
-          { label: t("companies.tab.activity") },
+          { label: t("ld2.tab.overview") },
+          { label: t("ld.tab.contacts"), count: contactIds.length || undefined },
+          { label: t("ld2.tab.engagement") },
+          { label: t("ld2.tab.research") },
         ]}>
-
-          {/* ═══ TAB 0: OVERVIEW ═══ */}
-          <div className="space-y-6">
-
-            {/* Call hooks — distills the rest of the enrichment into
-                3–5 ready-to-read openers so sellers stop spending 20+
-                min reading the portfolio site looking for an angle. */}
-            <CompanyHooksPanel leadId={lead?.id ?? null} companyName={companyName} />
-
-            {/* Row 1: Company Profile + Location & Contact */}
-            <div className="grid grid-cols-2 gap-6">
-
-              {/* Company Profile */}
-              <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("cmp.profile")}</h2>
-                  {lead.google_reviews_rating && <StarRating rating={Number(lead.google_reviews_rating)} />}
-                </div>
-
-                {lead.organization_tagline && (
-                  <p className="text-sm italic mb-3" style={{ color: C.accent }}>{lead.organization_tagline}</p>
-                )}
-
-                {(lead.organization_description || lead.organization_short_desc) && (
-                  <p className="text-sm leading-relaxed mb-4" style={{ color: C.textBody }}>
-                    {lead.organization_short_desc ?? lead.organization_description}
-                  </p>
-                )}
-
-                {lead.company_mission && (
-                  <div className="rounded-lg border p-3 mb-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("cmp.ourMission")}</p>
-                    <p className="text-sm italic" style={{ color: C.textBody }}>"{lead.company_mission}"</p>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-6 pt-3 border-t" style={{ borderColor: C.border }}>
-                  {lead.employees && (
-                    <div>
-                      <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>{t("cmp.employees")}</p>
-                      <p className="text-lg font-bold" style={{ color: C.textPrimary }}>{lead.employees}</p>
-                    </div>
-                  )}
-                  {lead.annual_revenue && (
-                    <div>
-                      <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>{t("cmp.revenue")}</p>
-                      <p className="text-lg font-bold" style={{ color: C.textPrimary }}>{formatRevenue(Number(lead.annual_revenue))}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Location & Contact */}
-              <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("cmp.locationContact")}</h2>
-
-                {(() => {
-                  const locationQuery = [lead.company_address_1, lead.company_city, lead.company_state, lead.company_country].filter(Boolean).join(", ");
-                  return locationQuery ? (
-                    <div className="rounded-lg h-36 mb-4 overflow-hidden border" style={{ borderColor: C.border }}>
-                      <iframe
-                        width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://maps.google.com/maps?q=${encodeURIComponent(locationQuery)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                        title={t("cmp.locationMap")}
-                      />
-                    </div>
-                  ) : null;
-                })()}
-
-                {(lead.company_address_1 || lead.company_city) && (
-                  <div className="flex items-start gap-2 mb-3">
-                    <MapPin size={14} className="shrink-0 mt-0.5" style={{ color: C.textMuted }} />
-                    <p className="text-sm" style={{ color: C.textBody }}>
-                      {[lead.company_address_1, lead.company_address_2, lead.company_cp, lead.company_city, lead.company_state, lead.company_country].filter(Boolean).join(", ")}
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2.5 mt-4">
-                  {lead.company_phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone size={14} style={{ color: C.phone }} />
-                      <span className="text-sm" style={{ color: C.textBody }}>{lead.company_phone}</span>
-                    </div>
-                  )}
-                  {lead.company_email && (
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} style={{ color: C.email }} />
-                      <a href={`mailto:${lead.company_email}`} className="text-sm hover:underline" style={{ color: C.textBody }}>{lead.company_email}</a>
-                    </div>
-                  )}
-                  {lead.company_website && (
-                    <div className="flex items-center gap-2">
-                      <Globe size={14} style={{ color: C.accent }} />
-                      <a href={lead.company_website} target="_blank" rel="noopener noreferrer"
-                        className="text-sm font-medium hover:underline" style={{ color: C.accent }}>
-                        {lead.company_website.replace(/^https?:\/\//, "")}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Row 2: Online Presence + Technologies & Keywords + Industry Intel */}
-            <div className="grid grid-cols-3 gap-6">
-
-              {/* Online Presence */}
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: gold }}>{t("cmp.onlinePresence")}</h3>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {[
-                    { label: "Website",   icon: <WebsiteIcon size={22} />,   url: lead.company_website,          activeBg: "#0D9488", activeText: "#FFFFFF" },
-                    { label: "LinkedIn",  icon: <LinkedInIcon size={22} />,   url: lead.company_linkedin,         activeBg: "#0A66C2", activeText: "#FFFFFF" },
-                    { label: "Instagram", icon: <InstagramIcon size={22} />,  url: lead.company_instagram ? `https://instagram.com/${lead.company_instagram}` : null, activeBg: "#E4405F", activeText: "#FFFFFF" },
-                    { label: "GMB",       icon: <GoogleIcon size={22} />,     url: lead.company_google_mybusiness, activeBg: "#FBBC05", activeText: "#1F2937" },
-                    { label: "Twitter",   icon: <TwitterXIcon size={22} />,   url: lead.twitter_url,              activeBg: "#14171A", activeText: "#FFFFFF" },
-                    { label: "Facebook",  icon: <FacebookIcon size={22} />,   url: lead.facebook_url,             activeBg: "#1877F2", activeText: "#FFFFFF" },
-                  ].map(({ label, icon, url, activeBg, activeText }) => {
-                    const hasUrl = !!url;
-                    return hasUrl ? (
-                      <a key={label} href={url!} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-3 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-90 hover:shadow-md cursor-pointer"
-                        style={{ backgroundColor: activeBg }}>
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                          <div className="[&_svg]:fill-white [&_svg_path]:fill-white [&_svg_circle]:stroke-white [&_svg_line]:stroke-white [&_svg_path]:stroke-none [&_svg]:stroke-none">
-                            {icon}
-                          </div>
-                        </div>
-                        <span className="text-sm font-semibold" style={{ color: activeText }}>{label}</span>
-                      </a>
-                    ) : (
-                      <div key={label}
-                        className="flex items-center gap-3 px-3 py-3 rounded-lg border"
-                        style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 grayscale opacity-30" style={{ backgroundColor: "white" }}>
-                          {icon}
-                        </div>
-                        <span className="text-sm font-medium" style={{ color: "#D1D5DB" }}>{label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Technologies & Keywords */}
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>{t("cmp.techKeywords")}</h3>
-
-                {technologies.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {technologies.map((tech: string) => (
-                      <span key={tech} className="text-xs font-medium px-2 py-1 rounded-md"
-                        style={{ backgroundColor: C.accentLight, color: C.accent }}>
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {keywords.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {keywords.map((kw: string) => (
-                      <span key={kw} className="text-xs px-2 py-1 rounded-full border"
-                        style={{ borderColor: C.accent, color: C.accent }}>
-                        {kw}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {lead.similar_organization && (
-                  <p className="text-xs mt-3 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
-                    Similar to: <span className="font-medium" style={{ color: C.accent }}>{lead.similar_organization}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Industry Intel */}
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>{t("cmp.industryIntel")}</h3>
-
-                <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>
-                  {lead.company_industry ?? "—"}
-                </p>
-                {lead.company_sub_industry && (
-                  <p className="text-xs uppercase mb-3" style={{ color: C.textMuted }}>{lead.company_sub_industry}</p>
-                )}
-
-                {lead.industry_trends && (
-                  <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: C.cardHov }}>
-                    <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>{lead.industry_trends}</p>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-                  {lead.source_tool && (
-                    <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textBody }}>
-                      {lead.source_tool}
-                    </span>
-                  )}
-                  {lead.source_universe && (
-                    <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textBody }}>
-                      {lead.source_universe}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Row 3: Latest Content & News + Company Social Activity */}
-            <div className="grid grid-cols-5 gap-6">
-
-              {/* Latest Content & News (3 cols) */}
-              <div className="col-span-3 rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("cmp.latestContent")}</h2>
-
-                <div className="grid grid-cols-2 gap-5">
-                  {lead.recent_website_news && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Newspaper size={12} style={{ color: C.orange }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("cmp.websiteNews")}</span>
-                      </div>
-                      <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>
-                        {lead.recent_website_news.substring(0, 80)}
-                      </p>
-                      <p className="text-xs line-clamp-2" style={{ color: C.textMuted }}>
-                        {lead.recent_website_news.substring(80)}
-                      </p>
-                    </div>
-                  )}
-
-                  {lead.company_blog && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <BookOpen size={12} style={{ color: C.blue }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("ld.blog")}</span>
-                      </div>
-                      <p className="text-sm line-clamp-3" style={{ color: C.textBody }}>{lead.company_blog}</p>
-                    </div>
-                  )}
-
-                  {(lead.company_linkedin_post || lead.recent_linkedin_post) && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Share2 size={12} style={{ color: "#0A66C2" }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("cmp.linkedinPost")}</span>
-                      </div>
-                      <p className="text-sm line-clamp-3" style={{ color: C.textBody }}>
-                        {lead.recent_linkedin_post ?? lead.company_linkedin_post}
-                      </p>
-                    </div>
-                  )}
-
-                  {lead.website_summary && (
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Globe size={12} style={{ color: C.accent }} />
-                        <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>{t("cmp.websiteSummary")}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {lead.website_summary.split(",").slice(0, 5).map((w: string, i: number) => (
-                          <span key={i} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textBody }}>
-                            {w.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {!lead.recent_website_news && !lead.company_blog && !lead.company_linkedin_post && !lead.recent_linkedin_post && !lead.website_summary && (
-                    <div className="col-span-2 py-6 text-center">
-                      <p className="text-sm" style={{ color: C.textDim }}>{t("cmp.noContent")}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Company Social Activity (2 cols) */}
-              <div className="col-span-2 rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("cmp.socialActivity")}</h3>
-
-                <div className="space-y-4">
-                  {(lead.recent_ig_post || lead.instagram_last_posts) && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#FDF2F8" }}>
-                        <InstagramIcon size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold" style={{ color: C.textMuted }}>Instagram</p>
-                        <p className="text-sm line-clamp-2 mt-0.5" style={{ color: C.textBody }}>
-                          {lead.recent_ig_post ?? lead.instagram_last_posts}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {lead.twitter_last_posts && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#F8FAFC" }}>
-                        <TwitterXIcon size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold" style={{ color: C.textMuted }}>Twitter / X</p>
-                        <p className="text-sm line-clamp-2 mt-0.5" style={{ color: C.textBody }}>{lead.twitter_last_posts}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {lead.company_posts_content && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentLight }}>
-                        <Newspaper size={16} style={{ color: C.accent }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold" style={{ color: C.textMuted }}>{t("cmp.recentPosts")}</p>
-                        <p className="text-sm line-clamp-2 mt-0.5" style={{ color: C.textBody }}>{lead.company_posts_content}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {!lead.recent_ig_post && !lead.instagram_last_posts && !lead.twitter_last_posts && !lead.company_posts_content && (
-                    <p className="text-sm text-center py-4" style={{ color: C.textDim }}>{t("cmp.noSocial")}</p>
-                  )}
-                </div>
-              </div>
-            </div>
+          <div className="px-4 sm:px-6 pb-6 pt-2">
+            <CompanyOverview
+              essentials={{ subIndustry: lead.company_sub_industry ?? null, founded: lead.company_founded_year ? String(lead.company_founded_year) : null, hq: location, websiteLabel: lead.company_website ?? null, websiteUrl, linkedinUrl: urlify(lead.company_linkedin), icp }}
+              commercial={{ campaigns: campaignRollups.map(c => ({ id: c.id, name: c.name, status: c.status, contacts: c.contacts, seller: c.seller })), messages: messages.length, replies: replies.length, positive, milestone }}
+              presence={presence}
+              location={{ text: location, mapQuery: location ? `${companyName} ${location}` : null }}
+            />
           </div>
-
-          {/* ═══ TAB 1: CONTACTS ═══
-              Build a per-lead map of the most actionable campaign
-              (active > paused > any) so each contact card can name the
-              actual flow it sits in, link to it, and colour-code the
-              pill by status. */}
-          {(() => {
-            const byLead: Record<string, { id: string; name: string; channel: string | null; status: string | null }> = {};
-            for (const c of (allCampaigns ?? []) as any[]) {
-              if (!c.lead_id || !c.id) continue;
-              const existing = byLead[c.lead_id];
-              // Priority: active > paused > anything else
-              const rank = (s: string | null) => s === "active" ? 0 : s === "paused" ? 1 : 2;
-              if (!existing || rank(c.status) < rank(existing.status)) {
-                byLead[c.lead_id] = { id: c.id, name: c.name, channel: c.channel, status: c.status };
-              }
-            }
-            return <ContactCards contacts={allContacts as any} campaignByLead={byLead} />;
-          })()}
-
-          {/* ═══ TAB 2: ACTIVITY ═══ */}
-          <ActivityTimeline activities={activityItems as any} notes={teamNotes} />
-
+          <div className="px-4 sm:px-6 pb-6 pt-2">
+            <CompanyContacts contacts={contactRows} />
+          </div>
+          <div className="px-4 sm:px-6 pb-6 pt-2">
+            <CompanyEngagement events={events} localeTag={tag} contacts={contactsForFilter} campaigns={campaignRollups} />
+          </div>
+          <div className="px-4 sm:px-6 pb-6 pt-2">
+            <CompanyResearch technologies={technologies} keywords={keywords} industryTrends={lead.industry_trends ?? null} news={lead.recent_website_news ?? null} social={social} websiteServices={websiteServices} sourceMeta={sourceMeta} />
+          </div>
         </CompanyTabs>
-      </div>
+      </section>
     </div>
   );
 }
