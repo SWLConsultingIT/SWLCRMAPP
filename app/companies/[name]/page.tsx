@@ -1,5 +1,4 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { selectByIds } from "@/lib/supabase-bulk";
 import { ACTIVITY_SELECT, bucketActivity } from "@/lib/activities";
@@ -50,6 +49,34 @@ async function getAngleContext(icpId: string | null, bioId: string | null) {
   return { icp: icpRes.data as any, bio: bioRes.data as any };
 }
 
+// A failed batch read must NOT take down the whole account page — degrade that
+// one section to empty and log it (Fran 2026-09-11: /companies 500'd in prod).
+async function safe<T>(p: Promise<T[]>): Promise<T[]> {
+  try { return await p; } catch (e) { console.error("[company] batch read failed:", (e as any)?.message ?? e); return []; }
+}
+
+// Calls via the service key + REST (same as the lead page) — the calls table
+// has no company_bio_id and isn't reliably readable through the RLS user
+// client here; the ids are already tenant-scoped (from getCompanyLeads), so
+// this stays tenant-safe.
+async function getCompanyCalls(ids: string[]): Promise<any[]> {
+  if (!ids.length) return [];
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!key || !url) return [];
+  const out: any[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    try {
+      const res = await fetch(`${url}/rest/v1/calls?lead_id=in.(${chunk.join(",")})&order=started_at.desc&select=id,lead_id,started_at,duration,classification,ai_summary,notes,aircall_call_id`,
+        { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" });
+      const data = await res.json().catch(() => []);
+      if (Array.isArray(data)) out.push(...data);
+    } catch (e) { console.error("[company] calls read failed:", (e as any)?.message ?? e); }
+  }
+  return out;
+}
+
 // ── Helpers ──
 const STATUS_COLOR: Record<string, string> = {
   new: C.blue, contacted: C.orange, connected: C.accent, responded: C.green,
@@ -98,25 +125,24 @@ export default async function CompanyDetailPage({ params, searchParams }: {
   // Return-to-lead: only honour ?fromLead when it's one of THIS company's
   // contacts the viewer can see (RLS already scoped allContacts to the tenant),
   // so no cross-tenant / cross-company back-link is ever shown.
-  const scope = await getUserScope();
   const fromLeadId = sp.fromLead && contactIds.includes(sp.fromLead) ? sp.fromLead : null;
   const fromLeadName = fromLeadId ? nameOf(fromLeadId) : null;
 
   const supabase = await getSupabaseServer();
 
-  // Batched, chunked+paged reads (no N+1, no 1000-row truncation).
+  // Batched, chunked+paged reads (no N+1, no 1000-row truncation). Each read is
+  // fault-isolated: one failing table degrades its own section, never 500s.
   const [activities, messages, replies, calls, campaigns, angle] = await Promise.all([
-    selectByIds<any>("activities", contactIds, (chunk) =>
-      supabase.from("activities").select(ACTIVITY_SELECT).in("lead_id", chunk).order("due_at", { ascending: true, nullsFirst: false }) as any),
-    selectByIds<any>("campaign_messages", contactIds, (chunk) =>
-      supabase.from("campaign_messages").select("id, campaign_id, lead_id, channel, content, status, sent_at").in("lead_id", chunk).eq("status", "sent").order("sent_at", { ascending: false }) as any),
-    selectByIds<any>("lead_replies", contactIds, (chunk) =>
-      supabase.from("lead_replies").select("id, lead_id, campaign_id, channel, reply_text, received_at, classification").in("lead_id", chunk).order("received_at", { ascending: false }) as any),
-    selectByIds<any>("calls", contactIds, (chunk) =>
-      supabase.from("calls").select("id, lead_id, started_at, duration, classification, ai_summary, notes, aircall_call_id").in("lead_id", chunk).order("started_at", { ascending: false }) as any),
-    selectByIds<any>("campaigns", contactIds, (chunk) =>
-      supabase.from("campaigns").select("id, lead_id, name, channel, status, started_at, sellers(name)").in("lead_id", chunk).order("started_at", { ascending: false }) as any),
-    getAngleContext(lead.icp_profile_id ?? null, bioId),
+    safe(selectByIds<any>("activities", contactIds, (chunk) =>
+      supabase.from("activities").select(ACTIVITY_SELECT).in("lead_id", chunk).order("due_at", { ascending: true, nullsFirst: false }) as any)),
+    safe(selectByIds<any>("campaign_messages", contactIds, (chunk) =>
+      supabase.from("campaign_messages").select("id, campaign_id, lead_id, channel, content, status, sent_at").in("lead_id", chunk).eq("status", "sent").order("sent_at", { ascending: false }) as any)),
+    safe(selectByIds<any>("lead_replies", contactIds, (chunk) =>
+      supabase.from("lead_replies").select("id, lead_id, campaign_id, channel, reply_text, received_at, classification").in("lead_id", chunk).order("received_at", { ascending: false }) as any)),
+    getCompanyCalls(contactIds),
+    safe(selectByIds<any>("campaigns", contactIds, (chunk) =>
+      supabase.from("campaigns").select("id, lead_id, name, channel, status, started_at, sellers(name)").in("lead_id", chunk).order("started_at", { ascending: false }) as any)),
+    getAngleContext(lead.icp_profile_id ?? null, bioId).catch(() => ({ icp: null, bio: null })),
   ]);
 
   const visibleCalls = calls.filter((c: any) => c.aircall_call_id != null || c.classification != null);
