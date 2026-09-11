@@ -260,7 +260,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
           ))}
           {bulkLoading && <Loader size={13} style={{ color: C.gold }} className="animate-spin ml-auto" />}
           <button onClick={() => setSelected(new Set())}
-            className="ml-auto text-xs" style={{ color: C.textMuted }}>✕ Limpiar</button>
+            className="ml-auto text-xs" style={{ color: C.textMuted }}>{t("lc.clear")}</button>
         </div>
       )}
 
@@ -340,7 +340,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
                       <span className="text-sm font-semibold tabular-nums" style={{ color: C.gold }}>{lead.messages_sent}</span>
-                      <span className="text-xs" style={{ color: C.textMuted }}>env</span>
+                      <span className="text-xs" style={{ color: C.textMuted }}>{t("lc.sentAbbr")}</span>
                     </div>
                     {lead.reply_count > 0 && (
                       <div className="flex items-center gap-1">
@@ -374,7 +374,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-xs" style={{ color: C.textMuted }}>
-            Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
+            {t("lc.showingRange", { a: page * PAGE_SIZE + 1, b: Math.min((page + 1) * PAGE_SIZE, filtered.length), total: filtered.length })}
           </p>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(0)} disabled={page === 0}
