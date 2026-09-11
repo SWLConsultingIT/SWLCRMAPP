@@ -92,6 +92,16 @@ function urlify(v: string | null | undefined): string | null {
   if (!v) return null;
   return String(v).startsWith("http") ? String(v) : `https://${v}`;
 }
+// Compact revenue: 8800000 → "$8.8M", 450000 → "$450K". Accepts number or
+// numeric string; returns null for 0/empty/non-numeric (so it's hidden).
+function fmtRevenue(v: number | string | null | undefined): string | null {
+  if (v == null || v === "") return null;
+  const n = typeof v === "number" ? v : Number(String(v).replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n}`;
+}
 function fmtRel(iso: string | null, tag: string): string | null {
   if (!iso) return null;
   const ms = Date.now() - new Date(iso).getTime();
@@ -238,42 +248,59 @@ export default async function CompanyDetailPage({ params, searchParams }: {
     events.push({ id: `a-${a.id}`, kind: "activity", at, channel: a.type === "call" ? "call" : null, title: a.title, body: a.description, tone: a.status === "completed" ? "neutral" : isCb ? "warning" : "info", meta: `${nameOf(a.lead_id)}${isCb ? " · callback" : ""}`, contactId: a.lead_id });
   }
 
-  // Account intelligence facts + signals (derived; no invented data).
+  // Account intelligence — only REAL, account-specific content (no invented
+  // metadata). "What they do" is a genuine company description; the actionable
+  // intelligence is the AI Call Hooks (generated in the viewer's locale,
+  // grounded in enrichment). We deliberately DON'T surface icp_profiles
+  // pain_points / solutions_offered here: they're generic per-ICP boilerplate
+  // in the tenant's own language (mixed-language under English labels) and not
+  // account-specific — the lead-level Pre-Call Brief re-expresses them per lead
+  // via AI, which is the right home for that.
   const enr = (lead.enrichment as any) ?? {};
   const scrape = (lead.company_scrape as any) ?? null;
   const whatTheyDo = scrape?.summary || lead.organization_description || lead.website_summary || null;
-  const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
-  const whyMatters = [
-    `${contactIds.length} ${contactIds.length === 1 ? t("co.contactSingular") : t("ld2.contacts")}`,
-    activeCampaignsCount ? `${activeCampaignsCount} ${t("co.activeCampaigns")}` : null,
-    positive ? `${positive} ${t("ld2.metric.positive").toLowerCase()}` : null,
-  ].filter(Boolean).join(" · ");
   const facts = [
     { label: t("lead.company.whatTheyDo"), text: whatTheyDo ? String(whatTheyDo).slice(0, 400) : null },
-    { label: t("co.whyMatters"), text: whyMatters || null },
-    { label: t("brief.point.pain"), text: angle.icp?.pain_points ? String(angle.icp.pain_points).slice(0, 300) : null },
-    { label: t("co.suggestedAngle"), text: ourPlay ? String(ourPlay).slice(0, 300) : null },
   ];
   const signals: string[] = [];
   if (lead.recent_website_news) signals.push(String(lead.recent_website_news).slice(0, 160));
-  if (replies.length) signals.push(`${replies.length} ${replies.length === 1 ? t("co.replyInAccount") : t("co.repliesInAccount")}`);
   if (lead.recent_linkedin_post) signals.push(t("co.engagingLinkedin"));
 
   // Overview data
   const location = [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null;
   const websiteUrl = urlify(lead.company_website);
+  // Presence = only channels NOT already shown as essentials rows (website /
+  // linkedin live in Overview essentials); avoids the duplicate-link problem.
   const presence = [
-    websiteUrl ? { label: t("co.website"), href: websiteUrl, kind: "website" as const } : null,
-    lead.company_linkedin ? { label: "LinkedIn", href: urlify(lead.company_linkedin)!, kind: "linkedin" as const } : null,
     lead.company_blog ? { label: t("ld.companyBlog"), href: urlify(lead.company_blog)!, kind: "blog" as const } : null,
     lead.company_instagram ? { label: "Instagram", href: `https://instagram.com/${String(lead.company_instagram).replace(/^@/, "")}`, kind: "instagram" as const } : null,
   ].filter(Boolean) as { label: string; href: string; kind: "website" | "linkedin" | "blog" | "instagram" }[];
-  const revenueStr = lead.annual_revenue ? `$${lead.annual_revenue}` : null;
+  const revenueStr = fmtRevenue(lead.annual_revenue);
   const employees = lead.employees ?? lead.company_employee_count ?? null;
-  const icp = typeof lead.lead_score === "number" ? lead.lead_score : null;
+  // NOTE: there is no real ICP-fit score in the data (lead_score is a
+  // contactability score, not fit). Surface the ICP PROFILE NAME the account is
+  // targeted under instead — that's real and useful. Omit if none.
+  const icpName = (angle.icp?.profile_name as string | null) ?? null;
   const milestone = campaignRollups.find(c => c.status === "active")
     ? t("co.milestoneActive", { name: campaignRollups.find(c => c.status === "active")!.name })
     : positive ? t("co.milestonePositive") : null;
+
+  // Commercial next action for the account — soonest pending across ALL contacts
+  // (reuses the batched nextByLead map; no per-contact query).
+  const pendingAcct = [...nextByLead.values()]
+    .sort((a: any, b: any) => (a.due_at ? Date.parse(a.due_at) : Infinity) - (b.due_at ? Date.parse(b.due_at) : Infinity));
+  const nextAccountAction = pendingAcct.length ? (() => {
+    const a0: any = pendingAcct[0];
+    const bkt = bucketActivity(a0);
+    return {
+      contact: nameOf(a0.lead_id).split(" ")[0],
+      title: a0.title as string,
+      when: a0.due_at ? new Date(a0.due_at).toLocaleString(tag, { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: a0.due_tz || undefined }) : null,
+      tone: (bkt === "overdue" ? "overdue" : bkt === "today" ? "today" : "upcoming") as "overdue" | "today" | "upcoming",
+      more: pendingAcct.length - 1,
+    };
+  })() : null;
+  const outreach = { messages: messages.length, replies: replies.length, positive };
 
   // Research
   const technologies: string[] = (Array.isArray(lead.organization_technologies) ? lead.organization_technologies : (Array.isArray(enr.technologies) ? enr.technologies : [])) as string[];
@@ -312,7 +339,7 @@ export default async function CompanyDetailPage({ params, searchParams }: {
         name={companyName}
         industry={[lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null}
         location={location} website={websiteUrl}
-        metrics={{ employees, revenue: revenueStr, contacts: contactIds.length, activeCampaigns: activeCampaignsCount, icp, messages: messages.length, replies: replies.length, positive }}
+        metrics={{ employees, revenue: revenueStr, contacts: contactIds.length, activeCampaigns: activeCampaignsCount, icpName }}
       />
 
       <AccountIntelligence facts={facts} signals={signals} hookLeadId={lead.id ?? null} companyName={companyName} />
@@ -326,10 +353,10 @@ export default async function CompanyDetailPage({ params, searchParams }: {
         ]}>
           <div className="px-4 sm:px-6 pb-6 pt-2">
             <CompanyOverview
-              essentials={{ subIndustry: lead.company_sub_industry ?? null, founded: lead.company_founded_year ? String(lead.company_founded_year) : null, hq: location, websiteLabel: lead.company_website ?? null, websiteUrl, linkedinUrl: urlify(lead.company_linkedin), icp }}
-              commercial={{ campaigns: campaignRollups.map(c => ({ id: c.id, name: c.name, status: c.status, contacts: c.contacts, seller: c.seller })), messages: messages.length, replies: replies.length, positive, milestone }}
+              essentials={{ founded: lead.company_founded_year ? String(lead.company_founded_year) : null, hq: location, phone: lead.company_phone ?? null, websiteLabel: lead.company_website ?? null, websiteUrl, linkedinUrl: urlify(lead.company_linkedin), icpName }}
+              commercial={{ campaigns: campaignRollups.map(c => ({ id: c.id, name: c.name, status: c.status, contacts: c.contacts, seller: c.seller })), outreach, milestone, nextAction: nextAccountAction }}
               presence={presence}
-              location={{ text: location, mapQuery: location ? `${companyName} ${location}` : null }}
+              mapQuery={location ? `${companyName} ${location}` : null}
             />
           </div>
           <div className="px-4 sm:px-6 pb-6 pt-2">

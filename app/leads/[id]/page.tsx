@@ -15,7 +15,7 @@ import LeadEngagement from "@/components/lead/LeadEngagement";
 import LeadResearch from "@/components/lead/LeadResearch";
 import type { TimelineEvent } from "@/components/lead/LeadTimeline";
 import { countryToTimeZone } from "@/lib/prospect-time";
-import { ACTIVITY_SELECT } from "@/lib/activities";
+import { ACTIVITY_SELECT, bucketActivity } from "@/lib/activities";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import { intlTag } from "@/lib/i18n-locale";
 import { renderPlaceholders } from "@/lib/placeholders";
@@ -312,6 +312,18 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const place = lead.company_city || lead.company_country || null;
   const metrics = { messages: totalMsgsSent, replies: totalReplies, positive: positiveReplies, calls: visibleCalls.length, step: stepStr, stepPct };
 
+  // Next Action for the hero — derived from the SAME server-seeded activities
+  // (soonest pending, overdue-first). No extra query.
+  const pendingActs = (activities as any[]).filter((a) => a.status === "pending")
+    .sort((x, y) => (x.due_at ? Date.parse(x.due_at) : Infinity) - (y.due_at ? Date.parse(y.due_at) : Infinity));
+  const naRow = pendingActs[0] ?? null;
+  const heroNextAction = naRow ? {
+    id: naRow.id as string, title: naRow.title as string, type: naRow.type as string,
+    dueAt: (naRow.due_at ?? null) as string | null, dueTz: (naRow.due_tz ?? null) as string | null,
+    bucket: bucketActivity(naRow), isCallback: naRow.source === "call_callback",
+  } : null;
+  const terminalLead = ["closed_won", "closed_lost", "discarded"].includes((lead.status ?? "").toLowerCase());
+
   return (
     <div className="p-6 w-full fade-in">
       <Breadcrumb crumbs={[{ label: t("ld.leads"), href: "/leads" }, { label: lead.company_name ?? t("ld.contact") }, { label: contactName }]} />
@@ -324,6 +336,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         campaign={campaign} seqNav={seqNav} isCallStep={isCallStep} nextStepName={nextStepName}
         autoReplies={renderedAutoReplies} metrics={{ messages: totalMsgsSent, replies: totalReplies, positive: positiveReplies, step: stepStr }}
         tz={tz} place={place} localeTag={localeTag}
+        nextAction={heroNextAction} terminalLead={terminalLead}
+        canAssignActivities={canAssignActivities} leadCountry={(lead as any).company_country ?? null}
       />
 
       {/* PRE-CALL BRIEF (V3, unchanged) — standalone above the tabs */}

@@ -1,11 +1,12 @@
 "use client";
 
-// Account (company) hero — compact identity + the account's headline metrics.
-// Values shown here are NOT repeated in the Overview cards below.
+// Account (company) hero — identity + the account's FUNDAMENTALS only. Outreach
+// performance (messages/replies/positive) lives in the Commercial Summary, not
+// here (Fran 2026-09-11: don't mix fundamentals with performance).
 
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { Factory, MapPin, Globe } from "lucide-react";
+import { Factory, MapPin, Globe, Target } from "lucide-react";
 import { MetricStrip } from "@/components/lead/ui";
 
 const gold = "var(--brand, #c9a83a)";
@@ -19,12 +20,10 @@ export default function CompanyHero({
   website: string | null;
   metrics: {
     employees: string | number | null; revenue: string | null; contacts: number;
-    activeCampaigns: number; icp: number | null;
-    messages: number; replies: number; positive: number;
+    activeCampaigns: number; icpName: string | null;
   };
 }) {
   const { t } = useLocale();
-  const positivePct = metrics.replies > 0 ? Math.round((metrics.positive / metrics.replies) * 100) : 0;
 
   return (
     <div className="rounded-2xl border mb-5 relative overflow-hidden reveal"
@@ -56,21 +55,24 @@ export default function CompanyHero({
         )}
       </div>
 
-      <div className="px-4 sm:px-5 py-3 border-t flex items-center gap-x-4 gap-y-2 flex-wrap"
+      <div className="px-4 sm:px-5 py-3 border-t flex items-center gap-x-5 gap-y-2 flex-wrap"
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <MetricStrip items={[
           ...(metrics.employees ? [{ label: t("lead.company.employees"), value: metrics.employees }] : []),
           ...(metrics.revenue ? [{ label: t("lead.company.revenue"), value: metrics.revenue }] : []),
           { label: t("ld2.contacts"), value: metrics.contacts },
-          { label: t("co.activeCampaigns"), value: metrics.activeCampaigns },
-          ...(metrics.icp != null ? [{ label: t("co.icpFit"), value: `${metrics.icp}` }] : []),
+          { label: metrics.activeCampaigns === 1 ? t("co.activeCampaign") : t("co.activeCampaigns"), value: metrics.activeCampaigns },
         ]} />
-        <span className="hidden sm:inline-block h-5 w-px" style={{ backgroundColor: C.border }} aria-hidden />
-        <div className="flex items-center gap-x-3 text-[12px]" style={{ color: C.textMuted }}>
-          <span><b style={{ color: C.textPrimary }}>{metrics.messages}</b> {t("ld2.metric.messages").toLowerCase()}</span>
-          <span><b style={{ color: C.textPrimary }}>{metrics.replies}</b> {t("ld2.metric.replies").toLowerCase()}</span>
-          <span style={{ color: metrics.positive > 0 ? C.green : C.textMuted, fontWeight: 700 }}>{positivePct}% {t("ld2.metric.positive").toLowerCase()}</span>
-        </div>
+        {metrics.icpName && (
+          <>
+            <span className="hidden sm:inline-block h-5 w-px" style={{ backgroundColor: C.border }} aria-hidden />
+            <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: C.textMuted }}>
+              <Target size={12} style={{ color: gold }} />
+              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("co.icp")}</span>
+              <span className="font-semibold" style={{ color: C.textBody }}>{metrics.icpName}</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

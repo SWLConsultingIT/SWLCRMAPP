@@ -26,6 +26,7 @@ import LeadMoreMenu from "@/components/LeadMoreMenu";
 import LeadSellerTags from "@/components/LeadSellerTags";
 import ProspectClock from "@/components/ProspectClock";
 import SetResultButton from "@/components/lead/SetResultButton";
+import HeroNextAction, { type HeroNext } from "@/components/lead/HeroNextAction";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -53,11 +54,13 @@ export default function LeadHero({
   statusLabel, statusColor, scoreLabel, scoreColor,
   campaign, seqNav, isCallStep, nextStepName, autoReplies,
   metrics, tz, place, localeTag,
+  nextAction, terminalLead, canAssignActivities, leadCountry,
 }: {
   lead: any; leadId: string; contactName: string; initials: string; avatarBg: string;
   statusLabel: string; statusColor: string; scoreLabel: string; scoreColor: string;
   campaign: any; seqNav: SeqNav; isCallStep: boolean; nextStepName?: string;
   autoReplies: { positive?: string; negative?: string } | null;
+  nextAction: HeroNext; terminalLead: boolean; canAssignActivities: boolean; leadCountry: string | null;
   metrics: { messages: number; replies: number; positive: number; step: string };
   tz: string | null; place: string | null; localeTag: string;
 }) {
@@ -78,6 +81,9 @@ export default function LeadHero({
     { key: "allow_email", label: t("chan.email"), icon: <Mail size={13} />, ok: !!email },
     { key: "allow_call", label: t("chan.call"), icon: <Phone size={13} />, ok: !!phone },
   ];
+  // Only channels that are allowed but have NO underlying data (dispatch would
+  // fail) — the healthy ones are already the action buttons above.
+  const brokenChannels = channels.filter(ch => lead[ch.key] !== false && !ch.ok);
 
   const metricCells = [
     { label: t("ld2.metric.messages"), value: metrics.messages },
@@ -153,9 +159,16 @@ export default function LeadHero({
         </div>
       </div>
 
-      {/* ── LEVEL 2 — commercial context (grouped) ── */}
+      {/* ── LEVEL 2 — sales context + NEXT ACTION ── */}
       <div className="px-4 sm:px-5 py-3 border-t flex items-center gap-x-6 gap-y-3 flex-wrap"
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        {/* Next action — the highest-priority context (reuses server-seeded activities) */}
+        <HeroNextAction nextAction={nextAction} leadId={leadId} leadLabel={contactName} company={lead.company_name ?? null}
+          leadPhone={phone} leadCountry={leadCountry} terminalLead={terminalLead} canAssignActivities={canAssignActivities} localeTag={localeTag} />
+
+        <span className="hidden sm:inline-block h-8 w-px self-center" style={{ backgroundColor: C.border }} aria-hidden />
+
+        {/* Status — one lifecycle badge + score tier (distinct concepts) */}
         <Group label={t("ld2.stage")}>
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-0.5"
             style={{ color: statusColor, backgroundColor: `color-mix(in srgb, ${statusColor} 14%, transparent)` }}>
@@ -163,7 +176,6 @@ export default function LeadHero({
           </span>
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold ml-1" style={{ color: C.textMuted }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: scoreColor }} /> {scoreLabel}
-            {lead.lead_score > 0 && <span className="tabular-nums" style={{ color: C.textDim }}>· {lead.lead_score}</span>}
           </span>
         </Group>
 
@@ -180,31 +192,33 @@ export default function LeadHero({
           </Group>
         )}
 
-        {lead.created_at && (
-          <Group label={t("ld2.added")}>
-            <CalendarPlus size={12} style={{ color: C.textDim }} />
-            {new Date(lead.created_at).toLocaleDateString(localeTag, { day: "numeric", month: "short", year: "numeric" })}
-            {isNew && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "#8a6b18" }}>{t("ld2.newLead")}</span>}
+        {/* Channel availability — only WARN about allowed-but-missing channels
+            (dispatch would fail); the happy path is already the Email/LinkedIn/
+            Call buttons above, so we don't duplicate healthy channels. */}
+        {brokenChannels.length > 0 && (
+          <Group label={t("ld2.channelWarn")}>
+            <span className="inline-flex items-center gap-1">
+              {brokenChannels.map(ch => (
+                <span key={ch.key} title={`${ch.label}: no data — dispatch will fail`}
+                  className="w-6 h-6 rounded-full grid place-items-center border"
+                  style={{ color: C.orange, borderColor: `color-mix(in srgb, ${C.orange} 32%, transparent)`, backgroundColor: `color-mix(in srgb, ${C.orange} 10%, transparent)` }}>
+                  {ch.icon}
+                </span>
+              ))}
+            </span>
           </Group>
         )}
 
-        <Group label={t("lost.channels")}>
-          <span className="inline-flex items-center gap-1">
-            {channels.map(ch => {
-              const blocked = lead[ch.key] === false;
-              const col = blocked ? C.textDim : ch.ok ? C.green : C.orange;
-              return (
-                <span key={ch.key} title={`${ch.label}: ${blocked ? t("ld.chanBlocked") : ch.ok ? t("ld.chanAllowed") : "no data"}`}
-                  className="w-6 h-6 rounded-full grid place-items-center border"
-                  style={{ color: col, borderColor: `color-mix(in srgb, ${col} 32%, transparent)`, backgroundColor: `color-mix(in srgb, ${col} 10%, transparent)`, opacity: blocked ? 0.5 : 1 }}>
-                  {ch.icon}
-                </span>
-              );
-            })}
-          </span>
-        </Group>
-
-        <div className="lg:ml-auto"><LeadSellerTags leadId={leadId} compact /></div>
+        {/* Tertiary: Added date + teammate tags, right-aligned + low prominence */}
+        <div className="lg:ml-auto flex items-center gap-3">
+          {lead.created_at && (
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: C.textDim }}>
+              <CalendarPlus size={11} /> {t("ld2.added").toLowerCase()} {new Date(lead.created_at).toLocaleDateString(localeTag, { day: "numeric", month: "short" })}
+              {isNew && <span className="text-[8.5px] font-bold uppercase tracking-wider px-1 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "#8a6b18" }}>{t("ld2.newLead")}</span>}
+            </span>
+          )}
+          <LeadSellerTags leadId={leadId} compact />
+        </div>
       </div>
 
       {/* ── LEVEL 3 — full-width metric strip ── */}
