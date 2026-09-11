@@ -184,7 +184,7 @@ function TonePillRow({
             : { backgroundColor: "transparent", color: C.textDim, border: `1px solid ${C.border}` }
           }
         >
-          Use default
+          {t("cb.useDefault")}
         </button>
       )}
       {TONE_OPTIONS.map(opt => {
@@ -220,6 +220,7 @@ function ToneSelector({
   value: ToneByChannel;
   onChange: (v: ToneByChannel) => void;
 }) {
+  const { t } = useLocale();
   const [showChannelOverrides, setShowChannelOverrides] = useState(
     !!(value.linkedin || value.email || value.call)
   );
@@ -235,7 +236,7 @@ function ToneSelector({
     <div>
       <div className="flex items-center justify-between mb-2.5">
         <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textMuted }}>
-          Brand voice
+          {t("cb.brandVoice")}
         </label>
         <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium" style={{ color: C.textMuted }}>
           <input
@@ -249,7 +250,7 @@ function ToneSelector({
             }}
             style={{ accentColor: gold }}
           />
-          Customize per channel
+          {t("cb.customizePerChannel")}
         </label>
       </div>
 
@@ -264,7 +265,7 @@ function ToneSelector({
           }}
         >
           <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-            Per-channel overrides
+            {t("cb.perChannelOverrides")}
           </p>
           {(["linkedin", "email", "call"] as const).map(ch => (
             <div key={ch}>
@@ -379,7 +380,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         style={{ borderColor: `color-mix(in srgb, ${gold} 26%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
         <Sparkles size={14} style={{ color: "var(--fg1)", flexShrink: 0 }} />
         <p className="text-[11.5px]" style={{ color: C.textBody }}>
-          This profile is your AI's source of truth — it grounds every <strong>{t("cb.outreachMessage")}</strong> and <strong>{t("cb.replySuggestion")}</strong>. The more complete it is, the sharper the AI.
+          {t("cb.sourceOfTruth")} <strong>{t("cb.outreachMessage")}</strong> {t("u.and")} <strong>{t("cb.replySuggestion")}</strong>{t("cb.sharperAi")}
         </p>
       </div>
 
@@ -1190,7 +1191,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               <option value="">{t("cb.selectIndustry")}</option>
               {industryOptions.map(o => <option key={o} value={o}>{t(INDUSTRY_KEYS[o])}</option>)}
               {form.industry && !industryOptions.includes(form.industry) && (
-                <option value="__custom">{form.industry} (custom)</option>
+                <option value="__custom">{t("cb.customIndustry", { name: form.industry })}</option>
               )}
             </select>
             {form.industry && !industryOptions.includes(form.industry) ? null : (
@@ -1647,7 +1648,7 @@ export default function CompanyBiosPage() {
         <>
           <AuroraHero
             bare
-            eyebrow="Company Bio"
+            eyebrow={t("cb.pageTitle")}
             title={t("bio.scan.title")}
             subtitle={t("bio.scan.subtitle")}
             actions={

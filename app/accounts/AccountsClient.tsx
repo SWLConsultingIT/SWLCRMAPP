@@ -77,16 +77,17 @@ function usageStatus(pct: number): { labelKey: string; color: string; bg: string
 
 const TG_BLUE = "#229ED9";
 
-// Brand names stay as they are; only "Call" is a common noun, so it goes
-// through the dictionary like every other one.
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string; labelKey?: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call", labelKey: "inbox.channel.call" },
-  telegram: { icon: Send,   color: TG_BLUE,   label: "Telegram" },
+// labelKey, not label: module scope, no translator here. The brand names
+// resolve to themselves in every locale; only "Call" is a common noun.
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
+  telegram: { icon: Send,   color: TG_BLUE,   labelKey: "chan.telegram" },
 };
 
 function UsageBar({ sent, limit, channel }: { sent: number; limit: number; channel: string }) {
+  const { t } = useLocale();
   const pct = limit > 0 ? Math.min(Math.round((sent / limit) * 100), 100) : 0;
   const color = usageColor(pct);
   const meta = channelMeta[channel];
@@ -96,7 +97,7 @@ function UsageBar({ sent, limit, channel }: { sent: number; limit: number; chann
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
           <Icon size={12} style={{ color: meta?.color ?? C.textMuted }} />
-          <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{meta?.label ?? channel}</span>
+          <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{meta ? t(meta.labelKey) : channel}</span>
         </div>
         <span className="text-xs font-bold tabular-nums" style={{ color }}>{sent} / {limit}</span>
       </div>
@@ -211,7 +212,7 @@ function AddAccountModal({
       <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>
-            {step === "channel" ? "Add Account"
+            {step === "channel" ? t("acc.addAccount")
               : step === "connecting" ? "Connecting LinkedIn"
               : step === "connected" ? "Connected"
               : step === "share_existing" ? t("acc.add.share")
@@ -224,7 +225,7 @@ function AddAccountModal({
         {step === "channel" && (
           <div className="space-y-2 py-2">
             <p className="text-xs mb-3" style={{ color: C.textMuted }}>
-              Pick the channel you want to add to your tenant.
+              {t("acc.pickChannel")}
             </p>
             {[
               {
@@ -326,11 +327,11 @@ function AddAccountModal({
                   </div>
                 </div>
                 <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
-                  Your LinkedIn credentials go directly to Unipile (our secure connection partner). SWL never sees your password.
+                  {t("acc.liCredsNote")}
                 </p>
               </div>
               <p className="text-[10px]" style={{ color: C.textDim }}>
-                <b>{t("acc.form.note")}</b> Email sending uses a shared Instantly pool, not per-seller accounts. Calls use Aircall numbers.
+                <b>{t("acc.form.note")}</b> {t("acc.emailPoolNote")}
               </p>
             </div>
 
@@ -355,7 +356,7 @@ function AddAccountModal({
             </div>
             <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>{t("acc.waitingLinkedIn")}</p>
             <p className="text-xs" style={{ color: C.textMuted }}>
-              Complete the login in the Unipile window. This modal will update automatically.
+              {t("acc.completeLogin")}
             </p>
 
             {/* If the popup is closed/blocked, expose a real link the user can click directly.
@@ -368,12 +369,12 @@ function AddAccountModal({
                 className="inline-block mt-4 text-xs font-semibold underline"
                 style={{ color: "#0A66C2" }}
               >
-                Don&apos;t see the Unipile window? Open it manually →
+                {t("acc.openUnipileManually")}
               </a>
             )}
 
             <p className="text-[10px] mt-6" style={{ color: C.textDim }}>
-              If you closed the window, <button onClick={() => { setStep("form"); setAuthUrlState(null); }} className="underline" style={{ color: "#0A66C2" }}>{t("acc.tryAgain")}</button>.
+              {t("acc.ifClosedWindow")} <button onClick={() => { setStep("form"); setAuthUrlState(null); }} className="underline" style={{ color: "#0A66C2" }}>{t("acc.tryAgain")}</button>.
             </p>
           </div>
         )}
@@ -384,7 +385,7 @@ function AddAccountModal({
               <Shield size={24} style={{ color: "#16A34A" }} />
             </div>
             <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>{t("acc.liConnected")}</p>
-            <p className="text-xs" style={{ color: C.textMuted }}>{name} is ready to start campaigns.</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.readyForCampaigns", { name })}</p>
           </div>
         )}
 
@@ -477,7 +478,7 @@ function ShareExistingSellerPicker({
   return (
     <>
       <p className="text-xs mb-3" style={{ color: C.textMuted }}>
-        Pick a seller already connected in another tenant. It will become available in this tenant without a second LinkedIn login.
+        {t("acc.pickSellerOtherTenant")}
       </p>
 
       {loading && (
@@ -508,7 +509,7 @@ function ShareExistingSellerPicker({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}</p>
                   <p className="text-[11px]" style={{ color: C.textDim }}>
-                    Owned by {owner}{s.active ? "" : " · inactive"}
+                    {t("acc.ownedBy", { owner })}{s.active ? "" : ` · ${t("acc.inactive")}`}
                   </p>
                 </div>
                 <button onClick={() => share(s)} disabled={busy}
@@ -588,7 +589,7 @@ function PickUnipileAccount({
   return (
     <>
       <p className="text-xs mb-3" style={{ color: C.textMuted }}>
-        Pick a LinkedIn account already connected on Unipile but not yet attached to a seller. A new seller will be created in this tenant.
+        {t("acc.pickUnattachedLi")}
       </p>
 
       {loading && (
@@ -707,7 +708,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
       <div className="rounded-2xl border p-6 w-full max-w-md shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>
-            {step === "form" ? "Connect Telegram" : step === "connecting" ? "Connecting Telegram" : "Connected"}
+            {step === "form" ? t("acc.connectTelegram") : step === "connecting" ? "Connecting Telegram" : "Connected"}
           </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
@@ -717,11 +718,10 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
             <div className="rounded-2xl border p-4 mb-5" style={{ borderColor: `${TG_BLUE}30`, background: `linear-gradient(135deg, ${TG_BLUE}04 0%, ${TG_BLUE}0D 100%)` }}>
               <div className="flex items-center gap-2 mb-2">
                 <Send size={14} style={{ color: TG_BLUE }} />
-                <span className="text-xs font-semibold" style={{ color: TG_BLUE }}>Telegram — {seller.name}</span>
+                <span className="text-xs font-semibold" style={{ color: TG_BLUE }}>{t("acc.telegramDash", { name: seller.name })}</span>
               </div>
               <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
-                Unipile will open a QR code or phone prompt. Scan with your Telegram app to link the account.
-                SWL never sees your Telegram credentials.
+                {t("acc.telegramNote")}
               </p>
               <div className="flex items-center justify-between mt-3">
                 <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>{t("acc.form.dailySendLimit")}</label>
@@ -739,7 +739,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
                 className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: TG_BLUE, color: "#fff" }}>
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                {saving ? "Preparing…" : "Connect Telegram"}
+                {saving ? "Preparing…" : t("acc.connectTelegram")}
               </button>
             </div>
           </>
@@ -755,7 +755,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
             {authUrl && (
               <a href={authUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-block mt-4 text-xs font-semibold underline" style={{ color: TG_BLUE }}>
-                Don&apos;t see the window? Open it manually →
+                {t("acc.openWindowManually")}
               </a>
             )}
           </div>
@@ -767,7 +767,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
               <Shield size={24} style={{ color: "#16A34A" }} />
             </div>
             <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>{t("acc.telegramConnected")}</p>
-            <p className="text-xs" style={{ color: C.textMuted }}>{seller.name} is ready to send Telegram campaigns.</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("acc.readyForTelegram", { name: seller.name })}</p>
           </div>
         )}
       </div>
@@ -821,7 +821,7 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
           <div className="rounded-2xl border p-4" style={{ borderColor: "#0A66C230", background: "linear-gradient(135deg, #0A66C204 0%, #0A66C20D 100%)", boxShadow: "0 4px 14px rgba(10,102,194,0.06)" }}>
             <div className="flex items-center gap-2 mb-3">
               <Share2 size={14} style={{ color: "#0A66C2" }} />
-              <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn (Unipile)</span>
+              <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>{t("acc.linkedinUnipile")}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -892,12 +892,12 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>Link LinkedIn to {seller.name}</h2>
+          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>{t("acc.linkLiTo", { name: seller.name })}</h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
 
         <p className="text-xs mb-4 leading-relaxed" style={{ color: C.textMuted }}>
-          Pick a Unipile account that&apos;s already connected but not linked to any seller yet.
+          {t("acc.pickUnipileAccount")}
         </p>
 
         {loading ? (
@@ -910,7 +910,7 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
             <Share2 size={20} className="mx-auto mb-2" style={{ color: C.textDim }} />
             <p className="text-xs font-medium" style={{ color: C.textBody }}>{t("acc.noUnlinked")}</p>
             <p className="text-[10px] mt-1" style={{ color: C.textMuted }}>
-              Connect a LinkedIn account first via &quot;Add Seller → Connect LinkedIn&quot;.
+              {t("acc.connectLiFirst")}
             </p>
           </div>
         ) : (
@@ -1106,7 +1106,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
             {instantlyUsed} <span className="text-sm font-medium" style={{ color: C.textMuted }}>/ {instantlyPoolLimit}</span>
           </p>
           <p className="text-[9px] mt-0.5" style={{ color: C.textDim }}>
-            {instantly?.total ?? 0} accounts · {instantly?.warmupPending ?? 0} warming up
+            {t("acc.accountsWarming", { n: instantly?.total ?? 0, w: instantly?.warmupPending ?? 0 })}
           </p>
         </div>
 
@@ -1119,7 +1119,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
             {aircall?.totalMinutes ?? 0}<span className="text-sm font-medium" style={{ color: C.textMuted }}> {t("acc.min")}</span>
           </p>
           <p className="text-[9px] mt-0.5" style={{ color: C.textDim }}>
-            {aircall?.totalCalls ?? 0} calls · {aircall?.numbers.length ?? 0} number{(aircall?.numbers.length ?? 0) !== 1 ? "s" : ""}
+            {aircall?.totalCalls ?? 0} {t((aircall?.totalCalls ?? 0) === 1 ? "u.call" : "u.calls")} · {t((aircall?.numbers.length ?? 0) === 1 ? "acc.numberOne" : "acc.numberMany", { n: aircall?.numbers.length ?? 0 })}
           </p>
         </div>
       </div>
@@ -1148,7 +1148,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
         <button onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-          <Plus size={14} /> Add Account
+          <Plus size={14} /> {t("acc.addAccount")}
         </button>
       </div>
 
@@ -1178,7 +1178,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
                               style={{ backgroundColor: "#7C3AED15", color: "#7C3AED", border: "1px solid #7C3AED30" }}
                               title={t("acc.sharedFrom")}>
-                              Shared
+                              {t("acc.shared")}
                             </span>
                           )}
                         </div>
@@ -1199,7 +1199,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       )}
                       {seller.calls > 0 && (
                         <div className="flex items-center gap-2 text-xs" style={{ color: C.textMuted }}>
-                          <Phone size={11} style={{ color: "#F97316" }} /> {seller.calls} calls today
+                          <Phone size={11} style={{ color: "#F97316" }} /> {t("acc.callsToday", { n: seller.calls })}
                         </div>
                       )}
                     </div>
@@ -1218,13 +1218,13 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                         <button onClick={() => setConnectTelegramTarget(seller)}
                           className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: `${TG_BLUE}20`, color: TG_BLUE, border: `1px solid ${TG_BLUE}30` }}>
-                          <Send size={10} /> Connect Telegram
+                          <Send size={10} /> {t("acc.connectTelegram")}
                         </button>
                       )}
                       {seller.hasTelegram && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-md shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: `${TG_BLUE}15`, color: TG_BLUE }}>
-                          <Send size={10} /> Telegram ✓
+                          <Send size={10} /> {t("acc.telegramOk")}
                         </span>
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
@@ -1274,8 +1274,8 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                     {instantlyPct >= 100 ? "Pool at capacity — no more emails today" : `Pool at ${instantlyPct}% — approaching daily limit`}
                   </p>
                   <p className="text-[10px]" style={{ color: instantlyPct >= 100 ? C.red : "#B45309" }}>
-                    {instantlyUsed} / {instantlyPoolLimit} emails sent today
-                    {instantlyPct < 100 && ` · ${instantlyPoolLimit - instantlyUsed} remaining`}
+                    {t("acc.emailsSentToday", { used: instantlyUsed, limit: instantlyPoolLimit })}
+                    {instantlyPct < 100 && ` · ${t("acc.remaining", { n: instantlyPoolLimit - instantlyUsed })}`}
                   </p>
                 </div>
               </div>
@@ -1312,12 +1312,12 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       <button onClick={() => setShowPoolManager(true)}
                         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:bg-black/[0.02]"
                         style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                        <Settings size={12} /> Manage pool
+                        <Settings size={12} /> {t("acc.managePool")}
                       </button>
                       <a href="https://app.instantly.ai/app/accounts" target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
                         style={{ backgroundColor: "#7C3AED15", color: "#7C3AED" }}>
-                        <Zap size={12} /> Manage in Instantly
+                        <Zap size={12} /> {t("acc.manageInInstantly")}
                       </a>
                     </>
                   )}
@@ -1349,8 +1349,8 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                             <span className="flex items-center gap-2 min-w-0">
                               <Mail size={11} className="shrink-0" style={{ color: "#7C3AED" }} />
                               <span className="font-medium truncate" style={{ color: C.textBody }}>{dom}</span>
-                              <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{d.count} mailbox{d.count === 1 ? "" : "es"}</span>
-                              {d.warmup > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>{d.warmup} warming</span>}
+                              <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{t(d.count === 1 ? "acc.mailboxOne" : "acc.mailboxMany", { n: d.count })}</span>
+                              {d.warmup > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>{t("acc.warming", { n: d.warmup })}</span>}
                             </span>
                             <span className="font-mono tabular-nums shrink-0" style={{ color: C.textBody }}>{d.limit}/d</span>
                           </div>
@@ -1363,7 +1363,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                   <details className="group">
                     <summary className="text-xs font-semibold cursor-pointer list-none flex items-center gap-2" style={{ color: C.textMuted }}>
                       <span className="group-open:rotate-90 transition-transform">▸</span>
-                      View {instantly.total} accounts
+                      {t("acc.viewNAccounts", { n: instantly.total })}
                     </summary>
                     <div className="grid grid-cols-2 gap-2 mt-3 max-h-60 overflow-y-auto">
                       {instantly.accounts.map(a => (
@@ -1479,7 +1479,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
               <button onClick={() => setHistorySeller("all")}
                 className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                 style={{ backgroundColor: historySeller === "all" ? C.card : "transparent", color: historySeller === "all" ? gold : C.textMuted }}>
-                All Sellers
+                {t("acc.allSellers")}
               </button>
               {sellers.map(s => (
                 <button key={s.id} onClick={() => setHistorySeller(s.id)}
@@ -1521,7 +1521,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                         <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{displayDate}</span>
                         {isToday && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{t("acc.today")}</span>}
                       </div>
-                      <span className="text-xs font-bold tabular-nums" style={{ color: C.textMuted }}>{dayTotal} messages</span>
+                      <span className="text-xs font-bold tabular-nums" style={{ color: C.textMuted }}>{dayTotal} {t(dayTotal === 1 ? "u.message" : "u.messages")}</span>
                     </div>
                     <div className="divide-y" style={{ borderColor: C.border }}>
                       {entries.map((h, i) => {
@@ -1542,7 +1542,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                             </div>
                             <span className="text-xs font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md shrink-0"
                               style={{ backgroundColor: `${meta?.color ?? C.textMuted}12`, color: meta?.color ?? C.textMuted }}>
-                              <Icon size={10} /> {meta?.label ?? h.channel}
+                              <Icon size={10} /> {meta ? t(meta.labelKey) : h.channel}
                             </span>
                             <div className="flex items-center gap-2 shrink-0 w-48">
                               <span className="text-sm font-bold tabular-nums" style={{ color: usageColor(pct) }}>{h.count}</span>

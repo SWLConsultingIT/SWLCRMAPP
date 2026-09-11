@@ -14,6 +14,7 @@
 //     the reset pill on the right.
 
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
@@ -45,6 +46,7 @@ export default function MultiLineChart({
   /** Locale for the date axis formatter. Defaults to "en". */
   locale?: Locale;
 }) {
+  const { t } = useLocale();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -275,7 +277,7 @@ export default function MultiLineChart({
               return (
                 <div className="mt-2 pt-1.5 border-t flex items-center justify-between"
                   style={{ borderColor: C.border }}>
-                  <span className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>Day reply rate</span>
+                  <span className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{t("mlc.dayReplyRate")}</span>
                   <span className="text-[11px] font-bold tabular-nums" style={{ color: pct >= 10 ? "#059669" : C.textBody }}>
                     {pct}%
                   </span>

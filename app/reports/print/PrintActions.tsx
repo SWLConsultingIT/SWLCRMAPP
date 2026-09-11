@@ -1,19 +1,22 @@
 "use client";
 
+import { useLocale } from "@/lib/i18n";
+
 export default function PrintActions() {
+  const { t } = useLocale();
   return (
     <div className="no-print" style={{ position: "fixed", top: 20, right: 20, display: "flex", gap: 8 }}>
       <button
         onClick={() => window.close()}
         style={{ padding: "8px 20px", borderRadius: 8, backgroundColor: "#374151", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
       >
-        Close
+        {t("pa.close")}
       </button>
       <button
         onClick={() => window.print()}
         style={{ padding: "8px 20px", borderRadius: 8, backgroundColor: "var(--brand, #c9a83a)", color: "#1A1A2E", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
       >
-        Print / Save PDF
+        {t("pa.printSave")}
       </button>
     </div>
   );

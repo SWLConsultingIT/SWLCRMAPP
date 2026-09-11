@@ -98,7 +98,7 @@ export default function CallsCard({
           style={{ color: C.textMuted }}
           title={`Confirmed connect rate = confirmed connected / (confirmed connected + confirmed not connected). Unknown (${unknown}) is excluded from the denominator.`}
         >
-          {rate} confirmed connect rate
+          {rate} {t("cc.confirmedConnectRate")}
         </span>
       </p>
 

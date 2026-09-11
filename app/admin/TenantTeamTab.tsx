@@ -149,7 +149,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
             className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
             style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 65%, white))`, color: "#1A1A2E" }}
           >
-            <Plus size={12} /> Invite user
+            <Plus size={12} /> {t("ttt.inviteUser")}
           </button>
         )}
       </div>
@@ -165,7 +165,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
         </div>
       ) : !team || team.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm" style={{ color: C.textMuted }}>
-          No team members yet.
+          {t("ttt.noMembers")}
         </div>
       ) : (
         <ul>
@@ -405,7 +405,7 @@ function InviteModal({
           {tier === "seller" && (
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-                Link to seller record
+                {t("ttt.linkToSeller")}
               </label>
               <select
                 value={sellerId}
@@ -413,7 +413,7 @@ function InviteModal({
                 className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               >
-                <option value="">— pick a seller —</option>
+                <option value="">{t("ttt.pickSeller")}</option>
                 {sellers.map(s => (
                   <option key={s.id} value={s.id} disabled={!!s.userId}>
                     {s.name}{s.userId ? " (already linked)" : ""}
@@ -421,7 +421,7 @@ function InviteModal({
                 ))}
               </select>
               <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-                Sellers already linked to another user are disabled. Leave empty to assign later from this user&apos;s row.
+                {t("ttt.linkHint")}
               </p>
             </div>
           )}
@@ -443,7 +443,7 @@ function InviteModal({
             style={{ backgroundColor: C.gold, color: "#04070d" }}
           >
             {saving && <Loader2 size={12} className="animate-spin" />}
-            Send invite
+            {t("ttt.sendInvite")}
           </button>
         </div>
       </div>
@@ -481,7 +481,7 @@ function RemoveModal({
             className="text-xs font-semibold px-4 py-2 rounded-lg"
             style={{ backgroundColor: C.red, color: "#fff" }}
           >
-            Remove
+            {t("ttt.remove")}
           </button>
         </div>
       </div>

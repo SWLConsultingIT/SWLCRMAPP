@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { createPortal } from "react-dom";
 import { Tag, X, Plus, Loader2, ChevronLeft } from "lucide-react";
 import { C } from "@/lib/design";
@@ -15,6 +16,7 @@ type TeamTag = { userId: string; name: string; reason: string | null };
 type Member = { userId: string; name: string };
 
 export default function LeadSellerTags({ leadId, compact = false }: { leadId: string; compact?: boolean }) {
+  const { t } = useLocale();
   const [tags, setTags] = useState<TeamTag[]>([]);
   const [roster, setRoster] = useState<Member[]>([]);
   const [open, setOpen] = useState(false);
@@ -74,7 +76,7 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
         {!pending ? (
           <div className="max-h-64 overflow-y-auto py-1">
             {available.length === 0 ? (
-              <p className="px-3 py-2.5 text-xs" style={{ color: C.textDim }}>No more teammates.</p>
+              <p className="px-3 py-2.5 text-xs" style={{ color: C.textDim }}>{t("lst.noMoreTeammates")}</p>
             ) : available.map(m => (
               <button key={m.userId} onClick={() => { setPending(m); setReason(""); }}
                 className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
@@ -86,14 +88,14 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
         ) : (
           <div className="p-3">
             <button onClick={() => setPending(null)} className="flex items-center gap-1 text-[11px] mb-2" style={{ color: C.textDim }}>
-              <ChevronLeft size={11} /> back
+              <ChevronLeft size={11} /> {t("lst.back")}
             </button>
-            <p className="text-xs font-semibold mb-1.5" style={{ color: C.textPrimary }}>Tag {pending.name}</p>
+            <p className="text-xs font-semibold mb-1.5" style={{ color: C.textPrimary }}>{t("lst.tagPerson", { name: pending.name })}</p>
             <input autoFocus value={reason} onChange={e => setReason(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") commit(); }}
-              placeholder="Reason (optional) — e.g. needs your input"
+              placeholder={t("lst.reasonPh")}
               className="w-full text-xs px-2.5 py-2 rounded-lg border outline-none mb-2" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
-            <button onClick={commit} className="w-full text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.gold, color: "#04070d" }}>Tag</button>
+            <button onClick={commit} className="w-full text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.gold, color: "#04070d" }}>{t("lst.tag")}</button>
           </div>
         )}
       </div>
@@ -102,18 +104,18 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
 
   const chips = (
     <>
-      {tags.map(t => (
-        <span key={t.userId} title={t.reason ? `Reason: ${t.reason}` : "No reason given"}
+      {tags.map(tg => (
+        <span key={tg.userId} title={tg.reason ? t("lst.reasonTitle", { reason: tg.reason }) : t("lst.noReason")}
           className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full cursor-default"
           style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 14%, transparent)`, color: C.gold, border: `1px solid color-mix(in srgb, ${C.gold} 30%, transparent)` }}>
-          <Tag size={10} /> {t.name}
-          <button onClick={() => removeTag(t.userId)} className="hover:opacity-70" title="Remove tag"><X size={11} /></button>
+          <Tag size={10} /> {tg.name}
+          <button onClick={() => removeTag(tg.userId)} className="hover:opacity-70" title={t("lst.removeTag")}><X size={11} /></button>
         </span>
       ))}
       <button ref={btnRef} onClick={() => (open ? close() : setOpen(true))}
         className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors"
         style={{ borderColor: open ? C.gold : C.border, color: open ? C.gold : C.textBody, backgroundColor: C.card }}>
-        <Plus size={11} /> Tag teammate
+        <Plus size={11} /> {t("lst.tagTeammate")}
       </button>
       {busy && <Loader2 size={11} className="animate-spin" style={{ color: C.textDim }} />}
       {open && mounted && createPortal(menu, document.body)}
@@ -126,7 +128,7 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
     <div className="pt-4 border-t" style={{ borderColor: C.border }}>
       <div className="flex items-center gap-2 mb-2">
         <Tag size={12} style={{ color: C.textDim }} />
-        <p className="text-xs uppercase tracking-wider" style={{ color: C.textDim, fontSize: 10 }}>Tagged teammates</p>
+        <p className="text-xs uppercase tracking-wider" style={{ color: C.textDim, fontSize: 10 }}>{t("lst.taggedTeammates")}</p>
       </div>
       <div className="flex items-center gap-2 flex-wrap">{chips}</div>
     </div>

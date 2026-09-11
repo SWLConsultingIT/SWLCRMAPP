@@ -163,7 +163,7 @@ function WonRow({ lead, t }: { lead: OpportunityLead; t: Tr }) {
         {/* Undo Won — for a mistaken positive outcome. Hover-revealed so it
             doesn't clutter, doesn't navigate (stops the Link). */}
         <button onClick={removeFromWon} disabled={removing}
-          title="Remove from Won"
+          title={t("results.removeFromWon")}
           className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center w-6 h-6 rounded-md disabled:opacity-100"
           style={{ color: C.red, backgroundColor: C.redLight }}>
           {removing ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
@@ -195,7 +195,7 @@ function LostRow({ lead, t, selected, onToggle }: {
         onClick={e => onToggle(lead.id, e.shiftKey)}
         className="w-5 h-5 inline-flex items-center justify-center shrink-0 transition-opacity opacity-50 hover:opacity-100 group-hover/row:opacity-100"
         style={{ color: selected ? C.red : C.textDim, opacity: selected ? 1 : undefined }}
-        aria-label="Select lead"
+        aria-label={t("results.selectLead")}
       >
         {selected ? <CheckSquare size={14} /> : <Square size={14} />}
       </button>
@@ -302,6 +302,7 @@ function classifyLoss(l: LostLead): string {
 }
 
 function LossReasons({ leads }: { leads: LostLead[] }) {
+  const { t } = useLocale();
   if (leads.length === 0) return null;
   const tally = new Map<string, number>();
   for (const l of leads) { const k = classifyLoss(l); tally.set(k, (tally.get(k) ?? 0) + 1); }
@@ -309,7 +310,7 @@ function LossReasons({ leads }: { leads: LostLead[] }) {
   const max = Math.max(...rows.map(r => r[1]), 1);
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: C.border, backgroundColor: C.card }}>
-      <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textMuted }}>Why we&apos;re losing</p>
+      <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textMuted }}>{t("results.whyLosing")}</p>
       <div className="space-y-1.5">
         {rows.map(([label, n]) => (
           <div key={label} className="flex items-center gap-2">
@@ -650,7 +651,7 @@ export default function ResultsClient({ wonLeads, lostLeads, discardedLeads = []
             <p className="text-[12.5px] leading-snug" style={{ color: C.textMuted }}>
               <span className="font-semibold" style={{ color: C.textBody }}>{t("results.pipeline.leadIn")}</span>{" "}
               {t("results.pipeline.lede1")}{" "}
-              <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span>{" "}{t("results.pipeline.lede2")}
+              <span className="font-semibold" style={{ color: C.green }}>{t("results.sendToOdoo")}</span>{" "}{t("results.pipeline.lede2")}
             </p>
           </div>
           {/* Single funnel + filters (boss 2026-09-08): ONE board for all positive

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { Sun, Phone, MessageSquare, ArrowRight, Sparkles, CheckCircle2, Clock } from "lucide-react";
 import { C } from "@/lib/design";
@@ -45,6 +46,7 @@ type Props = {
  * switch tabs.
  */
 export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToReplies }: Props) {
+  const { t } = useLocale();
   // Priority ladder for "what to do next":
   //   1. A new POSITIVE reply (closing window!)
   //   2. The most-overdue untouched call (sequence is stalled)
@@ -60,8 +62,8 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         leadName: positiveReply.leadName,
         company: positiveReply.company,
         leadId: positiveReply.leadId,
-        reason: "Positive reply — respond fast while you're top-of-mind.",
-        cta: "Open reply",
+        reason: t("tf.reasonPositive"),
+        cta: t("tf.openReply"),
         onAction: onJumpToReplies,
       };
     }
@@ -76,8 +78,8 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         company: mostOverdue.company,
         role: mostOverdue.role,
         leadId: mostOverdue.leadId,
-        reason: `${mostOverdue.overdueDays ?? 0}d overdue — the sequence is waiting on this call.`,
-        cta: "Open lead",
+        reason: t("tf.reasonOverdue", { n: mostOverdue.overdueDays ?? 0 }),
+        cta: t("tf.openLead"),
         onAction: onJumpToCalls,
       };
     }
@@ -89,8 +91,8 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         company: first.company,
         role: first.role,
         leadId: first.leadId,
-        reason: "First on the call list — easy first win to start the day.",
-        cta: "Open lead",
+        reason: t("tf.reasonFirst"),
+        cta: t("tf.openLead"),
         onAction: onJumpToCalls,
       };
     }
@@ -134,8 +136,8 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         }}
       >
         <CheckCircle2 size={14} style={{ color: C.green }} />
-        <p className="text-xs font-semibold" style={{ color: C.green }}>You&apos;re all caught up.</p>
-        <span className="text-[11px]" style={{ color: C.textMuted }}>Take a breather or check Flows.</span>
+        <p className="text-xs font-semibold" style={{ color: C.green }}>{t("tf.allCaughtUp")}</p>
+        <span className="text-[11px]" style={{ color: C.textMuted }}>{t("tf.takeBreather")}</span>
       </div>
     );
   }
@@ -156,10 +158,10 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         <div className="flex items-center gap-2.5 min-w-0">
           <Sun size={14} style={{ color: gold }} />
           <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>
-            Nothing urgent right now.
+            {t("tf.nothingUrgent")}
           </p>
           <span className="text-[11px]" style={{ color: C.textMuted }}>
-            {total} item{total === 1 ? "" : "s"} queued — pick a tab below.
+            {t("tf.queuedPickTab", { n: total, unit: t(total === 1 ? "tf.item" : "tf.items") })}
           </span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -169,7 +171,7 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-85"
               style={{ backgroundColor: `color-mix(in srgb, ${C.blue} 14%, transparent)`, color: C.blue, border: `1px solid color-mix(in srgb, ${C.blue} 30%, transparent)` }}
             >
-              <MessageSquare size={11} /> Triage {replies.length} repl{replies.length === 1 ? "y" : "ies"}
+              <MessageSquare size={11} /> {t("tf.triageReplies", { n: replies.length, unit: t(replies.length === 1 ? "u.reply" : "u.replies") })}
             </button>
           )}
           {(newCalls + stalledCalls + awaitingClassification) > 0 && (
@@ -178,7 +180,7 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-85"
               style={{ backgroundColor: "color-mix(in srgb, #F97316 14%, transparent)", color: "#F97316", border: "1px solid color-mix(in srgb, #F97316 30%, transparent)" }}
             >
-              <Phone size={11} /> {newCalls + stalledCalls + awaitingClassification} call{(newCalls + stalledCalls + awaitingClassification) === 1 ? "" : "s"}
+              <Phone size={11} /> {newCalls + stalledCalls + awaitingClassification} {t((newCalls + stalledCalls + awaitingClassification) === 1 ? "u.call" : "u.calls")}
             </button>
           )}
         </div>
@@ -220,7 +222,7 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         <div className="flex items-center gap-2 mb-0.5">
           <Sun size={11} style={{ color: gold }} />
           <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-            Today&apos;s Focus
+            {t("tf.title")}
           </span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

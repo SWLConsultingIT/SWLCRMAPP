@@ -165,6 +165,7 @@ function SectionCard({ section, expandable = true }: { section: ParsedSection; e
  * Wraps the score badge tight to the right of the assessment text.
  */
 function Hero({ score, assessmentLines }: { score: number | null; assessmentLines: string[] }) {
+  const { t } = useLocale();
   const sc = scoreColor(score);
   const assessmentText = assessmentLines.join(" ").trim();
   return (
@@ -180,7 +181,7 @@ function Hero({ score, assessmentLines }: { score: number | null; assessmentLine
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[10px] uppercase tracking-wider font-semibold mb-0.5" style={{ color: C.textMuted }}>
-          AI Coach Assessment
+          {t("coach.assessment")}
         </p>
         <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
           {assessmentText || "Analysis complete — see sections below."}
@@ -283,7 +284,7 @@ export default function CallCoachAnalysis(props: {
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <Loader2 size={12} className="animate-spin" style={{ color: "#b79832" }} />
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>{t("coach.title")}</span> — generating in background…
+          <span className="font-semibold" style={{ color: C.textBody }}>{t("coach.title")}</span> {t("coach.generatingBg")}
         </p>
       </div>
     );
@@ -297,7 +298,7 @@ export default function CallCoachAnalysis(props: {
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={14} style={{ color: "#b79832" }} />
           <p className="text-xs" style={{ color: C.textBody }}>
-            <span className="font-semibold">{t("coach.title")}</span> — actionable feedback on this call
+            <span className="font-semibold">{t("coach.title")}</span> {t("coach.actionableFeedback")}
           </p>
         </div>
         <button
@@ -346,7 +347,7 @@ export default function CallCoachAnalysis(props: {
       >
         <Sparkles size={14} style={{ color: "#b79832" }} className="shrink-0" />
         <span className="text-xs font-bold" style={{ color: C.textPrimary }}>
-          AI Coach Analysis
+          {t("coach.analysis")}
         </span>
         {state.score !== null && (
           <span className="text-[11px] font-bold px-2 py-0.5 rounded shrink-0"
@@ -385,7 +386,7 @@ export default function CallCoachAnalysis(props: {
       {rest.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-wider font-semibold mt-2" style={{ color: C.textDim }}>
-            More detail
+            {t("coach.moreDetail")}
           </p>
           {rest.map(s => <SectionCard key={s.key} section={s} />)}
         </div>

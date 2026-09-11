@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -21,6 +22,7 @@ export default function CallSummary(props: {
   initialSummary: string | null;
   initialGeneratedAt: string | null;
 }) {
+  const { t } = useLocale();
   const [summary, setSummary] = useState<string | null>(props.initialSummary);
   const [generatedAt, setGeneratedAt] = useState<string | null>(props.initialGeneratedAt);
   const [loading, setLoading] = useState(false);
@@ -89,7 +91,7 @@ export default function CallSummary(props: {
           <Sparkles size={13} className="mt-0.5 shrink-0" style={{ color: C.green }} />
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-wider font-semibold mb-0.5" style={{ color: C.green }}>
-              Summary
+              {t("csum.summary")}
             </p>
             <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>{summary}</p>
           </div>
@@ -106,7 +108,7 @@ export default function CallSummary(props: {
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <Loader2 size={11} className="animate-spin" style={{ color: C.green }} />
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>Summary</span> — generating in background…
+          <span className="font-semibold" style={{ color: C.textBody }}>{t("csum.summary")}</span> {t("csum.generatingBg")}
         </p>
       </div>
     );
@@ -119,7 +121,7 @@ export default function CallSummary(props: {
       <div className="flex items-center gap-2 min-w-0">
         <Sparkles size={13} style={{ color: C.green }} />
         <p className="text-xs" style={{ color: C.textBody }}>
-          <span className="font-semibold">Summary</span> — 1-2 sentence recap
+          <span className="font-semibold">{t("csum.summary")}</span> {t("csum.recapHint")}
         </p>
       </div>
       <button

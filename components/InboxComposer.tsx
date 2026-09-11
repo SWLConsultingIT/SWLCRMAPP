@@ -225,7 +225,7 @@ export default function InboxComposer({
             className="text-xs font-medium px-1.5 py-1.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
             style={{ color: C.textBody, backgroundColor: C.surface, border: `1px solid ${C.border}` }}
           >
-            <option value="auto">🌐 Auto</option>
+            <option value="auto">🌐 {t("ic.auto")}</option>
             <option value="en">English</option>
             <option value="es">Español</option>
             <option value="it">Italiano</option>
@@ -267,7 +267,7 @@ export default function InboxComposer({
             style={{ color: "#fff", backgroundColor: "var(--brand, #c9a83a)" }}
           >
             {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-            Enviar
+            {t("ic.send")}
           </button>
         </div>
       </div>

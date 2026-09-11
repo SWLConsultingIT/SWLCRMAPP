@@ -274,7 +274,7 @@ export default function PickLeadsClient({
                 border: `1px solid color-mix(in srgb, white 20%, transparent)`,
               }}
             >
-              Cancel
+              {t("pick.cancel")}
             </Link>
           </div>
         </div>
@@ -387,16 +387,16 @@ export default function PickLeadsClient({
                   that number was capped at 500 regardless. */}
               {totalInIcp > leads.length && (
                 <span className="text-[10.5px]" style={{ color: C.textDim }}>
-                  · {totalInIcp - leads.length} of {totalInIcp} already in an active flow
+                  · {t("pick.alreadyInFlow", { a: totalInIcp - leads.length, b: totalInIcp })}
                 </span>
               )}
               {coversWholeIcp && (
                 <span className="text-[10.5px] font-semibold" style={{ color: gold }}>
-                  · the whole ICP
+                  · {t("pick.wholeIcp")}
                 </span>
               )}
               <span className="hidden lg:inline text-[10.5px]" style={{ color: C.textDim }}>
-                Tip: shift-click to select a range
+                {t("pick.shiftClickTip")}
               </span>
               <div className="flex items-center gap-3 text-[12px]" style={{ color: C.textBody }}>
                 <span className="inline-flex items-center gap-1.5">
@@ -415,7 +415,7 @@ export default function PickLeadsClient({
                       className="text-[11.5px] font-medium hover:underline"
                       style={{ color: C.textDim }}
                     >
-                      Clear
+                      {t("pick.clear")}
                     </button>
                   </>
                 )}
@@ -612,7 +612,7 @@ export default function PickLeadsClient({
                 {selected.size}
               </span>
               <span className="ml-1.5" style={{ color: "color-mix(in srgb, white 75%, transparent)" }}>
-                lead{selected.size === 1 ? "" : "s"} selected
+                {t(selected.size === 1 ? "u.lead" : "u.leads")} {t("pick.selectedSuffix")}
               </span>
             </span>
           </span>
@@ -625,7 +625,7 @@ export default function PickLeadsClient({
               border: `1px solid color-mix(in srgb, white 18%, transparent)`,
             }}
           >
-            Clear
+            {t("pick.clear")}
           </button>
           <span className="h-6 w-px" style={{ backgroundColor: "color-mix(in srgb, white 14%, transparent)" }} />
           {/* Secondary CTA — Add to existing flow (same ICP only). */}

@@ -152,7 +152,7 @@ function CampaignCard({ camp, t, locale }: { camp: CampaignGroup; t: Tr; locale:
     >
       {camp.is_renurturing && (
         <div className="px-4 pt-2 pb-0 flex items-center gap-1.5">
-          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: C.green }}>Re-nurturing</span>
+          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: C.green }}>{t("ticket.reNurturing")}</span>
         </div>
       )}
       <div className="px-4 pt-4 pb-3 flex-1">

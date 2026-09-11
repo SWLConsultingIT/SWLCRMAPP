@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Pencil, Check, X, Loader2, AlertCircle } from "lucide-react";
 import { C } from "@/lib/design";
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export default function LostReasonPanel({ leadId, initialReason }: Props) {
+  const { t } = useLocale();
   const router = useRouter();
   const [reason, setReason] = useState(initialReason ?? "");
   const [editing, setEditing] = useState(!initialReason);
@@ -63,7 +65,7 @@ export default function LostReasonPanel({ leadId, initialReason }: Props) {
         <div className="flex items-center gap-2">
           <AlertCircle size={14} style={{ color: initialReason ? C.textMuted : "#DC2626" }} />
           <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textBody }}>
-            Why this lead was lost
+            {t("lrp.title")}
           </h3>
         </div>
         {initialReason && !editing && (
@@ -77,7 +79,7 @@ export default function LostReasonPanel({ leadId, initialReason }: Props) {
               backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)",
             }}
           >
-            <Pencil size={10} /> Edit
+            <Pencil size={10} /> {t("lrp.edit")}
           </button>
         )}
       </div>
@@ -87,7 +89,7 @@ export default function LostReasonPanel({ leadId, initialReason }: Props) {
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Budget, timing, wrong fit, competitor… capture the reason so future research can spot patterns."
+            placeholder={t("lrp.placeholder")}
             rows={3}
             className="w-full text-sm rounded-lg border px-3 py-2 outline-none focus:ring-2 focus:ring-offset-1 transition-shadow"
             style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
@@ -103,7 +105,7 @@ export default function LostReasonPanel({ leadId, initialReason }: Props) {
               style={{ backgroundColor: "#16A34A", color: "#fff" }}
             >
               {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-              Save reason
+              {t("lrp.save")}
             </button>
             {initialReason && (
               <button
@@ -113,7 +115,7 @@ export default function LostReasonPanel({ leadId, initialReason }: Props) {
                 className="inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-semibold transition-colors hover:bg-black/[0.04]"
                 style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
               >
-                <X size={11} /> Cancel
+                <X size={11} /> {t("lrp.cancel")}
               </button>
             )}
             {err && <span className="text-[11px]" style={{ color: "#DC2626" }}>{err}</span>}

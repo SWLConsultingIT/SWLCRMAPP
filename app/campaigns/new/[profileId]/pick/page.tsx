@@ -5,6 +5,7 @@
 // where the wizard reads them out of searchParams.
 
 import Link from "next/link";
+import { getT } from "@/lib/i18n-server";
 import { notFound } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
@@ -173,6 +174,7 @@ async function loadPickerData(profileId: string) {
 }
 
 export default async function PickLeadsPage({ params }: { params: Promise<{ profileId: string }> }) {
+  const t = await getT();
   const { profileId } = await params;
   const data = await loadPickerData(profileId);
   if (!data) notFound();
@@ -186,7 +188,7 @@ export default async function PickLeadsPage({ params }: { params: Promise<{ prof
         <span>/</span>
         <span style={{ color: C.textBody }}>{data.profile.name}</span>
         <span>/</span>
-        <span style={{ color: C.textBody }}>Select leads</span>
+        <span style={{ color: C.textBody }}>{t("pick.pageTitle")}</span>
       </div>
 
       <PickLeadsClient

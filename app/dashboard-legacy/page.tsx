@@ -416,7 +416,7 @@ export default async function DashboardPage({
             { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
             { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
             // Portfolio — cross-tenant comparison, super-admin only.
-            ...(isSuperAdmin ? [{ id: "portfolio", number: 6, label: "Portfolio" }] : []),
+            ...(isSuperAdmin ? [{ id: "portfolio", number: 6, label: t("dashx.chapter.portfolio") }] : []),
           ]}
         />
       </Suspense>
@@ -1088,7 +1088,7 @@ export default async function DashboardPage({
                       style={{ borderColor: C.border, color: C.textBody, background: C.card }}>
                       <span className="w-1 h-1 rounded-full" style={{ background: "#DC2626" }} />
                       {c.name}
-                      <span className="tabular-nums" style={{ color: C.textDim }}>· {c.leads} leads</span>
+                      <span className="tabular-nums" style={{ color: C.textDim }}>· {c.leads} {t("u.leads")}</span>
                     </Link>
                   ))}
                   {stagnant.length > 3 && (
@@ -1605,8 +1605,8 @@ export default async function DashboardPage({
       {data.callOutcomesBySeller.length > 0 && (
         <section>
           <Panel
-            title="Seller daily performance"
-            subtitle="Select up to 2 sellers to compare · click a metric to switch"
+            title={t("dashx.sellerDaily")}
+            subtitle={t("dashx.sellerDailySub")}
             glow
           >
             <SellerPerformanceChart rows={data.callOutcomesBySeller} />

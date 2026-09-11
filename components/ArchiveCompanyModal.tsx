@@ -51,10 +51,10 @@ export default function ArchiveCompanyModal({
     try {
       const res = await fetch(`/api/company-bios/${bioId}/archive`, { method: "POST" });
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Failed to archive");
+      if (!res.ok) throw new Error(d.error ?? t("acm.err.archive"));
       onArchived();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to archive");
+      setError(e instanceof Error ? e.message : t("acm.err.archive"));
       setArchiving(false);
     }
   }
@@ -79,7 +79,7 @@ export default function ArchiveCompanyModal({
         {loading ? (
           <div className="py-10 text-center">
             <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: C.textMuted }} />
-            <p className="text-xs" style={{ color: C.textMuted }}>Calculating impact…</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("acm.calculating")}</p>
           </div>
         ) : counts ? (
           <>
@@ -89,7 +89,7 @@ export default function ArchiveCompanyModal({
             <div className="rounded-xl border p-3.5 mb-4 flex items-start gap-2.5" style={{ borderColor: `${C.red}55`, backgroundColor: `${C.red}12` }}>
               <AlertTriangle size={16} style={{ color: C.red, flexShrink: 0, marginTop: 1 }} />
               <p className="text-[11.5px] leading-relaxed" style={{ color: C.textBody }}>
-                <strong style={{ color: C.red }}>This breaks the whole system for this tenant.</strong> Active campaigns stop sending, the AI loses the context it uses to write messages / score ICPs / suggest replies, and the team loses access. Don't archive unless you're certain.
+                <strong style={{ color: C.red }}>{t("acm.breaks")}</strong> {t("acm.breaksBody")}
               </p>
             </div>
 
@@ -109,15 +109,15 @@ export default function ArchiveCompanyModal({
             <div className="rounded-xl border p-3 mb-4 flex items-start gap-2.5" style={{ borderColor: C.border, backgroundColor: C.bg }}>
               <Archive size={14} style={{ color: C.textMuted, flexShrink: 0, marginTop: 2 }} />
               <p className="text-[11px] leading-relaxed" style={{ color: C.textBody }}>
-                <strong>Recoverable for 30 days</strong> from <span className="font-mono">/admin/recovery</span>.
-                After that, the data is <strong>permanently deleted</strong> by an automatic cleanup.
+                <strong>{t("acm.recoverable")}</strong> {t("acm.from")} <span className="font-mono">/admin/recovery</span>.
+                {t("acm.afterThat")} <strong>{t("acm.permanently")}</strong> {t("acm.byCleanup")}
               </p>
             </div>
 
             {/* Type-to-confirm */}
             <div className="mb-5">
               <label className="text-[11px] font-semibold block mb-1.5" style={{ color: C.textMuted }}>
-                Type <strong style={{ color: C.textPrimary }}>{companyName}</strong> to confirm
+                {t("acm.typeWord")} <strong style={{ color: C.textPrimary }}>{companyName}</strong> {t("acm.toConfirm")}
               </label>
               <input
                 type="text"

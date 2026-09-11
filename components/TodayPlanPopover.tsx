@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { CalendarCheck, Phone, MessageSquare, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -18,6 +19,7 @@ type Counts = {
 };
 
 export default function TodayPlanPopover() {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState<Counts>({ calls: 0, pending: 0, pendingReplies: 0 });
   const [mounted, setMounted] = useState(false);
@@ -83,7 +85,7 @@ export default function TodayPlanPopover() {
     {
       key: "calls",
       count: counts.calls,
-      label: "Calls pending",
+      label: t("tpp.callsPending"),
       icon: Phone,
       color: "#F97316",
       href: "/queue",
@@ -91,7 +93,7 @@ export default function TodayPlanPopover() {
     {
       key: "replies",
       count: counts.pendingReplies,
-      label: "Replies to triage",
+      label: t("tpp.repliesToTriage"),
       icon: MessageSquare,
       color: C.blue,
       href: "/queue?tab=inbox",
@@ -99,7 +101,7 @@ export default function TodayPlanPopover() {
     {
       key: "approvals",
       count: counts.pending,
-      label: "Awaiting approval",
+      label: t("tpp.awaitingApproval"),
       icon: AlertCircle,
       color: "var(--brand, #c9a83a)",
       href: "/queue?tab=reviews",
@@ -130,7 +132,7 @@ export default function TodayPlanPopover() {
                 {total === 0 ? "All caught up" : `${total} need you`}
               </p>
               <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textDim }}>
-                Today
+                {t("tpp.today")}
               </span>
             </div>
 
@@ -138,7 +140,7 @@ export default function TodayPlanPopover() {
               <div className="px-4 py-6 text-center">
                 <CheckCircle2 size={18} className="mx-auto mb-1.5" style={{ color: C.green }} />
                 <p className="text-[11px]" style={{ color: C.textMuted }}>
-                  Nothing pending right now.
+                  {t("tpp.nothingPending")}
                 </p>
               </div>
             ) : (
@@ -164,7 +166,7 @@ export default function TodayPlanPopover() {
                           {it.label}
                         </p>
                         <p className="text-[10px] leading-tight mt-0.5" style={{ color: C.textMuted }}>
-                          {it.count} pending
+                          {t("tpp.nPending", { n: it.count })}
                         </p>
                       </div>
                       <ArrowRight size={11} style={{ color: C.textDim }} />
@@ -180,7 +182,7 @@ export default function TodayPlanPopover() {
           className="block border-t px-3.5 py-2 text-[11px] font-semibold text-center transition-opacity hover:opacity-80"
           style={{ borderColor: C.border, color: "var(--brand, #c9a83a)" }}
         >
-          Open Queue →
+          {t("tpp.openQueue")}
         </Link>
       </div>
     </>
@@ -191,8 +193,8 @@ export default function TodayPlanPopover() {
       <button
         ref={btnRef}
         onClick={() => setOpen(v => !v)}
-        title="Today's plan"
-        aria-label="Today's plan"
+        title={t("tpp.todaysPlan")}
+        aria-label={t("tpp.todaysPlan")}
         className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100 relative"
         style={{ color: C.textMuted }}
       >

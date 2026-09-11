@@ -253,7 +253,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                           <div key={j} className="text-[10px] flex items-center gap-1.5 flex-wrap" style={{ color: C.textMuted }}>
                             <span className="font-medium" style={{ color: C.textBody }}>{s.leadName}</span>
                             <span>· {s.channel}</span>
-                            <span>· step {s.stepNumber}</span>
+                            <span>· {t("rel.stepN", { n: s.stepNumber })}</span>
                             <span>· {s.ageDays}d</span>
                           </div>
                         ))}
@@ -298,7 +298,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                           <div key={j} className="text-[10px] flex items-center gap-1.5 flex-wrap" style={{ color: C.textMuted }}>
                             <span className="font-medium" style={{ color: C.textBody }}>{s.leadName}</span>
                             <span>· {s.channel}</span>
-                            <span>· step {s.stepNumber}</span>
+                            <span>· {t("rel.stepN", { n: s.stepNumber })}</span>
                             <span>· {s.ageDays}d</span>
                             <RetryButton messageId={s.messageId} />
                           </div>

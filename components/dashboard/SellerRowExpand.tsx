@@ -9,6 +9,7 @@
 // page passes only serializable data — no inline render slots.
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Megaphone, Target, ArrowRight } from "lucide-react";
 import { C } from "@/lib/design";
@@ -75,6 +76,7 @@ export default function SellerRow({
   };
   formulaHint: string;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const hasBreakdown = seller.topCampaigns.length > 0 || seller.topIcps.length > 0;
   const convPct = Math.max(6, Math.round((seller.conversionRate / maxConv) * 100));
@@ -115,20 +117,20 @@ export default function SellerRow({
                   está vacío". Only shows channels with contacted > 0. */}
               <div className="inline-flex items-center gap-1.5 text-[10px] tabular-nums" title={labels.perChannelTitle}>
                 <RateChip rate={seller.replyRateLinkedin} contacted={seller.contactedLinkedin} color="#0A66C2" label="LI" />
-                <RateChip rate={seller.replyRateEmail} contacted={seller.contactedEmail} color="#059669" label="Email" />
-                <RateChip rate={seller.replyRateCall} contacted={seller.contactedCall} color="#EA580C" label="Call" />
+                <RateChip rate={seller.replyRateEmail} contacted={seller.contactedEmail} color="#059669" label={t("chan.email")} />
+                <RateChip rate={seller.replyRateCall} contacted={seller.contactedCall} color="#EA580C" label={t("chan.call")} />
                 {seller.pendingCalls > 0 && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded text-[9.5px] font-semibold"
                     style={{ background: `color-mix(in srgb, #D97706 14%, transparent)`, color: "#D97706" }}
                     title={labels.pendingCallsLabel}>
-                    {seller.pendingCalls} pending
+                    {t("sre.nPending", { n: seller.pendingCalls })}
                   </span>
                 )}
                 {seller.acceptanceRate > 0 && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded text-[9.5px] font-semibold"
                     style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}
-                    title={`${seller.connectionsAccepted}/${seller.connectionsSent} accepted`}>
-                    {seller.acceptanceRate}% accept
+                    title={t("sre.acceptedOf", { a: seller.connectionsAccepted, b: seller.connectionsSent })}>
+                    {t("sre.acceptPct", { n: seller.acceptanceRate })}
                   </span>
                 )}
               </div>

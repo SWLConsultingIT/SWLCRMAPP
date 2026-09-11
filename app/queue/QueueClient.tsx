@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/lib/i18n-locale";
 import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
@@ -35,7 +36,7 @@ type PendingCall = {
   phone: string | null;
   secondaryPhone: string | null;
   // Surfaced from leads.allow_call so the Notifications card can flash a
-  // t("qc.cls.wrongNumber") badge next to the phone. false = the post-call popup
+  // Wrong-number badge next to the phone. false = the post-call popup
   // flagged the number; the badge clicks through to the lead detail
   // where the WrongNumberPill opens its inline replace flow.
   allowCall?: boolean | null;
@@ -556,7 +557,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
             <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
               {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
               {e.status && <> · {e.status}</>}
-              {transcript && <> · transcript ✓</>}
+              {transcript && <> · {t("qc.transcriptOk")}</>}
               {(() => {
                 const d = dialedNumberLabel(e);
                 if (!d) return null;
@@ -834,7 +835,7 @@ function CallHistoryPanel({
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [], recalls = [], canViewAllSellers = false }: Props) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const searchParams = useSearchParams();
   // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls, 2 = Team
   // Chat. The default is 0 — the reply-triage surface sellers want when they
@@ -1001,7 +1002,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
   // exclude events (accepted-connection / bounces) and already-resolved rows.
   // The tab badge + hero counts use THIS, not newReplies.length, so the number
   // matches what the seller actually has to work (was inflated by the synthetic
-  // t("qc.cls.accepted") entries, which live in neither Pending nor History).
+  // Accepted entries, which live in neither Pending nor History).
   const REPLY_EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
   const isReplyEvent = (r: NewReply) => REPLY_EVENT_CLASS.has(r.classification ?? "");
   const pendingReplyCount = newReplies.filter(
@@ -1225,8 +1226,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                 <button onClick={() => setShowScheduled(s => !s)}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-black/[0.02]">
                   <Calendar size={14} style={{ color: "#F97316" }} />
-                  <span className="text-xs font-semibold" style={{ color: C.textBody }}>{filteredCallsScheduled.length} scheduled</span>
-                  <span className="text-[11px]" style={{ color: C.textDim }}>· not due yet{filteredCallsScheduled[0]?.dueAt ? ` · next ${new Date(filteredCallsScheduled[0].dueAt as number).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}</span>
+                  <span className="text-xs font-semibold" style={{ color: C.textBody }}>{t("qc.nScheduled", { n: filteredCallsScheduled.length })}</span>
+                  <span className="text-[11px]" style={{ color: C.textDim }}>· {t("qc.notDueYet")}{filteredCallsScheduled[0]?.dueAt ? ` · ${t("qc.nextOn", { date: new Date(filteredCallsScheduled[0].dueAt as number).toLocaleDateString(intlTag(locale), { month: "short", day: "numeric" }) })}` : ""}</span>
                   <ChevronRight size={14} className="ml-auto" style={{ color: C.textDim, transform: showScheduled ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
                 </button>
                 {showScheduled && (
@@ -1239,7 +1240,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                             <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{call.leadName}</p>
                             <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{call.role ? `${call.role} · ` : ""}{call.company ?? ""}</p>
                           </div>
-                          <span className="text-[11px] font-bold shrink-0" style={{ color: "#F97316" }}>Available {avail}</span>
+                          <span className="text-[11px] font-bold shrink-0" style={{ color: "#F97316" }}>{t("qc.availableAt", { time: avail })}</span>
                           <button onClick={() => router.push(`/leads/${call.leadId}`)}
                             className="text-[11px] font-semibold px-2 py-1 rounded-md border shrink-0 transition-colors hover:bg-black/[0.03]"
                             style={{ borderColor: C.border, color: C.textBody }}>{t("qc.open")}</button>

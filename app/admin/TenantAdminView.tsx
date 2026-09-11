@@ -91,7 +91,7 @@ export default async function TenantAdminView({ tier, companyBioId }: Props) {
       {/* Quick stats row — gives the page weight + signals workspace health
           at a glance instead of dumping the seller straight into the team list. */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <StatTile icon={Users} label="Members" value={ctx.memberCount} accent={gold}
+        <StatTile icon={Users} label={t("tav.members")} value={ctx.memberCount} accent={gold}
           sub={`${ownerCount} owner${ownerCount === 1 ? "" : "s"} · ${managerCount} mgr · ${sellerCount} sellers${viewerCount > 0 ? ` · ${viewerCount} viewers` : ""}`} />
         <StatTile icon={Megaphone} label={t("tav.activeFlows")} value={ctx.activeFlowCount} accent={C.green} />
         <StatTile icon={Phone} label={t("tav.sellersConfigured")} value={ctx.sellerCount} accent={C.blue} />

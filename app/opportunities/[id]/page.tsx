@@ -380,7 +380,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
               </span>
             )}
             {lead.transferredAt && (
-              <span className="text-[10px]" style={{ color: C.textDim }}>Transferred {timeAgo(lead.transferredAt)}</span>
+              <span className="text-[10px]" style={{ color: C.textDim }}>{t("opp.transferredAgo", { ago: timeAgo(lead.transferredAt) })}</span>
             )}
             {isSwl && (
               <SendToOdooPanel leadId={lead.id} transferred={lead.transferred} />
@@ -422,7 +422,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
             </div>
             <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: C.green }}>
-                The Winning Reply
+                {t("opp.winningReply")}
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
                 {formatDateTime(win.receivedAt)} · {timeAgo(win.receivedAt)}
@@ -455,11 +455,11 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
               {campaign.name}
             </Link>
           )}
-          {campaign?.sellerName && <span>· seller <span className="font-semibold" style={{ color: C.textBody }}>{campaign.sellerName}</span></span>}
-          {campaign?.startedAt && <span>· started {formatDate(campaign.startedAt)}</span>}
+          {campaign?.sellerName && <span>· {t("opp.sellerLabel")} <span className="font-semibold" style={{ color: C.textBody }}>{campaign.sellerName}</span></span>}
+          {campaign?.startedAt && <span>· {t("opp.startedOn", { date: formatDate(campaign.startedAt) })}</span>}
           {data.profile && (
             <span className="ml-auto text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
-              ICP: {(data.profile as { profile_name: string }).profile_name}
+              {t("opp.icpLabel")} {(data.profile as { profile_name: string }).profile_name}
             </span>
           )}
         </div>
@@ -487,11 +487,11 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
               <div>
                 <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("ld.tab.conversation")}</h2>
                 <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                  Every touchpoint with {lead.firstName ?? "this lead"} — read-only
+                  {t("opp.everyTouchpoint", { name: lead.firstName ?? t("opp.thisLead") })}
                 </p>
               </div>
               <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
-                {journey.length} events
+                {t("opp.nEvents", { n: journey.length })}
               </span>
             </div>
             <div className="p-4">
@@ -558,7 +558,7 @@ function JourneyTimeline({ events }: { events: any[] }) {
               <div className="mt-2 rounded-lg border px-3 py-2.5" style={{ backgroundColor: C.bg, borderColor: C.border }}>
                 {ev.subject && (
                   <p className="text-[11px] font-semibold mb-1" style={{ color: C.textBody }}>
-                    Subject: <span className="font-normal" style={{ color: C.textBody }}>{ev.subject}</span>
+                    {t("opp.subjectLabel")} <span className="font-normal" style={{ color: C.textBody }}>{ev.subject}</span>
                   </p>
                 )}
                 <p className="text-[11px] leading-relaxed line-clamp-4 whitespace-pre-line" style={{ color: C.textMuted }}>
@@ -592,7 +592,7 @@ function JourneyTimeline({ events }: { events: any[] }) {
             bullet = { icon: CheckCircle2, color: "#fff", bg: C.green };
             title = (
               <span className="text-xs font-semibold" style={{ color: C.green }}>
-                Transferred to CRM
+                {t("opp.transferredToCrm")}
               </span>
             );
           } else {
@@ -619,7 +619,7 @@ function JourneyTimeline({ events }: { events: any[] }) {
                 {body}
                 {highlight && (
                   <p className="text-[10px] mt-2 font-semibold" style={{ color: C.green }}>
-                    🎯 This is the moment the deal turned.
+                    🎯 {t("opp.momentTurned")}
                   </p>
                 )}
               </div>
@@ -661,7 +661,7 @@ function CampaignOpportunityRollup({ data }: { data: NonNullable<Awaited<ReturnT
 
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Converted Leads ({data.convertedLeads.length})</h2>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("opp.convertedLeads", { n: data.convertedLeads.length })}</h2>
           <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("od.clickAny")}</p>
         </div>
         {data.convertedLeads.map((lead: any, i: number) => {

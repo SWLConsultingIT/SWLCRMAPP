@@ -31,11 +31,12 @@ const accentSoft = (pct: number) => `color-mix(in srgb, ${ACCENT} ${pct}%, trans
 
 type Channel = "linkedin" | "email" | "call" | "whatsapp";
 
-const channelMeta: Record<Channel, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,         color: "#F97316", label: "Call" },
-  whatsapp: { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<Channel, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,          color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,         color: "#F97316", labelKey: "chan.call" },
+  whatsapp: { icon: MessageCircle, color: "#25D366", labelKey: "chan.whatsapp" },
 };
 
 type Step = {
@@ -444,7 +445,7 @@ export default function NewTemplatePage() {
         <div className="flex-1">
           <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>{t("tpl.newTemplate")}</h1>
           <p className="text-xs" style={{ color: C.textMuted }}>
-            Define a reusable sequence + messages. Save once, apply to any future campaign.
+            {t("tpl.defineReusable")}
           </p>
         </div>
       </div>
@@ -547,10 +548,10 @@ function SetupBar(props: {
       {/* ICP picker — required. Without it the user can't proceed to source. */}
       <div className="mb-3 pb-3 border-b" style={{ borderColor: C.border }}>
         <label className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5" style={{ color: C.textMuted }}>
-          ICP target <span style={{ color: C.red }}>*</span>
+          {t("tpl.icpTarget")} <span style={{ color: C.red }}>*</span>
           {!icpProfileId && (
             <span className="text-[10px] font-normal normal-case" style={{ color: C.textDim }}>
-              · pick which ICP this template targets — messages will be drafted for them
+              {t("tpl.icpTargetHint")}
             </span>
           )}
         </label>
@@ -570,7 +571,7 @@ function SetupBar(props: {
         </select>
         {icpOptions.length === 0 && (
           <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>
-            No ICPs yet. <a href="/icp" className="font-semibold underline" style={{ color: ACCENT }}>{t("tpl.createIcpFirst")}</a> — templates are scoped to a target.
+            {t("tpl.noIcpsYet")} <a href="/icp" className="font-semibold underline" style={{ color: ACCENT }}>{t("tpl.createIcpFirst")}</a> {t("tpl.scopedToTarget")}
           </p>
         )}
       </div>
@@ -621,7 +622,7 @@ function SetupBar(props: {
         <textarea
           value={toneCustom}
           onChange={e => setToneCustom(e.target.value)}
-          placeholder="Paste your style guide / writing examples. Anything here gets appended verbatim to the AI's instructions."
+          placeholder={t("tpl.tonePlaceholder")}
           rows={3}
           maxLength={1500}
           className="w-full mt-2 rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
@@ -707,10 +708,10 @@ function SourceStep(props: {
       <div className="rounded-2xl border p-6 text-center"
         style={{ backgroundColor: C.card, borderColor: C.border, opacity: 0.7 }}>
         <p className="text-sm font-semibold" style={{ color: C.textMuted }}>
-          Pick an ICP above to continue.
+          {t("tpl.pickIcpToContinue")}
         </p>
         <p className="text-xs mt-1" style={{ color: C.textDim }}>
-          Templates are scoped to a single ICP so the messages stay relevant.
+          {t("tpl.scopedSingleIcp")}
         </p>
       </div>
     );
@@ -755,15 +756,15 @@ function SourceStep(props: {
           <div>
             <h2 className="text-base font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
               <Sparkles size={16} style={{ color: ACCENT }} />
-              Upload your playbook
+              {t("tpl.uploadPlaybook")}
             </h2>
             <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-              Drop your sales deck, case studies, or one-pagers. Claude reads them, extracts the cadence, and drafts each message. You can edit everything in the next step.
+              {t("tpl.uploadPlaybookBody")}
             </p>
           </div>
           <button onClick={() => setSource(null)}
             className="text-[11px] font-semibold" style={{ color: C.textMuted }}>
-            ← Back to source
+            {t("tpl.backToSource")}
           </button>
         </div>
 
@@ -784,10 +785,10 @@ function SourceStep(props: {
           }}>
           <Upload size={32} className="mx-auto mb-3" style={{ color: dragOver ? ACCENT : C.textDim }} />
           <p className="text-sm font-semibold" style={{ color: C.textBody }}>
-            Drop PDFs here or click to browse
+            {t("tpl.dropPdfs")}
           </p>
           <p className="text-[11px] mt-1" style={{ color: C.textDim }}>
-            Up to {MAX_PDFS} files, {MAX_PDF_BYTES / 1024 / 1024}MB each. PDF only.
+            {t("tpl.pdfLimits", { n: MAX_PDFS, mb: MAX_PDF_BYTES / 1024 / 1024 })}
           </p>
           <input
             ref={fileInputRef}
@@ -852,15 +853,15 @@ function SourceStep(props: {
           <div>
             <h2 className="text-base font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
               <Copy size={16} style={{ color: "#0A66C2" }} />
-              Copy from an existing template
+              {t("tpl.copyFromExisting")}
             </h2>
             <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-              Pick one to copy. You can rename and edit every step in the next pass.
+              {t("tpl.copyFromExistingBody")}
             </p>
           </div>
           <button onClick={() => setSource(null)}
             className="text-[11px] font-semibold" style={{ color: C.textMuted }}>
-            ← Back to source
+            {t("tpl.backToSource")}
           </button>
         </div>
 
@@ -878,32 +879,32 @@ function SourceStep(props: {
         )}
         {!importLoading && importables && importables.length > 0 && (
           <div className="space-y-2">
-            {importables.map(t => (
+            {importables.map(tp => (
               <button
-                key={t.id}
+                key={tp.id}
                 disabled={importingId !== null}
-                onClick={() => importFromTemplate(t.id)}
+                onClick={() => importFromTemplate(tp.id)}
                 className="w-full text-left rounded-lg border p-3 transition-colors hover:bg-black/[0.02] disabled:opacity-50"
                 style={{ borderColor: C.border, backgroundColor: C.bg }}>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{t.name}</p>
-                    {t.description && (
-                      <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{t.description}</p>
+                    <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{tp.name}</p>
+                    {tp.description && (
+                      <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{tp.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-1.5">
-                      {t.channels.map(ch => {
+                      {tp.channels.map(ch => {
                         const meta = channelMeta[ch as Channel];
                         if (!meta) return null;
                         const I = meta.icon;
                         return <I key={ch} size={10} style={{ color: meta.color }} />;
                       })}
                       <span className="text-[10px]" style={{ color: C.textDim }}>
-                        used {t.usage_count}×
+                        {t("tpl.usedTimes", { n: tp.usage_count })}
                       </span>
                     </div>
                   </div>
-                  {importingId === t.id ? (
+                  {importingId === tp.id ? (
                     <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />
                   ) : (
                     <ArrowRight size={14} style={{ color: C.textMuted }} />
@@ -971,7 +972,7 @@ function SequenceStep(props: {
           <Share2 size={13} className="mt-0.5 shrink-0" style={{ color: "#0A66C2" }} />
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold mb-1" style={{ color: "#0A66C2" }}>
-              LinkedIn Connection Request <span className="font-normal opacity-60">{t("tpl.beforeFirstLi")}</span>
+              {t("tpl.liConnectionRequest")} <span className="font-normal opacity-60">{t("tpl.beforeFirstLi")}</span>
             </p>
             <textarea
               value={inviteStep?.body ?? ""}
@@ -990,7 +991,7 @@ function SequenceStep(props: {
               style={{ borderColor: "#0A66C230", backgroundColor: "#fff", color: C.textPrimary, minHeight: 90, fontFamily: "inherit" }}
             />
             <p className="text-[10px] mt-0.5" style={{ color: "#0A66C280" }}>
-              200 chars max · {200 - (inviteStep?.body.length ?? 0)} left
+              {t("tpl.charsLeft", { n: 200 - (inviteStep?.body.length ?? 0) })}
             </p>
           </div>
           {hasConnectionRequest && (
@@ -1017,13 +1018,13 @@ function SequenceStep(props: {
             <button onClick={addConnectionRequest}
               className="text-[11px] font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 border"
               style={{ borderColor: "#0A66C230", color: "#0A66C2", backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)" }}>
-              <Share2 size={11} /> Add LinkedIn invite
+              <Share2 size={11} /> {t("tpl.addLiInvite")}
             </button>
           )}
           <button onClick={addStep}
             className="text-[11px] font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1 border"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.surface }}>
-            <Plus size={11} /> Add step
+            <Plus size={11} /> {t("tpl.addStep")}
           </button>
         </div>
       </div>
@@ -1040,7 +1041,7 @@ function SequenceStep(props: {
           //   - With invite  → fires the moment Unipile reports the accept,
           //                    so daysAfter is meaningless (event-triggered).
           //   - Without invite → fires day 0 of the campaign.
-          // Either way the user shouldn't see a t("tpl.days") input for step 1.
+          // Either way the user shouldn't see a days input for step 1.
           const bodyStepIdx = hasConnectionRequest ? i - 1 : i;
           const isFirstBodyStep = bodyStepIdx === 0;
           return (
@@ -1059,7 +1060,7 @@ function SequenceStep(props: {
                       className="text-xs rounded border px-2 py-1 outline-none"
                       style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
                       {(Object.keys(channelMeta) as Channel[]).map(ch => (
-                        <option key={ch} value={ch}>{channelMeta[ch].label}</option>
+                        <option key={ch} value={ch}>{t(channelMeta[ch].labelKey)}</option>
                       ))}
                     </select>
                     {isFirstBodyStep ? (
@@ -1132,7 +1133,7 @@ function SequenceStep(props: {
                 <details className="mt-2 group">
                   <summary className="text-[10px] cursor-pointer inline-flex items-center gap-1 select-none"
                     style={{ color: C.textMuted }}>
-                    <FileText size={10} /> Source from PDF
+                    <FileText size={10} /> {t("tpl.sourceFromPdf")}
                   </summary>
                   <p className="text-[11px] mt-1.5 pl-3 italic"
                     style={{ color: C.textBody, borderLeft: `2px solid ${accentSoft(40)}` }}>
@@ -1152,7 +1153,7 @@ function SequenceStep(props: {
                       <button type="button"
                         onClick={() => updateStep(i, { variants: undefined })}
                         className="text-[10px]" style={{ color: C.textMuted }}>
-                        Remove variant
+                        {t("tpl.removeVariant")}
                       </button>
                     </div>
                     <textarea
@@ -1169,7 +1170,7 @@ function SequenceStep(props: {
                     onClick={() => updateStep(i, { variants: [""] })}
                     className="text-[10px] mt-2 font-semibold inline-flex items-center gap-1"
                     style={{ color: ACCENT }}>
-                    <Plus size={10} /> Add A/B variant
+                    <Plus size={10} /> {t("tpl.addAbVariant")}
                   </button>
                 )
               )}
@@ -1182,13 +1183,13 @@ function SequenceStep(props: {
         <button onClick={onBack}
           className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-lg"
           style={{ color: C.textBody }}>
-          <ArrowLeft size={14} /> Back
+          <ArrowLeft size={14} /> {t("tpl.back")}
         </button>
         <button onClick={onNext}
           disabled={bodyStepCount === 0 || !allBodiesFilled}
           className="text-sm font-semibold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
           style={{ backgroundColor: ACCENT, color: "#fff" }}>
-          Continue <ArrowRight size={14} />
+          {t("tpl.continue")} <ArrowRight size={14} />
         </button>
       </div>
     </div>
@@ -1225,14 +1226,14 @@ function IdentityStep(props: {
       <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
         <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("tpl.nameTags")}</h2>
         <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-          How will you find this template later? Pick a clear name and tag it for filtering.
+          {t("tpl.identityHint")}
         </p>
       </div>
 
       <div className="p-5 space-y-3">
         <div>
           <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-            Name <span style={{ color: C.red }}>*</span>
+            {t("tpl.nameLabel")} <span style={{ color: C.red }}>*</span>
           </label>
           <input
             value={name}
@@ -1245,7 +1246,7 @@ function IdentityStep(props: {
         </div>
         <div>
           <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-            Description
+            {t("tpl.descriptionLabel")}
           </label>
           <input
             value={description}
@@ -1257,7 +1258,7 @@ function IdentityStep(props: {
         </div>
         <div>
           <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-            Tags (comma-separated)
+            {t("tpl.tagsLabel")}
           </label>
           <input
             value={tagsInput}
@@ -1272,7 +1273,7 @@ function IdentityStep(props: {
             the Save step. Pills mirror the tone preset row in Step 1. */}
         <div>
           <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-            How should the AI rewrite per lead?
+            {t("tpl.rewritePerLead")}
           </label>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
             {REWRITE_MODES.map(p => {
@@ -1307,7 +1308,7 @@ function IdentityStep(props: {
                 <div key={i} className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md"
                   style={{ backgroundColor: `${meta.color}10`, color: meta.color, border: `1px solid ${meta.color}30` }}>
                   <Icon size={10} />
-                  <span className="font-semibold">{s.isConnectionRequest ? "Invite" : meta.label}</span>
+                  <span className="font-semibold">{s.isConnectionRequest ? t("tpl.invite") : t(meta.labelKey)}</span>
                   <span className="opacity-60">· d{s.daysAfter}</span>
                 </div>
               );
@@ -1316,22 +1317,22 @@ function IdentityStep(props: {
           <div className="flex flex-wrap items-center gap-2 text-[10px]">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
               style={{ borderColor: accentSoft(40), backgroundColor: accentSoft(10), color: ACCENT }}>
-              Tone · {toneLabel}
+              {t("tpl.chipTone")} · {toneLabel}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
               style={{ borderColor: accentSoft(40), backgroundColor: accentSoft(10), color: ACCENT }}>
-              Rewrite · {(() => { const r = REWRITE_MODES.find(m => m.id === rewriteMode); return r ? t(r.labelKey) : null; })()}
+              {t("tpl.chipRewrite")} · {(() => { const r = REWRITE_MODES.find(m => m.id === rewriteMode); return r ? t(r.labelKey) : null; })()}
             </span>
             {voiceLabel && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
                 style={{ borderColor: accentSoft(40), backgroundColor: accentSoft(10), color: ACCENT }}>
-                Voice · {voiceLabel}
+                {t("tpl.chipVoice")} · {voiceLabel}
               </span>
             )}
             {variantsCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
                 style={{ borderColor: "#16A34A40", backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A" }}>
-                A/B · {variantsCount} step{variantsCount === 1 ? "" : "s"}
+                A/B · {variantsCount} {t(variantsCount === 1 ? "u.step" : "u.steps")}
               </span>
             )}
           </div>
@@ -1355,7 +1356,7 @@ function IdentityStep(props: {
         <button onClick={onBack}
           className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-lg"
           style={{ color: C.textBody }}>
-          <ArrowLeft size={14} /> Back
+          <ArrowLeft size={14} /> {t("tpl.back")}
         </button>
         <button onClick={onSave} disabled={saving || !name.trim()}
           className="text-sm font-semibold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"

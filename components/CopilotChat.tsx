@@ -101,7 +101,7 @@ export default function CopilotChat({ initialQuestion, embedded = false }: { ini
       className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors disabled:opacity-40 hover:shadow-sm shrink-0"
       style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${gold} 6%, transparent)` }}
       title={t("copilot.newConversation")}>
-      <Plus size={12} /> Nueva conversación
+      <Plus size={12} /> {t("copilot.newConversation")}
     </button>
   );
 
@@ -119,10 +119,10 @@ export default function CopilotChat({ initialQuestion, embedded = false }: { ini
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>Copilot</p>
+              <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{t("copilot.title")}</p>
               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#fff", letterSpacing: "0.06em" }}>AI</span>
             </div>
-            <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>Memory across all your prospects — compare objections, reactions and what&apos;s working.</p>
+            <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{t("copilot.subtitle")}</p>
           </div>
           {turns.length > 0 && newBtn}
         </div>
@@ -138,7 +138,7 @@ export default function CopilotChat({ initialQuestion, embedded = false }: { ini
       <div ref={scrollRef} className="px-5 py-4 space-y-3 flex-1" style={{ overflowY: "auto" }}>
         {turns.length === 0 && !loading && (
           <div className="py-2">
-            <p className="text-[12px] mb-2.5" style={{ color: C.textMuted }}>Try asking:</p>
+            <p className="text-[12px] mb-2.5" style={{ color: C.textMuted }}>{t("copilot.tryAsking")}</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => ask(s)} className="text-[12px] text-left px-3 py-1.5 rounded-lg border transition-colors hover:shadow-sm"
@@ -169,7 +169,7 @@ export default function CopilotChat({ initialQuestion, embedded = false }: { ini
         {loading && (
           <div className="flex justify-start">
             <div className="rounded-2xl px-3.5 py-2.5 inline-flex items-center gap-2 text-[12px]" style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}`, borderTopLeftRadius: 4 }}>
-              <Loader2 size={13} className="animate-spin" /> Searching your prospects…
+              <Loader2 size={13} className="animate-spin" /> {t("copilot.searching")}
             </div>
           </div>
         )}
@@ -180,7 +180,7 @@ export default function CopilotChat({ initialQuestion, embedded = false }: { ini
         <div className="flex items-end gap-2">
           <textarea value={input} onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); ask(input); } }}
-            placeholder="Ask across all your prospects… (⌘/Ctrl+Enter to send)" rows={1}
+            placeholder={t("copilot.inputPh")} rows={1}
             className="flex-1 resize-none rounded-xl px-3 py-2.5 text-[13px] outline-none"
             style={{ backgroundColor: C.bg, color: C.textPrimary, border: `1px solid ${C.border}`, maxHeight: 120 }} />
           <button onClick={() => ask(input)} disabled={loading || !input.trim()}

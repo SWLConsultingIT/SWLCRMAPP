@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
 
       <div className="w-full max-w-md relative z-10">
         <a href="/login" className="flex items-center gap-1.5 text-xs mb-8 hover:opacity-80 transition-opacity" style={{ color: "rgba(217,222,226,0.5)" }}>
-          <ArrowLeft size={13} /> Back to login
+          <ArrowLeft size={13} /> {t("fp.backToLogin")}
         </a>
 
         {done ? (
@@ -57,17 +57,17 @@ export default function ForgotPasswordPage() {
             </div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>{t("auth.checkEmail")}</h2>
             <p className="text-sm leading-relaxed" style={{ color: "rgba(217,222,226,0.6)" }}>
-              If an account exists for <strong style={{ color: "#f8fafc" }}>{email}</strong>, we sent a 6-digit code. Redirecting…
+              {t("fp.ifAccountExists")} <strong style={{ color: "#f8fafc" }}>{email}</strong>{t("fp.sentCode")}
             </p>
           </div>
         ) : (
           <>
             <div className="mb-8">
               <h2 className="text-2xl font-bold mb-1" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)", letterSpacing: "-0.01em" }}>
-                Forgot your password?
+                {t("fp.title")}
               </h2>
               <p className="text-sm" style={{ color: "rgba(217,222,226,0.5)" }}>
-                Enter your email and we&apos;ll send you a reset link.
+                {t("fp.subtitle")}
               </p>
             </div>
 
@@ -111,7 +111,7 @@ export default function ForgotPasswordPage() {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                    Sending…
+                    {t("fp.sending")}
                   </span>
                 ) : (
                   <>{t("auth.sendLink")}<ChevronRight size={15} /></>

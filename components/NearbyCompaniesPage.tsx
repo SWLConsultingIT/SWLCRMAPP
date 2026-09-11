@@ -66,10 +66,11 @@ function cityOf(address: string | null) {
   if (!capPart) return null;
   return capPart.replace(/\b\d{5}\b/g, "").replace(/\b[A-Z]{2}\b\s*$/, "").trim() || null;
 }
+// labelKey, not label: module scope, no translator here.
 function fitOf(demand: number) {
-  if (demand >= 250) return { label: "High", color: N.ink, bg: C.gold };
-  if (demand >= 150) return { label: "Medium", color: C.goldDim, bg: "color-mix(in srgb, var(--brand, #c9a83a) 16%, transparent)" };
-  return { label: "Low", color: C.textMuted, bg: "color-mix(in srgb, #64748B 12%, transparent)" };
+  if (demand >= 250) return { labelKey: "nearbyPage.fit.high", color: N.ink, bg: C.gold };
+  if (demand >= 150) return { labelKey: "nearbyPage.fit.medium", color: C.goldDim, bg: "color-mix(in srgb, var(--brand, #c9a83a) 16%, transparent)" };
+  return { labelKey: "nearbyPage.fit.low", color: C.textMuted, bg: "color-mix(in srgb, #64748B 12%, transparent)" };
 }
 
 type Row = NearbyCompany & { industry: string; city: string | null; demand: number; distance: number | null };
@@ -258,7 +259,7 @@ export default function NearbyCompaniesPage({
                     <td className="px-4 py-3 text-[13px]" style={{ color: C.textBody }}>{r.city ?? "—"}</td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>{r.distance != null ? <>{r.distance.toFixed(1)} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>km</span></> : "—"}</td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>~{r.demand} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>MWh/{t("nearby.perYear")}</span></td>
-                    <td className="px-4 py-3 text-center"><span className="text-[10.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ backgroundColor: fit.bg, color: fit.color }}>{fit.label}</span></td>
+                    <td className="px-4 py-3 text-center"><span className="text-[10.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ backgroundColor: fit.bg, color: fit.color }}>{t(fit.labelKey)}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2.5">
                         {r.phone ? <Phone size={13} style={{ color: C.phone }} /> : <span style={{ width: 13 }} />}

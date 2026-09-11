@@ -18,12 +18,13 @@ function renderBody(body: string, mine: boolean): ReactNode {
   const out: ReactNode[] = [];
   let last = 0, key = 0, m: RegExpExecArray | null;
   while ((m = LEAD_LINK_RE.exec(body)) !== null) {
+  const { t } = useLocale();
     if (m.index > last) out.push(body.slice(last, m.index));
     const href = m[0].replace(/^→\s*/, "");
     out.push(
       <Link key={key++} href={href} className="underline font-semibold whitespace-nowrap"
         style={{ color: mine ? "#04070d" : "var(--brand, #c9a83a)" }}>
-        Open lead →
+        {t("chat.openLead")}
       </Link>,
     );
     last = m.index + m[0].length;
@@ -210,7 +211,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
                       <div className="px-3 py-2 rounded-2xl text-sm" style={{ backgroundColor: mine ? "var(--brand, #c9a83a)" : C.bg, color: mine ? "#04070d" : C.textBody, borderTopRightRadius: mine ? 4 : undefined, borderTopLeftRadius: mine ? undefined : 4 }}>
                         <span className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</span>
                       </div>
-                      <p className="text-[9px] mt-0.5" style={{ color: C.textDim, textAlign: mine ? "right" : "left" }}>{ago(m.created_at)} ago</p>
+                      <p className="text-[9px] mt-0.5" style={{ color: C.textDim, textAlign: mine ? "right" : "left" }}>{t("chat.ago", { ago: ago(m.created_at) })}</p>
                     </div>
                   </div>
                 );

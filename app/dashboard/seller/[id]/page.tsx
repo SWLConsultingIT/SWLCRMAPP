@@ -474,7 +474,7 @@ export default async function SellerDetailPage({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1.5">
               <div className="h-px w-6" style={{ backgroundColor: gold }} />
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>Seller Dossier</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>{t("sellerx.dossier")}</p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ml-1"
                 style={{
                   backgroundColor: d.seller.active ? `color-mix(in srgb, ${C.green} 18%, transparent)` : "rgba(255,255,255,0.08)",
@@ -725,7 +725,7 @@ export default async function SellerDetailPage({
                         <div className="flex items-center gap-3 text-[11px] shrink-0 tabular-nums" style={{ color: C.textMuted }}>
                           <span>{i.leads} {t("sellerx.unit.leads")}</span>
                           <span style={{ color: i.replied > 0 ? C.blue : C.textDim }}>{i.replied} {t("sellerx.unit.replies")}</span>
-                          <span className="font-bold" style={{ color: i.positive > 0 ? C.green : C.textDim }}>{i.positive} positive</span>
+                          <span className="font-bold" style={{ color: i.positive > 0 ? C.green : C.textDim }}>{i.positive} {t("sellerx.unit.positive")}</span>
                           <span className="font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${barColor} 12%, transparent)`, color: barColor }}>
                             {conv}%
                           </span>
@@ -811,7 +811,7 @@ export default async function SellerDetailPage({
                       <span className="font-bold tabular-nums" style={{ color: C.textPrimary }}>{ch.sent.toLocaleString(dateLoc)}</span> {t("sellerx.unit.sent")}
                     </span>
                     <span style={{ color: ch.positive > 0 ? C.green : C.textMuted }}>
-                      <span className="font-bold tabular-nums">{ch.positive}</span> positive
+                      <span className="font-bold tabular-nums">{ch.positive}</span> {t("sellerx.unit.positive")}
                     </span>
                   </div>
                 </div>
@@ -869,9 +869,9 @@ export default async function SellerDetailPage({
               </div>
               <span className="text-sm font-semibold flex-1 truncate group-hover:underline" style={{ color: C.textPrimary }}>{c.name}</span>
               <div className="flex items-center gap-4 text-[11px] tabular-nums shrink-0" style={{ color: C.textMuted }}>
-                <span><span className="font-bold" style={{ color: C.textBody }}>{c.leads}</span> leads</span>
+                <span><span className="font-bold" style={{ color: C.textBody }}>{c.leads}</span> {t("u.leads")}</span>
                 <span style={{ color: c.replied > 0 ? C.blue : C.textDim }}><span className="font-bold">{c.replied}</span> {t("sellerx.unit.replies")}</span>
-                <span style={{ color: c.positive > 0 ? C.green : C.textDim }}><span className="font-bold">{c.positive}</span> positive</span>
+                <span style={{ color: c.positive > 0 ? C.green : C.textDim }}><span className="font-bold">{c.positive}</span> {t("sellerx.unit.positive")}</span>
                 <RateCell value={c.conversionRate} color={C.green} />
               </div>
               <StatusBadge status={c.status} t={t} />

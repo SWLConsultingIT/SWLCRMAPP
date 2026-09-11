@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/lib/i18n-locale";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, MessageCircle } from "lucide-react";
@@ -31,7 +32,7 @@ const STEP_TYPES = [
 ];
 
 export default function VoiceEditorClient({ bio }: { bio: Bio }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const router = useRouter();
   const [tone, setTone] = useState(bio.tone_of_voice ?? "");
   const [examples, setExamples] = useState<VoiceExample[]>(bio.ideal_message_examples ?? []);
@@ -76,7 +77,7 @@ export default function VoiceEditorClient({ bio }: { bio: Bio }) {
       <Link href={`/admin/${bio.id}`}
         className="inline-flex items-center gap-1 text-xs font-medium mb-4 hover:underline"
         style={{ color: C.textMuted }}>
-        <ArrowLeft size={12} /> Back to {bio.company_name}
+        <ArrowLeft size={12} /> {t("vce.backTo", { name: bio.company_name })}
       </Link>
 
       <div className="flex items-start justify-between mb-6">
@@ -86,13 +87,13 @@ export default function VoiceEditorClient({ bio }: { bio: Bio }) {
             <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{t("vec.brandVoice")}</h1>
           </div>
           <p className="text-sm" style={{ color: C.textMuted }}>
-            Tone description + ideal message examples. Fed as few-shot to the AI message generator for {bio.company_name}.
+            {t("vce.subtitle", { name: bio.company_name })}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {savedAt && (
             <span className="text-xs" style={{ color: C.green }}>
-              Saved {savedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+              {t("vce.savedAt", { time: savedAt.toLocaleTimeString(intlTag(locale), { hour: "2-digit", minute: "2-digit" }) })}
             </span>
           )}
           <button onClick={save} disabled={saving}
@@ -108,31 +109,31 @@ export default function VoiceEditorClient({ bio }: { bio: Bio }) {
       <div className="rounded-xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <label className="block">
           <span className="text-[11px] font-semibold uppercase tracking-wider mb-2 block" style={{ color: C.textMuted }}>
-            Tone of voice
+            {t("vce.toneOfVoice")}
           </span>
           <textarea
             value={tone}
             onChange={e => setTone(e.target.value)}
-            placeholder="e.g. 'Professional but warm. Plain English, no jargon. Confident without being pushy. Short sentences.'"
+            placeholder={t("vce.tonePh")}
             rows={3}
             className="w-full text-sm px-3 py-2 rounded-lg border resize-y"
             style={{ borderColor: C.border, backgroundColor: C.bg }}
           />
         </label>
         <p className="text-[10px] mt-1" style={{ color: C.textMuted }}>
-          A short description of the brand voice. The AI uses this as the writing style guide for every generated message.
+          {t("vce.toneHint")}
         </p>
       </div>
 
       {/* Examples */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-          Ideal message examples ({examples.length})
+          {t("vce.examplesCount", { n: examples.length })}
         </span>
         <button onClick={addExample}
           className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
           style={{ backgroundColor: C.goldGlow, color: gold }}>
-          <Plus size={12} /> Add Example
+          <Plus size={12} /> {t("vce.addExample")}
         </button>
       </div>
 
@@ -141,7 +142,7 @@ export default function VoiceEditorClient({ bio }: { bio: Bio }) {
           <MessageCircle size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
           <p className="text-sm font-medium mb-1" style={{ color: C.textBody }}>{t("vec.noExamples")}</p>
           <p className="text-xs" style={{ color: C.textMuted }}>
-            Add a few proven outreach messages — the AI will mirror their voice when generating new campaigns.
+            {t("vce.examplesHint")}
           </p>
         </div>
       ) : (

@@ -87,7 +87,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   // Defaults to first option (typically primary_phone / mobile).
   const phoneOptions: PhoneOption[] = (phones && phones.length > 0)
     ? phones.filter(p => p.value && p.value.trim().length > 0)
-    : (phone ? [{ label: "Personal", value: phone }] : []);
+    : (phone ? [{ label: t("call.phoneType.personal"), value: phone }] : []);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(() => {
     if (typeof window === "undefined") return phoneOptions[0]?.value ?? null;
     try {
@@ -379,7 +379,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
               type="button"
               onClick={(e) => { e.stopPropagation(); void refreshNumbers(); }}
               disabled={refreshing}
-              title="Refresh from Aircall — picks up newly-claimed numbers without waiting for the 5-min cache"
+              title={t("call.refreshTitle")}
               className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded transition-opacity hover:opacity-70 disabled:opacity-50"
               style={{ color: C.textMuted }}
             >

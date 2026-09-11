@@ -238,7 +238,7 @@ export default function TemplateLaunchModal({
         <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: C.textDim }}>
-              Launch campaign
+              {t("launch.launchCampaign")}
             </p>
             <h2 className="text-base font-bold mt-0.5" style={{ color: C.textPrimary }}>{templateName}</h2>
           </div>
@@ -254,10 +254,10 @@ export default function TemplateLaunchModal({
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-1.5" style={{ color: C.textPrimary }}>
-                  <Users size={13} /> Assign to sellers
+                  <Users size={13} /> {t("launch.assignToSellers")}
                 </h3>
                 <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-                  Pick who sends + how many. Total quota: <span className="font-semibold tabular-nums" style={{ color: C.textBody }}>{totalQuota}</span>.
+                  {t("launch.pickWhoSends")} <span className="font-semibold tabular-nums" style={{ color: C.textBody }}>{totalQuota}</span>.
                 </p>
               </div>
               {sellerQuotas.length < sellers.length && (
@@ -271,7 +271,7 @@ export default function TemplateLaunchModal({
             <div className="space-y-2">
               {sellerQuotas.length === 0 && (
                 <p className="text-xs text-center py-3" style={{ color: C.textDim }}>
-                  Click <b>{t("launch.addSeller")}</b> to start.
+                  {t("launch.clickWord")} <b>{t("launch.addSeller")}</b> {t("launch.toStart")}
                 </p>
               )}
               {sellerQuotas.map((q, idx) => {
@@ -298,13 +298,13 @@ export default function TemplateLaunchModal({
                       style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }} />
                     <span className="text-[10px]" style={{ color: C.textMuted }}>{t("launch.leadsMax")}</span>
                     {sellerObj?.linkedin_daily_limit && (
-                      <span className="text-[10px]" style={{ color: C.textDim }} title="Seller's LinkedIn daily cap">
-                        · cap {sellerObj.linkedin_daily_limit}/d
+                      <span className="text-[10px]" style={{ color: C.textDim }} title={t("launch.sellerCapTitle")}>
+                        · {t("launch.capPerDay", { n: sellerObj.linkedin_daily_limit })}
                       </span>
                     )}
                     <span className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full"
                       style={{ backgroundColor: projected > 0 ? clr.bg : C.surface, color: projected > 0 ? clr.text : C.textDim }}>
-                      {projected} leads
+                      {projected} {t(projected === 1 ? "u.lead" : "u.leads")}
                     </span>
                     {sellerQuotas.length > 1 && (
                       <button onClick={() => removeSellerQuota(idx)}
@@ -326,7 +326,7 @@ export default function TemplateLaunchModal({
               <div>
                 <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("launch.pickLeads")}</h3>
                 <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-                  Scoped to this template's ICP. {leads ? `${leads.length} available.` : ""}
+                  {t("launch.scopedToIcp")} {leads ? t("launch.nAvailable", { n: leads.length }) : ""}
                 </p>
               </div>
               <div className="flex items-center gap-1">
@@ -343,7 +343,7 @@ export default function TemplateLaunchModal({
                     backgroundColor: statusFilter === "all" ? accentSoft(15) : C.bg,
                     borderColor: statusFilter === "all" ? accentSoft(40) : C.border,
                     color: statusFilter === "all" ? ACCENT : C.textBody,
-                  }}>All</button>
+                  }}>{t("launch.all")}</button>
               </div>
             </div>
 
@@ -361,17 +361,17 @@ export default function TemplateLaunchModal({
             <div className="flex items-center gap-2 mb-2 text-[11px]">
               <button onClick={() => selectFirstN(totalQuota || 10)}
                 className="font-semibold underline" style={{ color: ACCENT }}>
-                Select first {totalQuota || 10}
+                {t("launch.selectFirstN", { n: totalQuota || 10 })}
               </button>
               <span style={{ color: C.textDim }}>·</span>
               <button onClick={selectAllVisible} className="font-semibold underline" style={{ color: ACCENT }}>
-                Select all visible ({filteredLeads.length})
+                {t("launch.selectAllVisible", { n: filteredLeads.length })}
               </button>
               {selectedCount > 0 && (
                 <>
                   <span style={{ color: C.textDim }}>·</span>
                   <button onClick={clearSelection} className="font-semibold underline" style={{ color: C.red }}>
-                    Clear ({selectedCount})
+                    {t("launch.clearN", { n: selectedCount })}
                   </button>
                 </>
               )}
@@ -386,7 +386,7 @@ export default function TemplateLaunchModal({
               <div className="py-10 text-center" style={{ color: C.textDim }}>
                 <p className="text-sm">{t("launch.noLeads")}</p>
                 {statusFilter === "new" && (
-                  <p className="text-[11px] mt-1">{t("launch.tryToggling")} <b>All</b> {t("launch.tryTogglingEnd")}</p>
+                  <p className="text-[11px] mt-1">{t("launch.tryToggling")} <b>{t("launch.all")}</b> {t("launch.tryTogglingEnd")}</p>
                 )}
               </div>
             ) : (
@@ -416,7 +416,7 @@ export default function TemplateLaunchModal({
                           </p>
                           <p className="text-[10px] truncate" style={{ color: C.textDim }}>
                             {l.company_name ?? "—"}
-                            {l.status && l.status !== "new" && <span> · status: {l.status}</span>}
+                            {l.status && l.status !== "new" && <span> · {t("launch.statusLabel")} {l.status}</span>}
                           </p>
                         </div>
                         {clr && sellerName && (
@@ -448,10 +448,10 @@ export default function TemplateLaunchModal({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold tabular-nums" style={{ color: C.textPrimary }}>
-                {selectedCount} {selectedCount === 1 ? "lead" : "leads"} selected
+                {t("launch.nSelected", { n: selectedCount, unit: t(selectedCount === 1 ? "u.lead" : "u.leads") })}
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
-                {sellerQuotas.length} {sellerQuotas.length === 1 ? "seller" : "sellers"} · {totalQuota} quota
+                {sellerQuotas.length} {t(sellerQuotas.length === 1 ? "u.seller" : "u.sellers")} · {t("launch.nQuota", { n: totalQuota })}
                 {selectedCount > totalQuota && totalQuota > 0 && (
                   <span style={{ color: "#D97706" }}> {t("launch.overflowNote")}</span>
                 )}

@@ -188,7 +188,7 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
               {data.cer_eligible === true && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
                   style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                  CER eligible
+                  {t("pip.cerEligible")}
                 </span>
               )}
               {data.transizione_5_0_eligible === true && (
@@ -203,7 +203,7 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
             <div className="text-[12px] leading-relaxed rounded-md p-3 border"
               style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
               <div className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold }}>
-                Outreach Angle
+                {t("pip.outreachAngle")}
               </div>
               {angle}
             </div>
@@ -241,7 +241,7 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
           <span className="flex-1 text-left leading-tight relative">
             <span className="text-[14px]" style={{ color: "#fff" }}>{t("pv.crossSell")}</span>
             <span className="block text-[11.5px] font-medium mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
-              {(data.nearby_companies as unknown[]).length} businesses around the plant · explore the producer ↔ consumer match
+              {t("pip.nearbyBlurb", { n: (data.nearby_companies as unknown[]).length })}
             </span>
           </span>
           <span className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-transform group-hover:translate-x-0.5 relative" style={{ backgroundColor: "rgba(255,255,255,0.08)", color: N.goldOnDark }}>
@@ -332,7 +332,7 @@ function formatValue(key: string, value: unknown, t: (k: string, vars?: Record<s
   if (key === "ch_newest_charge_age_months") {
     const months = Number(s);
     const color = months >= 10 && months <= 14 ? C.red : months >= 6 && months <= 9 ? "#D97706" : C.textBody;
-    return <span style={{ color, fontVariantNumeric: "tabular-nums" }}>{s} months</span>;
+    return <span style={{ color, fontVariantNumeric: "tabular-nums" }}>{t("pip.nMonths", { n: s })}</span>;
   }
 
   if (key === "ch_if_signal") {
@@ -740,14 +740,14 @@ export default function PersonalizedInfoPanel({ enrichment, leadId, companyName 
           <div>
             <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("pv.personalizedInfo")}</h3>
             <p className="text-[10px]" style={{ color: C.textMuted }}>
-              Client-specific signals used by AI to personalize outreach
+              {t("pip.signalsHint")}
             </p>
           </div>
         </div>
         {priorityVisible.length > 0 && (
           <span className="text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider"
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 25%, transparent)` }}>
-            {priorityVisible.length} signals
+            {t("pip.nSignals", { n: priorityVisible.length })}
           </span>
         )}
       </div>

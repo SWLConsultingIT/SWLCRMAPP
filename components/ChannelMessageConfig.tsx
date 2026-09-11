@@ -305,7 +305,7 @@ function LaneMessage({ children, hint }: { children: React.ReactNode; hint?: str
             border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
           }}
         >
-          this ships
+          {t("cmc.thisShips")}
         </span>
         {hint && <span className="text-[11px] ml-auto text-right" style={{ color: C.textDim }}>{hint}</span>}
       </div>
@@ -555,7 +555,7 @@ export function PlaceholdersHint({
               </p>
               <p className="text-[10px]" style={{ color: C.textMuted }}>
                 {t("cmc.var.foundLabel")} <span className="font-mono">{suspicious.slice(0, 6).map(s => s.token).join(", ")}{suspicious.length > 6 ? t("cmc.var.andMore", { n: suspicious.length - 6 }) : ""}</span>.
-                Use <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> {t("cmc.var.useNot")} <span className="font-mono">[First Name]</span> {t("icpx.or")} <span className="font-mono">%FIRST_NAME%</span>.
+                {t("cmc.var.use")} <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> {t("cmc.var.useNot")} <span className="font-mono">[First Name]</span> {t("icpx.or")} <span className="font-mono">%FIRST_NAME%</span>.
               </p>
             </>
           ) : strayTailored.length > 0 ? (
@@ -1197,17 +1197,17 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               />
               <div className="flex items-center gap-3 mt-2.5 pt-2.5 text-[10.5px] border-t" style={{ borderColor: C.border }}>
                 <span style={{ color: C.textDim }}>
-                  Template <b style={{ color: C.textMuted }}>{channelMessages.connectionRequest?.length || 0}</b>
+                  {t("cmc.templateLen")} <b style={{ color: C.textMuted }}>{channelMessages.connectionRequest?.length || 0}</b>
                 </span>
                 <span style={{ color: C.textDim }}>
-                  Rendered{" "}
+                  {t("cmc.renderedLen")}{" "}
                   <b style={{ color: crRendered.over ? C.red : C.textMuted }}>
                     {crRendered.min === crRendered.max ? crRendered.max : `${crRendered.min}–${crRendered.max}`} / 200
                   </b>
                 </span>
                 {crRendered.over && (
                   <span className="font-semibold" style={{ color: C.red }}>
-                    over the cap once placeholders expand
+                    {t("cmc.overCap")}
                   </span>
                 )}
               </div>
@@ -1363,8 +1363,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     return (
                       <div className="space-y-1">
                         <label className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: showWarning ? C.red : C.textDim }}>
-                          Subject <span style={{ color: C.red }}>*</span>
-                          {showWarning && <span className="font-normal normal-case tracking-normal text-[10px]" style={{ color: C.red }}>· required for email steps</span>}
+                          {t("cmc.subject")} <span style={{ color: C.red }}>*</span>
+                          {showWarning && <span className="font-normal normal-case tracking-normal text-[10px]" style={{ color: C.red }}>· {t("cmc.requiredForEmail")}</span>}
                         </label>
                         <input
                           required

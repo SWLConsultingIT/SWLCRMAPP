@@ -167,7 +167,7 @@ export default function AddPersonModal({
           {/* Multi-select companies */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-              Companies {selectedIds.length > 0 && <span style={{ color: C.gold }}>· {selectedIds.length} selected</span>}
+              {t("apm.companies")} {selectedIds.length > 0 && <span style={{ color: C.gold }}>· {t("apm.nSelected", { n: selectedIds.length })}</span>}
             </label>
             {!lockedCompanyId && companies.length > 6 && (
               <input
@@ -246,7 +246,7 @@ export default function AddPersonModal({
           {tier === "seller" && singleCompany && (
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-                Link to seller record
+                {t("apm.linkToSeller")}
               </label>
               <select
                 value={sellerId}
@@ -254,7 +254,7 @@ export default function AddPersonModal({
                 className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               >
-                <option value="">— pick a seller —</option>
+                <option value="">{t("apm.pickSeller")}</option>
                 {sellers.map(s => (
                   <option key={s.id} value={s.id} disabled={!!s.userId}>
                     {s.name}{s.userId ? " (already linked)" : ""}
@@ -265,7 +265,7 @@ export default function AddPersonModal({
           )}
           {tier === "seller" && !singleCompany && (
             <p className="text-[10px]" style={{ color: C.textDim }}>
-              Seller record linking is only available when one company is selected.
+              {t("apm.linkHint")}
             </p>
           )}
 
@@ -278,7 +278,7 @@ export default function AddPersonModal({
 
         <div className="px-6 py-3 border-t flex items-center justify-end gap-2 shrink-0" style={{ borderColor: C.border }}>
           <button onClick={onClose} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-            Cancel
+            {t("apm.cancel")}
           </button>
           <button
             onClick={submit}

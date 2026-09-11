@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, X, AlertCircle, Phone, Mail, Share2, Megaphone } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -44,6 +45,7 @@ const channelIcon: Record<string, typeof Phone> = {
 export default function TailorPreviewModal({
   open, onClose, leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest,
 }: Props) {
+  const { t } = useLocale();
   const [loading, setLoading] = useState(false);
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -92,10 +94,10 @@ export default function TailorPreviewModal({
         <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: C.border }}>
           <div className="flex items-center gap-2">
             <Sparkles size={16} style={{ color: gold }} />
-            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Preview tailored output</h2>
+            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{t("tpm.previewTailored")}</h2>
             <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ml-1"
               style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
-              AI · Haiku · 3 sample leads
+              {t("tpm.badge")}
             </span>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-black/[0.05]">
@@ -108,17 +110,17 @@ export default function TailorPreviewModal({
           {!leads && !loading && !err && (
             <div className="text-center py-12">
               <p className="text-sm mb-4" style={{ color: C.textBody }}>
-                Renders the {`{{tailored:hook}}`} + {`{{tailored:fit}}`} slots for 3 random leads from your selection so you can sanity-check the AI output before approving the whole campaign.
+                {t("tpm.rendersThe")} {`{{tailored:hook}}`} + {`{{tailored:fit}}`} {t("tpm.rendersRest")}
               </p>
               <button
                 onClick={runPreview}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-85"
                 style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}
               >
-                <Sparkles size={14} /> Generate preview
+                <Sparkles size={14} /> {t("tpm.generate")}
               </button>
               <p className="text-[11px] mt-3" style={{ color: C.textMuted }}>
-                ~5-10 seconds. Doesn&apos;t write anything to the campaign.
+                {t("tpm.generateHint")}
               </p>
             </div>
           )}
@@ -126,7 +128,7 @@ export default function TailorPreviewModal({
           {loading && (
             <div className="flex items-center justify-center py-16 gap-2" style={{ color: C.textMuted }}>
               <Loader2 size={18} className="animate-spin" />
-              <span className="text-sm">Generating tailored output for 3 leads…</span>
+              <span className="text-sm">{t("tpm.generating")}</span>
             </div>
           )}
 
@@ -141,7 +143,7 @@ export default function TailorPreviewModal({
           {leads && leads.length === 0 && (
             <div className="text-center py-12">
               <p className="text-sm" style={{ color: C.textMuted }}>
-                No tailored slots in your template — there&apos;s nothing for the AI to fill. Add {`{{tailored:hook}}`} or {`{{tailored:fit}}`} to a step body to make the preview useful.
+                {t("tpm.noSlotsAdd")} {`{{tailored:hook}}`} {t("tpm.or")} {`{{tailored:fit}}`} {t("tpm.noSlotsRest")}
               </p>
             </div>
           )}
@@ -163,18 +165,18 @@ export default function TailorPreviewModal({
                   {lead.slots ? (
                     <div className="px-4 py-3 border-b space-y-2" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Hook</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>{t("tpm.hook")}</p>
                         <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>{lead.slots.hook}</p>
                       </div>
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Fit</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>{t("tpm.fit")}</p>
                         <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>{lead.slots.fit}</p>
                       </div>
                     </div>
                   ) : (
                     <div className="px-4 py-3 border-b" style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #DC2626 6%, transparent)" }}>
                       <p className="text-[11px]" style={{ color: "#DC2626" }}>
-                        AI didn&apos;t return tailored slots for this lead. The rendered output below will keep the raw template tokens — fix the lead&apos;s enrichment data and retry.
+                        {t("tpm.noSlotsForLead")}
                       </p>
                     </div>
                   )}
@@ -183,7 +185,7 @@ export default function TailorPreviewModal({
                   <div className="flex-1 px-4 py-3 space-y-3 overflow-y-auto max-h-[420px]">
                     {lead.rendered.connectionRequest && (
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>Connection Request</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>{t("tpm.connectionRequest")}</p>
                         <p className="text-[11.5px] leading-relaxed whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                           {lead.rendered.connectionRequest}
                         </p>
@@ -195,11 +197,11 @@ export default function TailorPreviewModal({
                         <div key={i}>
                           <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1" style={{ color: C.textMuted }}>
                             <Icon size={10} />
-                            Step {i + 1} · {step.channel}
+                            {t("tpm.stepN", { n: i + 1 })} · {step.channel}
                           </p>
                           {step.subject && (
                             <p className="text-[11px] font-semibold mb-0.5" style={{ color: C.textBody }}>
-                              Subject: {step.subject}
+                              {t("tpm.subjectLabel")} {step.subject}
                             </p>
                           )}
                           <p className="text-[11.5px] leading-relaxed whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
@@ -236,7 +238,7 @@ export default function TailorPreviewModal({
               onClick={onClose}
               className="text-xs font-semibold px-3 py-1.5 rounded-md transition-opacity hover:opacity-85"
               style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}>
-              Close
+              {t("tpm.close")}
             </button>
           </div>
         </div>

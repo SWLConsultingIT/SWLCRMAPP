@@ -42,10 +42,11 @@ export type OpportunityLead = {
   days_to_convert: number | null;
 };
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
 };
 
 function scoreBadge(score: number | null, priority: boolean) {
@@ -101,7 +102,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
           <select value={channelFilter} onChange={e => setChannelFilter(e.target.value)}
             className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
             <option value="all">{t("opp.allChannels")}</option>
-            {allChannels.map(ch => <option key={ch} value={ch}>{channelMeta[ch]?.label ?? ch}</option>)}
+            {allChannels.map(ch => <option key={ch} value={ch}>{channelMeta[ch]?.labelKey ? t(channelMeta[ch].labelKey) : ch}</option>)}
           </select>
         )}
         <select value={transferFilter} onChange={e => setTransferFilter(e.target.value)}
@@ -110,7 +111,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
           <option value="yes">{t("opp.transferred")}</option>
           <option value="no">{t("opp.pendingTransfer")}</option>
         </select>
-        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+        <span className="text-xs" style={{ color: C.textMuted }}>{t("opt.nResults", { n: filtered.length })}</span>
       </div>
 
       {/* Table */}
@@ -184,7 +185,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
                     </td>
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: chMeta.color }}>
-                        <ChIcon size={10} /> {chMeta.label}
+                        <ChIcon size={10} /> {t(chMeta.labelKey)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center hidden sm:table-cell">
@@ -216,7 +217,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
                       <Link href={`/opportunities/${lead.id}`}
                         className="text-[10px] font-medium hover:underline flex items-center gap-0.5 justify-end"
                         style={{ color: gold }}>
-                        Detail <ChevronRight size={10} />
+                        {t("opt.detail")} <ChevronRight size={10} />
                       </Link>
                     </td>
                   </tr>

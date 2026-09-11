@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useLocale } from "@/lib/i18n";
 import { useEffect, useState, useTransition } from "react";
 import { RefreshCw, Pause, Play } from "lucide-react";
 import { C } from "@/lib/design";
@@ -14,6 +15,7 @@ import { C } from "@/lib/design";
 const AUTO_REFRESH_MS = 30_000;
 
 export default function ReliabilityActions() {
+  const { t } = useLocale();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [auto, setAuto] = useState(true);
@@ -57,7 +59,7 @@ export default function ReliabilityActions() {
     <div className="flex items-center gap-2">
       {auto && !isPending && (
         <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>
-          next in {secsUntilNext}s
+          {t("ra.nextIn", { n: secsUntilNext })}
         </span>
       )}
       <button

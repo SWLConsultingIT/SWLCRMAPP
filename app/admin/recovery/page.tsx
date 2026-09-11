@@ -79,8 +79,8 @@ export default async function RecoveryPage() {
     <div className="p-6 w-full">
       <PageHero
         icon={Archive}
-        section="Admin"
-        title="Recovery"
+        section={t("nav.section.admin")}
+        title={t("rcv.title")}
         description={t("rcv.lede")}
         accentColor={C.gold}
         status={{ label: `${archived.length} archived`, active: archived.length > 0 }}
@@ -91,7 +91,7 @@ export default async function RecoveryPage() {
           <RotateCcw size={24} className="mx-auto mb-3" style={{ color: C.textDim }} />
           <p className="text-sm" style={{ color: C.textBody }}>{t("rcv.nothing")}</p>
           <p className="text-[11px] mt-1" style={{ color: C.textMuted }}>
-            When a tenant is archived, it appears here with a 30-day window to restore.
+            {t("rcv.windowHint")}
           </p>
         </div>
       ) : (

@@ -11,11 +11,12 @@ import { getT } from "@/lib/i18n-server";
 
 const gold = "var(--brand, #c9a83a)";
 
-const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  active:     { label: "Active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
-  restricted: { label: "Restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
-  banned:     { label: "Banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
-  warning:    { label: "Warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
+// labelKey, not label: module scope, no translator here.
+const linkedinStatusMeta: Record<string, { labelKey: string; color: string; bg: string }> = {
+  active:     { labelKey: "sl.liStatus.active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  restricted: { labelKey: "sl.liStatus.restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  banned:     { labelKey: "sl.liStatus.banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
+  warning:    { labelKey: "sl.liStatus.warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
 };
 
 type CampaignRow = {
@@ -142,16 +143,16 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
               {seller.name[0]?.toUpperCase() ?? "?"}
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.linkedin }}>LinkedIn Account</p>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.linkedin }}>{t("sl.liAccount")}</p>
               <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{seller.name}</h1>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full"
                   style={{ backgroundColor: statusMeta.bg, color: statusMeta.color }}>
-                  {statusMeta.label.toUpperCase()}
+                  {t(statusMeta.labelKey).toUpperCase()}
                 </span>
                 {seller.unipile_account_id && (
                   <span className="text-xs" style={{ color: C.textMuted }}>
-                    Unipile ID: <code className="text-[10px]">{seller.unipile_account_id.substring(0, 16)}...</code>
+                    {t("sl.unipileId")} <code className="text-[10px]">{seller.unipile_account_id.substring(0, 16)}...</code>
                   </span>
                 )}
               </div>
@@ -170,7 +171,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
                   </p>
                   {seller.linkedin_status_updated_at && (
                     <p className="text-[10px] mt-1" style={{ color: C.textMuted }}>
-                      Updated {timeAgo(seller.linkedin_status_updated_at)}
+                      {t("sl.updatedAgo", { ago: timeAgo(seller.linkedin_status_updated_at) })}
                     </p>
                   )}
                 </div>
@@ -183,7 +184,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
         <div className="border-t px-6 py-4" style={{ borderColor: C.border, backgroundColor: C.bg }}>
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-xs font-semibold" style={{ color: C.textMuted }}>
-              Today&apos;s usage
+              {t("sl.todaysUsage")}
             </p>
             <p className="text-xs font-bold tabular-nums" style={{ color: C.textPrimary }}>
               {linkedinTodayCount} / {dailyLimit}
@@ -201,9 +202,9 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
       {/* Stats grid */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {[
-          { label: t("sl.sentThisWeek"),   value: weekSent,       sub: "LinkedIn messages", color: C.linkedin, icon: Send },
-          { label: "Reply rate",       value: `${replyRate}%`, sub: `${replies.length} replies`, color: C.green,    icon: MessageSquare },
-          { label: t("sl.failRate"),        value: `${failRate}%`,  sub: `${weekFailed} failed`,      color: failRate > 10 ? C.red : C.textMuted, icon: AlertTriangle },
+          { label: t("sl.sentThisWeek"),   value: weekSent,       sub: t("sl.liMessages"), color: C.linkedin, icon: Send },
+          { label: t("sl.replyRate"),       value: `${replyRate}%`, sub: t("sl.nReplies", { n: replies.length }), color: C.green,    icon: MessageSquare },
+          { label: t("sl.failRate"),        value: `${failRate}%`,  sub: t("sl.nFailed", { n: weekFailed }),      color: failRate > 10 ? C.red : C.textMuted, icon: AlertTriangle },
           { label: t("sl.activeCampaigns"), value: activeCampaignsCount, sub: t("sl.inProgress"),             color: gold,       icon: Users },
         ].map(({ label, value, sub, color, icon: Icon }) => (
           <div key={label} className="rounded-2xl border p-4" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
@@ -246,7 +247,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>Step {m.step_number}</p>
+                      <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{t("sl.stepN", { n: m.step_number })}</p>
                       {m.status === "sent" ? (
                         <CheckCircle size={10} style={{ color: C.green }} />
                       ) : m.status === "failed" ? (
@@ -269,7 +270,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
         <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
             <Users size={14} style={{ color: C.textMuted }} />
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaigns ({campaignBreakdown.length})</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("sl.campaignsCount", { n: campaignBreakdown.length })}</h3>
           </div>
           {campaignBreakdown.length === 0 ? (
             <div className="py-12 text-center">
@@ -302,7 +303,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
                             <span className="font-semibold truncate" style={{ color: C.textPrimary }}>{c.name}</span>
                             {c.active > 0 && (
                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A" }}>
-                                {c.active} active
+                                {t("sl.nActive", { n: c.active })}
                               </span>
                             )}
                           </div>

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 
 export default function RegenerateLossAnalysis({ leadId }: { leadId: string }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -24,8 +26,8 @@ export default function RegenerateLossAnalysis({ leadId }: { leadId: string }) {
       className="flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded border transition-opacity hover:opacity-80 disabled:opacity-50"
       style={{ borderColor: "#7C3AED30", color: "#7C3AED", backgroundColor: "color-mix(in srgb, #7C3AED 10%, transparent)" }}>
       {loading
-        ? <><Loader2 size={10} className="animate-spin" /> Regenerating…</>
-        : <><RefreshCw size={10} /> Regenerate</>}
+        ? <><Loader2 size={10} className="animate-spin" /> {t("rla.regenerating")}</>
+        : <><RefreshCw size={10} /> {t("rla.regenerate")}</>}
     </button>
   );
 }

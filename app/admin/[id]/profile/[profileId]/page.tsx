@@ -1,4 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { intlTag } from "@/lib/i18n-locale";
+import { getServerLocale } from "@/lib/i18n-server";
 import { getT } from "@/lib/i18n-server";
 import { requireAdminPage } from "@/lib/auth-admin";
 import { C } from "@/lib/design";
@@ -22,6 +24,7 @@ const statusStyles: Record<string, { labelKey: string; color: string; bg: string
 
 export default async function AdminProfileDetailPage({ params }: { params: Promise<{ id: string; profileId: string }> }) {
   const t = await getT();
+  const locale = await getServerLocale();
   await requireAdminPage();
   const { id, profileId } = await params;
 
@@ -62,7 +65,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
                 </span>
               </div>
               <p className="text-xs" style={{ color: C.textMuted }}>
-                Created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                {t("apd.createdOn", { date: new Date(profile.created_at).toLocaleDateString(intlTag(locale), { month: "long", day: "numeric", year: "numeric" }) })}
                 {client?.company_name && <> · <span style={{ color: gold }}>{client.company_name}</span></>}
               </p>
             </div>
@@ -80,7 +83,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
           {profile.target_industries?.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-                <Briefcase size={10} className="inline mr-1" /> Industries
+                <Briefcase size={10} className="inline mr-1" /> {t("apd.industries")}
               </p>
               <div className="flex flex-wrap gap-1">
                 {profile.target_industries.map((i: string) => (
@@ -92,7 +95,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
           {profile.target_roles?.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-                <Users size={10} className="inline mr-1" /> Target Roles
+                <Users size={10} className="inline mr-1" /> {t("apd.targetRoles")}
               </p>
               <div className="flex flex-wrap gap-1">
                 {profile.target_roles.map((r: string) => (
@@ -104,13 +107,13 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
           {profile.company_size && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>{t("apd.companySize")}</p>
-              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{profile.company_size} employees</p>
+              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("apd.nEmployees", { n: profile.company_size })}</p>
             </div>
           )}
           {profile.geography?.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-                <MapPin size={10} className="inline mr-1" /> Geography
+                <MapPin size={10} className="inline mr-1" /> {t("apd.geography")}
               </p>
               <div className="flex flex-wrap gap-1">
                 {profile.geography.map((g: string) => (

@@ -17,12 +17,13 @@ type SellerStats = {
 };
 type MetricKey = "made" | "answerPct" | "interested" | "badTiming" | "voicemail";
 
-const METRICS: { key: MetricKey; label: string }[] = [
-  { key: "made",      label: "Calls made"  },
-  { key: "answerPct", label: "Answer %"    },
-  { key: "interested",label: "Interested"  },
-  { key: "badTiming", label: "Bad timing"  },
-  { key: "voicemail", label: "Voicemail"   },
+// labelKey, not label: module scope, no translator here.
+const METRICS: { key: MetricKey; labelKey: string }[] = [
+  { key: "made",      labelKey: "spc.metric.made"       },
+  { key: "answerPct", labelKey: "spc.metric.answerPct"  },
+  { key: "interested",labelKey: "spc.metric.interested" },
+  { key: "badTiming", labelKey: "spc.metric.badTiming"  },
+  { key: "voicemail", labelKey: "spc.metric.voicemail"  },
 ];
 
 function dayValue(d: DayCounts | undefined, metric: MetricKey): number | null {
@@ -197,7 +198,7 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
                 color:      active ? "#000" : C.textMuted,
                 border:     "none", lineHeight: 1,
               }}>
-                {m.label}
+                {t(m.labelKey)}
               </button>
             );
           })}

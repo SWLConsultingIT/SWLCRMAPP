@@ -110,7 +110,7 @@ export default function LoginPage() {
               style={{ borderColor: "color-mix(in srgb, #b79832 30%, transparent)", backgroundColor: "color-mix(in srgb, #b79832 7%, transparent)" }}>
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#b79832" }} />
               <span className="text-xs font-medium tracking-widest uppercase" style={{ color: "#b79832" }}>
-                GrowthAI Sales Engine
+                {t("auth.growthAiEngine")}
               </span>
             </div>
 
@@ -119,7 +119,7 @@ export default function LoginPage() {
               fontFamily: "var(--font-outfit)",
               letterSpacing: "-0.02em",
             }}>
-              Bigger deals.{" "}
+              {t("auth.biggerDeals")}{" "}
               <span style={{ color: "#b79832" }}>{t("auth.strongerTeams")}</span>
             </h1>
 
@@ -315,7 +315,7 @@ export default function LoginPage() {
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                  Signing in…
+                  {t("auth.signingIn")}
                 </span>
               ) : (
                 <>
@@ -337,7 +337,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs mt-8" style={{ color: "rgba(217,222,226,0.2)" }}>
-            Internal platform · SWL Consulting
+            {t("auth.internalPlatform")}
           </p>
         </div>
       </div>

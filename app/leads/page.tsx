@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getT } from "@/lib/i18n-server";
 import { getUserScope, getMyAssignedLeadIds, canEditTenantSettings } from "@/lib/scope";
 import { classifyLeadOutcome } from "@/lib/lead-outcome";
 import {
@@ -619,6 +620,7 @@ async function getData() {
 }
 
 export default async function LeadsCampaignsPage() {
+  const t = await getT();
   const { profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount } = await getData();
   const scope = await getUserScope();
   const canImport = canEditTenantSettings(scope.tier) || scope.tier === "manager";
@@ -630,7 +632,7 @@ export default async function LeadsCampaignsPage() {
       {/* Hero — shared Aurora hero (boss-approved 2026-08-27). Actions
           (Export / Import) top-right; KPI chips below. */}
       <AuroraHero
-        eyebrow="Operations"
+        eyebrow={t("nav.section.operations")}
         title={isEverest ? "Everest Opportunities" : "Leads"}
         subtitle={isEverest ? "Energy plants and nearby off-takers — your full Everest opportunity pipeline." : "Manage your full prospect pipeline and track outreach progress across all channels."}
         actions={
@@ -638,16 +640,16 @@ export default async function LeadsCampaignsPage() {
             <ExportLeadsCSVButton leads={JSON.parse(JSON.stringify(allLeads))} totalLeadCount={totalLeadCount} />
             {canImport && (
               <Link href="/leads/import" className="aurora-btn">
-                <Upload size={14} /> Import leads
+                <Upload size={14} /> {t("leadsPage.importLeads")}
               </Link>
             )}
           </>
         }
         kpis={[
-          { label: "Total leads", value: String(totalLeadCount ?? allLeads.length), tone: "gold" },
-          { label: "Active flows", value: String(stats.activeCampaigns) },
-          { label: "Reply rate", value: `${stats.responseRate}%` },
-          { label: "Positive replies", value: String(stats.positiveReplies), tone: stats.positiveReplies > 0 ? "green" : "default" },
+          { label: t("leadsPage.kpi.totalLeads"), value: String(totalLeadCount ?? allLeads.length), tone: "gold" },
+          { label: t("leadsPage.kpi.activeFlows"), value: String(stats.activeCampaigns) },
+          { label: t("leadsPage.kpi.replyRate"), value: `${stats.responseRate}%` },
+          { label: t("leadsPage.kpi.positiveReplies"), value: String(stats.positiveReplies), tone: stats.positiveReplies > 0 ? "green" : "default" },
         ]}
       />
 

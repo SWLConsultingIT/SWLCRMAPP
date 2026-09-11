@@ -987,7 +987,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                   style={{ color: C.textMuted, backgroundColor: C.surface }}
                   title={t("inbox.filter.clearAll")}
                 >
-                  <XIcon size={10} /> Clear
+                  <XIcon size={10} /> {t("inbox.clear")}
                 </button>
               )}
             </div>
@@ -1039,7 +1039,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                 </div>
                 <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>{t("inbox.empty.zero")}</p>
                 <p className="text-[11px] max-w-[220px] mx-auto" style={{ color: C.textMuted }}>
-                  Nothing matches this filter right now. Switch tabs or wait for new replies.
+                  {t("inbox.noMatchFilter")}
                 </p>
               </div>
             ) : (
@@ -1277,7 +1277,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                             ) : stage.nextStepDueAt && (() => {
                               const ms = new Date(stage.nextStepDueAt).getTime() - Date.now();
                               const days = Math.ceil(ms / 86_400_000);
-                              if (ms <= 0) return <span style={{ color: C.textDim }}> (listo)</span>;
+                              if (ms <= 0) return <span style={{ color: C.textDim }}> ({t("inbox.due")})</span>;
                               return <span style={{ color: C.textDim }}> ({days}{days === 1 ? "d" : "d"})</span>;
                             })()}
                           </span>
@@ -1507,7 +1507,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                               {/* Subject */}
                               {entry.subject && (
                                 <div className="px-4 py-2.5 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>Subject</p>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>{t("inbox.subject")}</p>
                                   <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{entry.subject}</p>
                                 </div>
                               )}
@@ -1678,12 +1678,12 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                           )}
                           {isLast && isOut && !entry.seen && (
                             <p className="text-[10px] mt-2 mr-9 text-right" style={{ color: C.textDim }}>
-                              Esperando respuesta del lead…
+                              {t("inbox.awaitingLeadReply")}
                             </p>
                           )}
                           {isLast && isOut && entry.seen && (
                             <p className="text-[10px] mt-2 mr-9 text-right" style={{ color: C.textDim }}>
-                              El lead vio el mensaje{entry.seenAt ? ` (${formatTimeOnly(entry.seenAt)})` : ""} pero todavía no respondió.
+                              {t("inbox.leadSawMessage")}{entry.seenAt ? ` (${formatTimeOnly(entry.seenAt)})` : ""} {t("inbox.butNoReplyYet")}
                             </p>
                           )}
                         </div>
@@ -1766,7 +1766,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                         style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
                         title={t("inbox.action.sendBack")}
                       >
-                        Re-open
+                        {t("inbox.reopen")}
                       </button>
                     )}
                   </div>

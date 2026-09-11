@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -11,6 +12,7 @@ import { useAuth } from "@/lib/auth-context";
 // doing. The Provider's visibilitychange listener still keeps the banner
 // in sync if the cookie flips in another tab.
 export default function DemoBanner() {
+  const { t } = useLocale();
   const { demoMode } = useAuth();
   const [exiting, setExiting] = useState(false);
 
@@ -57,10 +59,10 @@ export default function DemoBanner() {
         </div>
         <p className="text-[12px] font-semibold truncate">
           <span className="text-[10px] font-bold uppercase tracking-wider mr-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d", letterSpacing: "0.08em" }}>
-            Demo mode
+            {t("demoBanner.mode")}
           </span>
-          Viewing as <span className="font-bold" style={{ color: "var(--brand, #c9a83a)" }}>{demoMode.companyName ?? "demo tenant"}</span>
-          <span className="hidden sm:inline ml-2 opacity-70">— your SWL data is untouched.</span>
+          {t("demoBanner.viewingAs")} <span className="font-bold" style={{ color: "var(--brand, #c9a83a)" }}>{demoMode.companyName ?? t("demoBanner.demoTenant")}</span>
+          <span className="hidden sm:inline ml-2 opacity-70">{t("demoBanner.untouched")}</span>
         </p>
       </div>
       <button

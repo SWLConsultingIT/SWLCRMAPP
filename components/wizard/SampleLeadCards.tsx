@@ -6,6 +6,7 @@
 // /api/campaigns/preview-tailor) without the modal chrome.
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, Shuffle, AlertCircle, Phone, Mail, Share2, Megaphone } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -47,6 +48,7 @@ function pickRandom<T>(arr: T[], n: number): T[] {
 }
 
 export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, language }: Props) {
+  const { t } = useLocale();
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -83,10 +85,10 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b" style={{ borderColor: C.border }}>
         <div className="flex items-center gap-2">
           <Sparkles size={14} style={{ color: gold }} />
-          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sample messages</h3>
+          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("slc.sampleMessages")}</h3>
           <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
-            3 random leads
+            {t("slc.threeRandom")}
           </span>
         </div>
         <button
@@ -104,7 +106,7 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
         {loading && (
           <div className="flex items-center justify-center py-12 gap-2" style={{ color: C.textMuted }}>
             <Loader2 size={16} className="animate-spin" />
-            <span className="text-sm">Generating tailored output for 3 leads…</span>
+            <span className="text-sm">{t("slc.generatingN", { n: 3 })}</span>
           </div>
         )}
 
@@ -119,7 +121,7 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
         {!loading && !err && leads && leads.length === 0 && (
           <div className="text-center py-8">
             <p className="text-sm" style={{ color: C.textMuted }}>
-              No <code>{`{{tailored:hook}}`}</code> or <code>{`{{tailored:fit}}`}</code> in your template — add either to a step body so per-lead copy has somewhere to land.
+              {t("slc.noSlotsPre")} <code>{`{{tailored:hook}}`}</code> {t("slc.noSlotsMid")} <code>{`{{tailored:fit}}`}</code> {t("slc.noSlotsPost")}
             </p>
           </div>
         )}
@@ -139,18 +141,18 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
                 {lead.slots ? (
                   <div className="px-3 py-2.5 border-b space-y-1.5" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
                     <div>
-                      <p className="text-[8.5px] font-bold uppercase tracking-wider" style={{ color: gold }}>Hook</p>
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider" style={{ color: gold }}>{t("slc.hook")}</p>
                       <p className="text-[11px] leading-snug" style={{ color: C.textBody }}>{lead.slots.hook}</p>
                     </div>
                     <div>
-                      <p className="text-[8.5px] font-bold uppercase tracking-wider" style={{ color: gold }}>Fit</p>
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider" style={{ color: gold }}>{t("slc.fit")}</p>
                       <p className="text-[11px] leading-snug" style={{ color: C.textBody }}>{lead.slots.fit}</p>
                     </div>
                   </div>
                 ) : (
                   <div className="px-3 py-2 border-b" style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #DC2626 6%, transparent)" }}>
                     <p className="text-[10px]" style={{ color: "#DC2626" }}>
-                      AI didn&apos;t return tailored slots for this lead — fix enrichment data and retry.
+                      {t("slc.noSlots")}
                     </p>
                   </div>
                 )}
@@ -158,7 +160,7 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
                 <div className="flex-1 px-3 py-2.5 space-y-2.5 overflow-y-auto max-h-[360px]">
                   {lead.rendered.connectionRequest && (
                     <div>
-                      <p className="text-[8.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>Connection Request</p>
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>{t("tpp.connReq")}</p>
                       <p className="text-[11px] leading-snug whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                         {lead.rendered.connectionRequest}
                       </p>
@@ -170,11 +172,11 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
                       <div key={i}>
                         <p className="text-[8.5px] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1" style={{ color: C.textMuted }}>
                           <Icon size={9} />
-                          Step {i + 1} · {step.channel}
+                          {t("slc.stepN", { n: i + 1 })} · {step.channel}
                         </p>
                         {step.subject && (
                           <p className="text-[10.5px] font-semibold mb-0.5" style={{ color: C.textBody }}>
-                            Subject: {step.subject}
+                            {t("slc.subjectLabel")} {step.subject}
                           </p>
                         )}
                         <p className="text-[11px] leading-snug whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>

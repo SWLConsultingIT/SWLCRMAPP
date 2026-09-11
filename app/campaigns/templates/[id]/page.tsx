@@ -126,7 +126,7 @@ export default async function TemplateDetailPage({
         </Link>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: C.textDim }}>
-            Template
+            {t("tpd.template")}
           </p>
           <h1 className="text-2xl font-bold leading-tight" style={{ color: C.textPrimary }}>{tpl.name}</h1>
           {tpl.description && (
@@ -176,10 +176,10 @@ export default async function TemplateDetailPage({
             <div>
               <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
                 <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#0A66C2" }} />
-                Connection Request
+                {t("tpd.connectionRequest")}
               </h2>
               <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-                LinkedIn invite sent before the sequence starts · capped at 200 chars
+                {t("tpd.crHint")}
               </p>
             </div>
           </div>
@@ -379,7 +379,7 @@ function StepCard({
         <div className="mt-3 rounded border p-3"
           style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, backgroundColor: `color-mix(in srgb, ${ACCENT} 5%, transparent)` }}>
           <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: ACCENT }}>
-            Variant B · A/B test
+            {t("tpd.variantB")}
           </p>
           <p className="text-xs whitespace-pre-wrap leading-relaxed"
             style={{ color: C.textPrimary, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
@@ -390,7 +390,7 @@ function StepCard({
       {attachments && attachments.length > 0 && (
         <div className="mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
           <p className="text-[10px] uppercase tracking-wider font-bold mb-2" style={{ color: C.textMuted }}>
-            Attachments · {attachments.length}
+            {t("tpd.attachments", { n: attachments.length })}
           </p>
           <div className="flex flex-wrap gap-2">
             {attachments.map((a, i) => {

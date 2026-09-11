@@ -8,6 +8,7 @@ import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
 import CallSummary from "@/components/CallSummary";
 import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/lib/i18n-locale";
 import { hasPlayableRecording } from "@/lib/call-recording";
 
 export type CallRecord = {
@@ -62,7 +63,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
   companyPhone?: string | null;
 }) {
   const router = useRouter();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [deleting, setDeleting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   // Inline error replaces the native alert() popups — they were ugly
@@ -160,8 +161,8 @@ export default function CallCard({ call, compact = false, personalPhone, company
               })()}
             </p>
             <p className="text-xs" style={{ color: C.textMuted }}>
-              {call.direction === "outbound" ? "Outbound" : "Inbound"} call
-              {call.started_at && <> · {new Date(call.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</>}
+              {t(call.direction === "outbound" ? "callCard.outboundCall" : "callCard.inboundCall")}
+              {call.started_at && <> · {new Date(call.started_at).toLocaleString(intlTag(locale), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</>}
             </p>
           </div>
         </div>
@@ -178,15 +179,15 @@ export default function CallCard({ call, compact = false, personalPhone, company
           {!call.classification && (
             <span className="text-xs font-bold px-2.5 py-0.5 rounded animate-pulse"
               style={{ backgroundColor: C.redLight, color: C.red }}>
-              Needs review
+              {t("callCard.needsReview")}
             </span>
           )}
           <button
             type="button"
             onClick={handleDelete}
             disabled={deleting}
-            aria-label="Delete call"
-            title="Delete call"
+            aria-label={t("callCard.deleteCall")}
+            title={t("callCard.deleteCall")}
             className="ml-1 p-1.5 rounded transition-colors disabled:opacity-50"
             style={{ color: C.textMuted, backgroundColor: "transparent" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = C.red; e.currentTarget.style.backgroundColor = C.redLight; }}
@@ -199,13 +200,13 @@ export default function CallCard({ call, compact = false, personalPhone, company
       {call.transcript && (
         <div className="rounded-lg p-3 mt-2" style={{ backgroundColor: C.bg }}>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Transcript</p>
+            <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{t("callCard.transcript")}</p>
             {canRetranscribe && !showRetranscribeConfirm && (
               <button
                 type="button"
                 onClick={() => handleTranscribe(true)}
                 disabled={transcribing}
-                title="Re-transcribe with the newer model (fixes bad transcripts; costs ~$0.003)"
+                title={t("callCard.retranscribeTitle")}
                 className="p-1 rounded inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                 style={{ color: C.textMuted }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = "#b79832"; }}
@@ -214,7 +215,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
                 {transcribing
                   ? <Loader2 size={11} className="animate-spin" />
                   : <RotateCw size={11} />}
-                <span className="text-[10px] font-medium">Re-transcribe</span>
+                <span className="text-[10px] font-medium">{t("callCard.retranscribe")}</span>
               </button>
             )}
           </div>
@@ -223,14 +224,14 @@ export default function CallCard({ call, compact = false, personalPhone, company
             <div className="mt-3 p-2.5 rounded border flex items-center justify-between gap-2"
               style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", borderColor: "color-mix(in srgb, #D97706 30%, transparent)" }}>
               <p className="text-[11px]" style={{ color: "#92400E" }}>
-                Replace this transcript? Cost ~$0.003.
+                {t("callCard.replaceConfirm")}
               </p>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setShowRetranscribeConfirm(false)}
                   className="text-[11px] font-medium px-2.5 py-1 rounded-md"
                   style={{ color: "#92400E" }}>
-                  Cancel
+                  {t("callCard.cancel")}
                 </button>
                 <button
                   onClick={() => handleTranscribe(true)}
@@ -238,7 +239,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1 disabled:opacity-50"
                   style={{ backgroundColor: "#D97706", color: "#fff" }}>
                   {transcribing ? <Loader2 size={10} className="animate-spin" /> : <RotateCw size={10} />}
-                  Confirm
+                  {t("callCard.confirm")}
                 </button>
               </div>
             </div>
@@ -249,7 +250,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
               <div className="flex items-start gap-2 min-w-0">
                 <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
                 <p className="text-[11px] leading-relaxed" style={{ color: C.red }}>
-                  Couldn't transcribe: {transcribeError.length > 200 ? transcribeError.slice(0, 200) + "…" : transcribeError}
+                  {t("callCard.couldntTranscribe")} {transcribeError.length > 200 ? transcribeError.slice(0, 200) + "…" : transcribeError}
                 </p>
               </div>
               <button onClick={() => setTranscribeError(null)} className="shrink-0 p-0.5" style={{ color: C.red }}>
@@ -261,7 +262,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
       )}
       {call.notes && (
         <div className="rounded-lg p-3 mt-2 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
-          <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Notes</p>
+          <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>{t("callCard.notes")}</p>
           <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{call.notes}</p>
         </div>
       )}
@@ -278,15 +279,15 @@ export default function CallCard({ call, compact = false, personalPhone, company
             disabled={transcribing}
             className="text-xs font-medium px-3 py-1.5 rounded-md border inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
             style={{ color: C.textBody, borderColor: C.border, backgroundColor: C.surface }}
-            title="Transcribe with gpt-4o-mini-transcribe (fetches a fresh recording URL from Aircall)"
+            title={t("callCard.transcribeTitle")}
           >
             {transcribing ? (
               <>
-                <Loader2 size={12} className="animate-spin" /> Transcribing…
+                <Loader2 size={12} className="animate-spin" /> {t("callCard.transcribing")}
               </>
             ) : (
               <>
-                <Sparkles size={12} /> Transcribe
+                <Sparkles size={12} /> {t("callCard.transcribe")}
               </>
             )}
           </button>
@@ -296,7 +297,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
               <div className="flex items-start gap-2 min-w-0">
                 <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
                 <p className="text-[11px] leading-relaxed" style={{ color: C.red }}>
-                  Couldn't transcribe: {transcribeError.length > 200 ? transcribeError.slice(0, 200) + "…" : transcribeError}
+                  {t("callCard.couldntTranscribe")} {transcribeError.length > 200 ? transcribeError.slice(0, 200) + "…" : transcribeError}
                 </p>
               </div>
               <button onClick={() => setTranscribeError(null)} className="shrink-0 p-0.5" style={{ color: C.red }}>
@@ -312,7 +313,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
           <div className="flex items-start gap-2 min-w-0">
             <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
             <p className="text-[11px] leading-relaxed" style={{ color: C.red }}>
-              Couldn't delete: {deleteError.length > 200 ? deleteError.slice(0, 200) + "…" : deleteError}
+              {t("callCard.couldntDelete")} {deleteError.length > 200 ? deleteError.slice(0, 200) + "…" : deleteError}
             </p>
           </div>
           <button onClick={() => setDeleteError(null)} className="shrink-0 p-0.5" style={{ color: C.red }}>

@@ -107,7 +107,7 @@ function ResetPasswordInner() {
 
       <div className="w-full max-w-md relative z-10">
         <a href="/login" className="flex items-center gap-1.5 text-xs mb-8 hover:opacity-80 transition-opacity" style={{ color: "rgba(217,222,226,0.5)" }}>
-          <ArrowLeft size={13} /> Back to login
+          <ArrowLeft size={13} /> {t("auth.backToLogin")}
         </a>
 
         {done ? (
@@ -225,7 +225,7 @@ function ResetPasswordInner() {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                    Saving…
+                    {t("auth.saving")}
                   </span>
                 ) : (
                   <>{t("auth.updatePassword")}<ChevronRight size={15} /></>
@@ -234,7 +234,7 @@ function ResetPasswordInner() {
 
               {mode === "code" && (
                 <p className="text-xs text-center pt-2" style={{ color: "rgba(217,222,226,0.4)" }}>
-                  Didn&apos;t get the code? <a href="/forgot-password" className="hover:underline" style={{ color: "#b79832" }}>{t("auth.sendAnother")}</a>
+                  {t("auth.didntGetCode")} <a href="/forgot-password" className="hover:underline" style={{ color: "#b79832" }}>{t("auth.sendAnother")}</a>
                 </p>
               )}
             </form>

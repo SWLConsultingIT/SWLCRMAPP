@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useLocale } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { Paperclip, X, FileText, Image as ImageIcon, Loader2 } from "lucide-react";
@@ -33,6 +34,7 @@ export default function MessageAttachments({
   onChange: (attachments: Attachment[]) => void;
   stepNumber: number;
 }) {
+  const { t } = useLocale();
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -129,7 +131,7 @@ export default function MessageAttachments({
           {uploading ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />}
           {uploading ? "Uploading…" : "Attach file"}
         </button>
-        <span className="text-xs" style={{ color: C.textDim }}>PDF or images, max 10MB</span>
+        <span className="text-xs" style={{ color: C.textDim }}>{t("att.limits")}</span>
       </div>
     </div>
   );

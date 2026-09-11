@@ -36,10 +36,10 @@ export default function ClientResourcesTabs({ companyBioId, companyName }: Props
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-5 py-3 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-          Client Resources
+          {t("crt.clientResources")}
         </p>
         <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
-          Manage what {companyName} has access to across channels.
+          {t("crt.manageWhat", { name: companyName })}
         </p>
       </div>
 
@@ -171,10 +171,10 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
     <div className="space-y-5">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-          Owned sellers
+          {t("crt.ownedSellers")}
         </p>
         {owned.length === 0 ? (
-          <p className="text-xs italic py-2" style={{ color: C.textDim }}>None — this client doesn&apos;t own any seller accounts directly.</p>
+          <p className="text-xs italic py-2" style={{ color: C.textDim }}>{t("crt.noOwnedSellers")}</p>
         ) : (
           <div className="divide-y" style={{ borderColor: C.border }}>
             {owned.map(s => renderRow(s, "owned"))}
@@ -184,11 +184,11 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
 
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-          Sellers from other tenants
+          {t("crt.sellersOtherTenants")}
         </p>
         <p className="text-[11px] mb-2" style={{ color: C.textDim }}>
           {saving && <Loader2 size={11} className="inline animate-spin mr-1" />}
-          Toggle to grant this client access to the seller&apos;s LinkedIn capacity. The seller&apos;s daily cap is shared across every tenant they serve.
+          {t("crt.sharedSellerHint")}
         </p>
         {sharable.length === 0 ? (
           <p className="text-xs italic py-2" style={{ color: C.textDim }}>{t("crt.noShared")}</p>
@@ -280,11 +280,11 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
       {/* Numbers section */}
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-          Numbers
+          {t("crt.numbers")}
         </p>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>
           {saving && <Loader2 size={11} className="inline animate-spin mr-1" />}
-          Click to toggle which Aircall numbers this client can dial from.
+          {t("crt.numbersHint")}
         </p>
         {numbers.length === 0 ? (
           <p className="text-xs italic" style={{ color: C.textDim }}>{t("crt.noAircall")}</p>
@@ -317,10 +317,10 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
       {/* Tenant default Aircall user */}
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-          Tenant default Aircall user
+          {t("crt.tenantDefaultAircall")}
         </p>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>
-          The Aircall user that picks up calls placed for THIS tenant&apos;s leads. Resolution order at dial time: per-seller binding (below) → this tenant default → first available globally. Setting this is enough for tenants where one shared inbox handles all calls (e.g. sales@arqy.io).
+          {t("crt.tenantDefaultHint")}
         </p>
         <div className="flex items-center gap-3">
           <select
@@ -330,7 +330,7 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
             className="text-xs rounded-md border px-3 py-2 disabled:opacity-60 flex-1 max-w-md"
             style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
           >
-            <option value="">— None (auto / first available)</option>
+            <option value="">{t("crt.noneAutoFirst")}</option>
             {aircallUsers.map(u => (
               <option key={u.id} value={String(u.id)}>
                 {u.name}{u.email ? ` (${u.email})` : ""}{u.available ? " 🟢" : ""}
@@ -344,10 +344,10 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
       {/* Seller → Aircall user mapping */}
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-          Seller → Aircall user
+          {t("crt.sellerToAircall")}
         </p>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>
-          Each seller dials from THEIR Aircall user. Without this binding the dispatcher falls back to t("crt.firstAvailable") globally — which can ring on the wrong device when multiple sellers are signed in. Required when scaling beyond one active seller.
+          {t("crt.sellerAircallHint")}
         </p>
         {sellersInScope.length === 0 ? (
           <p className="text-xs italic" style={{ color: C.textDim }}>{t("crt.noInScope")}</p>
@@ -374,7 +374,7 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
                     className="text-xs rounded-md border px-2 py-1.5 disabled:opacity-60"
                     style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody, minWidth: "180px" }}
                   >
-                    <option value="">— None (auto)</option>
+                    <option value="">{t("crt.noneAuto")}</option>
                     {aircallUsers.map(u => (
                       <option key={u.id} value={String(u.id)}>
                         {u.name}{u.available ? " 🟢" : ""}
@@ -468,7 +468,7 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
     <div className="space-y-4">
       <p className="text-xs" style={{ color: C.textMuted }}>
         {saving && <Loader2 size={11} className="inline animate-spin mr-1" />}
-        Click to toggle. The tenant&apos;s workspace is set automatically from the first assigned inbox.
+        {t("crt.inboxToggleHint")}
       </p>
 
       {sections.map(section => {
@@ -488,7 +488,7 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
                 {section.label}
               </span>
               <span className="text-[10px]" style={{ color: C.textDim }}>
-                {sectionAssignedCount}/{section.inboxes.length} assigned
+                {t("crt.nAssigned", { a: sectionAssignedCount, b: section.inboxes.length })}
               </span>
               {section.error && <span className="text-[10px]" style={{ color: C.red }}>· {section.error}</span>}
             </div>

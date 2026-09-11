@@ -12,6 +12,7 @@
 // funciona mal"). Portaling + fixed coords keeps it fully visible everywhere.
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocale } from "@/lib/i18n";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
   leadId: string; leadName: string; campaignId: string | null;
   autoReplies?: { positive?: string; negative?: string } | null;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -75,8 +77,8 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
     <>
       <button ref={btnRef} type="button" onClick={toggle} aria-haspopup="true" aria-expanded={open}
         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold border transition-colors hover:bg-black/[0.03]"
-        style={{ borderColor: C.border, color: C.textBody }} title="More actions">
-        More <MoreHorizontal size={15} />
+        style={{ borderColor: C.border, color: C.textBody }} title={t("lmm.moreActions")}>
+        {t("lmm.more")} <MoreHorizontal size={15} />
       </button>
 
       {mounted && open && pos && createPortal(
@@ -84,18 +86,18 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
           style={{ top: pos.top, right: pos.right, backgroundColor: C.card, borderColor: C.border }}>
           {campaignId && (
             <Link href={`/campaigns/${campaignId}`} className={item} style={{ color: C.textBody }} onClick={() => setOpen(false)}>
-              <Megaphone size={15} style={{ color: C.textMuted }} /> View flow
+              <Megaphone size={15} style={{ color: C.textMuted }} /> {t("lmm.viewFlow")}
             </Link>
           )}
           <a href={`/leads/${leadId}/print`} target="_blank" rel="noopener noreferrer" className={item} style={{ color: C.textBody }} onClick={() => setOpen(false)}>
-            <FileDown size={15} style={{ color: C.textMuted }} /> Export PDF
+            <FileDown size={15} style={{ color: C.textMuted }} /> {t("lmm.exportPdf")}
           </a>
           <button type="button" className={item} style={{ color: C.textBody }} onClick={() => { setOpen(false); setOutcome(true); }}>
-            <ClipboardCheck size={15} style={{ color: C.textMuted }} /> Mark result
+            <ClipboardCheck size={15} style={{ color: C.textMuted }} /> {t("lmm.markResult")}
           </button>
           <div className="my-1 h-px" style={{ backgroundColor: C.border }} />
           <button type="button" className={item} style={{ color: C.red }} onClick={() => { setOpen(false); setConfirm(true); }}>
-            <Trash2 size={15} style={{ color: C.red }} /> Delete lead
+            <Trash2 size={15} style={{ color: C.red }} /> {t("lmm.deleteLead")}
           </button>
         </div>,
         document.body
@@ -111,20 +113,20 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
                 <AlertTriangle size={20} style={{ color: C.red }} />
               </div>
               <div>
-                <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Delete lead</h3>
-                <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>This action cannot be undone.</p>
+                <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("lmm.deleteLead")}</h3>
+                <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{t("lmm.cannotUndo")}</p>
               </div>
             </div>
             <p className="text-sm mb-5" style={{ color: C.textBody }}>
-              Delete <strong>{leadName}</strong>? All campaigns, messages and replies for this lead are permanently removed.
+              {t("lmm.deleteWord")} <strong>{leadName}</strong>{t("lmm.deleteConfirmRest")}
             </p>
             {error && <div className="rounded-lg px-3 py-2 mb-4 text-xs font-medium" style={{ backgroundColor: C.redLight, color: C.red }}>{error}</div>}
             <div className="flex justify-end gap-2">
               <button onClick={() => { setConfirm(false); setError(null); }} disabled={deleting}
-                className="rounded-lg px-3.5 py-2 text-xs font-semibold border" style={{ borderColor: C.border, color: C.textBody }}>Cancel</button>
+                className="rounded-lg px-3.5 py-2 text-xs font-semibold border" style={{ borderColor: C.border, color: C.textBody }}>{t("lmm.cancel")}</button>
               <button onClick={del} disabled={deleting}
                 className="rounded-lg px-3.5 py-2 text-xs font-semibold inline-flex items-center gap-1.5" style={{ backgroundColor: C.red, color: "#fff" }}>
-                {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete
+                {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} {t("lmm.delete")}
               </button>
             </div>
           </div>

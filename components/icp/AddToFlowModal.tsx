@@ -10,6 +10,7 @@
 // SWL gold styling, multi-flow ready (one pick per submission).
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { X, Loader2, Share2, Mail, Phone, Smartphone, MessageSquare, Calendar, Megaphone, CheckCircle, AlertCircle } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -30,12 +31,13 @@ type Flow = {
   startedAt: string | null;
 };
 
-const channelMeta: Record<string, { Icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { Icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { Icon: Mail,   color: "#059669", label: "Email" },
-  call:     { Icon: Phone,  color: "#EA580C", label: "Call" },
-  whatsapp: { Icon: Smartphone, color: "#25D366", label: "WhatsApp" },
-  sms:      { Icon: MessageSquare, color: "#6B7280", label: "SMS" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<string, { Icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { Icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { Icon: Mail,   color: "#059669", labelKey: "chan.email" },
+  call:     { Icon: Phone,  color: "#EA580C", labelKey: "chan.call" },
+  whatsapp: { Icon: Smartphone, color: "#25D366", labelKey: "chan.whatsapp" },
+  sms:      { Icon: MessageSquare, color: "#6B7280", labelKey: "chan.sms" },
 };
 
 function timeAgo(iso: string | null) {
@@ -61,6 +63,7 @@ export default function AddToFlowModal({
   onClose: () => void;
   onAdded: (summary?: { added: number; skipped: number }) => void;
 }) {
+  const { t } = useLocale();
   const [flows, setFlows] = useState<Flow[] | null>(null);
   const [loading, setLoading] = useState(true);
   // Pick by campaign id, not by flow name. Two flows can share a name across
@@ -157,10 +160,10 @@ export default function AddToFlowModal({
             style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 60%)` }} />
           <div className="relative">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] mb-1" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              Add to Existing Flow
+              {t("atf.title")}
             </p>
             <h3 className="text-[18px] font-bold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              {leadIds.length} {leadIds.length === 1 ? "lead" : "leads"} → pick a flow
+              {t("atf.pickAFlow", { n: leadIds.length, unit: t(leadIds.length === 1 ? "u.lead" : "u.leads") })}
             </h3>
             {leadNames && leadNames.length > 0 && (
               <p className="text-[11px] mt-1 truncate" style={{ color: "color-mix(in srgb, white 60%, transparent)", maxWidth: 440 }}>
@@ -180,7 +183,7 @@ export default function AddToFlowModal({
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search flows by name..."
+            placeholder={t("atf.searchPh")}
             className="w-full text-[13px] px-3 py-2 rounded-lg border outline-none transition-colors focus:border-amber-400"
             style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
           />
@@ -191,7 +194,7 @@ export default function AddToFlowModal({
           {loading ? (
             <div className="py-10 text-center">
               <Loader2 size={18} className="animate-spin mx-auto" style={{ color: C.textDim }} />
-              <p className="text-xs mt-2" style={{ color: C.textDim }}>Loading flows...</p>
+              <p className="text-xs mt-2" style={{ color: C.textDim }}>{t("atf.loading")}</p>
             </div>
           ) : visibleFlows.length === 0 ? (
             <div className="py-10 text-center">
@@ -228,7 +231,7 @@ export default function AddToFlowModal({
                       return (
                         <span key={ch} className="w-7 h-7 rounded-lg flex items-center justify-center"
                           style={{ background: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color, border: `1px solid color-mix(in srgb, ${meta.color} 22%, transparent)` }}
-                          title={meta.label}>
+                          title={t(meta.labelKey)}>
                           <Icon size={12} />
                         </span>
                       );
@@ -254,11 +257,11 @@ export default function AddToFlowModal({
                       </span>
                       {f.totalSteps > 0 && (
                         <span className="inline-flex items-center gap-1">
-                          Step <span className="font-semibold tabular-nums" style={{ color: C.textBody }}>{f.currentStep + 1}</span>/{f.totalSteps}
+                          {t("atf.step")} <span className="font-semibold tabular-nums" style={{ color: C.textBody }}>{f.currentStep + 1}</span>/{f.totalSteps}
                         </span>
                       )}
                       <span className="inline-flex items-center gap-1">
-                        <Calendar size={10} /> Last activity {timeAgo(f.lastStepAt)}
+                        <Calendar size={10} /> {t("atf.lastActivity", { ago: timeAgo(f.lastStepAt) })}
                       </span>
                     </div>
 
@@ -284,14 +287,14 @@ export default function AddToFlowModal({
             </span>
           ) : (
             <span className="text-[11px]" style={{ color: C.textDim }}>
-              {picked ? <>Selected: <span className="font-semibold" style={{ color: C.textBody }}>{picked}</span></> : "Pick a flow to continue."}
+              {picked ? <>{t("atf.selectedLabel")} <span className="font-semibold" style={{ color: C.textBody }}>{picked}</span></> : t("atf.pickToContinue")}
             </span>
           )}
           <div className="flex items-center gap-2">
             <button onClick={onClose}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-black/[0.03]"
               style={{ borderColor: C.border, color: C.textBody }}>
-              Cancel
+              {t("atf.cancel")}
             </button>
             <button onClick={submit} disabled={!picked || busy}
               className="text-[12px] font-bold px-4 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity"
@@ -302,7 +305,7 @@ export default function AddToFlowModal({
                 boxShadow: !picked || busy ? "none" : `0 4px 12px color-mix(in srgb, ${gold} 30%, transparent)`,
               }}>
               {busy ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-              Add to flow
+              {t("atf.addToFlow")}
             </button>
           </div>
         </div>

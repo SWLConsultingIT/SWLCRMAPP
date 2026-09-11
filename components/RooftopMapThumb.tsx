@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { X, Maximize2, MapPin } from "lucide-react";
 import { C, N } from "@/lib/design";
 
@@ -14,6 +15,7 @@ export default function RooftopMapThumb({
 }: {
   photoUrl: string; lat: number | null; lng: number | null; alt: string;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const hasMap = typeof lat === "number" && typeof lng === "number";
   const embed = hasMap ? `https://maps.google.com/maps?q=${lat},${lng}&t=k&z=18&hl=es&output=embed` : null;
@@ -26,7 +28,7 @@ export default function RooftopMapThumb({
           <MapPin size={12} style={{ color: N.goldOnDark }} /> {alt}
         </span>
         <button onClick={() => setOpen(false)} className="absolute top-2.5 right-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition-colors" style={{ backgroundColor: C.gold, color: N.ink }}>
-          <X size={13} /> Close map
+          <X size={13} /> {t("rmt.closeMap")}
         </button>
       </div>
     );
@@ -38,13 +40,13 @@ export default function RooftopMapThumb({
       onClick={() => hasMap && setOpen(true)}
       className="relative block rounded-xl overflow-hidden border group float-left mr-4 mb-3"
       style={{ width: 280, height: 200, borderColor: C.border, cursor: hasMap ? "zoom-in" : "default" }}
-      title={hasMap ? "Expand interactive map" : undefined}
+      title={hasMap ? t("rmt.expandInteractive") : undefined}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={photoUrl} alt={alt} className="w-full h-full object-cover transition-transform group-hover:scale-[1.03]" />
       {hasMap && (
         <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md shadow-sm" style={{ backgroundColor: C.gold, color: N.ink }}>
-          <Maximize2 size={10} /> Expand map
+          <Maximize2 size={10} /> {t("rmt.expandMap")}
         </span>
       )}
     </button>

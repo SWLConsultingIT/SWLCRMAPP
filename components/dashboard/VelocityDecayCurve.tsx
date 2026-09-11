@@ -7,10 +7,11 @@
 // is readable at a glance.
 
 import { C } from "@/lib/design";
+import { getT } from "@/lib/i18n-server";
 
 const gold = "var(--brand, #c9a83a)";
 
-export default function VelocityDecayCurve({
+export default async function VelocityDecayCurve({
   curve,
   totalMessaged,
   cutoffDay,
@@ -31,6 +32,7 @@ export default function VelocityDecayCurve({
   yAxisLabel?: string;
   xAxisLabel?: string;
 }) {
+  const t = await getT();
   if (totalMessaged < 30 || finalPct === 0) {
     return (
       <div className="py-10 text-center text-[12px]" style={{ color: C.textMuted }}>
@@ -111,7 +113,7 @@ export default function VelocityDecayCurve({
                 fill={gold}
                 style={{ fontFeatureSettings: '"tnum"' }}
               >
-                day {cutoffDay}
+                {t("u.day")} {cutoffDay}
               </text>
             </g>
           )}

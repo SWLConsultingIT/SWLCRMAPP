@@ -103,7 +103,7 @@ export default function TopHeader() {
       <button
         className="md:hidden p-2 rounded-lg transition-colors hover:bg-gray-100"
         style={{ color: C.textMuted }}
-        title="Menu"
+        title={t("nav.menu")}
         onClick={toggleMobileMenu}
       >
         <Menu size={18} />

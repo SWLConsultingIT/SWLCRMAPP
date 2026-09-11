@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Pencil, Check, X, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
@@ -42,6 +43,7 @@ function DisplayValue({ value, displayAs, className }: { value: string | null; d
 }
 
 export default function EditableLeadField({ leadId, field, value, displayAs = "text", placeholder, inputType = "text", ariaLabel, displayClassName }: Props) {
+  const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -67,7 +69,7 @@ export default function EditableLeadField({ leadId, field, value, displayAs = "t
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
-        toast.show({ kind: "error", title: "Couldn't save", description: j.error || "Try again." });
+        toast.show({ kind: "error", title: t("elf.couldntSave"), description: j.error || "Try again." });
         return;
       }
       setCurrent(next || null);
@@ -112,7 +114,7 @@ export default function EditableLeadField({ leadId, field, value, displayAs = "t
           type="button"
           onClick={() => void save()}
           disabled={saving}
-          aria-label="Save"
+          aria-label={t("elf.save")}
           className="rounded-md p-1 transition-opacity hover:opacity-85 disabled:opacity-50"
           style={{ background: C.green, color: "#fff" }}
         >
@@ -122,7 +124,7 @@ export default function EditableLeadField({ leadId, field, value, displayAs = "t
           type="button"
           onClick={cancel}
           disabled={saving}
-          aria-label="Cancel"
+          aria-label={t("elf.cancel")}
           className="rounded-md p-1 transition-opacity hover:opacity-85 disabled:opacity-50"
           style={{ background: C.surface, color: C.textMuted }}
         >
@@ -152,7 +154,7 @@ export default function EditableLeadField({ leadId, field, value, displayAs = "t
         }}
       >
         <Pencil size={11} />
-        Edit
+        {t("elf.edit")}
       </button>
     </div>
   );

@@ -60,6 +60,7 @@ export function CancelCooldownButton({ messageId }: { messageId: string }) {
 }
 
 export function PauseCampaignButton({ campaignName, queuedCount }: { campaignName: string; queuedCount: number }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -93,21 +94,21 @@ export function PauseCampaignButton({ campaignName, queuedCount }: { campaignNam
         className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80"
         style={{ backgroundColor: C.redLight, color: C.red }}
       >
-        <PauseCircle size={9} /> Pause all {queuedCount} queued
+        <PauseCircle size={9} /> {t("cda.pauseAll", { n: queuedCount })}
       </button>
     );
   }
 
   return (
     <div className="inline-flex items-center gap-1.5">
-      <span className="text-[10px]" style={{ color: C.textBody }}>Pause {queuedCount} queued?</span>
+      <span className="text-[10px]" style={{ color: C.textBody }}>{t("cda.pauseConfirm", { n: queuedCount })}</span>
       <button
         onClick={go}
         disabled={busy}
         className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold disabled:opacity-50"
         style={{ backgroundColor: C.red, color: "white" }}
       >
-        {busy ? <Loader2 size={9} className="animate-spin" /> : "Confirm"}
+        {busy ? <Loader2 size={9} className="animate-spin" /> : t("cda.confirm")}
       </button>
       <button
         onClick={() => setConfirming(false)}
@@ -115,7 +116,7 @@ export function PauseCampaignButton({ campaignName, queuedCount }: { campaignNam
         className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold disabled:opacity-50"
         style={{ backgroundColor: C.surface, color: C.textBody }}
       >
-        Cancel
+        {t("cda.cancel")}
       </button>
       {err && <span className="text-[10px]" style={{ color: C.red }}>{err}</span>}
     </div>

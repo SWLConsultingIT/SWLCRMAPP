@@ -9,12 +9,13 @@
 //   ─ right: "Powered by" + SWL wordmark + sales-engine tagline
 
 import Image from "next/image";
+import { getT } from "@/lib/i18n-server";
 import { C } from "@/lib/design";
 
 const LOGO_SRC = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
 const gold = "var(--brand, #c9a83a)";
 
-export default function SwlSignature({
+export default async function SwlSignature({
   tagline,
 }: {
   /** Locale-aware caption, e.g. "Métricas en vivo · no cacheadas" or "Live metrics". */
@@ -22,6 +23,7 @@ export default function SwlSignature({
   /** Locale-aware tagline under the wordmark, e.g. "Sales Engine · Analytics". */
   tagline: string;
 }) {
+  const t = await getT();
   return (
     <footer
       className="flex items-center gap-4 pt-6 pb-3 mt-4 border-t"
@@ -40,7 +42,7 @@ export default function SwlSignature({
           className="text-[8.5px] font-bold tracking-[0.22em] uppercase"
           style={{ color: gold }}
         >
-          Powered by
+          {t("nav.poweredBy")}
         </span>
 
         <div className="flex items-center gap-1.5">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { intlTag } from "@/lib/i18n-locale";
 import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { UserPlus, AlertTriangle, Trash2, Loader2 } from "lucide-react";
@@ -13,7 +14,7 @@ type PendingUser = { id: string; email: string; role: string | null; created_at:
 type Company = { id: string; company_name: string };
 
 export default function PendingUsersSection() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const toast = useToast();
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -48,7 +49,7 @@ export default function PendingUsersSection() {
       const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        toast.show({ kind: "error", title: "Couldn't delete", description: d.error ?? "Try again." });
+        toast.show({ kind: "error", title: t("pus.couldntDelete"), description: d.error ?? "Try again." });
         return;
       }
       setUsers(prev => prev.filter(u => u.id !== user.id));
@@ -68,10 +69,10 @@ export default function PendingUsersSection() {
       <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)" }}>
         <AlertTriangle size={14} style={{ color: "#D97706" }} />
         <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "#92400E" }}>
-          Pending Assignment ({users.length})
+          {t("pus.pendingAssignment", { n: users.length })}
         </h3>
         <span className="text-xs" style={{ color: "#92400E" }}>
-          — {users.length === 1 ? "user" : "users"} signed up but not assigned to a company yet
+          {t("pus.signedUpNote", { unit: t(users.length === 1 ? "pus.user" : "pus.users") })}
         </span>
       </div>
       {users.map((user, i) => (
@@ -84,7 +85,7 @@ export default function PendingUsersSection() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{user.email}</p>
             <p className="text-[11px]" style={{ color: C.textDim }}>
-              Signed up {new Date(user.created_at).toLocaleDateString()}
+              {t("pus.signedUpOn", { date: new Date(user.created_at).toLocaleDateString(intlTag(locale)) })}
             </p>
           </div>
           <button
@@ -97,7 +98,7 @@ export default function PendingUsersSection() {
           <button
             onClick={() => removeUser(user)}
             disabled={deleting === user.id}
-            title="Delete account"
+            title={t("pus.deleteAccount")}
             className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-black/[0.05] shrink-0 disabled:opacity-50"
             style={{ color: C.red }}
           >
@@ -107,7 +108,7 @@ export default function PendingUsersSection() {
       ))}
       <div className="px-5 py-2 text-[10px] italic" style={{ backgroundColor: C.bg, color: C.textDim, borderTop: `1px solid ${C.border}` }}>
         <UserPlus size={10} className="inline mr-1" />
-        Tip: pick one or more companies and a role. The user gets real access to each one and drops off this list.
+        {t("pus.tip")}
       </div>
 
       {assignTarget && (

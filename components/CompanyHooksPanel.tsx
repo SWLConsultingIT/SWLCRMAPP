@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, RefreshCw, AlertCircle, Phone } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -22,6 +23,7 @@ type Props = {
 const CACHE_PREFIX = "company-hooks-v1:";
 
 export default function CompanyHooksPanel({ leadId, companyName }: Props) {
+  const { t } = useLocale();
   const [hooks, setHooks] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export default function CompanyHooksPanel({ leadId, companyName }: Props) {
         <div className="flex items-center gap-2">
           <Sparkles size={16} style={{ color: "var(--brand, #c9a83a)" }} />
           <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--brand, #c9a83a)" }}>
-            Call Hooks
+            {t("chp.title")}
           </h3>
           <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
             style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)", color: "var(--brand, #c9a83a)" }}>
@@ -103,7 +105,7 @@ export default function CompanyHooksPanel({ leadId, companyName }: Props) {
             }}
           >
             {loading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-            Refresh
+            {t("chp.refresh")}
           </button>
         )}
       </div>
@@ -111,7 +113,7 @@ export default function CompanyHooksPanel({ leadId, companyName }: Props) {
       {!hasHooks && !loading && !err && (
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm flex-1" style={{ color: C.textBody }}>
-            Distill {companyName}&apos;s enrichment into 3–5 ready-to-read hooks for your next call.
+            {t("chp.blurb", { name: companyName })}
           </p>
           <button
             type="button"
@@ -119,14 +121,14 @@ export default function CompanyHooksPanel({ leadId, companyName }: Props) {
             className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
             style={{ background: `linear-gradient(135deg, var(--brand, #c9a83a), color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}
           >
-            <Sparkles size={11} /> Generate hooks
+            <Sparkles size={11} /> {t("chp.generate")}
           </button>
         </div>
       )}
 
       {loading && (
         <div className="flex items-center gap-2 text-sm py-2" style={{ color: C.textMuted }}>
-          <Loader2 size={14} className="animate-spin" /> Reading {companyName}&apos;s research…
+          <Loader2 size={14} className="animate-spin" /> {t("chp.reading", { name: companyName })}
         </div>
       )}
 
@@ -144,7 +146,7 @@ export default function CompanyHooksPanel({ leadId, companyName }: Props) {
       {isEmptyAfterGen && reason === "insufficient_enrichment" && (
         <div className="flex items-start gap-2 text-xs" style={{ color: C.textMuted }}>
           <AlertCircle size={12} className="shrink-0" style={{ marginTop: 2 }} />
-          <p>Not enough enrichment data on this company yet — re-run the enrichment workflow to pull description, news and tech stack, then refresh.</p>
+          <p>{t("chp.notEnoughData")}</p>
         </div>
       )}
 

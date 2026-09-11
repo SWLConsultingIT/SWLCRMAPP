@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import { X, Shield, Eye, EyeOff, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function ChangePasswordModal({ open, onClose, userEmail }: Props) {
+  const { t } = useLocale();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -83,8 +85,8 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
               <Shield size={16} style={{ color: C.gold }} />
             </div>
             <div>
-              <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Change password</h2>
-              <p className="text-[11px]" style={{ color: C.textMuted }}>Keep your account secure.</p>
+              <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{t("cpm.title")}</h2>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>{t("cpm.subtitle")}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5">
@@ -95,8 +97,8 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
         {success ? (
           <div className="px-6 py-12 text-center">
             <CheckCircle size={36} className="mx-auto mb-3" style={{ color: C.green }} />
-            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>Password updated</p>
-            <p className="text-xs mt-1" style={{ color: C.textMuted }}>Your new password is now active.</p>
+            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("cpm.updated")}</p>
+            <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("cpm.updatedHint")}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -110,7 +112,7 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
 
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textMuted }}>
-                Current password
+                {t("cpm.current")}
               </label>
               <div className="relative">
                 <input
@@ -130,7 +132,7 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
 
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textMuted }}>
-                New password
+                {t("cpm.new")}
               </label>
               <div className="relative">
                 <input
@@ -146,12 +148,12 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
                   {showNew ? <EyeOff size={14} style={{ color: C.textDim }} /> : <Eye size={14} style={{ color: C.textDim }} />}
                 </button>
               </div>
-              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>At least 6 characters.</p>
+              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>{t("cpm.minChars")}</p>
             </div>
 
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: C.textMuted }}>
-                Confirm new password
+                {t("cpm.confirm")}
               </label>
               <input
                 type={showNew ? "text" : "password"}
@@ -167,13 +169,13 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
               <button type="button" onClick={onClose} disabled={loading}
                 className="px-4 py-2 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80"
                 style={{ color: C.textMuted }}>
-                Cancel
+                {t("cpm.cancel")}
               </button>
               <button type="submit" disabled={loading || !currentPassword || !newPassword || !confirm}
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
                 style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
                 {loading ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
-                Update password
+                {t("cpm.submit")}
               </button>
             </div>
           </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { C } from "@/lib/design";
 import { Megaphone, FileText } from "lucide-react";
@@ -22,6 +23,7 @@ export default function CampaignTabs({ activeCount, children }: {
   activeCount: number;
   children: React.ReactNode[];
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -57,8 +59,8 @@ export default function CampaignTabs({ activeCount, children }: {
   // between the hero and the tabs was a recurring papercut — sellers ended
   // up unsure whether a flow and a campaign were the same thing.
   const tabs = [
-    { label: "Flows",     icon: Megaphone, count: activeCount, color: gold },
-    { label: "Templates", icon: FileText,  count: 0,           color: "#7C3AED" },
+    { label: t("campTabs.flows"),     icon: Megaphone, count: activeCount, color: gold },
+    { label: t("campTabs.templates"), icon: FileText,  count: 0,           color: "#7C3AED" },
   ];
 
   return (

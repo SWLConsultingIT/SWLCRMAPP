@@ -1,6 +1,6 @@
 "use client";
 
-// Step 3 (tailored mode) — TAG GRID + "Validate full batch" button.
+// Step 3 (tailored mode) — TAG GRID + Validate all button.
 // Runs every lead through the per-lead tailor prompt, validates the
 // substituted output via lib/message-validator, and renders each as a
 // compact chip (initials + green/red status). Click a chip → inline
@@ -12,6 +12,7 @@
 // reuse them without burning Haiku a second time.
 
 import { useMemo, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, AlertCircle, ChevronDown, ChevronUp, Search, Filter, Check, Phone, Mail, Share2, Megaphone } from "lucide-react";
 import { C } from "@/lib/design";
 import { VIOLATION_LABELS, type ViolationCode } from "@/lib/message-validator";
@@ -66,6 +67,7 @@ function initialsOf(name: string): string {
 }
 
 export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, campaignRequestId, language, onResults }: Props) {
+  const { t } = useLocale();
   const [results, setResults] = useState<ResultRow[] | null>(null);
   const [summary, setSummary] = useState<BatchResponse["summary"] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,12 +123,12 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Sparkles size={14} style={{ color: gold }} />
-            <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>All {leadIds.length} leads</h3>
+            <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("ltg.allNLeads", { n: leadIds.length })}</h3>
             {summary && (
               <span className="text-[11px]" style={{ color: C.textMuted }}>
                 · <span style={{ color: C.green, fontWeight: 700 }}>{summary.ok} OK</span>
                 {summary.withIssues > 0 && (
-                  <> · <span style={{ color: "#DC2626", fontWeight: 700 }}>{summary.withIssues} with issues</span></>
+                  <> · <span style={{ color: "#DC2626", fontWeight: 700 }}>{t("ltg.withIssues", { n: summary.withIssues })}</span></>
                 )}
               </span>
             )}
@@ -149,7 +151,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
               style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 35%, transparent)`, backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)` }}
             >
               {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-              Re-run batch
+              {t("ltg.rerunBatch")}
             </button>
           )}
         </div>
@@ -161,7 +163,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
               <Search size={12} style={{ color: C.textMuted }} />
               <input
                 type="text"
-                placeholder="Search by name, company, role…"
+                placeholder={t("ltg.searchPh")}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="flex-1 bg-transparent outline-none text-xs"
@@ -172,7 +174,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
               style={{ color: onlyIssues ? "#DC2626" : C.textBody }}>
               <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} className="cursor-pointer" />
               <Filter size={11} />
-              Only issues
+              {t("ltg.onlyIssues")}
             </label>
           </div>
         )}
@@ -182,10 +184,10 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
         {!results && !loading && !err && (
           <div className="text-center py-10">
             <p className="text-sm mb-1.5" style={{ color: C.textBody }}>
-              Click <strong>Validate full batch</strong> to generate the per-lead hook + fit for every lead.
+              {t("ltg.clickWord")} <strong>{t("ltg.validateAll")}</strong> {t("ltg.toGenerate")}
             </p>
             <p className="text-[11px]" style={{ color: C.textMuted }}>
-              ~30 seconds for {leadIds.length} leads · ~${(leadIds.length * 0.001).toFixed(2)}
+              {t("ltg.estimate", { n: leadIds.length, cost: (leadIds.length * 0.001).toFixed(2) })}
             </p>
           </div>
         )}
@@ -193,7 +195,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
         {loading && !results && (
           <div className="flex items-center justify-center py-12 gap-2" style={{ color: C.textMuted }}>
             <Loader2 size={16} className="animate-spin" />
-            <span className="text-sm">Generating per-lead copy for {leadIds.length} leads…</span>
+            <span className="text-sm">{t("ltg.generatingFor", { n: leadIds.length })}</span>
           </div>
         )}
 
@@ -211,7 +213,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
               <div className="mb-4 p-3 rounded-lg border"
                 style={{ backgroundColor: "color-mix(in srgb, #DC2626 6%, transparent)", borderColor: "color-mix(in srgb, #DC2626 25%, transparent)" }}>
                 <p className="text-[11px] font-semibold mb-1.5" style={{ color: "#DC2626" }}>
-                  {summary.withIssues} leads have validation issues
+                  {t("ltg.nHaveIssues", { n: summary.withIssues })}
                 </p>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {Object.entries(summary.byCode).map(([code, count]) => (
@@ -263,7 +265,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                         {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
                       </p>
                     </div>
-                    <button onClick={() => setOpenLeadId(null)} className="p-1 rounded hover:bg-black/[0.05]" title="Close">
+                    <button onClick={() => setOpenLeadId(null)} className="p-1 rounded hover:bg-black/[0.05]" title={t("ltg.close")}>
                       <ChevronUp size={14} style={{ color: C.textMuted }} />
                     </button>
                   </div>
@@ -283,11 +285,11 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                   {lead.slots && (
                     <div className="px-4 py-3 border-b grid grid-cols-1 md:grid-cols-2 gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Hook (per-lead)</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>{t("ltg.hookPerLead")}</p>
                         <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>{lead.slots.hook}</p>
                       </div>
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Fit (per-lead)</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>{t("ltg.fitPerLead")}</p>
                         <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>{lead.slots.fit}</p>
                       </div>
                     </div>
@@ -296,7 +298,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                   <div className="px-4 py-3 space-y-2.5">
                     {lead.rendered.connectionRequest && (
                       <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>Connection Request</p>
+                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>{t("tpp.connReq")}</p>
                         <p className="text-[11.5px] leading-snug whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                           {lead.rendered.connectionRequest}
                         </p>
@@ -308,10 +310,10 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                         <div key={i}>
                           <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1" style={{ color: C.textMuted }}>
                             <Icon size={10} />
-                            Step {i + 1} · {step.channel}
+                            {t("ltg.stepN", { n: i + 1 })} · {step.channel}
                           </p>
                           {step.subject && (
-                            <p className="text-[11px] font-semibold mb-0.5" style={{ color: C.textBody }}>Subject: {step.subject}</p>
+                            <p className="text-[11px] font-semibold mb-0.5" style={{ color: C.textBody }}>{t("ltg.subjectLabel")} {step.subject}</p>
                           )}
                           <p className="text-[11.5px] leading-snug whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                             {step.body}
@@ -326,7 +328,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
 
             {filtered.length === 0 && (
               <p className="text-center text-xs py-6" style={{ color: C.textMuted }}>
-                No leads match your search.
+                {t("ltg.noMatch")}
               </p>
             )}
           </>

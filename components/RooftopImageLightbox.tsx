@@ -122,16 +122,16 @@ export default function RooftopImageLightbox({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 h-8 rounded-lg text-white hover:bg-white/10 transition-colors"
-                title="Abrir en Google Maps"
+                title={t("ril.openMaps")}
               >
-                Abrir en Google Maps
+                {t("ril.openMaps")}
               </a>
             ) : (
               <>
                 <button
                   onClick={() => setZoom(z => clampZoom(z - 0.25))}
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-                  title="Alejar (–)"
+                  title={t("ril.zoomOut")}
                 >
                   <ZoomOut size={16} />
                 </button>
@@ -141,7 +141,7 @@ export default function RooftopImageLightbox({
                 <button
                   onClick={() => setZoom(z => clampZoom(z + 0.25))}
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-                  title="Acercar (+)"
+                  title={t("ril.zoomIn")}
                 >
                   <ZoomIn size={16} />
                 </button>
@@ -150,7 +150,7 @@ export default function RooftopImageLightbox({
             <button
               onClick={closeLightbox}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors ml-2"
-              title="Cerrar (Esc)"
+              title={t("ril.close")}
             >
               <X size={16} />
             </button>
@@ -181,7 +181,7 @@ export default function RooftopImageLightbox({
               className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/50 hover:text-white/80 transition-colors"
               onClick={e => { e.stopPropagation(); setZoom(1); setPos({ x: 0, y: 0 }); }}
             >
-              Resetear zoom · presioná 0
+              {t("ril.resetZoom")}
             </button>
           )}
 
@@ -225,7 +225,7 @@ export default function RooftopImageLightbox({
           {/* Scroll hint */}
           {!hasMap && zoom === 1 && (
             <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11px] text-white/40 select-none pointer-events-none">
-              Scroll para hacer zoom · arrastrá para mover · Esc para cerrar
+              {t("ril.hint")}
             </p>
           )}
         </div>

@@ -165,10 +165,10 @@ export default function SignupPage() {
               </div>
               <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>{t("auth.checkEmail")}</h2>
               <p className="text-sm leading-relaxed mb-6" style={{ color: "rgba(217,222,226,0.6)" }}>
-                We sent a confirmation link to <strong style={{ color: "#f8fafc" }}>{email}</strong>. Click it to activate your account.
+                {t("signup.sentLinkTo")} <strong style={{ color: "#f8fafc" }}>{email}</strong>{t("signup.clickToActivate")}
               </p>
               <a href="/login" className="text-xs font-semibold hover:underline" style={{ color: "#b79832" }}>
-                Back to login →
+                {t("signup.backToLogin")}
               </a>
             </div>
           ) : (
@@ -178,7 +178,7 @@ export default function SignupPage() {
                   {t("auth.createAccountBtn")}
                 </h2>
                 <p className="text-sm" style={{ color: "rgba(217,222,226,0.5)" }}>
-                  Start using GrowthAI in minutes
+                  {t("signup.tagline")}
                 </p>
               </div>
 
@@ -271,7 +271,7 @@ export default function SignupPage() {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                      Creating account…
+                      {t("signup.creating")}
                     </span>
                   ) : (
                     <>{t("auth.createAccountBtn")} <ChevronRight size={15} /></>
@@ -280,7 +280,7 @@ export default function SignupPage() {
               </form>
 
               <p className="text-center text-xs mt-6" style={{ color: "rgba(217,222,226,0.4)" }}>
-                Already have an account?{" "}
+                {t("signup.alreadyHaveAccount")}{" "}
                 <a href="/login" className="font-semibold hover:underline" style={{ color: "#b79832" }}>{t("auth.signInLink")}</a>
               </p>
             </>

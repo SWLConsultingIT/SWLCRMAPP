@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { Sparkles, Check, ChevronDown } from "lucide-react";
 
@@ -90,6 +91,7 @@ export default function SignalPicker({
   /** Per-tenant enrichment schema. When present, drives visibility + labels + grouping. */
   schema?: SchemaEntry[] | null;
 }) {
+  const { t } = useLocale();
   const enr = (enrichment && typeof enrichment === "object") ? (enrichment as Record<string, unknown>) : null;
   const leadRow = (lead && typeof lead === "object") ? (lead as Record<string, unknown>) : null;
   if (!enr && !leadRow) return null;
@@ -179,15 +181,15 @@ export default function SignalPicker({
       >
         <Sparkles size={13} style={{ color: gold }} />
         <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textPrimary }}>
-          Personalized Signals
+          {t("sig.title")}
         </h4>
         <span className="text-[10px]" style={{ color: C.textMuted }}>
-          (optional — tick signals to reference in the copy)
+          {t("sig.hint")}
         </span>
         {selected.length > 0 && (
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
-            {selected.length} selected
+            {t("sig.nSelected", { n: selected.length })}
           </span>
         )}
         <div className="flex-1" />
@@ -199,7 +201,7 @@ export default function SignalPicker({
       {open && (
         <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: C.border }}>
           <p className="text-[11px] mb-3 mt-3" style={{ color: C.textMuted }}>
-            The AI writes the copy with placeholders like {"{{rfa_rating}}"} that the orchestrator replaces per lead at send time — same as {"{{first_name}}"}.
+            {t("sig.placeholdersPre")} {"{{rfa_rating}}"} {t("sig.placeholdersMid")} {"{{first_name}}"}.
           </p>
 
           {groupOrder.map(cat => (

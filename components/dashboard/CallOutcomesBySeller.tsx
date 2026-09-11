@@ -158,7 +158,7 @@ function SellerRow({ s }: { s: SellerCallStats }) {
             </span>
             {inactive && (
               <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(107,114,128,0.12)", color: "#6B7280", flexShrink: 0 }}>
-                left
+                {t("cobs.left")}
               </span>
             )}
           </span>
@@ -199,7 +199,7 @@ function SellerRow({ s }: { s: SellerCallStats }) {
                     {counts.made} <span style={{ fontSize: 11, fontWeight: 400, color: C.textMuted }}>{t("cons.camp.calls")}</span>
                   </span>
                   <span style={{ fontSize: 11.5, fontWeight: 600, color: C.textMuted, fontFamily: OUTFIT }}>
-                    {answerPctOf(counts)}% answered
+                    {t("cobs.answeredPct", { n: answerPctOf(counts) })}
                   </span>
                 </div>
 
@@ -251,7 +251,7 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
           <div>
             <p style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary }}>{t("cob.noCalls")}</p>
             <p style={{ fontSize: 12, marginTop: 4, color: C.textMuted }}>
-              Calls you dial will appear here with outcomes (interested, bad timing, wrong number, etc.)
+              {t("cobs.emptyHint")}
             </p>
           </div>
         </div>
@@ -297,7 +297,7 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
             <tfoot>
               <tr style={{ borderTop: `2px solid ${C.border}`, backgroundColor: C.bg }}>
                 <td className="px-3 py-2.5" style={{ fontSize: 12, fontWeight: 700, color: C.textPrimary, fontFamily: OUTFIT }}>
-                  All · {rows.length} sellers
+                  {t("cobs.allSellers", { n: rows.length })}
                 </td>
                 {COLS.map(c => {
                   if (c.key === "avgDurationSecs" || c.key === "avgCoachScore") {

@@ -86,7 +86,7 @@ export default function OnboardingChecklist() {
           onClick={dismiss}
           className="p-1 rounded hover:bg-gray-100"
           style={{ color: C.textMuted }}
-          aria-label="Dismiss"
+          aria-label={t("onb.dismiss")}
         >
           <X size={14} />
         </button>

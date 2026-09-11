@@ -134,20 +134,20 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
           <div className="flex items-center gap-2">
             <Users size={13} style={{ color: gold }} />
             <p className="text-[13.5px] font-bold tracking-[-0.005em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              Seller activity
+              {t("pulse.sellerActivity")}
             </p>
             <span className="flex items-center gap-1 ml-1">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#22C55E", boxShadow: "0 0 0 2px rgba(34,197,94,0.3)", animation: "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite" }} />
-              <span className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "#22C55E" }}>Live</span>
+              <span className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "#22C55E" }}>{t("pulse.live")}</span>
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {activeSellers > 0 ? (
               <>
                 <span className="text-[11px] font-semibold" style={{ color: onTrack === activeSellers ? "#22C55E" : onTrack > 0 ? "#C9A83A" : "#EF4444" }}>
-                  {onTrack}/{activeSellers} active on track
+                  {t("pulse.onTrack", { a: onTrack, b: activeSellers })}
                 </span>
-                <span className="text-[11px]" style={{ color: "#8B9EB7" }}>· goal {dailyTarget}+ calls · replied · positives · queue</span>
+                <span className="text-[11px]" style={{ color: "#8B9EB7" }}>· {t("pulse.goalLegend", { n: dailyTarget })}</span>
               </>
             ) : (
               <span className="text-[11px]" style={{ color: "#8B9EB7" }}>{t("pulse.legend")}</span>
@@ -157,7 +157,7 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
         <a href="/admin"
           className="text-[10px] font-semibold uppercase tracking-widest shrink-0 transition-opacity hover:opacity-70"
           style={{ color: gold }}>
-          Team →
+          {t("pulse.team")}
         </a>
       </div>
 
@@ -168,14 +168,14 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
             className="text-[10px] uppercase tracking-wider border-b"
             style={{ color: C.textMuted, borderColor: C.border, background: "rgba(0,0,0,0.15)" }}
           >
-            <th className="px-4 py-2 text-left font-semibold">Seller</th>
-            <th className="px-3 py-2 text-left font-semibold">Status</th>
+            <th className="px-4 py-2 text-left font-semibold">{t("pulse.col.seller")}</th>
+            <th className="px-3 py-2 text-left font-semibold">{t("pulse.col.status")}</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">{t("pulse.col.lastSeen")}</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">{t("pulse.col.lastCall")}</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Today</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>Calls</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.today")}</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>{t("pulse.col.calls")}</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.replied")}</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Positive</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.positive")}</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">{t("pulse.col.inQueue")}</th>
           </tr>
         </thead>
@@ -183,7 +183,7 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
           {sellers.length === 0 ? (
             <tr>
               <td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>
-                No sellers found.
+                {t("pulse.noSellers")}
               </td>
             </tr>
           ) : rows.map(row => {
@@ -218,7 +218,7 @@ export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5
                         {row.linkedinStatus === "banned" && (
                           <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
                             style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }}>
-                            <AlertTriangle size={8} /> LI banned
+                            <AlertTriangle size={8} /> {t("pulse.liBanned")}
                           </span>
                         )}
                         {(row.linkedinStatus === "restricted" || row.linkedinStatus === "warning") && (

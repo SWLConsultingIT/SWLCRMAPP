@@ -1665,9 +1665,9 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
             <span className="text-[11px] font-bold">!</span>
           </div>
           <p className="text-[13px] flex-1 min-w-0" style={{ color: C.textPrimary }}>
-            Showing <strong>{allLeads.length.toLocaleString()}</strong> of <strong>{totalLeadCount!.toLocaleString()}</strong> leads.
+            {t("leadsPage.showingWord")} <strong>{allLeads.length.toLocaleString()}</strong> {t("leadsPage.ofWord")} <strong>{totalLeadCount!.toLocaleString()}</strong> {t("u.leads")}.
             <span className="ml-1" style={{ color: C.textMuted }}>
-              Filter by ICP or status above to narrow the view, or use Import / Export to handle the full set.
+              {t("leadsPage.narrowHint")}
             </span>
           </p>
         </div>
@@ -1695,7 +1695,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           // total: in-flow + without-flow + lost + renurture all reconcile to it.
           // (These live in /results too; shown here for a complete count.) Simo 2026-07-29.
           { label: t("leadsPage.stats.lost"),                    value: lostLeads.length,         color: C.red },
-          { label: "Renurture",                                 value: renurturingLeads.length,  color: "#D97706" },
+          { label: t("leadsPage.stats.renurture"),               value: renurturingLeads.length,  color: "#D97706" },
         ].map((s, i, arr) => (
           <div key={s.label} className="flex items-center gap-3">
             <div className="flex items-baseline gap-1.5">
@@ -1776,7 +1776,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                 color: string;
               }> = [
                 { key: "all",              label: t("leadsPage.chip.all"),         count: allLeads.length,                                color: gold },
-                { key: "needs_attention",  label: "⚡ Needs attention",            count: leadsNeedingAttention.length,                   color: gold },
+                { key: "needs_attention",  label: t("leadsPage.chip.needsAttention"), count: leadsNeedingAttention.length,                   color: gold },
                 { key: "without_campaign", label: t("leadsPage.chip.withoutFlow"), count: leadsWithoutCampaign.length,                    color: gold },
                 { key: "with_campaign",    label: t("leadsPage.chip.inFlow"),      count: allLeads.filter(l => l.has_campaign).length,    color: gold },
               ];

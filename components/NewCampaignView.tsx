@@ -122,7 +122,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                   </div>
                   <div>
                     <p className="text-xs font-bold" style={{ color: "#fff" }}>
-                      <span className="text-[10px] font-bold mr-1.5 px-1.5 py-0.5 rounded" style={{ backgroundColor: `${s.color}30`, color: s.color }}>Step {s.step}</span>
+                      <span className="text-[10px] font-bold mr-1.5 px-1.5 py-0.5 rounded" style={{ backgroundColor: `${s.color}30`, color: s.color }}>{t("ncv.stepN", { n: s.step })}</span>
                       {t(s.labelKey)}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>{s.desc}</p>
@@ -167,7 +167,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
       ) : (
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>
-            Select leads from any group to get started
+            {t("ncv.selectLeads")}
           </p>
 
           <div className="space-y-5">
@@ -210,8 +210,8 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                       {newCount > 0 && (
                         <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 px-2 py-0.5 rounded-md"
                           style={{ backgroundColor: gold, color: "#04070d" }}
-                          title={`${newCount} lead${newCount === 1 ? "" : "s"} added in the last 7 days`}>
-                          {newCount} new
+                          title={t("ncv.newInLast7", { n: newCount, unit: t(newCount === 1 ? "u.lead" : "u.leads") })}>
+                          {t("ncv.nNew", { n: newCount })}
                         </span>
                       )}
                       {hasLinkedin > 0 && (
@@ -231,7 +231,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                       )}
                     </div>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: `${C.blue}12`, color: C.blue }}>
-                      {group.leads.length} leads
+                      {group.leads.length} {t(group.leads.length === 1 ? "u.lead" : "u.leads")}
                     </span>
                     <button onClick={() => toggleGroup(group.leads)}
                       className="text-[10px] font-semibold px-3 py-1 rounded-md transition-colors"
@@ -323,15 +323,15 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 rounded-2xl border px-6 py-3.5 shadow-xl"
           style={{ backgroundColor: "#1A1A2E", borderColor: `color-mix(in srgb, ${gold} 25%, transparent)` }}>
           <span className="text-sm font-bold" style={{ color: "#fff" }}>
-            {selected.size} {selected.size === 1 ? "lead" : "leads"} selected
+            {t("ncv.nSelected", { n: selected.size, unit: t(selected.size === 1 ? "u.lead" : "u.leads") })}
           </span>
           <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-            from {groups.filter(g => g.leads.some(l => selected.has(l.id))).length} {groups.filter(g => g.leads.some(l => selected.has(l.id))).length === 1 ? "group" : "groups"}
+            {t("ncv.fromNGroups", { n: groups.filter(g => g.leads.some(l => selected.has(l.id))).length, unit: t(groups.filter(g => g.leads.some(l => selected.has(l.id))).length === 1 ? "ncv.group" : "ncv.groups") })}
           </span>
           <Link href={launchUrl}
             className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-lg"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-            <Megaphone size={15} /> Create Outreach Flow
+            <Megaphone size={15} /> {t("ncv.createFlow")}
           </Link>
           <button onClick={() => setSelected(new Set())} className="text-xs font-medium underline" style={{ color: "rgba(255,255,255,0.5)" }}>
             {t("cd.clear")}

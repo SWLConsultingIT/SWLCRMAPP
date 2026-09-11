@@ -34,7 +34,7 @@ export default async function WorkflowsSection() {
   const badge = workflows && workflows.length > 0 ? (
     <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full"
       style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, transparent)` }}>
-      {workflows.length} total
+      {t("wf.nTotal", { n: workflows.length })}
     </span>
   ) : null;
 
@@ -52,7 +52,7 @@ export default async function WorkflowsSection() {
         </div>
       ) : workflows.length === 0 ? (
         <div className="px-7 py-5 text-[12.5px]" style={{ color: C.textMuted }}>
-          No SWL-CRM workflows found in n8n.
+          {t("wf.none")}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-px" style={{ backgroundColor: C.border }}>

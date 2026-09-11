@@ -135,7 +135,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
                 style={{ backgroundColor: C.card, borderTop: `1px solid ${tone.border}`, color: C.textMuted }}>
                 <span>{tn.lastSendAt ? `last send ${formatRelative(tn.lastSendAt)}` : t("rel.tenant.noSends")}</span>
                 <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wider transition-transform group-hover:translate-x-0.5" style={{ color: gold }}>
-                  abrir <ChevronRight size={11} />
+                  {t("go.open")} <ChevronRight size={11} />
                 </span>
               </div>
             </Link>
@@ -155,7 +155,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
       badge={(
         <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full"
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, transparent)` }}>
-          {global.sellers.length} total
+          {t("go.nTotal", { n: global.sellers.length })}
         </span>
       )}
     >
@@ -209,7 +209,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
                           {s.dailySentLast24h}
                         </span>
                         <span className="text-[11px] tabular-nums" style={{ color: C.textMuted }}>
-                          / {s.dailyLimit} sent 24h
+                          / {t("go.sent24h", { n: s.dailyLimit ?? 0 })}
                         </span>
                       </div>
                       <span className="text-[11px] font-bold tabular-nums"

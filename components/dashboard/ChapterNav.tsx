@@ -15,6 +15,7 @@
 // underline + glow + bold label.
 
 import { useSearchParams, useRouter } from "next/navigation";
+import { useLocale } from "@/lib/i18n";
 import { useEffect, useState, useTransition } from "react";
 import { N } from "@/lib/design";
 import { useDashboardTab, isClientTab } from "@/components/dashboard/DashboardTabs";
@@ -34,6 +35,7 @@ export default function ChapterNav({
    * etc) live here instead of in a separate header strip. */
   actions?: React.ReactNode;
 }) {
+  const { t } = useLocale();
   const params = useSearchParams();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -71,7 +73,7 @@ export default function ChapterNav({
         border: `1px solid color-mix(in srgb, ${gold} 26%, ${N.hairline})`,
         boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 10px 28px -14px ${N.ink}`,
       }}
-      aria-label="Dashboard tabs"
+      aria-label={t("dashx.tabsAria")}
     >
       {/* Soft gold radial in the top-left so the nav feels lit, not flat */}
       <span

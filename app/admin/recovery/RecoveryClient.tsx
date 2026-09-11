@@ -71,7 +71,7 @@ export default function RecoveryClient({ bios }: { bios: ArchivedBio[] }) {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{b.company_name}</p>
               <p className="text-[11px]" style={{ color: C.textMuted }}>
-                {b.industry ?? "—"} · {b.leads_count.toLocaleString()} leads
+                {b.industry ?? "—"} · {b.leads_count.toLocaleString()} {t("u.leads")}
               </p>
             </div>
 
@@ -92,7 +92,7 @@ export default function RecoveryClient({ bios }: { bios: ArchivedBio[] }) {
                 className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
                 style={{ backgroundColor: C.green, color: "#fff" }}>
                 {busyId === b.id ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
-                Restore
+                {t("rec.restore")}
               </button>
             </div>
           </div>
@@ -101,7 +101,7 @@ export default function RecoveryClient({ bios }: { bios: ArchivedBio[] }) {
 
       <p className="text-[10px] mt-4 px-2" style={{ color: C.textDim }}>
         <Trash2 size={10} className="inline mr-1 opacity-50" />
-        After {RECOVERY_WINDOW_DAYS} days the tenant and all its data are permanently deleted by the daily cleanup. There is no recovery beyond this window.
+        {t("rec.windowNote", { n: RECOVERY_WINDOW_DAYS })}
       </p>
     </div>
   );

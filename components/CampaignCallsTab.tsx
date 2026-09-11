@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { Phone, Loader2, ChevronRight, FileText } from "lucide-react";
 import { C } from "@/lib/design";
@@ -32,6 +33,7 @@ function initials(l: LeadRef | undefined): string {
 }
 
 export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
+  const { t } = useLocale();
   const [calls, setCalls] = useState<CallWithLead[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
     return (
       <div className="flex items-center justify-center py-16" style={{ color: C.textMuted }}>
         <Loader2 size={16} className="animate-spin mr-2" />
-        <span className="text-sm">Loading calls…</span>
+        <span className="text-sm">{t("cct.loading")}</span>
       </div>
     );
   }
@@ -100,7 +102,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <Phone size={24} className="mx-auto mb-3" style={{ color: C.textDim }} />
-        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No leads in this flow yet</p>
+        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("cct.noLeads")}</p>
       </div>
     );
   }
@@ -115,9 +117,9 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
   return (
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-5 py-3 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Leads in this flow</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("cct.leadsInFlow")}</p>
         <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-          {leads.length} lead{leads.length === 1 ? "" : "s"} · {leadsWithCallsCount} called · {totalCalls} total calls
+          {leads.length} {t(leads.length === 1 ? "u.lead" : "u.leads")} · {t("cct.nCalled", { n: leadsWithCallsCount })} · {t("cct.nTotalCalls", { n: totalCalls })}
         </p>
         {/* Outcome summary — only once at least one call has an outcome. */}
         {totalCalls > 0 && (outcomes.interested + outcomes.badTiming + outcomes.notInterested + outcomes.voicemail + outcomes.wrongNumber) > 0 && (
@@ -166,22 +168,22 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
                 <div className="hidden sm:flex items-center gap-2 shrink-0 text-[11px]" style={{ color: C.textDim }}>
                   {hasCalls ? (
                     <>
-                      <span className="font-medium">{leadCalls.length} call{leadCalls.length === 1 ? "" : "s"}</span>
+                      <span className="font-medium">{leadCalls.length} {t(leadCalls.length === 1 ? "u.call" : "u.calls")}</span>
                       {hasTranscript && (
                         <span className="flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 8%, transparent)`, color: C.gold }}>
-                          <FileText size={8} /> transcript
+                          <FileText size={8} /> {t("cct.transcript")}
                         </span>
                       )}
                       {latest?.started_at && <span>{new Date(latest.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>}
                     </>
                   ) : (
-                    <span>No calls yet</span>
+                    <span>{t("cct.noCalls")}</span>
                   )}
                 </div>
 
                 <CallButton phone={l.primary_phone ?? null} leadId={l.id} size="sm" variant="soft" />
-                <button onClick={() => setSelectedLeadId(expanded ? null : l.id)} className="shrink-0 p-1" aria-label="Toggle brief">
+                <button onClick={() => setSelectedLeadId(expanded ? null : l.id)} className="shrink-0 p-1" aria-label={t("cct.toggleBrief")}>
                   <ChevronRight size={14} style={{ color: expanded ? C.gold : C.textDim, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
                 </button>
               </div>
@@ -192,14 +194,14 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
                   <div className="pt-3 flex justify-end">
                     <Link href={`/leads/${l.id}`} className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-80"
                       style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
-                      Open lead →
+                      {t("cct.openLead")}
                     </Link>
                   </div>
                   <PreCallBrief leadId={l.id} />
                   {leadCalls.length > 0
                     ? leadCalls.map(c => <CallCard key={c.id} call={c} />)
                     : <div className="rounded-xl border px-4 py-5 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                        <p className="text-xs" style={{ color: C.textMuted }}>No calls logged yet — use the brief above to prep, then hit Call.</p>
+                        <p className="text-xs" style={{ color: C.textMuted }}>{t("cct.noCallsHint")}</p>
                       </div>}
                 </div>
               )}
@@ -210,7 +212,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
           <button onClick={() => setVisibleCount(c => c + 30)}
             className="w-full px-5 py-3 text-xs font-semibold transition-colors hover:bg-black/[0.02]"
             style={{ color: C.gold }}>
-            Mostrar más ({leads.length - visibleCount} restantes)
+            {t("cct.showMore", { n: leads.length - visibleCount })}
           </button>
         )}
       </div>

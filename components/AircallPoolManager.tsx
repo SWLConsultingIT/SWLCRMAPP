@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Phone, X, Loader2, Check } from "lucide-react";
 import { C } from "@/lib/design";
@@ -23,6 +24,7 @@ type PoolNumber = {
 };
 
 export default function AircallPoolManager({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLocale();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -104,13 +106,13 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
               <Phone size={16} style={{ color: "#F97316" }} />
             </div>
             <div>
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Manage Aircall Numbers</h2>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("pool.manageAircall")}</h2>
               <p className="text-[11px]" style={{ color: C.textMuted }}>
-                Pick which Aircall lines belong to your tenant
+                {t("pool.aircallSubtitle")}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5" aria-label="Close">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5" aria-label={t("pool.close")}>
             <X size={16} style={{ color: C.textMuted }} />
           </button>
         </div>
@@ -119,17 +121,17 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
           {loading ? (
             <div className="flex items-center justify-center py-10 gap-2" style={{ color: C.textMuted }}>
               <Loader2 size={16} className="animate-spin" />
-              <span className="text-sm">Loading Aircall numbers…</span>
+              <span className="text-sm">{t("pool.loadingAircall")}</span>
             </div>
           ) : visibleNumbers.length === 0 ? (
             <p className="text-sm text-center py-10" style={{ color: C.textDim }}>
-              No Aircall numbers available. Provision numbers in the Aircall dashboard first.
+              {t("pool.noAircallNumbers")}
             </p>
           ) : (
             <>
               <div className="flex items-center gap-4 mb-3 text-[11px]" style={{ color: C.textMuted }}>
-                <span><b style={{ color: C.textBody }}>{myCount}</b> yours</span>
-                <span><b style={{ color: C.textBody }}>{availableCount}</b> available to claim</span>
+                <span><b style={{ color: C.textBody }}>{myCount}</b> {t("pool.yours")}</span>
+                <span><b style={{ color: C.textBody }}>{availableCount}</b> {t("pool.availableClaim")}</span>
               </div>
               <div className="space-y-1.5">
                 {visibleNumbers.map(n => {
@@ -157,7 +159,7 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
                       </div>
                       {n.isMine && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full inline-flex items-center gap-1" style={{ backgroundColor: `${C.green}15`, color: C.green }}>
-                          <Check size={10} /> yours
+                          <Check size={10} /> {t("pool.yours")}
                         </span>
                       )}
                     </label>
@@ -179,7 +181,7 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
             className="text-xs font-medium px-3 py-2 rounded-lg border"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}
           >
-            Cancel
+            {t("pool.cancel")}
           </button>
           <button
             onClick={save}
@@ -188,7 +190,7 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
             style={{ backgroundColor: C.gold, color: "#04070d" }}
           >
             {saving && <Loader2 size={12} className="animate-spin" />}
-            Save ({selected.size})
+            {t("pool.saveN", { n: selected.size })}
           </button>
         </div>
       </div>

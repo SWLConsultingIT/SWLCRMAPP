@@ -28,11 +28,12 @@ const AIRCALL_USERS = [
 
 const gold = "var(--brand, #c9a83a)";
 
-const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
-  whatsapp: { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
-  call:     { icon: Phone,         color: "#F97316", label: "Call" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<string, { icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,          color: "#7C3AED", labelKey: "chan.email" },
+  whatsapp: { icon: MessageCircle, color: "#25D366", labelKey: "chan.whatsapp" },
+  call:     { icon: Phone,         color: "#F97316", labelKey: "chan.call" },
 };
 
 // labelKey, not label: module scope, no translator here.
@@ -244,7 +245,7 @@ export default function CampaignDetailClient({
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      toast.show({ kind: "error", title: "Couldn't add leads", description: err.error ?? res.statusText });
+      toast.show({ kind: "error", title: t("cd.couldntAddLeads"), description: err.error ?? res.statusText });
     } else {
       const data = await res.json() as { added?: number; rejected?: string[]; skipped?: string[] };
       const added = data.added ?? 0;
@@ -282,7 +283,7 @@ export default function CampaignDetailClient({
 
   // `completed` STAYS in the flow. It means the sequence ran to the end with
   // no reply — the lead is still ours to work, which is exactly who the team
-  // calls next. Filtering it out here is why the Kanban's t("cd.status.completed") column
+  // calls next. Filtering it out here is why the Kanban's Completed column
   // was permanently empty while promising "leads that finished the flow land
   // here": the column exists and routes correctly, it was just never given
   // the rows. 2 386 finished campaigns platform-wide were invisible, 1 388 of
@@ -296,7 +297,7 @@ export default function CampaignDetailClient({
   const completedCount = visibleCampaigns.filter(c => c.status === "completed").length;
   const runningCount = visibleCampaigns.length - completedCount;
 
-  // t("cd.tab.results") tab — the /results outcome view scoped to THIS flow. A lead is
+  // Results tab — the /results outcome view scoped to THIS flow. A lead is
   // terminal (belongs here) once it either got a positive/negative reply or its
   // campaign finished (completed/failed). Tag by outcome, same rule as global
   // /results but per-flow: positive -> Won, negative -> Lost, otherwise (the
@@ -416,7 +417,7 @@ export default function CampaignDetailClient({
                   <button onClick={() => setShowSaveTpl(false)} style={{ color: C.textMuted }}><X size={16} /></button>
                 </div>
                 <p className="text-xs mb-4" style={{ color: C.textMuted }}>
-                  Saves the sequence, messages, and auto-replies of <strong>{campaignName}</strong> as a reusable template.
+                  {t("cd.tpl.savesSeqOf")} <strong>{campaignName}</strong> {t("cd.tpl.asReusable")}
                 </p>
                 <div className="space-y-3 mb-5">
                   <div>
@@ -441,7 +442,7 @@ export default function CampaignDetailClient({
                     className="flex-1 rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
                     style={{ backgroundColor: gold, color: "#04070d", opacity: (!tplName.trim() || savingTpl) ? 0.6 : 1 }}>
                     {savingTpl ? <Loader2 size={14} className="animate-spin" /> : <Save size={13} />}
-                    Save Template
+                    {t("cd.tpl.saveBtn")}
                   </button>
                 </div>
               </>
@@ -495,7 +496,7 @@ export default function CampaignDetailClient({
                   backgroundColor: leadsView === "list" ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent",
                   color: leadsView === "list" ? gold : C.textMuted,
                 }}>
-                <Users size={11} /> List
+                <Users size={11} /> {t("cd.tab.list")}
               </button>
               <button onClick={() => setLeadsView("kanban")}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] border-l"
@@ -504,7 +505,7 @@ export default function CampaignDetailClient({
                   color: leadsView === "kanban" ? gold : C.textMuted,
                   borderColor: C.border,
                 }}>
-                <LayoutGrid size={11} /> Pipeline
+                <LayoutGrid size={11} /> {t("cd.tab.pipeline")}
               </button>
               <button onClick={() => setLeadsView("calls")}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] border-l"
@@ -513,7 +514,7 @@ export default function CampaignDetailClient({
                   color: leadsView === "calls" ? gold : C.textMuted,
                   borderColor: C.border,
                 }}>
-                <PhoneCall size={11} /> Calls
+                <PhoneCall size={11} /> {t("cd.tab.calls")}
               </button>
             </div>
 
@@ -576,7 +577,7 @@ export default function CampaignDetailClient({
                 className="text-xs underline" style={{ color: C.textMuted }}>{t("cd.clearFilters")}</button>
             )}
             <span className="text-xs tabular-nums ml-auto" style={{ color: C.textMuted }}>
-              {filteredCampaigns.length}{leadFiltersActive ? ` / ${visibleCampaigns.length}` : ""} leads
+              {filteredCampaigns.length}{leadFiltersActive ? ` / ${visibleCampaigns.length}` : ""} {t("u.leads")}
             </span>
           </div>
           )}
@@ -646,11 +647,11 @@ export default function CampaignDetailClient({
       {tab === 5 && (
         <div className="p-4">
           <p className="text-xs mb-3" style={{ color: C.textMuted }}>
-            Leads that finished this flow, tagged by outcome. Call them back from here. Global Results (all flows) stays in the sidebar.
+            {t("cd.outcomesHint")}
           </p>
           {resultsCount === 0 ? (
             <div className="text-center py-16 text-sm italic" style={{ color: C.textDim }}>
-              No finished leads yet — outcomes appear here as the flow completes.
+              {t("cd.noFinishedLeads")}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -720,7 +721,7 @@ export default function CampaignDetailClient({
             <Link href={`/campaigns/${campaignId}/edit`}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold hover:opacity-80"
               style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
-              <Pencil size={11} /> Edit Flow
+              <Pencil size={11} /> {t("cd.editFlow")}
             </Link>
             <button
               onClick={() => { setTplName(campaignName); setTplDesc(""); setTplError(null); setTplDone(false); setShowSaveTpl(true); }}
@@ -733,7 +734,7 @@ export default function CampaignDetailClient({
                 const r = await fetch(`/api/campaigns/${campaignId}/duplicate`, { method: "POST" });
                 if (!r.ok) {
                   const { error } = await r.json().catch(() => ({ error: t("cd.status.failed") }));
-                  toast.show({ kind: "error", title: "Couldn't duplicate campaign", description: error || "Try again." });
+                  toast.show({ kind: "error", title: t("cd.couldntDuplicate"), description: error || "Try again." });
                   return;
                 }
                 const { name } = await r.json().catch(() => ({ name: "" }));
@@ -746,7 +747,7 @@ export default function CampaignDetailClient({
               title={t("cd.cloneTitle")}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold hover:opacity-80"
               style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}>
-              <Copy size={11} /> Duplicate
+              <Copy size={11} /> {t("cd.duplicate")}
             </button>
             {sellerName && sellerName !== "Unassigned" && (
               <span className="text-xs" style={{ color: C.textMuted }}>{t("cd.seller")} <strong style={{ color: C.textBody }}>{sellerName}</strong></span>
@@ -798,7 +799,7 @@ export default function CampaignDetailClient({
                               boxShadow: (isPast || isCur) ? `0 2px 8px ${bg}40` : "none",
                             }}>
                               <Icon size={11} color="#fff" />
-                              {w > 50 && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700, letterSpacing: "0.02em" }}>{meta.label}</span>}
+                              {w > 50 && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700, letterSpacing: "0.02em" }}>{t(meta.labelKey)}</span>}
                               {isPast && w > 42 && <Check size={10} color="rgba(255,255,255,0.9)" />}
                               {isCur && <span style={{ fontSize: "8px", fontWeight: 800, color: "#fff", backgroundColor: "rgba(255,255,255,0.28)", padding: "1px 5px", borderRadius: "99px", whiteSpace: "nowrap" }}>{t("cd.now")}</span>}
                             </div>
@@ -829,7 +830,7 @@ export default function CampaignDetailClient({
                         {campaignStatus === "completed" && currentStep < sequence.length && <><MessageSquare size={10} /> {t("cd.leadReplied")}</>}
                         {currentStep >= sequence.length && <><CheckCircle2 size={10} /> {t("cd.status.completed")}</>}
                       </div>
-                      <span className="text-xs" style={{ color: C.textDim }}>Step {Math.min(currentStep + 1, sequence.length)} / {sequence.length}</span>
+                      <span className="text-xs" style={{ color: C.textDim }}>{t("cd.stepOf", { a: Math.min(currentStep + 1, sequence.length), b: sequence.length })}</span>
                     </div>
 
                     {/* Main message */}
@@ -837,7 +838,7 @@ export default function CampaignDetailClient({
                       {campaignStatus === "active" && curMeta && (
                         <>
                           <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
-                            Sending via {curMeta.label} on Day {dayPerStep[currentStep] ?? 0}
+                            {t("cd.sendingViaOnDay", { channel: t(curMeta.labelKey), day: dayPerStep[currentStep] ?? 0 })}
                           </p>
                           <p className="text-xs" style={{ color: C.textMuted }}>{t("cd.waitingWindow")}</p>
                         </>
@@ -845,15 +846,15 @@ export default function CampaignDetailClient({
                       {campaignStatus === "paused" && curMeta && (
                         <>
                           <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
-                            Paused before {curMeta.label} · Day {dayPerStep[currentStep] ?? 0}
+                            {t("cd.pausedBeforeDay", { channel: t(curMeta.labelKey), day: dayPerStep[currentStep] ?? 0 })}
                           </p>
-                          <p className="text-xs" style={{ color: C.textMuted }}>Resume to continue from step {currentStep + 1}</p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>{t("cd.resumeFromStep", { n: currentStep + 1 })}</p>
                         </>
                       )}
                       {campaignStatus === "completed" && currentStep < sequence.length && (
                         <>
                           <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
-                            Stopped at step {currentStep + 1}
+                            {t("cd.stoppedAtStep", { n: currentStep + 1 })}
                           </p>
                           <p className="text-xs" style={{ color: C.textMuted }}>{t("cd.movedToPipeline")}</p>
                         </>
@@ -861,9 +862,9 @@ export default function CampaignDetailClient({
                       {currentStep >= sequence.length && (
                         <>
                           <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
-                            All {sequence.length} steps delivered
+                            {t("cd.allStepsDelivered", { n: sequence.length })}
                           </p>
-                          <p className="text-xs" style={{ color: C.textMuted }}>Campaign ran for {dayPerStep[sequence.length - 1] ?? 0} days</p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>{t("cd.ranForDays", { n: dayPerStep[sequence.length - 1] ?? 0 })}</p>
                         </>
                       )}
                     </div>
@@ -883,9 +884,9 @@ export default function CampaignDetailClient({
                             </div>
                             {/* Channel badge */}
                             <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700, color: meta.color, backgroundColor: `${meta.color}12`, padding: "1px 6px", borderRadius: "4px" }}>
-                              <Icon size={9} /> {meta.label}
+                              <Icon size={9} /> {t(meta.labelKey)}
                             </span>
-                            <span style={{ fontSize: "10px", color: C.textDim }}>Day {dayPerStep[i] ?? 0}</span>
+                            <span style={{ fontSize: "10px", color: C.textDim }}>{t("cd.day", { n: dayPerStep[i] ?? 0 })}</span>
                             <div style={{ flex: 1 }} />
                             <span style={{ fontSize: "10px", fontWeight: 600, color: isPast ? C.green : isCur ? gold : C.textDim }}>
                               {isPast ? t("cd.sent") : isCur ? "Up next" : "Pending"}
@@ -938,7 +939,7 @@ export default function CampaignDetailClient({
                       style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>
                       <Share2 size={11} /> LinkedIn
                     </span>
-                    <span className="text-xs" style={{ color: C.textDim }}>Day {inviteDay}</span>
+                    <span className="text-xs" style={{ color: C.textDim }}>{t("cd.day", { n: inviteDay })}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded"
                       style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>{t("cd.connectionNote")}</span>
                     <div className="flex-1" />
@@ -960,7 +961,7 @@ export default function CampaignDetailClient({
                       <div className="flex items-center gap-2 mb-2">
                         <Share2 size={12} style={{ color: "#0A66C2" }} />
                         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>{t("cd.crNote")}</span>
-                        <span className="text-[10px]" style={{ color: C.textDim }}>· {inviteBody.length}/200 chars</span>
+                        <span className="text-[10px]" style={{ color: C.textDim }}>· {t("cd.charsOf200", { n: inviteBody.length })}</span>
                       </div>
                       <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{inviteBody}</p>
                     </div>
@@ -1023,7 +1024,7 @@ export default function CampaignDetailClient({
               const isEditing = editingIdx === i;
               const daysAfter = seq?.daysAfter ?? 0;
               const isFirstLinkedinRow = channel === "linkedin" && rows.slice(0, i).every(r => r.channel !== "linkedin");
-              // Inline t("cd.connectionNote") badge as a fallback only when the
+              // Inline connection-note badge as a fallback only when the
               // standalone CR card isn't being rendered above (showInviteCard
               // is false for non-LinkedIn campaigns).
               const showConnNote = !showInviteCard && isFirstLinkedinRow && (!!connectionNote || !!connReqMsg);
@@ -1036,8 +1037,8 @@ export default function CampaignDetailClient({
                       style={{ backgroundColor: isPast ? meta.color : isCurrent ? gold : C.border }}>
                       {isPast ? <Check size={12} color="#fff" /> : isCurrent ? <PlayCircle size={12} color="#fff" /> : <span className="text-[10px] font-bold text-white">{i + 1}</span>}
                     </div>
-                    <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}12`, color: meta.color }}><Icon size={11} /> {meta.label}</span>
-                    <span className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}{i > 0 ? ` (+${daysAfter}d)` : ""}</span>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}12`, color: meta.color }}><Icon size={11} /> {t(meta.labelKey)}</span>
+                    <span className="text-xs" style={{ color: C.textDim }}>{t("cd.day", { n: dayPerStep[i] ?? 0 })}{i > 0 ? ` (+${daysAfter}d)` : ""}</span>
                     {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>{t("cd.connectionNote")}</span>}
                     <div className="flex-1" />
                     {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}><Send size={10} /> {t("cd.sent")}</span>}
@@ -1050,7 +1051,7 @@ export default function CampaignDetailClient({
                     {displayBody && !isEditing && (
                       <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `color-mix(in srgb, ${gold} 19%, transparent)` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `color-mix(in srgb, ${gold} 2%, transparent)` : C.bg }}>
                         {displaySubject && (
-                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Subject: {displaySubject}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("cd.subjectLabel")} {displaySubject}</p>
                         )}
                         {!msg && tmpl && (
                           <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>{t("cd.tplNotSent")}</p>
@@ -1086,7 +1087,7 @@ export default function CampaignDetailClient({
                       <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
                         <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none" style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }} value={editContent} onChange={e => setEditContent(e.target.value)} />
                         <div className="flex gap-2">
-                          <button onClick={() => saveMsg(msg.id)} disabled={saving} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save</button>
+                          <button onClick={() => saveMsg(msg.id)} disabled={saving} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} {t("cd.save")}</button>
                           <button onClick={() => setEditingIdx(null)} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs" style={{ backgroundColor: C.surface, color: C.textBody }}><X size={12} /> {t("cd.cancel")}</button>
                         </div>
                       </div>
@@ -1249,7 +1250,7 @@ export default function CampaignDetailClient({
             <button onClick={() => setTab(1)}
               className="inline-flex items-center gap-1.5 mb-4 text-xs font-semibold hover:opacity-80"
               style={{ color: C.textMuted }}>
-              <ArrowLeft size={13} /> Back to Leads
+              <ArrowLeft size={13} /> {t("cd.backToLeads")}
             </button>
             {/* In-flight indicator */}
             {adding && (
@@ -1261,10 +1262,10 @@ export default function CampaignDetailClient({
             {/* Bulk-select action bar */}
             {addSelected.size > 0 && (
               <div className="flex items-center gap-2 mb-4 rounded-lg border px-4 py-3" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
-                <span className="text-xs font-bold" style={{ color: gold }}>{addSelected.size} selected</span>
+                <span className="text-xs font-bold" style={{ color: gold }}>{t("cd.nSelected", { n: addSelected.size })}</span>
                 <button onClick={() => addLeadsToCampaign(Array.from(addSelected))} disabled={adding}
                   className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>
-                  <UserPlus size={11} /> Add Selected to Campaign
+                  <UserPlus size={11} /> {t("cd.addSelectedToCampaign")}
                 </button>
                 <button onClick={() => setAddSelected(new Set())} className="text-xs underline" style={{ color: C.textMuted }}>{t("cd.clear")}</button>
               </div>
@@ -1297,16 +1298,16 @@ export default function CampaignDetailClient({
                       <span className="text-sm font-bold" style={{ color: C.textPrimary }}>
                         {filteredLeads.length === eligibleLeads.length
                           ? `${eligibleLeads.length} eligible leads`
-                          : `${filteredLeads.length} of ${eligibleLeads.length} leads`}
+                          : t("cd.leadsOf", { a: filteredLeads.length, b: eligibleLeads.length })}
                       </span>
-                      <span className="text-xs" style={{ color: C.textDim }}>· {compatCount} compatible with this flow</span>
+                      <span className="text-xs" style={{ color: C.textDim }}>· {t("cd.compatibleWithFlow", { n: compatCount })}</span>
                     </div>
                     <button
                       onClick={() => addLeadsToCampaign(filteredLeads.filter(isCompat).map(l => l.id))}
                       disabled={adding || compatCount === 0}
                       className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
                       style={{ backgroundColor: C.green, color: "#fff" }}>
-                      <UserPlus size={11} /> Add all compatible ({compatCount})
+                      <UserPlus size={11} /> {t("cd.addAllCompatible", { n: compatCount })}
                     </button>
                   </div>
                   <div className="divide-y max-h-[560px] overflow-y-auto" style={{ borderColor: C.border }}>
