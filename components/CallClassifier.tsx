@@ -96,7 +96,7 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
   return (
     <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
       <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-        Outcome:
+        {t("cls.outcomeLabel")}
       </span>
       {(Object.keys(meta) as Classification[]).map(c => {
         const m = meta[c];

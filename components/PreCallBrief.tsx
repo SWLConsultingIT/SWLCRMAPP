@@ -278,7 +278,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
           <div>
             <div className="flex items-center gap-2">
               <p className="text-[15px] font-bold tracking-tight" style={{ color: C.textPrimary }}>
-                Pre-Call Brief
+                {t("pcb.title")}
               </p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md"
                 style={{

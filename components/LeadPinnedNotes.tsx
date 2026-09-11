@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { Star, Phone, X } from "lucide-react";
 
@@ -10,6 +11,7 @@ import { Star, Phone, X } from "lucide-react";
 type Note = { id: string; content: string; author_name: string | null; created_at: string; note_type: "general" | "call"; pinned: boolean };
 
 export default function LeadPinnedNotes({ leadId }: { leadId: string }) {
+  const { t } = useLocale();
   const [pinned, setPinned] = useState<Note[]>([]);
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export default function LeadPinnedNotes({ leadId }: { leadId: string }) {
     <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: `color-mix(in srgb, ${C.gold} 30%, ${C.border})`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <div className="flex items-center gap-2 mb-4">
         <Star size={14} style={{ color: C.gold, fill: C.gold }} />
-        <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textPrimary }}>Key notes</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textPrimary }}>{t("lpn.keyNotes")}</h3>
       </div>
       <div className="space-y-3">
         {pinned.map(n => (
@@ -40,7 +42,7 @@ export default function LeadPinnedNotes({ leadId }: { leadId: string }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{n.author_name ?? "Team"}{n.note_type === "call" ? " · Call" : ""}</span>
-                <button onClick={() => unpin(n.id)} title="Remove from overview" className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.04]"><X size={11} style={{ color: C.textDim }} /></button>
+                <button onClick={() => unpin(n.id)} title={t("lpn.removeFromOverview")} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.04]"><X size={11} style={{ color: C.textDim }} /></button>
               </div>
               <p className="text-sm leading-relaxed whitespace-pre-wrap mt-0.5" style={{ color: C.textBody }}>{n.content}</p>
             </div>

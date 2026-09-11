@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Clock } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -8,6 +9,7 @@ import { C } from "@/lib/design";
 // to call?" (08:00–19:00 local = good). Ticks every minute. Pure client clock —
 // reads the browser's now and renders it in the prospect's timezone.
 export default function ProspectClock({ tz, place, dark }: { tz: string; place?: string | null; dark?: boolean }) {
+  const { t } = useLocale();
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function ProspectClock({ tz, place, dark }: { tz: string; place?:
     >
       <Clock size={12} style={{ color: iconColor }} />
       <span>{time}</span>
-      <span style={{ color: localColor }}>local{place ? ` · ${place}` : ""}</span>
+      <span style={{ color: localColor }}>{t("clock.local")}{place ? ` · ${place}` : ""}</span>
       <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: dot }} />
     </span>
   );

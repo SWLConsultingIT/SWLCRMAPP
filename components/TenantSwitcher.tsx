@@ -12,6 +12,7 @@
 //      query caches (campaigns, leads, etc.) pointing at the previous tenant.
 
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { ChevronsUpDown, Check, Building2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -19,6 +20,7 @@ const GOLD = "var(--brand, #c9a83a)";
 const BORDER = "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)";
 
 export default function TenantSwitcher() {
+  const { t } = useLocale();
   const { user, memberships, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export default function TenantSwitcher() {
           }}
         >
           <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Switch tenant
+            {t("ts.switchTenant")}
           </div>
           {memberships.map(m => {
             const isCurrent = m.companyBioId === user.companyBioId;

@@ -8,6 +8,7 @@
 // matters most.
 
 import { Sparkles, AlertTriangle, TrendingUp, Activity } from "lucide-react";
+import { getT } from "@/lib/i18n-server";
 import { C, N, T } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -19,7 +20,7 @@ export type Insight = {
   text: string;
 };
 
-export default function InsightPanel({
+export default async function InsightPanel({
   title,
   insights,
   emptyText,
@@ -28,6 +29,7 @@ export default function InsightPanel({
   insights: Insight[];
   emptyText: string;
 }) {
+  const t = await getT();
   const lead = insights[0];
   const rest = insights.slice(1, 3);
 
@@ -75,7 +77,7 @@ export default function InsightPanel({
             className={`${T.label}`}
             style={{ color: N.goldOnDark, opacity: 0.85 }}
           >
-            AI · Insight
+            {t("ins.badge")}
           </p>
           <p
             className="text-[12.5px] mt-0.5"

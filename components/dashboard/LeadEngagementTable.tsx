@@ -39,11 +39,12 @@ export type LeadEngagementRow = {
   >;
 };
 
-const channelMeta: Record<string, { Icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { Icon: Share2,     color: "#0A66C2", label: "LinkedIn" },
-  email:    { Icon: Mail,       color: "#059669", label: "Email" },
-  call:     { Icon: Phone,      color: "#EA580C", label: "Call" },
-  whatsapp: { Icon: Smartphone, color: "#25D366", label: "WhatsApp" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<string, { Icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { Icon: Share2,     color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { Icon: Mail,       color: "#059669", labelKey: "chan.email" },
+  call:     { Icon: Phone,      color: "#EA580C", labelKey: "chan.call" },
+  whatsapp: { Icon: Smartphone, color: "#25D366", labelKey: "chan.whatsapp" },
 };
 
 const resultMeta: Record<LeadEngagementRow["result"], { color: string; key: string }> = {
@@ -213,7 +214,7 @@ export default function LeadEngagementTable({ rows, locale }: { rows: LeadEngage
                     <td className="px-3 py-2 align-top">
                       {lastCh && LastChIcon ? (
                         <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: lastCh.color }}>
-                          <LastChIcon size={11} /> {lastCh.label}
+                          <LastChIcon size={11} /> {t(lastCh.labelKey)}
                         </span>
                       ) : <span style={{ color: C.textMuted }}>—</span>}
                     </td>

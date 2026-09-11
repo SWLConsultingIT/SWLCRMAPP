@@ -360,7 +360,7 @@ function FacetDropdown({
    *  option renders checked by default; unticking adds it to the exclusion.
    *  Empty selection = nothing excluded = show all. */
   excludeMode?: boolean;
-  /** Bulk-set the whole selection — powers the Select all / Deselect all
+  /** Bulk-set the whole selection — powers the {t("leadFilters.selectAll")} / {t("leadFilters.deselectAll")}
    *  buttons (boss 2026-06-09). When absent those buttons are hidden. */
   onSetSelected?: (vals: string[]) => void;
   /** How many LEADS each option covers. When supplied, every row shows its
@@ -473,17 +473,17 @@ function FacetDropdown({
           )}
           {onSetSelected && (
             <div className="px-3 py-1.5 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              {/* "Select all" = everything checked; "Deselect all" = everything
+              {/* "{t("leadFilters.selectAll")}" = everything checked; "{t("leadFilters.deselectAll")}" = everything
                   unchecked. In exclude mode `selected` is the EXCLUDED set, so
                   the mapping inverts. */}
               <button type="button" onClick={() => onSetSelected(excludeMode ? [] : options)}
                 className="text-[11px] font-semibold transition-opacity hover:opacity-70" style={{ color: goldDark }}>
-                Select all
+                {t("leadFilters.selectAll")}
               </button>
               <span className="w-px h-3" style={{ backgroundColor: C.border }} />
               <button type="button" onClick={() => onSetSelected(excludeMode ? options : [])}
                 className="text-[11px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
-                Deselect all
+                {t("leadFilters.deselectAll")}
               </button>
             </div>
           )}

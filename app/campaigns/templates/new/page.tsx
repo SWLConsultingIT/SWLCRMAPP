@@ -31,11 +31,12 @@ const accentSoft = (pct: number) => `color-mix(in srgb, ${ACCENT} ${pct}%, trans
 
 type Channel = "linkedin" | "email" | "call" | "whatsapp";
 
-const channelMeta: Record<Channel, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,         color: "#F97316", label: "Call" },
-  whatsapp: { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<Channel, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,          color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,         color: "#F97316", labelKey: "chan.call" },
+  whatsapp: { icon: MessageCircle, color: "#25D366", labelKey: "chan.whatsapp" },
 };
 
 type Step = {
@@ -1059,7 +1060,7 @@ function SequenceStep(props: {
                       className="text-xs rounded border px-2 py-1 outline-none"
                       style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
                       {(Object.keys(channelMeta) as Channel[]).map(ch => (
-                        <option key={ch} value={ch}>{channelMeta[ch].label}</option>
+                        <option key={ch} value={ch}>{t(channelMeta[ch].labelKey)}</option>
                       ))}
                     </select>
                     {isFirstBodyStep ? (
@@ -1307,7 +1308,7 @@ function IdentityStep(props: {
                 <div key={i} className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md"
                   style={{ backgroundColor: `${meta.color}10`, color: meta.color, border: `1px solid ${meta.color}30` }}>
                   <Icon size={10} />
-                  <span className="font-semibold">{s.isConnectionRequest ? "Invite" : meta.label}</span>
+                  <span className="font-semibold">{s.isConnectionRequest ? t("tpl.invite") : t(meta.labelKey)}</span>
                   <span className="opacity-60">· d{s.daysAfter}</span>
                 </div>
               );

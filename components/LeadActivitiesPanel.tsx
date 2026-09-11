@@ -141,7 +141,7 @@ export default function LeadActivitiesPanel({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[14px] font-bold" style={{ color: C.textPrimary }}>{nextAction.title}</span>
-                {nextAction.source === "call_callback" && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "var(--fg1)" }}>callback</span>}
+                {nextAction.source === "call_callback" && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${gold} 16%, transparent)`, color: "var(--fg1)" }}>{t("activities.callback")}</span>}
               </div>
               <div className="flex items-center gap-1.5 text-[12px] mt-1" style={{ color: bucketColor(nextAction) }}>
                 <Clock size={12} /> <span className="tabular-nums font-semibold">{fmtDue(nextAction)}</span>

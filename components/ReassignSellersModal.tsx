@@ -206,7 +206,7 @@ export default function ReassignSellersModal({
           )}
           <div className="flex items-center justify-end gap-2">
             <button onClick={onClose} className="px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>
-              Cancel
+              {t("rsm.cancel")}
             </button>
             <button
               onClick={apply}
@@ -215,7 +215,7 @@ export default function ReassignSellersModal({
               style={{ background: gold, color: "#0C0E1B" }}
             >
               {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Assign
+              {t("rsm.assign")}
             </button>
           </div>
         </div>

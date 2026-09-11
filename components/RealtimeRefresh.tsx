@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useCallback, useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function RealtimeRefresh() {
+  const { t } = useLocale();
   const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flash, setFlash] = useState(false);
@@ -36,7 +38,7 @@ export default function RealtimeRefresh() {
       className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-full text-xs font-medium pointer-events-none fade-in"
       style={{ backgroundColor: "rgba(14,21,32,0.95)", color: "var(--brand, #c9a83a)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)" }}
     >
-      ● Datos actualizados
+      {t("rr.dataRefreshed")}
     </div>
   );
 }

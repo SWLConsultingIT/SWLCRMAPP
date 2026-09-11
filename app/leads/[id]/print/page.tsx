@@ -201,7 +201,7 @@ export default async function LeadPrintPage({ params }: { params: Promise<{ id: 
             </div>
             <div>
               <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>
-                GrowthAI <span style={{ color: accent }}>— Lead Sheet</span>
+                GrowthAI <span style={{ color: accent }}>{t("lsp.leadSheet")}</span>
               </p>
               <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>{t("fld.execSheet")}</p>
             </div>

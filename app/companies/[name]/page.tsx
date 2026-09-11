@@ -487,7 +487,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
                 {lead.similar_organization && (
                   <p className="text-xs mt-3 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
-                    Similar to: <span className="font-medium" style={{ color: C.accent }}>{lead.similar_organization}</span>
+                    {t("cmp.similarTo")} <span className="font-medium" style={{ color: C.accent }}>{lead.similar_organization}</span>
                   </p>
                 )}
               </div>

@@ -135,7 +135,7 @@ export default function ActivitiesBoard({
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: C.surface, color: C.textMuted }}>{t(`activities.type.${a.type}`)}</span>
               {a.priority === "high" && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.redLight, color: C.red }}>{t("activities.priority.high")}</span>}
-              {a.source === "call_callback" && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: "var(--fg1)" }}>callback</span>}
+              {a.source === "call_callback" && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: "var(--fg1)" }}>{t("activities.callback")}</span>}
             </div>
             <p className="text-[13px] font-semibold mt-1 leading-snug" style={{ color: C.textPrimary }}>{a.title}</p>
             {a.lead_id ? (

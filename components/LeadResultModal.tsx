@@ -72,7 +72,7 @@ export default function LeadResultModal({ leadId, autoReplies, onClose }: {
       <div className="rounded-2xl border shadow-2xl p-5 relative w-[360px] max-w-[calc(100vw-2rem)]"
         onClick={e => e.stopPropagation()}
         style={{ backgroundColor: C.card, borderColor: `color-mix(in srgb, ${C.gold} 30%, ${C.border})`, boxShadow: "0 24px 60px -16px rgba(0,0,0,0.4)" }}>
-        <button type="button" onClick={onClose} aria-label="Cerrar" className="absolute top-3 right-3 rounded p-1 hover:bg-black/[0.04]" style={{ color: C.textDim }}><X size={14} /></button>
+        <button type="button" onClick={onClose} aria-label={t("lrm.close")} className="absolute top-3 right-3 rounded p-1 hover:bg-black/[0.04]" style={{ color: C.textDim }}><X size={14} /></button>
 
         {saved ? (
           <div className="flex flex-col items-center justify-center py-6 gap-2">

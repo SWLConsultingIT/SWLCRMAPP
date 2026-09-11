@@ -35,7 +35,7 @@ export default async function SilentStallBanner({ summary }: { summary: TenantSu
             </h3>
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-0.5 rounded-full"
               style={{ backgroundColor: "#DC2626", color: "#fff" }}>
-              ACTION REQUIRED
+              {t("ssb.actionRequired")}
             </span>
           </div>
           <p className="text-[12.5px] leading-relaxed mb-1.5" style={{ color: C.textBody }}>

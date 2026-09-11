@@ -30,11 +30,12 @@ export type MessageStepGroup = {
   }>;
 };
 
-const channelMeta: Record<string, { Icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { Icon: Share2,     color: "#0A66C2", label: "LinkedIn" },
-  email:    { Icon: Mail,       color: "#059669", label: "Email" },
-  call:     { Icon: Phone,      color: "#EA580C", label: "Call" },
-  whatsapp: { Icon: Smartphone, color: "#25D366", label: "WhatsApp" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<string, { Icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { Icon: Share2,     color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { Icon: Mail,       color: "#059669", labelKey: "chan.email" },
+  call:     { Icon: Phone,      color: "#EA580C", labelKey: "chan.call" },
+  whatsapp: { Icon: Smartphone, color: "#25D366", labelKey: "chan.whatsapp" },
 };
 
 const classColor: Record<string, string> = {
@@ -55,7 +56,7 @@ export default function MessagesByStep({ groups, locale }: { groups: MessageStep
   return (
     <div className="space-y-3">
       {groups.map(g => (
-        <StepCard key={g.step} g={g} fmt={fmt} tr={tr} />
+        <StepCard key={g.step} g={g} fmt={fmt} t={t} tr={tr} />
       ))}
     </div>
   );
@@ -64,10 +65,12 @@ export default function MessagesByStep({ groups, locale }: { groups: MessageStep
 function StepCard({
   g,
   fmt,
+  t,
   tr,
 }: {
   g: MessageStepGroup;
   fmt: (iso: string | null) => string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
   tr: (k: string, fallback: string, vars?: Record<string, string | number>) => string;
 }) {
   // CR (step 0) defaults open, others closed — sellers usually want to drill
@@ -101,7 +104,7 @@ function StepCard({
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>{stepLabel}</p>
           <p className="text-[10.5px]" style={{ color: C.textMuted }}>
-            {ch.label} · {tr("dashx.detail.campaign.msgs.lastSent", "Last sent")}: {fmt(g.example.sentAt)}
+            {t(ch.labelKey)} · {tr("dashx.detail.campaign.msgs.lastSent", "Last sent")}: {fmt(g.example.sentAt)}
           </p>
         </div>
         <div className="flex items-center gap-3 text-[11px] tabular-nums shrink-0">

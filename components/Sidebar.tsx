@@ -456,7 +456,7 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* Footer — "Powered by" + settings gear. Settings stays visible in
+      {/* Footer — "{t("nav.poweredBy")}" + settings gear. Settings stays visible in
           rail mode so the gear is reachable without expanding. */}
       <div className={`relative ${railOnly ? "px-2 py-3 justify-center" : "px-5 py-4"} border-t flex items-center gap-2.5`} style={{ borderColor: BORDER }}>
         {!railOnly && (
@@ -473,7 +473,7 @@ export default function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[8px] font-bold tracking-[0.2em] uppercase" style={{ color: GOLD_DIM }}>
-                Powered by
+                {t("nav.poweredBy")}
               </p>
               <p className="text-[13px] font-semibold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
                 SWL Consulting

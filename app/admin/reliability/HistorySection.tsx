@@ -38,7 +38,7 @@ export default async function HistorySection({ bioId }: { bioId: string }) {
   const badge = events.length > 0 ? (
     <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full"
       style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, transparent)` }}>
-      {events.length} eventos
+      {events.length} {t("hist.events")}
     </span>
   ) : null;
 

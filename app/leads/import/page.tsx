@@ -21,7 +21,7 @@ export default async function LeadsImportPage() {
     <div className="p-6 w-full">
       <PageHero
         icon={Upload}
-        section="Operations"
+        section={t("nav.section.operations")}
         title={t("imp.pageTitle")}
         description={
           isSwlAdmin

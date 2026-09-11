@@ -144,7 +144,7 @@ export default function TenantHealthGrid({
 
             {t.health === 100 && (
               <p className="text-[10px] mt-2 flex items-center gap-1" style={{ color: C.green }}>
-                <CheckCircle2 size={10} /> Limpio
+                <CheckCircle2 size={10} /> {tr("thg.clean")}
               </p>
             )}
           </Link>

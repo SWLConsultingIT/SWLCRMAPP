@@ -79,7 +79,7 @@ export default async function RecoveryPage() {
     <div className="p-6 w-full">
       <PageHero
         icon={Archive}
-        section="Admin"
+        section={t("nav.section.admin")}
         title={t("rcv.title")}
         description={t("rcv.lede")}
         accentColor={C.gold}

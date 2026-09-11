@@ -169,7 +169,7 @@ function SovereignComingSoonModal({ onClose }: { onClose: () => void }) {
         <div className="rounded-xl border p-4 mb-4" style={{ borderColor: `${C.green}30`, backgroundColor: C.greenLight }}>
           <p className="text-xs font-bold mb-2" style={{ color: C.green }}>{t("prv.zeroKnowledge")}</p>
           <p className="text-[11px] leading-relaxed" style={{ color: C.textBody }}>
-            With Sovereign mode, your team deploys a small worker (free Cloudflare tier) holding the encryption key on your own infrastructure. SWL calls your worker every time it needs to decrypt a lead. If you revoke access, the AI agent immediately loses the ability to read your data.
+            {t("privacy.sovereignBody")}
           </p>
         </div>
 

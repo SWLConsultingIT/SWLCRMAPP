@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { Paperclip, X, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -35,6 +36,7 @@ function fmtSize(bytes: number): string {
  * invites, so the dispatcher will skip the file on step 0 of linkedin.
  */
 export default function StepAttachments({ channel, attachments, onChange }: Props) {
+  const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +132,7 @@ export default function StepAttachments({ channel, attachments, onChange }: Prop
 
       {inviteWarning && (
         <p className="text-[10px] mt-1" style={{ color: C.textMuted }}>
-          Files on a LinkedIn step are only sent on follow-up DMs — connection requests can&apos;t carry attachments.
+          {t("att.linkedinNote")}
         </p>
       )}
     </div>

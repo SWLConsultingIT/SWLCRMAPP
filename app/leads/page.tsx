@@ -632,7 +632,7 @@ export default async function LeadsCampaignsPage() {
       {/* Hero — shared Aurora hero (boss-approved 2026-08-27). Actions
           (Export / Import) top-right; KPI chips below. */}
       <AuroraHero
-        eyebrow="Operations"
+        eyebrow={t("nav.section.operations")}
         title={isEverest ? "Everest Opportunities" : "Leads"}
         subtitle={isEverest ? "Energy plants and nearby off-takers — your full Everest opportunity pipeline." : "Manage your full prospect pipeline and track outreach progress across all channels."}
         actions={

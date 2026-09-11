@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check } from "lucide-react";
 import { C } from "@/lib/design";
 
 export default function SyncAircallButton() {
+  const { t } = useLocale();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -39,7 +41,7 @@ export default function SyncAircallButton() {
       }}
     >
       {done ? (
-        <><Check size={12} /> Synced</>
+        <><Check size={12} /> {t("sab.synced")}</>
       ) : (
         <><RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {loading ? "Syncing…" : "Sync from Aircall"}</>
       )}

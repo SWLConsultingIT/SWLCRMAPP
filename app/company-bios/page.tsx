@@ -1648,7 +1648,7 @@ export default function CompanyBiosPage() {
         <>
           <AuroraHero
             bare
-            eyebrow="Company Bio"
+            eyebrow={t("cb.pageTitle")}
             title={t("bio.scan.title")}
             subtitle={t("bio.scan.subtitle")}
             actions={

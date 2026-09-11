@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getT } from "@/lib/i18n-server";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { C } from "@/lib/design";
 import { getSupabaseService } from "@/lib/supabase-service";
@@ -15,6 +16,7 @@ import { getUserScope } from "@/lib/scope";
 // the time-to-detect to seconds.
 
 export default async function ReliabilityBanner() {
+  const t = await getT();
   const scope = await getUserScope().catch(() => null);
   if (!scope || scope.role !== "admin") return null;
 
@@ -57,11 +59,11 @@ export default async function ReliabilityBanner() {
       <div className="flex items-center gap-2.5">
         <AlertTriangle size={14} style={{ color: accent }} />
         <span className="text-sm font-medium" style={{ color: accent }}>
-          Outgoing pipeline: {parts.join(" · ")}
+          {t("rb.outgoingPipeline")} {parts.join(" · ")}
         </span>
       </div>
       <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: accent }}>
-        Open Reliability
+        {t("rb.openReliability")}
         <ArrowRight size={11} />
       </span>
     </Link>

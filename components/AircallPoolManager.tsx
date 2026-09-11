@@ -181,7 +181,7 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
             className="text-xs font-medium px-3 py-2 rounded-lg border"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}
           >
-            Cancel
+            {t("pool.cancel")}
           </button>
           <button
             onClick={save}
@@ -190,7 +190,7 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
             style={{ backgroundColor: C.gold, color: "#04070d" }}
           >
             {saving && <Loader2 size={12} className="animate-spin" />}
-            Save ({selected.size})
+            {t("pool.saveN", { n: selected.size })}
           </button>
         </div>
       </div>

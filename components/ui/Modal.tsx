@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useLocale } from "@/lib/i18n";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { C } from "@/lib/design";
@@ -23,6 +24,7 @@ export default function Modal({
   footer?: ReactNode;
   maxWidth?: number;
 }) {
+  const { t } = useLocale();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -48,7 +50,7 @@ export default function Modal({
         {title != null && (
           <div className="flex items-center justify-between gap-4 px-5 py-4 border-b" style={{ borderColor: C.border }}>
             <h3 className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{title}</h3>
-            <button onClick={onClose} className="rounded-lg p-1 transition-colors hover:bg-black/[0.05]" style={{ color: C.textMuted }} aria-label="Close">
+            <button onClick={onClose} className="rounded-lg p-1 transition-colors hover:bg-black/[0.05]" style={{ color: C.textMuted }} aria-label={t("modal.close")}>
               <X size={16} />
             </button>
           </div>

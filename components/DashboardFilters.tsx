@@ -312,7 +312,7 @@ function MultiPopover({
               className="w-full text-left text-[10px] font-semibold uppercase tracking-wider px-3 py-2 border-t hover:bg-black/[0.02] transition-colors flex items-center gap-1.5"
               style={{ borderColor: C.border, color: C.textMuted }}
             >
-              <X size={10} /> Clear {label.toLowerCase()} selection
+              <X size={10} /> {t("dfl.clearSelection", { label: label.toLowerCase() })}
             </button>
           )}
         </div>

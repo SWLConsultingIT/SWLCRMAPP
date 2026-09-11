@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function NextCallButton({ leadId, size = "sm" }: Props) {
+  const { t } = useLocale();
   const router = useRouter();
   const [state, setState] = useState<"loading" | "ready" | "empty">("loading");
   const [nextLeadId, setNextLeadId] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export default function NextCallButton({ leadId, size = "sm" }: Props) {
       title={isLoading ? "Checking for next call…" : `${remaining} call${remaining === 1 ? "" : "s"} left in this flow`}
     >
       {isLoading ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
-      Next call
+      {t("ncb.nextCall")}
       {!isLoading && remaining > 0 && (
         <span className="ml-1 text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-md"
           style={{

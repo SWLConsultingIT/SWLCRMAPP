@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { AlertTriangle, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
@@ -8,6 +9,7 @@ import { C } from "@/lib/design";
 type Alert = { label: string; count: number; href: string; color: string };
 
 export default function AlertsPanel({ alerts }: { alerts: Alert[] }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(true);
   const [hydrated, setHydrated] = useState(false);
 
@@ -54,7 +56,7 @@ export default function AlertsPanel({ alerts }: { alerts: Alert[] }) {
       >
         <AlertTriangle size={14} className="shrink-0" style={{ color: C.yellow }} />
         <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.yellow }}>
-          Needs Attention
+          {t("alerts.needsAttention")}
         </span>
         {/* Total count badge */}
         <span

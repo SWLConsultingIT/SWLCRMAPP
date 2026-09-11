@@ -51,7 +51,7 @@ export default async function PrivacyPage() {
     <div className="p-6 w-full">
       <PageHero
         icon={Shield}
-        section="Admin"
+        section={t("nav.section.admin")}
         title={t("prvp.title")}
         description={t("prvp.lede")}
         accentColor={C.gold}

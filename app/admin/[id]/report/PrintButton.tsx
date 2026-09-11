@@ -1,9 +1,11 @@
 "use client";
+import { useLocale } from "@/lib/i18n";
 
 // Small client-side wrapper around window.print() so the report page can
 // stay a server component (data fetch on the server, no client bundle for
 // the heavy stuff).
 export default function PrintButton() {
+  const { t } = useLocale();
   return (
     <div className="no-print" style={{ position: "fixed", top: 16, right: 16, zIndex: 50, display: "flex", gap: 8 }}>
       <button
@@ -18,7 +20,7 @@ export default function PrintButton() {
           fontSize: 13,
           cursor: "pointer",
         }}>
-        Print / Save as PDF
+        {t("pa.printSaveAs")}
       </button>
     </div>
   );

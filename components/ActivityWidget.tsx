@@ -157,7 +157,7 @@ export default function ActivityWidget() {
         accent="#22C55E"
         accentBg="color-mix(in srgb, #16A34A 12%, transparent)"
         users={buckets.live}
-        emptyText="Nobody is in the app right now."
+        emptyText={t("aw.nobodyInApp")}
         meId={meId}
         timestampField="presence"
       />
@@ -169,7 +169,7 @@ export default function ActivityWidget() {
         accent="#D97706"
         accentBg="color-mix(in srgb, #D97706 13%, transparent)"
         users={buckets.recent}
-        emptyText="No-one active in the last hour."
+        emptyText={t("aw.noneActiveHour")}
         meId={meId}
         timestampField="seen"
       />

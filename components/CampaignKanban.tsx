@@ -11,10 +11,11 @@ import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
-const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<string, { icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
 };
 
 type SequenceStep = { channel: string; daysAfter: number };
@@ -396,7 +397,7 @@ function Column({ stepIndex, step, children, count, activeDragStep, isPast }: { 
               )}
             </p>
             <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>
-              {meta.label}
+              {t(meta.labelKey)}
             </p>
           </div>
         </div>

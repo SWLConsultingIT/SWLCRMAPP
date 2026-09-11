@@ -136,7 +136,7 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
                   {/* Conversation */}
                   <div className="rounded-lg border p-3" style={{ backgroundColor: C.bg, borderColor: C.border }}>
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1" style={{ color: C.gold }}><MessageSquare size={11} /> Full conversation ({p.conversation.count})</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1" style={{ color: C.gold }}><MessageSquare size={11} /> {t("odoo.fullConversation", { n: p.conversation.count })}</p>
                       <a href={p.conversation.link} className="text-[11px] font-semibold inline-flex items-center gap-0.5" style={{ color: C.blue }}>{t("odoo.viewConversation")} <ExternalLink size={10} /></a>
                     </div>
                     <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
