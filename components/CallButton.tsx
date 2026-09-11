@@ -56,9 +56,19 @@ type Props = {
   isCallStep?: boolean;
   // Optional: next expected step name (shown in validation dialog)
   nextStepName?: string;
+  // Optional: override the button's primary color. Defaults to the Aircall
+  // orange so every existing usage is unchanged; the Lead hero passes brand
+  // gold so Call reads as the primary action (orange is reserved for
+  // warning/callback in the design language). Only recolors styling — all dial
+  // logic is untouched.
+  accent?: string;
+  // Optional: the idle solid button pulses to draw attention by default (Queue
+  // relies on it). The Lead hero passes pulse=false so the calmer 2-level hero
+  // doesn't have a constantly-animating button. Cosmetic only.
+  pulse?: boolean;
 };
 
-export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId, phones, isCallStep, nextStepName }: Props) {
+export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId, phones, isCallStep, nextStepName, accent, pulse = true }: Props) {
   const router = useRouter();
   const toast = useToast();
   const { t } = useLocale();
@@ -238,11 +248,16 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   const text = size === "sm" ? "text-xs" : "text-sm";
   const iconSize = size === "sm" ? 12 : 14;
 
+  // Primary color: caller-provided accent (Lead hero → gold) or the default
+  // Aircall orange. `A` = base, `Ad` = deeper shade for soft/ghost text.
+  const A = accent ?? "#F97316";
+  const Ad = accent ? `color-mix(in srgb, ${accent} 82%, black)` : "#EA580C";
+  const AText = accent ? "#1a1505" : "#fff";
   const baseStyle = variant === "solid"
-    ? { backgroundColor: "#F97316", color: "#fff" }
+    ? { backgroundColor: A, color: AText }
     : variant === "ghost"
-    ? { backgroundColor: "transparent", color: "#EA580C", border: `1px solid ${C.border}` }
-    : { backgroundColor: "color-mix(in srgb, #EA580C 13%, transparent)", color: "#EA580C", border: "1px solid color-mix(in srgb, #EA580C 30%, transparent)" };
+    ? { backgroundColor: "transparent", color: Ad, border: `1px solid ${C.border}` }
+    : { backgroundColor: `color-mix(in srgb, ${Ad} 13%, transparent)`, color: Ad, border: `1px solid color-mix(in srgb, ${Ad} 30%, transparent)` };
 
   const selected = numbers.find(n => n.id === selectedNumberId);
   const selectedPhoneOpt = phoneOptions.find(p => p.value === selectedPhone) ?? phoneOptions[0];
@@ -273,7 +288,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         onClick={handleDial}
         disabled={state === "calling" || !selectedNumberId || !!busy}
         title={busy ? t("call.busyHint", { name: busy.byName }) : undefined}
-        className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60 ${state === "idle" && variant === "solid" ? "animate-pulse" : ""}`}
+        className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60 ${state === "idle" && variant === "solid" && pulse ? "animate-pulse" : ""}`}
         style={{
           ...baseStyle,
           ...(state === "called" ? { backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A", border: "1px solid color-mix(in srgb, #16A34A 32%, transparent)" } : {}),
@@ -318,16 +333,16 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
                     onClick={() => { setSelectedPhone(opt.value); setPhonePicker(false); }}
                     className="w-full text-left px-3 py-2.5 hover:bg-black/[0.03] transition-colors flex items-center gap-2.5"
                     style={{
-                      backgroundColor: isSel ? "color-mix(in srgb, #EA580C 13%, transparent)" : "transparent",
-                      borderLeft: isSel ? "3px solid #F97316" : "3px solid transparent",
+                      backgroundColor: isSel ? `color-mix(in srgb, ${A} 13%, transparent)` : "transparent",
+                      borderLeft: isSel ? `3px solid ${A}` : "3px solid transparent",
                     }}
                   >
-                    <Phone size={12} style={{ color: isSel ? "#F97316" : C.textMuted }} />
+                    <Phone size={12} style={{ color: isSel ? A : C.textMuted }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold" style={{ color: isSel ? "#EA580C" : C.textPrimary }}>{opt.label}</p>
+                      <p className="text-xs font-semibold" style={{ color: isSel ? Ad : C.textPrimary }}>{opt.label}</p>
                       <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{opt.value}</p>
                     </div>
-                    {isSel && <CheckCheck size={12} style={{ color: "#F97316" }} />}
+                    {isSel && <CheckCheck size={12} style={{ color: A }} />}
                   </button>
                 );
               })}
@@ -380,20 +395,20 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
                 onClick={() => { setSelectedNumberId(n.id); setPicker(false); }}
                 className="w-full text-left px-3 py-2.5 hover:bg-black/[0.03] transition-colors flex items-center gap-2.5"
                 style={{
-                  backgroundColor: isSelected ? "color-mix(in srgb, #EA580C 13%, transparent)" : "transparent",
-                  borderLeft: isSelected ? "3px solid #F97316" : "3px solid transparent",
+                  backgroundColor: isSelected ? `color-mix(in srgb, ${A} 13%, transparent)` : "transparent",
+                  borderLeft: isSelected ? `3px solid ${A}` : "3px solid transparent",
                 }}
               >
                 <span className="text-xl shrink-0">{COUNTRY_FLAGS[n.country] ?? "📞"}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold" style={{ color: isSelected ? "#EA580C" : C.textPrimary }}>
+                  <p className="text-xs font-semibold" style={{ color: isSelected ? Ad : C.textPrimary }}>
                     {countryLabel(n.country)}
                   </p>
                   <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>
                     {n.digits}
                   </p>
                 </div>
-                {isSelected && <CheckCheck size={12} style={{ color: "#F97316" }} />}
+                {isSelected && <CheckCheck size={12} style={{ color: A }} />}
               </button>
             );
           })}

@@ -2,11 +2,16 @@
 
 // Secondary lead actions collapsed into one "More" menu so the lead hero's
 // action row stays calm: one primary Call button + this menu + prev/next nav.
-// Holds View flow / Export / Log outcome / Delete. Log outcome reuses the same
+// Holds View flow / Export / Mark result / Delete. Log outcome reuses the same
 // CallOutcomePrompt as an in-app dial; Delete replicates the confirm + DELETE
 // /api/leads/[id] flow from the old standalone DeleteLeadButton.
+//
+// The dropdown is PORTALED to <body> with fixed positioning computed from the
+// button — the hero card is `overflow-hidden` (rounded corners + gold strip),
+// which used to clip an in-tree absolute menu (Fran 2026-09-11: "el more
+// funciona mal"). Portaling + fixed coords keeps it fully visible everywhere.
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocale } from "@/lib/i18n";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -22,22 +27,39 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
   const { t } = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const [outcome, setOutcome] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-  // Portal the modals to <body>: the hero card has a CSS `transform` (.reveal
-  // animation) which makes any position:fixed descendant relative to the card
-  // instead of the viewport — so an in-tree modal renders clipped/off-center.
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const place = useCallback(() => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+  }, []);
+
+  function toggle() { if (!open) place(); setOpen(o => !o); }
+
   useEffect(() => {
     if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    const onDown = (e: MouseEvent) => {
+      const tgt = e.target as Node;
+      if (btnRef.current?.contains(tgt) || menuRef.current?.contains(tgt)) return;
+      setOpen(false);
+    };
+    const onScrollResize = () => setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onScrollResize, true);
+    window.addEventListener("resize", onScrollResize);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", onScrollResize, true);
+      window.removeEventListener("resize", onScrollResize);
+    };
   }, [open]);
 
   async function del() {
@@ -52,16 +74,16 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
   const item = "w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors hover:bg-black/[0.04]";
 
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="true" aria-expanded={open}
+    <>
+      <button ref={btnRef} type="button" onClick={toggle} aria-haspopup="true" aria-expanded={open}
         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold border transition-colors hover:bg-black/[0.03]"
         style={{ borderColor: C.border, color: C.textBody }} title={t("lmm.moreActions")}>
         {t("lmm.more")} <MoreHorizontal size={15} />
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-20 rounded-xl border shadow-lg p-1.5 min-w-[190px]"
-          style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {mounted && open && pos && createPortal(
+        <div ref={menuRef} className="fixed z-[1100] rounded-xl border shadow-lg p-1.5 min-w-[190px]"
+          style={{ top: pos.top, right: pos.right, backgroundColor: C.card, borderColor: C.border }}>
           {campaignId && (
             <Link href={`/campaigns/${campaignId}`} className={item} style={{ color: C.textBody }} onClick={() => setOpen(false)}>
               <Megaphone size={15} style={{ color: C.textMuted }} /> {t("lmm.viewFlow")}
@@ -77,7 +99,8 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
           <button type="button" className={item} style={{ color: C.red }} onClick={() => { setOpen(false); setConfirm(true); }}>
             <Trash2 size={15} style={{ color: C.red }} /> {t("lmm.deleteLead")}
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       {outcome && <LeadResultModal leadId={leadId} autoReplies={autoReplies ?? null} onClose={() => setOutcome(false)} />}
@@ -109,6 +132,6 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
           </div>
         </div>
       ), document.body)}
-    </div>
+    </>
   );
 }

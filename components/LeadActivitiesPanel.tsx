@@ -39,6 +39,7 @@ const TERMINAL_STATUSES = new Set(["closed_lost", "closed_won", "discarded"]);
 
 export default function LeadActivitiesPanel({
   leadId, leadLabel, company, leadPhone, leadCountry, leadStatus, canAssignOthers,
+  initialActivities = null, variant = "full",
 }: {
   leadId: string;
   leadLabel?: string | null;
@@ -47,12 +48,18 @@ export default function LeadActivitiesPanel({
   leadCountry?: string | null;
   leadStatus?: string | null;
   canAssignOthers?: boolean;
+  /** Server-seeded activities → skips the initial client fetch (no flash, no
+   *  double round-trip when both Overview and the Activities tab mount). */
+  initialActivities?: A[] | null;
+  /** "next" renders ONLY the NEXT ACTION block (for Overview); "full" adds the
+   *  Open/Completed lists (the Activities tab). Same source of truth either way. */
+  variant?: "full" | "next";
 }) {
   const { t, locale } = useLocale();
   const toast = useToast();
   const router = useRouter();
-  const [items, setItems] = useState<A[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<A[]>(initialActivities ?? []);
+  const [loading, setLoading] = useState(initialActivities == null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -67,7 +74,8 @@ export default function LeadActivitiesPanel({
     } catch { /* keep */ }
     setLoading(false);
   }, [leadId]);
-  useEffect(() => { load(); }, [load]);
+  // Only fetch on mount when NOT server-seeded; mutations always refetch via load().
+  useEffect(() => { if (initialActivities == null) load(); }, [load, initialActivities]);
 
   const intlLocale = locale === "es" ? "es-AR" : "en-US";
   const now = Date.now();
@@ -177,8 +185,8 @@ export default function LeadActivitiesPanel({
 
       {/* ── Activities section — only when there ARE activities, so the empty
           state lives solely in the NEXT ACTION block above (no duplicate "Add
-          activity"). Open + Completed. ── */}
-      {(pending.length > 0 || completed.length > 0) && (
+          activity"). Open + Completed. Hidden in the "next" variant (Overview). ── */}
+      {variant === "full" && (pending.length > 0 || completed.length > 0) && (
       <div className="rounded-2xl border p-3.5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: C.shadow }}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-[13px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("activities.section.title")}</span>
