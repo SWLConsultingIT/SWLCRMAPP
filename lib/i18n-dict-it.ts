@@ -918,6 +918,9 @@ export const it: Record<string, string> = {
   "ld2.tl.call": "Chiamata",
   "ld2.tl.campaignStarted": "Campagna avviata",
   "ld2.openInbox": "Apri in Inbox",
+  "ld2.stage": "Fase",
+  "ld2.localTime": "Ora locale",
+  "ld2.newLead": "Nuovo",
   // Company Detail — Account Workspace (Fase B2)
   "ld.tab.contacts": "Contatti",
   "co.viewWebsite": "Vedi sito",

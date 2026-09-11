@@ -954,6 +954,9 @@ export const en: Dict = {
   "ld2.tl.call": "Call",
   "ld2.tl.campaignStarted": "Campaign started",
   "ld2.openInbox": "Open in Inbox",
+  "ld2.stage": "Stage",
+  "ld2.localTime": "Local time",
+  "ld2.newLead": "New",
   // Company Detail — Account Workspace (Fase B2)
   "ld.tab.contacts": "Contacts",
   "co.viewWebsite": "View website",
@@ -7883,6 +7886,9 @@ export const es: Dict = {
   "ld2.tl.call": "Llamada",
   "ld2.tl.campaignStarted": "Campaña iniciada",
   "ld2.openInbox": "Abrir en Inbox",
+  "ld2.stage": "Etapa",
+  "ld2.localTime": "Hora local",
+  "ld2.newLead": "Nuevo",
   // Company Detail — Account Workspace (Fase B2)
   "ld.tab.contacts": "Contactos",
   "co.viewWebsite": "Ver sitio",

@@ -16,11 +16,14 @@ import { useLocale } from "@/lib/i18n";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Megaphone, FileDown, ClipboardCheck, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { MoreHorizontal, Megaphone, FileDown, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
-import LeadResultModal from "@/components/LeadResultModal";
 
-export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies }: {
+// "Mark result" was removed from this menu — it duplicated the hero's primary
+// "Set result" action (same LeadResultModal). More now holds only View flow /
+// Export PDF / Delete (Fran 2026-09-11). `autoReplies` stays in the type so
+// callers don't change, but the component no longer needs it.
+export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
   leadId: string; leadName: string; campaignId: string | null;
   autoReplies?: { positive?: string; negative?: string } | null;
 }) {
@@ -28,7 +31,6 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
-  const [outcome, setOutcome] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,9 +94,6 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
           <a href={`/leads/${leadId}/print`} target="_blank" rel="noopener noreferrer" className={item} style={{ color: C.textBody }} onClick={() => setOpen(false)}>
             <FileDown size={15} style={{ color: C.textMuted }} /> {t("lmm.exportPdf")}
           </a>
-          <button type="button" className={item} style={{ color: C.textBody }} onClick={() => { setOpen(false); setOutcome(true); }}>
-            <ClipboardCheck size={15} style={{ color: C.textMuted }} /> {t("lmm.markResult")}
-          </button>
           <div className="my-1 h-px" style={{ backgroundColor: C.border }} />
           <button type="button" className={item} style={{ color: C.red }} onClick={() => { setOpen(false); setConfirm(true); }}>
             <Trash2 size={15} style={{ color: C.red }} /> {t("lmm.deleteLead")}
@@ -102,8 +101,6 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId, autoReplies
         </div>,
         document.body
       )}
-
-      {outcome && <LeadResultModal leadId={leadId} autoReplies={autoReplies ?? null} onClose={() => setOutcome(false)} />}
 
       {mounted && confirm && createPortal((
         <div className="fixed inset-0 z-[1200] flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
