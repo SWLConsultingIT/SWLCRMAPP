@@ -290,7 +290,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <Link href={`/admin/${id}/voice`}
             className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg shrink-0 hover:opacity-90"
             style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 25%, transparent)` }}>
-            Brand Voice
+            {t("bio.brandVoice")}
           </Link>
         </div>
 
@@ -331,7 +331,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium"
           style={{ backgroundColor: C.greenLight, borderColor: `${C.green}30`, color: C.green }}>
           <CheckCircle2 size={15} />
-          All systems operational — no issues detected
+          {t("bio.allSystemsOk")}
         </div>
       ) : null}
 
@@ -452,7 +452,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
                           <p className="text-[11px]" style={{ color: C.textDim }}>
-                            {seller.activeCampaigns} active · last: {timeAgo(seller.lastActivity)}
+                            {t("bio.nActiveLast", { n: seller.activeCampaigns, ago: timeAgo(seller.lastActivity) })}
                           </p>
                         </div>
                         <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
@@ -547,7 +547,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                         <span>·</span>
                         <span>{req.target_leads_count} {req.target_leads_count === 1 ? "lead" : "leads"}</span>
                         <span>·</span>
-                        <span>{sequence.length} steps · ~{totalDays} days</span>
+                        <span>{t("bio.stepsDaysApprox", { s: sequence.length, d: totalDays })}</span>
                         {prompts.language && <><span>·</span><span>{prompts.language.toUpperCase()}</span></>}
                       </div>
                     </Link>
@@ -583,7 +583,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
               <Target size={14} style={{ color: gold }} />
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("admt.leadGenProfiles")}</h2>
             </div>
-            <span className="text-xs" style={{ color: C.textMuted }}>{profiles.length} total</span>
+            <span className="text-xs" style={{ color: C.textMuted }}>{t("bio.nTotal", { n: profiles.length })}</span>
           </div>
           {profiles.length === 0 ? (
             <div className="px-6 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>{t("admt.noProfiles")}</p></div>
@@ -654,7 +654,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
               })}
               {totalLeads > 20 && (
                 <div className="px-6 py-3 text-center">
-                  <Link href="/leads" className="text-xs font-semibold" style={{ color: gold }}>View all {totalLeads} leads →</Link>
+                  <Link href="/leads" className="text-xs font-semibold" style={{ color: gold }}>{t("bio.viewAllLeads", { n: totalLeads })}</Link>
                 </div>
               )}
             </div>

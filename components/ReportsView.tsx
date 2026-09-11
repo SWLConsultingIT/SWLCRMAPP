@@ -135,10 +135,10 @@ function LineChart({ data }: { data: Record<string, number> }) {
 function Funnel({ data }: { data: Record<string, number> }) {
   const { t } = useLocale();
   const stages = [
-    { key: "new",       label: "Imported",     color: C.blue },
-    { key: "contacted", label: "Contacted",    color: gold },
-    { key: "qualified", label: "Qualified",    color: C.green },
-    { key: "nurturing", label: "Nurturing",    color: C.textMuted },
+    { key: "new",       label: t("rv.imported"),   color: C.blue },
+    { key: "contacted", label: t("rv.contacted"),  color: gold },
+    { key: "qualified", label: t("rv.qualified"),  color: C.green },
+    { key: "nurturing", label: t("rv.nurturing"),  color: C.textMuted },
   ];
   const top = Math.max(...stages.map(s => data[s.key] ?? 0), 1);
   return (
@@ -154,7 +154,7 @@ function Funnel({ data }: { data: Record<string, number> }) {
               <span className="text-sm font-medium" style={{ color: C.textBody }}>{s.label}</span>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold tabular-nums" style={{ color: s.color }}>{val}</span>
-                {conv !== null && <span className="text-xs px-1.5 py-0.5 rounded tabular-nums" style={{ backgroundColor: C.surface, color: C.textMuted }}>{conv}% conv.</span>}
+                {conv !== null && <span className="text-xs px-1.5 py-0.5 rounded tabular-nums" style={{ backgroundColor: C.surface, color: C.textMuted }}>{t("rv.convPct", { n: conv })}</span>}
               </div>
             </div>
             <div className="w-full rounded-full h-2" style={{ backgroundColor: C.border }}>
@@ -180,7 +180,7 @@ export default async function ReportsView() {
 
   const kpis = [
     { label: t("rv.totalLeads"),       value: total,                                              icon: Users,         color: gold },
-    { label: "Qualified",         value: qualified,                                           icon: Target,        color: C.green },
+    { label: t("rv.qualified"),         value: qualified,                                           icon: Target,        color: C.green },
     { label: t("rv.conversionRate"),   value: `${conversionRate}%`,                                icon: TrendingUp,    color: C.accent },
     { label: t("rv.positiveRate"),     value: `${positiveRate}%`,                                  icon: MessageSquare, color: gold },
     { label: t("rv.avgDays"),value: avgDaysToQualify != null ? `${avgDaysToQualify}d` : "—", icon: TrendingUp, color: C.orange },
@@ -225,8 +225,8 @@ export default async function ReportsView() {
         </div>
         <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Replies</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: goldLight, color: gold }}>{totalReplies} total</span>
+            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("rv.replies")}</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: goldLight, color: gold }}>{t("rv.nTotal", { n: totalReplies })}</span>
           </div>
           {totalReplies > 0 ? <HBarChart data={replyBreakdown} colorMap={classColors} labelKeys={classLabelKeys} /> : <p className="text-sm" style={{ color: C.textDim }}>{t("rv.noReplies")}</p>}
         </div>

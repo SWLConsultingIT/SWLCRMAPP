@@ -187,6 +187,7 @@ function PreferencesSection() {
 }
 
 function BrandingCard() {
+  const { t } = useLocale();
   const [primaryColor, setPrimaryColor] = useState<string>("#b79832");
   const [useBrandColors, setUseBrandColors] = useState<boolean>(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -219,10 +220,10 @@ function BrandingCard() {
   return (
     <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Branding</h3>
+        <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("brand.title")}</h3>
       </div>
       <p className="text-xs mb-4" style={{ color: C.textMuted }}>
-        Make the app feel like your brand. Primary color is applied to buttons, accents and highlights across the workspace.
+        {t("brand.subtitle")}
       </p>
 
       <div className="flex items-start gap-5">
@@ -231,14 +232,14 @@ function BrandingCard() {
           style={{ borderColor: C.border, backgroundColor: "#ffffff" }}>
           {logoUrl
             ? <img src={logoUrl} alt="" className="w-full h-full object-contain p-1.5 rounded-xl" />
-            : <span className="text-xs" style={{ color: C.textDim }}>No logo</span>}
+            : <span className="text-xs" style={{ color: C.textDim }}>{t("brand.noLogo")}</span>}
         </div>
 
         {/* Color picker + toggle */}
         <div className="flex-1 space-y-4">
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>
-              Primary color
+              {t("brand.primaryColor")}
             </label>
             <div className="flex items-center gap-3">
               <input type="color" value={primaryColor}
@@ -275,17 +276,17 @@ function BrandingCard() {
               }}
               style={{ accentColor: primaryColor }} />
             <div>
-              <p className="text-xs font-semibold" style={{ color: C.textBody }}>Apply brand color to the app</p>
+              <p className="text-xs font-semibold" style={{ color: C.textBody }}>{t("brand.applyColor")}</p>
               <p className="text-[10px]" style={{ color: C.textDim }}>
-                Off by default. Enable once your logo and color are set — the accent color will roll out across buttons and highlights.
+                {t("brand.applyColorHint")}
               </p>
             </div>
           </label>
         </div>
       </div>
 
-      {saving && <p className="text-[10px] mt-3" style={{ color: C.textDim }}>Saving…</p>}
-      {savedAt && !saving && <p className="text-[10px] mt-3" style={{ color: C.green }}>Saved ✓</p>}
+      {saving && <p className="text-[10px] mt-3" style={{ color: C.textDim }}>{t("brand.saving")}</p>}
+      {savedAt && !saving && <p className="text-[10px] mt-3" style={{ color: C.green }}>{t("brand.saved")}</p>}
     </div>
   );
 }

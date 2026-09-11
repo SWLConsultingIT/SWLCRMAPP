@@ -119,7 +119,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
       <div className="px-5 py-3 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("cct.leadsInFlow")}</p>
         <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-          {leads.length} lead{leads.length === 1 ? "" : "s"} · {leadsWithCallsCount} called · {totalCalls} total calls
+          {leads.length} {t(leads.length === 1 ? "u.lead" : "u.leads")} · {t("cct.nCalled", { n: leadsWithCallsCount })} · {t("cct.nTotalCalls", { n: totalCalls })}
         </p>
         {/* Outcome summary — only once at least one call has an outcome. */}
         {totalCalls > 0 && (outcomes.interested + outcomes.badTiming + outcomes.notInterested + outcomes.voicemail + outcomes.wrongNumber) > 0 && (
@@ -168,11 +168,11 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
                 <div className="hidden sm:flex items-center gap-2 shrink-0 text-[11px]" style={{ color: C.textDim }}>
                   {hasCalls ? (
                     <>
-                      <span className="font-medium">{leadCalls.length} call{leadCalls.length === 1 ? "" : "s"}</span>
+                      <span className="font-medium">{leadCalls.length} {t(leadCalls.length === 1 ? "u.call" : "u.calls")}</span>
                       {hasTranscript && (
                         <span className="flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 8%, transparent)`, color: C.gold }}>
-                          <FileText size={8} /> transcript
+                          <FileText size={8} /> {t("cct.transcript")}
                         </span>
                       )}
                       {latest?.started_at && <span>{new Date(latest.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>}
@@ -194,7 +194,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
                   <div className="pt-3 flex justify-end">
                     <Link href={`/leads/${l.id}`} className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-80"
                       style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
-                      Open lead →
+                      {t("cct.openLead")}
                     </Link>
                   </div>
                   <PreCallBrief leadId={l.id} />
@@ -212,7 +212,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
           <button onClick={() => setVisibleCount(c => c + 30)}
             className="w-full px-5 py-3 text-xs font-semibold transition-colors hover:bg-black/[0.02]"
             style={{ color: C.gold }}>
-            Mostrar más ({leads.length - visibleCount} restantes)
+            {t("cct.showMore", { n: leads.length - visibleCount })}
           </button>
         )}
       </div>
