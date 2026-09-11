@@ -77,16 +77,17 @@ function usageStatus(pct: number): { labelKey: string; color: string; bg: string
 
 const TG_BLUE = "#229ED9";
 
-// Brand names stay as they are; only "Call" is a common noun, so it goes
-// through the dictionary like every other one.
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string; labelKey?: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call", labelKey: "inbox.channel.call" },
-  telegram: { icon: Send,   color: TG_BLUE,   label: "Telegram" },
+// labelKey, not label: module scope, no translator here. The brand names
+// resolve to themselves in every locale; only "Call" is a common noun.
+const channelMeta: Record<string, { icon: typeof Share2; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
+  telegram: { icon: Send,   color: TG_BLUE,   labelKey: "chan.telegram" },
 };
 
 function UsageBar({ sent, limit, channel }: { sent: number; limit: number; channel: string }) {
+  const { t } = useLocale();
   const pct = limit > 0 ? Math.min(Math.round((sent / limit) * 100), 100) : 0;
   const color = usageColor(pct);
   const meta = channelMeta[channel];
@@ -96,7 +97,7 @@ function UsageBar({ sent, limit, channel }: { sent: number; limit: number; chann
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
           <Icon size={12} style={{ color: meta?.color ?? C.textMuted }} />
-          <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{meta?.label ?? channel}</span>
+          <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{meta ? t(meta.labelKey) : channel}</span>
         </div>
         <span className="text-xs font-bold tabular-nums" style={{ color }}>{sent} / {limit}</span>
       </div>
@@ -820,7 +821,7 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
           <div className="rounded-2xl border p-4" style={{ borderColor: "#0A66C230", background: "linear-gradient(135deg, #0A66C204 0%, #0A66C20D 100%)", boxShadow: "0 4px 14px rgba(10,102,194,0.06)" }}>
             <div className="flex items-center gap-2 mb-3">
               <Share2 size={14} style={{ color: "#0A66C2" }} />
-              <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn (Unipile)</span>
+              <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>{t("acc.linkedinUnipile")}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1223,7 +1224,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       {seller.hasTelegram && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-md shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: `${TG_BLUE}15`, color: TG_BLUE }}>
-                          <Send size={10} /> Telegram ✓
+                          <Send size={10} /> {t("acc.telegramOk")}
                         </span>
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
@@ -1541,7 +1542,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                             </div>
                             <span className="text-xs font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md shrink-0"
                               style={{ backgroundColor: `${meta?.color ?? C.textMuted}12`, color: meta?.color ?? C.textMuted }}>
-                              <Icon size={10} /> {meta?.label ?? h.channel}
+                              <Icon size={10} /> {meta ? t(meta.labelKey) : h.channel}
                             </span>
                             <div className="flex items-center gap-2 shrink-0 w-48">
                               <span className="text-sm font-bold tabular-nums" style={{ color: usageColor(pct) }}>{h.count}</span>

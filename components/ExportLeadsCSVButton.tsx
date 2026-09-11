@@ -38,7 +38,7 @@ export default function ExportLeadsCSVButton({ leads, totalLeadCount }: Props) {
 
   function handleExport() {
     if (leads.length === 0) {
-      toast.show({ kind: "warning", title: "Nothing to export", description: "There are no leads loaded in this view." });
+      toast.show({ kind: "warning", title: t("exp.nothingToExport"), description: t("exp.noLeadsLoaded") });
       return;
     }
     const headers = [
@@ -87,9 +87,9 @@ export default function ExportLeadsCSVButton({ leads, totalLeadCount }: Props) {
   }
 
   return (
-    <button type="button" onClick={handleExport} className="aurora-btn" title="Export the loaded lead list to CSV">
+    <button type="button" onClick={handleExport} className="aurora-btn" title={t("exp.buttonTitle")}>
       <Download size={14} />
-      Export CSV
+      {t("exp.exportCsv")}
     </button>
   );
 }

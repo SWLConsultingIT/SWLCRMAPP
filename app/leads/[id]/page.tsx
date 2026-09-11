@@ -1200,7 +1200,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 {campaign && (
                   <Link href={`/campaigns/${campaign.id}`}
                     className="text-[10px] font-semibold hover:underline flex items-center gap-1" style={{ color: gold }}>
-                    View campaign <ExternalLink size={10} />
+                    {t("ld.viewCampaign")} <ExternalLink size={10} />
                   </Link>
                 )}
               </div>
@@ -1215,7 +1215,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 />
               )}
               <span className="text-base font-bold italic" style={{ color: gold }}>
-                {stepPct}% Complete
+                {t("ld.pctComplete", { n: stepPct })}
               </span>
             </div>
           </div>
@@ -1799,7 +1799,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
               <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("ld.noCalls")}</p>
               <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-                Calls made via Aircall from the Queue will appear here. Click &ldquo;Sync from Aircall&rdquo; above to pull recent calls.
+                {t("ld.callsEmptyHint")}
               </p>
             </div>
           ) : (
