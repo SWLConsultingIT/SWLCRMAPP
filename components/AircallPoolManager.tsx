@@ -108,7 +108,7 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
             <div>
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("pool.manageAircall")}</h2>
               <p className="text-[11px]" style={{ color: C.textMuted }}>
-                Pick which Aircall lines belong to your tenant
+                {t("pool.aircallSubtitle")}
               </p>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function AircallPoolManager({ open, onClose }: { open: boolean; o
             </div>
           ) : visibleNumbers.length === 0 ? (
             <p className="text-sm text-center py-10" style={{ color: C.textDim }}>
-              No Aircall numbers available. Provision numbers in the Aircall dashboard first.
+              {t("pool.noAircallNumbers")}
             </p>
           ) : (
             <>

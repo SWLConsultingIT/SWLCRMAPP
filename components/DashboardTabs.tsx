@@ -1,20 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/lib/i18n";
 import { C } from "@/lib/design";
 import { LayoutDashboard, BarChart3, Download } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
 export default function DashboardTabs({ children }: { children: React.ReactNode[] }) {
+  const { t } = useLocale();
   const [tab, setTab] = useState(0);
 
   // "Live" = operational pipeline right now (active campaigns, fresh replies,
   // alerts). "Reports" = historical trends and benchmarks. The old "Overview"
   // label confused users into thinking it was a summary of Reports.
   const tabs = [
-    { label: "Live",    sub: "Pipeline right now",      icon: LayoutDashboard, color: gold },
-    { label: "Reports", sub: "Trends & benchmarks",     icon: BarChart3,       color: C.accent },
+    { label: t("dashTabs.live"), sub: t("dashTabs.liveSub"), icon: LayoutDashboard, color: gold },
+    { label: t("dashTabs.reports"), sub: t("dashTabs.reportsSub"),     icon: BarChart3,       color: C.accent },
   ];
 
   return (
@@ -62,7 +64,7 @@ export default function DashboardTabs({ children }: { children: React.ReactNode[
                 boxShadow: `0 1px 4px ${C.accent}18`,
               }}
             >
-              <Download size={13} /> Export PDF
+              <Download size={13} /> {t("dashTabs.exportPdf")}
             </button>
           </>
         )}

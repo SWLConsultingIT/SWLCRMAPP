@@ -9,7 +9,7 @@ import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, ChevronRigh
 
 const gold = "var(--brand, #c9a83a)";
 
-type Tr = (key: string) => string;
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
 
 type Campaign = {
   id: string;
@@ -115,11 +115,12 @@ type IcpSection = {
   groups: CampaignGroup[];
 };
 
-const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  whatsapp: { icon: Mail,   color: "#25D366", label: "WhatsApp" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+// labelKey, not label: module scope, no translator here.
+const channelMeta: Record<string, { icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", labelKey: "chan.linkedin" },
+  email:    { icon: Mail,   color: "#7C3AED", labelKey: "chan.email" },
+  whatsapp: { icon: Mail,   color: "#25D366", labelKey: "chan.whatsapp" },
+  call:     { icon: Phone,  color: "#F97316", labelKey: "chan.call" },
 };
 
 // Active uses brand gold so the dominant state on the Outreach Flows page
@@ -414,7 +415,7 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
                 return (
                   <span key={ch} className="inline-flex items-center justify-center rounded-lg"
                     style={{ width: 24, height: 24, backgroundColor: `color-mix(in srgb, ${meta.color} 10%, transparent)` }}
-                    title={meta.label}>
+                    title={t(meta.labelKey)}>
                     <Icon size={12} style={{ color: meta.color }} />
                   </span>
                 );
@@ -438,9 +439,9 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
           </div>
           <div className="flex items-center gap-3 text-[11px] shrink-0" style={{ color: C.textMuted }}>
             {group.sellers.length > 0 && (
-              <span className="flex items-center gap-1.5" title="LinkedIn sending account(s) for this flow">
+              <span className="flex items-center gap-1.5" title={t("flows.liSenderTitle")}>
                 <Share2 size={11} style={{ color: "#0A66C2" }} />
-                <span style={{ color: C.textDim, fontWeight: 600 }}>LinkedIn:</span>
+                <span style={{ color: C.textDim, fontWeight: 600 }}>{t("flows.linkedinLabel")}</span>
                 <span style={{ color: C.textBody, fontWeight: 500 }}>{group.sellers.join(", ")}</span>
               </span>
             )}
@@ -581,7 +582,7 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
                   const isCR = s.idx === 0 && s.channel === "linkedin";
                   const stepLabel = isCR
                     ? t("flows.step.cr")
-                    : meta.label;
+                    : t(meta.labelKey);
                   return (
                     <div key={s.idx} className="flex items-center gap-2.5">
                       <span className="text-[10px] font-bold tabular-nums w-4 text-center shrink-0"
@@ -749,7 +750,7 @@ function FlowCard({ group, t }: { group: CampaignGroup; t: Tr }) {
             {group.channels.map(ch => {
               const m = channelMeta[ch]; if (!m) return null; const Icon = m.icon;
               return (
-                <span key={ch} className="w-6 h-6 rounded-md grid place-items-center" title={m.label}
+                <span key={ch} className="w-6 h-6 rounded-md grid place-items-center" title={t(m.labelKey)}
                   style={{ background: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)", border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)`, color: "var(--fg1)" }}>
                   <Icon size={12} />
                 </span>
@@ -785,7 +786,7 @@ function FlowCard({ group, t }: { group: CampaignGroup; t: Tr }) {
           <span aria-hidden className="hidden sm:block w-px self-stretch my-1" style={{ backgroundColor: C.border }} />
           <span className="hidden sm:inline text-[11px] font-bold tabular-nums shrink-0 min-w-[64px] text-right" style={{ color: "var(--fg1)" }}>
             {group.avgProgress}%
-            {group.acceptRate != null ? <span className="block text-[9px] font-semibold mt-0.5" style={{ color: C.textDim }}>{group.acceptRate}% accept</span> : null}
+            {group.acceptRate != null ? <span className="block text-[9px] font-semibold mt-0.5" style={{ color: C.textDim }}>{t("flows.acceptPct", { n: group.acceptRate })}</span> : null}
           </span>
           <ChevronRight size={18} className="shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: C.textDim }} />
         </div>
@@ -925,7 +926,7 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
                 metrics on the right, which are 0 when there are no flows). */}
             <span
               className="inline-flex items-center gap-1.5 text-[10.5px] font-bold whitespace-nowrap px-2 py-0.5 rounded-full"
-              title="Eligible leads in this ICP with no active flow yet — available to start a new outreach flow."
+              title={t("flows.availableTitle")}
               style={section.availableToLaunch > 0
                 ? { color: "var(--fg1)", background: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)", border: `1px solid color-mix(in srgb, ${gold} 34%, transparent)` }
                 : { color: C.textMuted, background: C.surface, border: `1px solid ${C.border2}` }}

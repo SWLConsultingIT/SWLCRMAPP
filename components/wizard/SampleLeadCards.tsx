@@ -88,7 +88,7 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
           <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("slc.sampleMessages")}</h3>
           <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
-            3 random leads
+            {t("slc.threeRandom")}
           </span>
         </div>
         <button
@@ -152,7 +152,7 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
                 ) : (
                   <div className="px-3 py-2 border-b" style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #DC2626 6%, transparent)" }}>
                     <p className="text-[10px]" style={{ color: "#DC2626" }}>
-                      AI didn&apos;t return tailored slots for this lead — fix enrichment data and retry.
+                      {t("slc.noSlots")}
                     </p>
                   </div>
                 )}
@@ -172,11 +172,11 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
                       <div key={i}>
                         <p className="text-[8.5px] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1" style={{ color: C.textMuted }}>
                           <Icon size={9} />
-                          Step {i + 1} · {step.channel}
+                          {t("slc.stepN", { n: i + 1 })} · {step.channel}
                         </p>
                         {step.subject && (
                           <p className="text-[10.5px] font-semibold mb-0.5" style={{ color: C.textBody }}>
-                            Subject: {step.subject}
+                            {t("slc.subjectLabel")} {step.subject}
                           </p>
                         )}
                         <p className="text-[11px] leading-snug whitespace-pre-wrap p-2 rounded" style={{ color: C.textBody, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
