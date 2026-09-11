@@ -8,14 +8,12 @@
 import { Card, Badge } from "@/components/ui";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { Phone, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { SubTabs, EmptyLine } from "@/components/lead/ui";
 import LeadTimeline, { type TimelineEvent } from "@/components/lead/LeadTimeline";
 import CampaignJourney from "@/components/CampaignJourney";
-import CallCard from "@/components/CallCard";
-import CallButton from "@/components/CallButton";
-import SyncAircallButton from "@/components/SyncAircallButton";
+import CallsPanel from "@/components/lead/CallsPanel";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -77,20 +75,11 @@ export default function LeadEngagement({
   );
 
   const callsView = (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[12px]" style={{ color: C.textMuted }}>
-          {calls.length > 0 ? t("ld2.callsRecorded", { n: calls.length }) : t("ld.noCalls")}
-        </p>
-        <div className="flex items-center gap-2">
-          {phone && <CallButton phone={phone} leadId={leadId} size="sm" defaultNumberId={defaultNumberId} phones={phones} isCallStep={isCallStep} nextStepName={nextStepName} />}
-          <SyncAircallButton />
-        </div>
-      </div>
-      {calls.length === 0
-        ? <EmptyLine><Phone size={14} /> {t("ld.noCalls")}</EmptyLine>
-        : calls.map((call: any) => <CallCard key={call.id} call={call} personalPhone={lead.primary_phone ?? null} companyPhone={lead.primary_secondary_phone ?? null} />)}
-    </div>
+    <CallsPanel
+      calls={calls} leadId={leadId} phone={phone} phones={phones}
+      defaultNumberId={defaultNumberId} isCallStep={isCallStep} nextStepName={nextStepName}
+      personalPhone={lead.primary_phone ?? null} companyPhone={lead.primary_secondary_phone ?? null}
+    />
   );
 
   // Engagement = history/context; replying lives in the Inbox. When there's a

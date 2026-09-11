@@ -54,9 +54,13 @@ function digits(p: string | null | undefined): string {
   return (p ?? "").replace(/\D/g, "");
 }
 
-export default function CallCard({ call, compact = false, personalPhone, companyPhone }: {
+export default function CallCard({ call, compact = false, hideHeader = false, personalPhone, companyPhone }: {
   call: CallRecord;
   compact?: boolean;
+  /** Skip the identity header (phone/direction/date/status/delete) — used when a
+   * parent (CallsPanel) already renders that row as a collapsible summary and
+   * only wants the detail body (transcript, recording, AI summary, coach). */
+  hideHeader?: boolean;
   /** The lead's two numbers, so the card can show WHICH was dialed
    * (boss 2026-06-10: "a qué teléfono fue la llamada, privado o público"). */
   personalPhone?: string | null;
@@ -134,7 +138,8 @@ export default function CallCard({ call, compact = false, personalPhone, company
   const canRetranscribe = hasRecording && !!call.transcript && !!call.aircall_call_id;
 
   return (
-    <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div className={hideHeader ? "" : "rounded-xl border p-5"} style={hideHeader ? undefined : { backgroundColor: C.card, borderColor: C.border }}>
+      {!hideHeader && (
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
@@ -197,6 +202,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
           </button>
         </div>
       </div>
+      )}
       {call.transcript && (
         <div className="rounded-lg p-3 mt-2" style={{ backgroundColor: C.bg }}>
           <div className="flex items-center justify-between mb-1.5">
