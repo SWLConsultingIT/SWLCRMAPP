@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { getT } from "@/shared/i18n/server";
 import { notFound } from "next/navigation";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getUserScope } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { ArrowLeft } from "lucide-react";

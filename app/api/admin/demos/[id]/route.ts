@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getUserScope, canViewSwlAdmin, DEMO_SESSION_COOKIE } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // DELETE /api/admin/demos/[id]
 // Hard-deletes a demo tenant + everything that hangs off it. Refuses to touch

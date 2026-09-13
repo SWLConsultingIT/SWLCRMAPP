@@ -1,4 +1,4 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import { C } from "@/shared/design/tokens";

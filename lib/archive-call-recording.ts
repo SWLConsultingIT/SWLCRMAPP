@@ -10,7 +10,7 @@
 // This is safe to call repeatedly (idempotent): when `recording_storage_path`
 // is already set we no-op unless `force=true` is passed.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,

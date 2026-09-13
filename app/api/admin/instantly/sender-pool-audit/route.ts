@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { verifyCampaignSenderPool } from "@/lib/instantly-campaign-pool";
 import { normalizeAddressList } from "@/lib/sender-pool";

@@ -3,7 +3,7 @@
 // chat con la persona que te taggeó"). One DM thread per user-pair — repeat
 // tags/mentions reuse it and just append a message.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 type Svc = ReturnType<typeof getSupabaseService>;
 

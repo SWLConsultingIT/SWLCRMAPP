@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { fetchLinkedInProfileFull, linkedinIdentifier } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";

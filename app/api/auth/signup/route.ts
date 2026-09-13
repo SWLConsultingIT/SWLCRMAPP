@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const PERSONAL_DOMAINS = new Set([
   "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "yahoo.es",

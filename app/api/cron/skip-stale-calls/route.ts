@@ -26,7 +26,7 @@
 // Auth: Bearer CRON_SECRET.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // Scans every active campaign + call messages; with 1500+ campaigns the
 // per-campaign round-trips overran the default budget, so give it the window.

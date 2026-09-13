@@ -1,6 +1,6 @@
 import { Users, Building2, Megaphone, Phone } from "lucide-react";
 import { getT } from "@/shared/i18n/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { C } from "@/shared/design/tokens";
 import PageHero from "@/shared/ui/PageHero";
 import Breadcrumb from "@/shared/ui/Breadcrumb";

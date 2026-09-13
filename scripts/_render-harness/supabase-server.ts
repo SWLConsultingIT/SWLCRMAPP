@@ -1,4 +1,4 @@
-// TEST STUB — replaces @/lib/supabase-server for the render harness ONLY.
+// TEST STUB — replaces @/integrations/supabase/server for the render harness ONLY.
 // The real one builds a client bound to the request's auth cookies. A script
 // has none, so this returns a service-key client. READ ONLY by discipline:
 // the harness calls getDashboardData and nothing else, and getDashboardData

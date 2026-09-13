@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { intlTag } from "@/shared/i18n/locale";
 import { getServerLocale } from "@/shared/i18n/server";
 import { getT } from "@/shared/i18n/server";

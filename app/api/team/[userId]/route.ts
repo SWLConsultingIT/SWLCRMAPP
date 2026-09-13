@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canManageTeam, type Tier } from "@/shared/auth/scope";
 import { invalidateProfileCache } from "@/shared/auth/user-profile-cache";
 

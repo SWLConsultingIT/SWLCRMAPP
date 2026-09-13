@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import DemosClient from "./DemosClient";
 

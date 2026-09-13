@@ -35,7 +35,7 @@
 // tenant hint is refused rather than guessed.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import {
   authorizeInstantlyWebhook,
   normalizeInstantlyEvent,

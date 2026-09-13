@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // CRUD for Instantly workspaces — the registry of {label, api_key} pairs
 // the dispatcher uses to route email per tenant.

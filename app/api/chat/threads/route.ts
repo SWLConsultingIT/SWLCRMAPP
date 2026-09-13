@@ -3,7 +3,7 @@
 // (find-or-create) or a named channel. Tenant-scoped.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { prettyDisplayName } from "@/shared/lib/display-name";
 

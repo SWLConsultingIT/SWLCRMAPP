@@ -7,9 +7,9 @@
 // which flow to push the leads into. Boss feedback 2026-05-28.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getUserScope } from "@/shared/auth/scope";
-import { selectAllPages } from "@/lib/supabase-bulk";
+import { selectAllPages } from "@/integrations/supabase/bulk";
 
 export async function GET(_req: NextRequest) {
   const supabase = await getSupabaseServer();

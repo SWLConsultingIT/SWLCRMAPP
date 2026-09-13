@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { useToast } from "@/shared/ui/toast";
 import { C } from "@/shared/design/tokens";
 import Link from "next/link";

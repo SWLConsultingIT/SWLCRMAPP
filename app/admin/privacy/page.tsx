@@ -4,7 +4,7 @@ import { Lock, Shield } from "lucide-react";
 import PageHero from "@/shared/ui/PageHero";
 import { C } from "@/shared/design/tokens";
 import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import PrivacyClient from "./PrivacyClient";
 
 type AccessEntry = {

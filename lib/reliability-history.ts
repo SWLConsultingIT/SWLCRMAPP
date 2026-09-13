@@ -9,7 +9,7 @@
 // happened in this tenant recently?", not a perfect audit log — if we
 // need that, a `reliability_events` table is the next step.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const HISTORY_LIMIT = 50;
 const WINDOW_DAYS = 7;

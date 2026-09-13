@@ -4,8 +4,8 @@
 // per-seller drill-downs and the print page all derive from the same numbers
 // (so what you see matches what you export).
 
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { computePendingCalls, type PendingCallCampaign, type PendingCallLead } from "@/lib/pending-calls";

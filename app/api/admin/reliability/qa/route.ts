@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import { getTenantSummary, getAllTenantSummaries, buildGlobalSummary } from "@/lib/reliability-summary";
 import { getTenantHistory } from "@/lib/reliability-history";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

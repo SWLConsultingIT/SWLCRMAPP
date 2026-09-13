@@ -9,7 +9,7 @@
 // distinction. This endpoint fixes both.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

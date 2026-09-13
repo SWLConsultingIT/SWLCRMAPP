@@ -13,7 +13,7 @@
 //                   Wired up when the first sovereign client onboards.
 
 import { createCipheriv, createDecipheriv, randomBytes, type CipherGCM, type DecipherGCM } from "node:crypto";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const VERSION = 1;
 const ALGORITHM = "aes-256-gcm" as const;

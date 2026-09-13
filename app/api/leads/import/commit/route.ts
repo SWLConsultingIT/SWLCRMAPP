@@ -21,7 +21,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import {
   resolveTenantKey,
   encryptWithResolvedKey,

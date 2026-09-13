@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
 
 // SWL super-admin gates — used by every /admin/* page and /api/admin/* route

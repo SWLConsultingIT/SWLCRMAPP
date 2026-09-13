@@ -6,7 +6,7 @@
 // DELETE /api/company-bios/[id]/archive    → restore (un-archive)
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 
 export async function POST(
   _req: NextRequest,

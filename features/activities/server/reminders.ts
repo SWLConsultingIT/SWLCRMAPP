@@ -17,7 +17,7 @@
 // body and the route turns that into a Response, so the transport can change
 // without touching the reminder rules.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { sendPushToUsers } from "@/lib/web-push";
 import nodemailer from "nodemailer";
 

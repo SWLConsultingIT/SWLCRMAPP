@@ -15,7 +15,7 @@
 // for programmatic use.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import { withdrawInvitation } from "@/lib/unipile-linkedin";
 

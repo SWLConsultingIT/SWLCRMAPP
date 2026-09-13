@@ -12,7 +12,7 @@
 // approval timestamp, not the dispatch timestamp.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { renderPlaceholders } from "@/lib/placeholders";

@@ -4,7 +4,7 @@
 // service-role client and the API enforces the gates (RLS is a backstop).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { createNotifications } from "@/lib/notify";

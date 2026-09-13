@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getT } from "@/shared/i18n/server";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 // Persistent banner shown at the top of the dashboard whenever the outgoing

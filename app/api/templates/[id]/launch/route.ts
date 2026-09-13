@@ -16,7 +16,7 @@
 // Returns: { campaigns_created, campaign_ids, errors? }
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { autoNormalizePlaceholders } from "@/lib/placeholders";
 

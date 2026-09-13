@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function RealtimeRefresh() {
   const { t } = useLocale();

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { fetchPrefsCached, clearAllSessionCache } from "@/shared/lib/session-cache";
 import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/shared/i18n/dicts";
 

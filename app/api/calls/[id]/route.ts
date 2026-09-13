@@ -10,7 +10,7 @@
 //   least manager (sellers can't hide their own missed-call history).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

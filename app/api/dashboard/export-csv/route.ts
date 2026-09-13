@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDashboardData, getSellerActivity } from "@/lib/dashboard-data";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import ExcelJS from "exceljs";
 
 async function getBioId(): Promise<string | null> {

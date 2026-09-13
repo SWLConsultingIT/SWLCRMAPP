@@ -2,7 +2,7 @@
 // stays client-safe). Append-only audit trail into activity_events — the base
 // for the Activity Drawer's history (block 5).
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 export type ActivityEventType =
   | "created"

@@ -2,8 +2,8 @@
 // users; POST tags one (and notifies them); DELETE removes a tag. Tenant-scoped
 // via the lead's bio.
 
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { createNotifications } from "@/lib/notify";
 import { prettyDisplayName } from "@/shared/lib/display-name";

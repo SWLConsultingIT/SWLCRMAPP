@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser } from "@/shared/auth/require-scope";
 
 export async function GET(req: NextRequest) {

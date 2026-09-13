@@ -10,7 +10,7 @@
 // see/assign their own activities; managers/owners/super_admin see the tenant.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAllTenantData, getMyAssignedLeadIds } from "@/shared/auth/scope";
 import { ACTIVITY_SELECT, normalizeActivityCreate, isActivityType, isActivityStatus } from "@/features/activities/lib/activities";
 import { logActivityEvent } from "@/features/activities/server/activities-server";

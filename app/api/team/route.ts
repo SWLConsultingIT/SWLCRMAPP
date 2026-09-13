@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
 import { prettyDisplayName } from "@/shared/lib/display-name";
 

@@ -12,7 +12,7 @@
 // Data: live from Postgres. Re-print to get an updated snapshot.
 
 import { redirect } from "next/navigation";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import PrintButton from "./PrintButton";
 

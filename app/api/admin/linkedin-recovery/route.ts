@@ -10,7 +10,7 @@
 // gate requires copy_approved_at). Service-role reads, admin-tier gated.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import { RECOVERY_STATES } from "@/lib/linkedin-recovery";
 import { computeRecoveryKpis, kpisByDimension } from "@/lib/linkedin-recovery-metrics";

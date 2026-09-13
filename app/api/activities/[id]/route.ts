@@ -4,7 +4,7 @@
 // seller may only touch activities they own (assigned_to or created_by).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import {
   ACTIVITY_SELECT,

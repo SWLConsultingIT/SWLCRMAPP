@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // Call transcription. Two-tier strategy:
 //   1. Try Aircall AI Voice (GET /v1/calls/{id}/transcription). Higher

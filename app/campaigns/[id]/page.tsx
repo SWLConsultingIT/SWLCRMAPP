@@ -1,5 +1,5 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { selectAllPages } from "@/lib/supabase-bulk";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { selectAllPages } from "@/integrations/supabase/bulk";
 import { C } from "@/shared/design/tokens";
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import { intlTag } from "@/shared/i18n/locale";

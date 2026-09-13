@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 

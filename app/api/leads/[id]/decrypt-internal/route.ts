@@ -4,7 +4,7 @@
 // directly. Every successful call inserts a row in data_access_log.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import {
   decryptLeadPayload,
   bufferFromSupabaseBytea,

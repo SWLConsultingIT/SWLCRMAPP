@@ -5,7 +5,7 @@
 // callback-context display in Lead Detail) — not a redundant round-trip.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { resolveDueTimezone } from "@/shared/lib/timezone";
 

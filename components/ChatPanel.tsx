@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, type ReactNode } from "react"
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import { Send, Plus, Hash, User, X, Loader2, MessageSquare, Smile, Trash2 } from "lucide-react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { useLocale } from "@/shared/i18n/i18n";
 
 // System @mention pings embed a "→ /leads/<uuid>?tab=notes" deep link as plain

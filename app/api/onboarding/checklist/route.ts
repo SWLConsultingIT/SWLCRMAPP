@@ -12,7 +12,7 @@
 // Mirrors the /api/sidebar/badges scoping pattern: getUserScope() once, then
 // filter every query by company_bio_id when the caller is tenant-scoped.
 import { NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export const dynamic = "force-dynamic";

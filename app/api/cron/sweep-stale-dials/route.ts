@@ -22,7 +22,7 @@
 // Authenticated via CRON_SECRET like every other cron in this app.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 export const maxDuration = 30;
 

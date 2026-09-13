@@ -13,7 +13,7 @@ import {
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import { C } from "@/shared/design/tokens";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import PageHero from "@/shared/ui/PageHero";

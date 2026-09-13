@@ -22,7 +22,7 @@
 // own slightly offset schedule). Roadmap #2 from scale audit 2026-05-14.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const STUCK_THRESHOLD_MS = 15 * 60 * 1000; // 15 min

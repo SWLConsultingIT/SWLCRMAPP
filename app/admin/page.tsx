@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getT } from "@/shared/i18n/server";
 import AdminClient from "./AdminClient";
 import TenantAdminView from "./TenantAdminView";

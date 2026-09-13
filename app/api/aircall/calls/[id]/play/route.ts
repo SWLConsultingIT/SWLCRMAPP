@@ -15,7 +15,7 @@
 //     existence of other tenants' calls.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { archiveCallRecording } from "@/lib/archive-call-recording";
 

@@ -9,7 +9,7 @@
 // Pre-2026-05-29 this route had NO auth gate — anyone could rewrite any
 // campaign's cursor or force-send messages on any tenant.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canCreateCampaigns } from "@/shared/auth/scope";
 import { NextRequest, NextResponse } from "next/server";
 

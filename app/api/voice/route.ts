@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // Returns + updates the brand voice for the *currently logged-in user's* tenant.
 // Distinct from /api/admin/company-bios/[id]/voice (which lets a SWL admin edit

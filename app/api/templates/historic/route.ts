@@ -11,7 +11,7 @@
 // Scoped to the caller's tenant via getUserScope().
 
 import { NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 const TERMINAL_STATUSES = ["completed", "failed", "closed_lost"] as const;

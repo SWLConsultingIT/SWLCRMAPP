@@ -13,7 +13,7 @@
 // manually with ?days=N to widen the lookback.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // many Unipile + Instantly calls; needs headroom

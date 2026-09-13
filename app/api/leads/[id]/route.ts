@@ -7,7 +7,7 @@
 // could wipe any lead in any tenant.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { decryptLeadPayload, encryptLeadPayload, bufferFromSupabaseBytea, logDataAccess, ENCRYPTED_LEAD_COLUMNS } from "@/lib/leads-crypto";
 

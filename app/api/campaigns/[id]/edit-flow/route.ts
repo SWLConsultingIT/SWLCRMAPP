@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canCreateCampaigns } from "@/shared/auth/scope";
-import { selectAllPages, selectByIds, chunkIds } from "@/lib/supabase-bulk";
+import { selectAllPages, selectByIds, chunkIds } from "@/integrations/supabase/bulk";
 import { autoNormalizePlaceholders } from "@/lib/placeholders";
 
 // Edit a flow that is already running.

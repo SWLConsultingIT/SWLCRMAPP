@@ -16,7 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { runReconcileSweep, DEFAULT_LOOKBACK_HOURS } from "@/lib/metrics/reconcile-sweep";
 

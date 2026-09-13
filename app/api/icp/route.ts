@@ -5,7 +5,7 @@
 // need the full execution-status payload of the main /icp page.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export async function GET(req: NextRequest) {

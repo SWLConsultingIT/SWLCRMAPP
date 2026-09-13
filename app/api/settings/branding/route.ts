@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getOrFetchProfile, invalidateProfileCache } from "@/shared/auth/user-profile-cache";
 
 export async function GET() {

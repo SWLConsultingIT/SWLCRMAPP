@@ -2,7 +2,7 @@
 // FK cascades remove its messages + participant rows. Used by the trash button
 // in the Team Chat panel header.
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

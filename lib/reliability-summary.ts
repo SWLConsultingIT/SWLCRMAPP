@@ -15,7 +15,7 @@
 // Deterministic logic, no LLM calls — the page renders the paragraph
 // straight from these numbers so it's fast + cheap + reliable.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const WINDOW_DAYS = 7;
 const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;

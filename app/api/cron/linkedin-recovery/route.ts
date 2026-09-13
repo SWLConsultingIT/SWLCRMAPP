@@ -16,7 +16,7 @@
 // or a live Unipile first-degree check) so this does NOT depend on n8n.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import {
   RECOVERY_STATES, computeReinviteAfter, computeSecondAcceptDeadline,

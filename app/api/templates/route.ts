@@ -9,7 +9,7 @@
 // not in the message-content format the user-facing wizard expects.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 type SaveFromCampaignBody = {

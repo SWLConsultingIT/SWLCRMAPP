@@ -5,7 +5,7 @@
 // return 404 (not 403) to avoid leaking template existence.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 async function loadOwned(id: string, companyBioId: string | null) {

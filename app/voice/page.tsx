@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { C } from "@/shared/design/tokens";
 import {
   MessageCircle, BookOpen, Plus, X, Pencil, Trash2, Loader2,

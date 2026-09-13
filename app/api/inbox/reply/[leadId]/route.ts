@@ -19,7 +19,7 @@
 // the campaign is already stopped once a lead replies (LAW). This is purely a
 // human conversation continuing inside a stopped flow.
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveOutbound } from "@/lib/placeholders";

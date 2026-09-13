@@ -1,4 +1,4 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getUserScope, getMyAssignedUserId } from "@/shared/auth/scope";
 import { C } from "@/shared/design/tokens";
 import { Megaphone, Send, MessageSquare, ThumbsUp, Sparkles, Percent } from "lucide-react";

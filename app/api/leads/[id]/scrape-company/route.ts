@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerLocale } from "@/shared/i18n/server";
 import { writeAllContentIn } from "@/shared/i18n/locale";
 import Anthropic from "@anthropic-ai/sdk";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 
 // Free company-site scraper for a lead — no Tavily/Apify. The server fetches the

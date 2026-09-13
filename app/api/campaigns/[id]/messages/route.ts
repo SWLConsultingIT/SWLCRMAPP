@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 
 // Server-side reader for campaign_messages. Browser-side queries return

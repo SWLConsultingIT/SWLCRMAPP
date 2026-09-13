@@ -1,5 +1,5 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { prettyDisplayName } from "@/shared/lib/display-name";
 import { getUserScope, getMyAssignedUserId, canViewAllTenantData } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";

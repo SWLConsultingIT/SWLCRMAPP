@@ -5,7 +5,7 @@
 // Auth: owners, managers, and super_admins in the tenant. Sellers always
 // inherit the caller's scope.companyBioId on create.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
 import { NextRequest, NextResponse } from "next/server";
 

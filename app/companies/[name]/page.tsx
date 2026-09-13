@@ -1,6 +1,6 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
-import { selectByIds } from "@/lib/supabase-bulk";
+import { selectByIds } from "@/integrations/supabase/bulk";
 import { ACTIVITY_SELECT, bucketActivity } from "@/features/activities/lib/activities";
 import { C } from "@/shared/design/tokens";
 import { getT, getServerLocale } from "@/shared/i18n/server";

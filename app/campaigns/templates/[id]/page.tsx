@@ -12,7 +12,7 @@ import {
   Trophy, Tag, Languages, Megaphone, Clock,
 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import TemplateDetailActions from "./TemplateDetailActions";
 import { signStepAttachments } from "@/lib/campaign-attachments";

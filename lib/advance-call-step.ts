@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { completionFields } from "@/lib/campaign-complete";
 
 // Advance a lead's active campaign(s) past a CALL step.

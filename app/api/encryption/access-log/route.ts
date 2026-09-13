@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 export async function GET(req: NextRequest) {
   const scope = await getUserScope();

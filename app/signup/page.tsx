@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ChevronRight, Mail, CheckCircle2, User, Lock } from "lucide-react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { useLocale } from "@/shared/i18n/i18n";
 
 const inputStyle = {

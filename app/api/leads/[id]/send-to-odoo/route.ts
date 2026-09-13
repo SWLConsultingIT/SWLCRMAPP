@@ -11,8 +11,8 @@
 // TODO: rotate the key that was previously committed (still in git history);
 // add per-tenant Odoo config when we onboard a 2nd tenant.
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export const runtime = "nodejs";

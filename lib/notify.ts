@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { sendPushToUsers } from "@/lib/web-push";
 
 // Shared helper to fan out in-app notifications. Used by the tag + note-mention

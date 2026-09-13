@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { resolveTenantKey, encryptWithResolvedKey } from "@/lib/leads-crypto";
 
 // Cross-sell: turn a scraped nearby company into a real Everest lead. Demo-only.

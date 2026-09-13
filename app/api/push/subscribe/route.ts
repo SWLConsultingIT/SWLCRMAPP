@@ -4,7 +4,7 @@
 // user_id + tenant come from the session, never the client.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export async function POST(req: NextRequest) {

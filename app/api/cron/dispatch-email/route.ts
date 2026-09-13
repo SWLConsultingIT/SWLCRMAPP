@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { completionFields } from "@/lib/campaign-complete";
 import { getUserScope } from "@/shared/auth/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";

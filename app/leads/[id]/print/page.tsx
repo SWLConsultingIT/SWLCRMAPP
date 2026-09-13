@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import PrintTrigger from "../../../reports/print/PrintTrigger";

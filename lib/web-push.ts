@@ -7,7 +7,7 @@
 // then set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT (mailto:) env.
 
 import webpush from "web-push";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const PUBLIC = process.env.VAPID_PUBLIC_KEY ?? "";
 const PRIVATE = process.env.VAPID_PRIVATE_KEY ?? "";

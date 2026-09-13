@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { C } from "@/shared/design/tokens";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone, MessageCircle,

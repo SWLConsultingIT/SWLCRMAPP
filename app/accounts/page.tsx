@@ -1,6 +1,6 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getT } from "@/shared/i18n/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { C } from "@/shared/design/tokens";
 import { UserCircle, Share2, Mail, Phone, Check, X } from "lucide-react";

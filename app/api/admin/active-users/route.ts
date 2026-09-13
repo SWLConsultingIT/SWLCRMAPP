@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
 
 // Admin-only feed for the live activity widget.

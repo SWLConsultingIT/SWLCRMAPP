@@ -18,7 +18,7 @@
 //     theme / locale / brand from the cache. This preserves the c99d344
 //     anti-leak invariant while restoring the perf cache.
 
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 
 const TTL_MS = 60_000;
 

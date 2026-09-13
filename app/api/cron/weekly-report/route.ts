@@ -10,7 +10,7 @@
 // Auth: Bearer CRON_SECRET (same as all other crons).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import nodemailer from "nodemailer";
 
 export const dynamic = "force-dynamic";

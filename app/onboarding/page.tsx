@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import OnboardingGate from "./OnboardingGate";
 
 export default async function OnboardingPage() {

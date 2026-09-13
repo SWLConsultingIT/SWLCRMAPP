@@ -1,5 +1,5 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { selectAllPages, selectByIds } from "@/lib/supabase-bulk";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { selectAllPages, selectByIds } from "@/integrations/supabase/bulk";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import TicketDetailClient from "./TicketDetailClient";

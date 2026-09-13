@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { C } from "@/shared/design/tokens";
 import { Activity, Clock, Circle } from "lucide-react";
 import { timeAgo } from "@/shared/lib/format";

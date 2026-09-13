@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import NearbyCompaniesPage from "@/components/NearbyCompaniesPage";
 

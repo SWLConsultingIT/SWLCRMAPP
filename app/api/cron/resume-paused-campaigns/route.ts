@@ -8,7 +8,7 @@
 // Auth: Bearer CRON_SECRET (same as all other crons). Wire into n8n Orquestador.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 

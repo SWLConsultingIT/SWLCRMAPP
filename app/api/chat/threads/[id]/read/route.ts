@@ -1,5 +1,5 @@
 // Mark a chat thread read for the current user (sets last_read_at = now).
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { NextRequest, NextResponse } from "next/server";
 

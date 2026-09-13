@@ -10,7 +10,7 @@
 // Returns: { total, signals: { recent_linkedin_post, recent_website_news, industry_trends, organization_technologies, website_summary, company_mission, call_talking_points } }
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export async function POST(req: NextRequest) {

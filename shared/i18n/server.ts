@@ -12,7 +12,7 @@
 // getServerLocale() in the same request share one DB lookup.
 
 import { cache } from "react";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
 import { getUserScope } from "@/shared/auth/scope";
 import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/shared/i18n/dicts";

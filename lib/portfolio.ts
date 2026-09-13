@@ -8,7 +8,7 @@
 // All queries group by tenant in JS (one query per table, not per company) and
 // use .range() to dodge PostgREST's 1000-row cap.
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { isRealCall } from "@/lib/flow-metrics-lib";
 
 export type PortfolioCompany = {

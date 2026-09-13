@@ -13,7 +13,7 @@
 // Auth: logged-in user, scope-gated to their tenant's lead (same as thread).
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export const runtime = "nodejs";

@@ -2,7 +2,7 @@ import { Settings } from "lucide-react";
 import { getT } from "@/shared/i18n/server";
 import PageHero from "@/shared/ui/PageHero";
 import SettingsLayout from "./SettingsLayout";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {

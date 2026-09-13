@@ -16,7 +16,7 @@
 //     follow-up. This endpoint is the weakest pre-auth surface we have.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const MAX_PAGES = 5;
 const PAGE_SIZE = 200;

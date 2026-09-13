@@ -7,7 +7,7 @@
 // we surface the raw material + any stored pre-call brief so the seller can
 // review/fill them.
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getUserScope } from "@/shared/auth/scope";
 
 export const dynamic = "force-dynamic";

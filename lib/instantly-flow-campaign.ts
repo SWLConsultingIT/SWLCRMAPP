@@ -1,5 +1,5 @@
 import type { InstantlyConfig } from "@/lib/instantly-config";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { validateSenderPool, senderPoolLogPayload } from "@/lib/sender-pool";
 import { invalidateCampaignPool } from "@/lib/instantly-campaign-pool";
 

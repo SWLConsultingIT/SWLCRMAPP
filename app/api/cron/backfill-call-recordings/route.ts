@@ -25,7 +25,7 @@
 // `remaining: 0`.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { archiveCallRecording } from "@/lib/archive-call-recording";
 
 export const maxDuration = 60;

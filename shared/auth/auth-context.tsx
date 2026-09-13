@@ -25,7 +25,7 @@
 //     own cached state and could be inconsistent during transitions.
 
 import { createContext, useCallback, useContext, useEffect, useState, useRef } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { handleAuthFailure } from "@/shared/lib/session-cache";
 
 export type AuthUser = {

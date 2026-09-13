@@ -20,7 +20,7 @@
 // fires" stays low.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const PARK_TTL_DAYS = 21; // LinkedIn invite TTL

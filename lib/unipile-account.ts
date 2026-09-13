@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // Picks a connected LinkedIn account to view a profile through. Prefers the
 // seller the lead is assigned to (leads.linkedin_assigned_account holds a

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import LogoLoader from "@/shared/ui/LogoLoader";
 import { useRouter, useParams } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { C } from "@/shared/design/tokens";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,

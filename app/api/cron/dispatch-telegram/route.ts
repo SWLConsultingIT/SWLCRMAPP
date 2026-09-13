@@ -24,7 +24,7 @@
 // Auth: Bearer CRON_SECRET or admin scope.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
 

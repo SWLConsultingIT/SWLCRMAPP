@@ -8,7 +8,7 @@ import Link from "next/link";
 import { FileDown, ArrowLeft } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import PageHero from "@/shared/ui/PageHero";
 import ReportPicker from "./ReportPicker";
 import { getT } from "@/shared/i18n/server";

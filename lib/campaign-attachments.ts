@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // Shape of an attachment stored inside campaigns.sequence_steps[i].attachments.
 // `path` is the canonical key (bucket-relative); we generate signed URLs from

@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireAdminPage } from "@/shared/auth/auth-admin";
 import { notFound } from "next/navigation";
 import VoiceEditorClient from "./VoiceEditorClient";

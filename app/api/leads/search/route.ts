@@ -13,7 +13,7 @@
 // longer exist (real schema is primary_first_name / company_name /
 // primary_work_email per migration 002).
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { NextRequest, NextResponse } from "next/server";
 

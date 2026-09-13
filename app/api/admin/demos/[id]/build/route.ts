@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { populateDemo, autoIndustryPreset, DEFAULT_SHAPE, type DemoShapeConfig } from "@/lib/demo-populate";
 import type { DemoIndustryKey } from "@/lib/demo-seeds";
 

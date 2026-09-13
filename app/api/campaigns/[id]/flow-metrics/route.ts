@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { parseFilters, resolveFlowMetricsLite } from "@/lib/flow-metrics-compute";
 
 // Dedicated Flow-Metrics endpoint (perf refactor 2026-08-28). The flow page's

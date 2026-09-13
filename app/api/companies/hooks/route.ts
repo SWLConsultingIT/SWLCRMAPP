@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerLocale } from "@/shared/i18n/server";
 import { writeAllContentIn, type Locale } from "@/shared/i18n/locale";
 import Anthropic from "@anthropic-ai/sdk";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 // POST /api/companies/hooks — distills every enrichment field on a lead

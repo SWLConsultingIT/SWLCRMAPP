@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { useAuthUser } from "@/shared/auth/auth-context";
 import PushToggle from "@/components/PushToggle";
 import { Bell, AtSign, Tag, MessageSquare, FileText, CalendarClock, Inbox as InboxIcon, CheckCheck, CircleDot } from "lucide-react";

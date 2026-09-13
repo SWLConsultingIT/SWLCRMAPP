@@ -1,4 +1,4 @@
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getT } from "@/shared/i18n/server";
 import { requireAdminPage } from "@/shared/auth/auth-admin";
 import { hydrateClientLeads } from "@/lib/leads-crypto";

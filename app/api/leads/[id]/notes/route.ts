@@ -10,8 +10,8 @@
 // canViewAllTenantData (super_admin/owner/manager). Sellers can't nuke
 // each other's notes.
 
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import { createNotifications } from "@/lib/notify";
 import { ensureDm, postDmFromActor } from "@/lib/chat-dm";

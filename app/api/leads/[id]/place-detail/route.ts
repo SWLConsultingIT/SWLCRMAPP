@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 // Rich detail for a single nearby company (Gruppo Everest cross-sell demo).
 // Resolves a place by text (name + address) → Google Place Details with photo,

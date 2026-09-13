@@ -1,8 +1,8 @@
 // Messages in a chat thread. GET lists them (membership-gated); POST sends one,
 // marks the sender read, and notifies the other participants.
 
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { createNotifications } from "@/lib/notify";
 import { NextRequest, NextResponse } from "next/server";

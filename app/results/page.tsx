@@ -1,4 +1,4 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getUserScope, getMyAssignedLeadIds } from "@/shared/auth/scope";
 import { classifyLeadOutcome } from "@/lib/lead-outcome";
 import {

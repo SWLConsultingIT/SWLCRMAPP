@@ -16,7 +16,7 @@
 //   - latencyMs > 2000 sustained for >3 checks.
 
 import { NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

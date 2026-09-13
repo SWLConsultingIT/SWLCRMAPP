@@ -22,7 +22,7 @@
 // Idempotent: leads with telegram_user_id already set are skipped.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export const runtime = "nodejs";

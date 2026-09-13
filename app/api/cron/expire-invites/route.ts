@@ -28,7 +28,7 @@
 // day on the 3am UTC branch.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { withdrawInvitation } from "@/lib/unipile-linkedin";
 
 // Withdrawing up to a full backlog of stale invites (one Unipile DELETE each)

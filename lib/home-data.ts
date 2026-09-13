@@ -12,9 +12,9 @@
 // the PostgREST 1000-row cap. Kept separate from getDashboardData so the Home
 // stays light and fast (it must not run the 24 analytics aggregations).
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, getMyAssignedUserId } from "@/shared/auth/scope";
-import { selectAllPages } from "@/lib/supabase-bulk";
+import { selectAllPages } from "@/integrations/supabase/bulk";
 import { computePendingCalls, type PendingCallCampaign, type PendingCallLead } from "@/lib/pending-calls";
 
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);

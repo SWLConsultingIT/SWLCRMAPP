@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { pickSeedLeads, emailFor, type DemoIndustryKey } from "@/lib/demo-seeds";
 
 // POST /api/admin/demos/[id]/seed-leads

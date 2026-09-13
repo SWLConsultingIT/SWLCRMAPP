@@ -13,7 +13,7 @@
 //              that drives the Pending sidebar badge)
 
 import { NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
 export const dynamic = "force-dynamic";

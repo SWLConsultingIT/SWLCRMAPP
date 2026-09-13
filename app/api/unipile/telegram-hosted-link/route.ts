@@ -10,7 +10,7 @@
 //     existing seller, not a standalone account).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
 import { signTelegramName } from "@/lib/unipile-name-signing";
 

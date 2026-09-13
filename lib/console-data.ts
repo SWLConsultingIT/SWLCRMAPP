@@ -18,7 +18,7 @@
 // outcome half the time.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import {
   SourceUnavailableError, resolveWindow, priorWindow, inWindow,
   businessDayKey, businessHour, businessWeekday,

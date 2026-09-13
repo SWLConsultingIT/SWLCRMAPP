@@ -21,7 +21,7 @@ import { getT, getServerLocale } from "@/shared/i18n/server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
 import SellerRow from "@/components/dashboard/SellerRowExpand";
-import { getSupabaseService } from "@/lib/supabase-service";
+import { getSupabaseService } from "@/integrations/supabase/service";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
 import SwlSignature from "@/components/dashboard/SwlSignature";

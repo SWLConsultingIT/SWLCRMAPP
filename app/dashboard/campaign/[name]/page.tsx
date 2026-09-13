@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { C, N } from "@/shared/design/tokens";
 import { getUserScope } from "@/shared/auth/scope";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import PageHero from "@/shared/ui/PageHero";
 import KpiCard from "@/components/dashboard/KpiCard";

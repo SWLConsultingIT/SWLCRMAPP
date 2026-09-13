@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { C } from "@/shared/design/tokens";
 import { TrendingUp, X } from "lucide-react";
 import Link from "next/link";
