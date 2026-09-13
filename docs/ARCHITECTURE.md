@@ -13,13 +13,26 @@
 ```
 app/            routing y composición de Next. Nada más.
 features/       un módulo por dominio de negocio.
-integrations/   todo lo que habla con un servicio externo.   (todavía no creada)
+integrations/   todo lo que habla con un servicio externo.   ✅ creada
 shared/         lo que usan 2+ dominios de verdad.           ✅ creada
 ```
 
-`integrations/` todavía vive en `lib/` (los clientes de Supabase, Unipile,
-Instantly, Aircall, n8n, AI). Se formaliza en la Fase 3a; hasta entonces que
-`shared/` o un feature importen `@/lib/supabase-service` es correcto, no deuda.
+```
+integrations/
+  supabase/   service · server · browser · bulk · client
+  instantly/  config · campaign-pool · flow-campaign · webhook-logic
+              sender-pool · tests/
+  unipile/    linkedin · name-signing · linkedin-profile
+  aircall/    archive-recording · phone-match
+  n8n/        workflows-status · sanitize-output
+```
+
+No hay `integrations/odoo/` ni `integrations/ai/`, y es a propósito: **no existe
+ningún wrapper que mover**. Odoo pasa entero por n8n. Para AI, los 17 sitios
+llaman al SDK o a `fetch` inline. Crear la carpeta vacía sería decorado.
+
+Las llamadas inline que quedan están inventariadas en
+[PHASE-3B-INLINE-CALLS.md](PHASE-3B-INLINE-CALLS.md).
 
 ```
 shared/
@@ -90,6 +103,32 @@ crear `types/` salvo que haya tipos que no pertenezcan a un solo archivo.
 **Una integración nueva** → `integrations/<proveedor>/`. Sin UI adentro. Si la
 integración necesita un componente (un botón de "conectar"), el componente vive
 en el feature que lo usa y llama al wrapper.
+
+## Qué va en integrations y qué no
+
+La prueba: **si mañana cambiás de proveedor, ¿este archivo se reescribe o se
+borra?** Si se reescribe, es integración. Si el negocio no cambia, no lo es.
+
+| ✅ Va | Por qué |
+|---|---|
+| `integrations/unipile/linkedin.ts` | base URL, `X-API-KEY`, host de fallback |
+| `integrations/supabase/bulk.ts` | el techo de 1000 filas es de PostgREST |
+| `integrations/instantly/sender-pool.ts` | sólo existe porque Instantly elige el remitente |
+| `integrations/aircall/archive-recording.ts` | las grabaciones son URLs S3 que expiran |
+| `integrations/n8n/sanitize-output.ts` | espejo de un nodo de n8n; el contrato lo define n8n |
+
+| ❌ No va | Por qué | Dónde va |
+|---|---|---|
+| `lib/unipile-account.ts` | **no llama a Unipile**: decide con qué cuenta mirar un perfil | `features/sellers/` |
+| `lib/call-recording.ts` | "¿se puede reproducir?" sobre nuestra tabla | `features/calls/` |
+| `lib/prompts/call-coach.ts` | contenido de prompt, no cliente | `features/calls/` |
+| `lib/leads-crypto.ts` | protege PII; si cambia la DB, el cifrado no se mueve | `features/leads/` |
+
+El caso que mejor lo muestra es Unipile. `sendInvite()` y `withdrawInvitation()`
+son integración: hablan HTTP con el proveedor. `shouldRetryLead()` no lo sería
+nunca — decide política de negocio y no cambiaría si mañana no usáramos Unipile.
+Lo mismo con `unipile-account`: tiene "unipile" en el nombre y aun así es
+dominio.
 
 **UI compartida** → `shared/ui/` sólo cuando **2+ dominios ya la usan**, o
 cuando es el shell global de la app. Uno solo no alcanza.

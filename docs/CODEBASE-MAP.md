@@ -7,6 +7,7 @@
 
 | Dominio | Archivos | Estado | Ubicación |
 |---|---:|---|---|
+| **integrations** | 19 | ✅ **wrappers migrados** (Fase 3a) | `integrations/` |
 | **shared** | 30 | ✅ **migrado** (Fase 2) | `shared/` |
 | **Activities** | 14 | ✅ **migrado** (Fase 1) | `features/activities/` |
 | Leads | ~64 | pendiente | `app/leads/`, `components/lead/`, `components/Lead*`, `lib/lead-*` |
@@ -77,6 +78,7 @@ components/CallOutcomePrompt.tsx          ─┘   (calls → activities)
 | `shared/lib/timezone` | timezone del prospect | ✅ ya en shared |
 | `lib/lead-label.ts` | label del lead | → `features/leads/` |
 | `shared/lib/business-time` | `businessToday`, `businessDayStartMs` | ✅ extraído de metric-defs en la Fase 2 |
+| `integrations/supabase/service` | cliente service-role | ✅ ya en integrations |
 | `components/CallButton.tsx` | botón de llamar | → `features/calls/` |
 
 ## Archivos que el nombre sugiere Activities y NO lo son
