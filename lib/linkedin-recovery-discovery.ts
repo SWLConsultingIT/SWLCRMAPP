@@ -35,29 +35,38 @@ export async function discoverCandidates(
   // 1. Step-0 LinkedIn invites, sent, with a withdraw handle, whose campaign
   //    completed/failed (NOT invite_expired) and whose lead never connected and
   //    still allows LinkedIn and isn't archived. Inner joins like expire-invites.
-  let q = svc
-    .from("campaign_messages")
-    .select(`
-      id, campaign_id, lead_id, company_bio_id, sent_at, provider_message_id,
-      campaigns!inner(id, status, stop_reason, seller_id, completed_at, company_bio_id),
-      leads!inner(id, status, archived, linkedin_connected, allow_linkedin, linkedin_internal_id)
-    `)
-    .eq("step_number", 0)
-    .eq("channel", "linkedin")
-    .eq("status", "sent")
-    .not("provider_message_id", "is", null)
-    .in("campaigns.status", ["completed", "failed"])
-    .neq("campaigns.stop_reason", "invite_expired")
-    .eq("leads.allow_linkedin", true)
-    .not("leads.linkedin_connected", "is", true)
-    .order("sent_at", { ascending: true })
-    .limit(limit * 3); // over-fetch; we filter more below
-
-  if (allowlist) q = q.in("company_bio_id", allowlist);
-
-  const { data: rows, error } = await q;
-  if (error) throw new Error(`discovery query failed: ${error.message}`);
-  const raw = (rows ?? []) as any[];
+  //    Paginate (PostgREST caps at 1000/page) so the full cohort is scanned —
+  //    the eligible subset is much smaller after the post-fetch guards, so we
+  //    scan up to MAX_SCAN raw rows to reliably surface `limit` candidates.
+  const PAGE = 1000;
+  const MAX_SCAN = 6000;
+  const raw: any[] = [];
+  for (let from = 0; from < MAX_SCAN; from += PAGE) {
+    let q = svc
+      .from("campaign_messages")
+      .select(`
+        id, campaign_id, lead_id, company_bio_id, sent_at, provider_message_id,
+        campaigns!inner(id, status, stop_reason, seller_id, completed_at, company_bio_id),
+        leads!inner(id, status, archived, linkedin_connected, allow_linkedin, linkedin_internal_id)
+      `)
+      .eq("step_number", 0)
+      .eq("channel", "linkedin")
+      .eq("status", "sent")
+      .not("provider_message_id", "is", null)
+      .in("campaigns.status", ["completed", "failed"])
+      // NOTE: do NOT filter stop_reason in SQL — `neq` drops NULLs (most
+      // completed campaigns have stop_reason NULL), which would hide the whole
+      // cohort. classifyCandidate() excludes stop_reason='invite_expired'.
+      .eq("leads.allow_linkedin", true)
+      .not("leads.linkedin_connected", "is", true)
+      .order("sent_at", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (allowlist) q = q.in("company_bio_id", allowlist);
+    const { data, error } = await q;
+    if (error) throw new Error(`discovery query failed: ${error.message}`);
+    raw.push(...((data ?? []) as any[]));
+    if (!data || data.length < PAGE) break;
+  }
   if (raw.length === 0) return [];
 
   const leadIds = [...new Set(raw.map((r) => r.lead_id).filter(Boolean))] as string[];
