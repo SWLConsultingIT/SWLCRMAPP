@@ -17,9 +17,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { getSupabaseService } from "@/integrations/supabase/service";
-import { getInstantlyConfig } from "@/lib/instantly-config";
-import { verifyCampaignSenderPool } from "@/lib/instantly-campaign-pool";
-import { normalizeAddressList } from "@/lib/sender-pool";
+import { getInstantlyConfig } from "@/integrations/instantly/config";
+import { verifyCampaignSenderPool } from "@/integrations/instantly/campaign-pool";
+import { normalizeAddressList } from "@/integrations/instantly/sender-pool";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;

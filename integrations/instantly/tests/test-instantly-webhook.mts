@@ -1,5 +1,5 @@
 // Unit tests for the Instantly webhook contract. Pure — no DB, no network.
-// Run: npx tsx scripts/test-instantly-webhook.mts
+// Run: npx tsx integrations/instantly/tests/test-instantly-webhook.mts
 //
 // Pins the four regressions found in the 2026-09-10 preflight:
 //   1. the route was unreachable (proxy.ts PUBLIC_PATHS omitted it)
@@ -16,7 +16,7 @@ import {
   shouldInsertReply,
   decideEmailOnlyMatch,
   secretsMatch,
-} from "../lib/instantly-webhook-logic.ts";
+} from "@/integrations/instantly/webhook-logic";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];
@@ -33,7 +33,7 @@ const SECRET = "s3cr3t-token-value";
 // `PUBLIC_PATHS.some(p => pathname.startsWith(p))` predicate.
 console.log("\n1 · route is public to the proxy (no /login redirect)");
 {
-  const src = readFileSync(new URL("../proxy.ts", import.meta.url), "utf8");
+  const src = readFileSync("proxy.ts", "utf8");
   const block = src.slice(src.indexOf("const PUBLIC_PATHS"), src.indexOf("];", src.indexOf("const PUBLIC_PATHS")));
   const publicPaths = Array.from(block.matchAll(/"([^"]+)"/g)).map(m => m[1]);
   const isPublic = (pathname: string) => publicPaths.some(p => pathname.startsWith(p));

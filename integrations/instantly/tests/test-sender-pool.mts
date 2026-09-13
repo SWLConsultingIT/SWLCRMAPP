@@ -1,6 +1,6 @@
 // Unit tests for the sender-pool guard. Pure logic plus a stubbed-fetch test
 // that pins the caching/coalescing behaviour.
-// Run: npx tsx scripts/test-sender-pool.mts
+// Run: npx tsx integrations/instantly/tests/test-sender-pool.mts
 //
 // What this guard is for: SWL, Arqy and Grupo IEB now share ONE physical
 // Instantly workspace, so separate organizations no longer make a cross-brand
@@ -8,8 +8,8 @@
 // nothing used to read it. Membership of the tenant's declared pool is the rule
 // — deliberately NOT "one domain per campaign", since SWL sends from five.
 
-import { validateSenderPool, blocksDispatch, normalizeAddressList, senderPoolLogPayload } from "../lib/sender-pool.ts";
-import { fetchCampaignPool, verifyCampaignSenderPool, _resetCampaignPoolCache, campaignPoolCacheSize } from "../lib/instantly-campaign-pool.ts";
+import { validateSenderPool, blocksDispatch, normalizeAddressList, senderPoolLogPayload } from "@/integrations/instantly/sender-pool";
+import { fetchCampaignPool, verifyCampaignSenderPool, _resetCampaignPoolCache, campaignPoolCacheSize } from "@/integrations/instantly/campaign-pool";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];

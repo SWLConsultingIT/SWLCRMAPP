@@ -1,7 +1,7 @@
-import type { InstantlyConfig } from "@/lib/instantly-config";
+import type { InstantlyConfig } from "@/integrations/instantly/config";
 import { getSupabaseService } from "@/integrations/supabase/service";
-import { validateSenderPool, senderPoolLogPayload } from "@/lib/sender-pool";
-import { invalidateCampaignPool } from "@/lib/instantly-campaign-pool";
+import { validateSenderPool, senderPoolLogPayload } from "@/integrations/instantly/sender-pool";
+import { invalidateCampaignPool } from "@/integrations/instantly/campaign-pool";
 
 // Per-FLOW Instantly campaign resolver (created + activated lazily on first use).
 //

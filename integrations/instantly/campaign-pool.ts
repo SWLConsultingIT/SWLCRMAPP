@@ -26,7 +26,7 @@
 // briefly, so a transient Instantly 5xx delays a tick rather than wedging the
 // queue. Messages blocked this way stay queued and retry.
 
-import { validateSenderPool, type SenderPoolVerdict } from "@/lib/sender-pool";
+import { validateSenderPool, type SenderPoolVerdict } from "@/integrations/instantly/sender-pool";
 
 const BASE = "https://api.instantly.ai/api/v2";
 const OK_TTL_MS = 10 * 60 * 1000;

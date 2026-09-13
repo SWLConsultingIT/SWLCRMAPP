@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { completionFields } from "@/lib/campaign-complete";
 import { getUserScope } from "@/shared/auth/scope";
-import { getInstantlyConfig } from "@/lib/instantly-config";
-import { resolveFlowCampaignId } from "@/lib/instantly-flow-campaign";
+import { getInstantlyConfig } from "@/integrations/instantly/config";
+import { resolveFlowCampaignId } from "@/integrations/instantly/flow-campaign";
 import { signStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
-import { verifyCampaignSenderPool } from "@/lib/instantly-campaign-pool";
-import { senderPoolLogPayload } from "@/lib/sender-pool";
+import { verifyCampaignSenderPool } from "@/integrations/instantly/campaign-pool";
+import { senderPoolLogPayload } from "@/integrations/instantly/sender-pool";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.

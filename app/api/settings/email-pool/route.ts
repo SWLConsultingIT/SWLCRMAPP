@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canManageTeam } from "@/shared/auth/scope";
-import { getInstantlyConfig } from "@/lib/instantly-config";
+import { getInstantlyConfig } from "@/integrations/instantly/config";
 
 // Tenant-scoped Instantly account assignment.
 //

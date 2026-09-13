@@ -44,7 +44,7 @@ import {
   shouldInsertReply,
   decideEmailOnlyMatch,
   type NormalizedInstantlyEvent,
-} from "@/lib/instantly-webhook-logic";
+} from "@/integrations/instantly/webhook-logic";
 
 export const dynamic = "force-dynamic";
 
