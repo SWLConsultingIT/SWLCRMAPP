@@ -191,7 +191,9 @@ async function handle(req: NextRequest) {
     const candidates = await discoverCandidates(svc, { companyBioIds: allowlist.length ? allowlist : null, limit: DISCOVERY_LIMIT });
     const enrollable = candidates.filter((c) => c.decision.enroll);
     report.discovered = enrollable.length;
-    if (execute && enrollable.length > 0) {
+    // Enroll only when enabled — with the feature OFF the cron writes nothing
+    // (discovery still reports how many WOULD enroll).
+    if (execute && enabled && enrollable.length > 0) {
       const rows = enrollable.map(buildRecoveryRow).filter(Boolean) as Record<string, unknown>[];
       // Idempotent: UNIQUE(lead_id) — ignore conflicts.
       const { data, error } = await svc.from("linkedin_recovery").upsert(rows, { onConflict: "lead_id", ignoreDuplicates: true }).select("id");
@@ -203,8 +205,9 @@ async function handle(req: NextRequest) {
   }
 
   // ── 2. COPY generation for WAITING_REINVITE rows still missing copy ──
-  //    (internal-ish: n8n webhook, gated by execute; not a LinkedIn write).
-  if (execute) {
+  //    Gated by execute AND enabled: with the feature OFF the cron must not
+  //    mutate recovery state at all (beyond discovery tracking).
+  if (execute && enabled) {
     let qy = svc.from("linkedin_recovery")
       .select("id, lead_id, campaign_id, company_bio_id, second_connection_note")
       .eq("state", RECOVERY_STATES.WAITING_REINVITE)
@@ -257,7 +260,8 @@ async function handle(req: NextRequest) {
         originalInvitationId: (row as any).original_invitation_id, storedProviderId: snap.storedProviderId, live,
       });
       if (decision.action === "wait") { report.withdraw.waited += 1; continue; }
-      if (!execute) { report.withdraw[decision.action === "proceed" ? "proceeded" : decision.action] += 1; continue; }
+      // Feature OFF (or dry-run) ⇒ evaluate + report only, never write.
+      if (!execute || !externalOk) { report.withdraw[decision.action === "proceed" ? "proceeded" : decision.action] += 1; continue; }
       if (decision.action === "cancel") { await svc.from("linkedin_recovery").update({ state: decision.state, stop_reason: decision.reason }).eq("id", (row as any).id); report.withdraw.cancelled += 1; continue; }
       if (decision.action === "review") { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: decision.reason }).eq("id", (row as any).id); report.withdraw.review += 1; continue; }
       // proceed → external write
@@ -320,7 +324,7 @@ async function handle(req: NextRequest) {
         sellerActive: snap.sellerActive, accountAvailable: !!snap.accountId, live,
       });
       if (decision.action === "wait") { report.reinvite.waited += 1; continue; }
-      if (!execute) { report.reinvite[decision.action === "proceed" ? "sent" : decision.action] += 1; continue; }
+      if (!execute || !externalOk) { report.reinvite[decision.action === "proceed" ? "sent" : decision.action] += 1; continue; }
       if (decision.action === "cancel") { await svc.from("linkedin_recovery").update({ state: decision.state, stop_reason: decision.reason }).eq("id", (row as any).id); report.reinvite.cancelled += 1; continue; }
       if (decision.action === "review") { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: decision.reason }).eq("id", (row as any).id); report.reinvite.review += 1; continue; }
       if (!externalOk) { report.notes.push("reinvite ready but external writes disabled"); continue; }
@@ -358,7 +362,7 @@ async function handle(req: NextRequest) {
       const deadline = (row as any).second_invite_sent_at ? computeSecondAcceptDeadline((row as any).second_invite_sent_at) : null;
       const expired = deadline ? Date.parse(deadline) < nowMs : false;
       if (accepted) {
-        if (!execute) { report.accept.dmSent += 1; continue; }
+        if (!execute || !externalOk) { report.accept.dmSent += 1; continue; }
         if (budget <= 0) { report.notes.push("dm: budget exhausted"); break; }
         if (!externalOk) { report.notes.push("second DM ready but external writes disabled"); continue; }
         if (!(row as any).second_dm) { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: "second_dm_missing" }).eq("id", (row as any).id); continue; }
@@ -374,7 +378,7 @@ async function handle(req: NextRequest) {
           await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.SECOND_INVITE_SENT, last_error: e?.message ?? String(e), retry_count: ((row as any).retry_count ?? 0) + 1 }).eq("id", (row as any).id);
         }
       } else if (expired) {
-        if (execute) await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.STOPPED_UNACCEPTED, stop_reason: "second_invite_unaccepted" }).eq("id", (row as any).id);
+        if (execute && externalOk) await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.STOPPED_UNACCEPTED, stop_reason: "second_invite_unaccepted" }).eq("id", (row as any).id);
         report.accept.stoppedUnaccepted += 1;
       }
     }
