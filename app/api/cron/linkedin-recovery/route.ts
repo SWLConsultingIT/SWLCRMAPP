@@ -93,6 +93,52 @@ async function cas(svc: Svc, id: string, from: string, patch: Record<string, unk
   return !!(data && data.length > 0);
 }
 
+// READ-ONLY Unipile preflight over a sample of recovery rows. No writes.
+async function runPreflight(url: URL) {
+  if (!hasUnipileCreds()) return NextResponse.json({ error: "UNIPILE creds missing in this environment" }, { status: 503 });
+  const svc = getSupabaseService();
+  const tenant = url.searchParams.get("tenant");
+  const order = url.searchParams.get("order") ?? "recent";
+  const sample = Math.min(40, Math.max(1, parseInt(url.searchParams.get("sample") ?? "20", 10) || 20));
+  const idsParam = url.searchParams.get("ids");
+
+  let q = svc.from("linkedin_recovery")
+    .select("id, original_invite_sent_at, leads!inner(primary_first_name, primary_last_name, company_name, primary_linkedin_url, linkedin_internal_id), sellers(unipile_account_id)");
+  if (idsParam) q = q.in("id", idsParam.split(",").map((s) => s.trim()).filter(Boolean));
+  else {
+    if (tenant) q = q.eq("company_bio_id", tenant);
+    q = q.order("original_invite_sent_at", { ascending: order === "old" }).limit(sample);
+  }
+  const { data: rows, error } = await q;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const counts: Record<string, number> = { PENDING: 0, ALREADY_CONNECTED: 0, NO_INVITATION: 0, PROVIDER_MISMATCH: 0, ERROR: 0 };
+  const detail: any[] = [];
+  for (const r of rows ?? []) {
+    const lead = Array.isArray((r as any).leads) ? (r as any).leads[0] : (r as any).leads;
+    const seller = Array.isArray((r as any).sellers) ? (r as any).sellers[0] : (r as any).sellers;
+    const slug = extractLinkedinSlug(lead?.primary_linkedin_url ?? null);
+    const acct = seller?.unipile_account_id ?? null;
+    const label = `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim() + (lead?.company_name ? ` · ${lead.company_name}` : "");
+    if (!slug || !acct) { counts.ERROR += 1; detail.push({ id: (r as any).id, label, category: "ERROR", why: !slug ? "no_slug" : "no_account" }); continue; }
+    try {
+      const s = await getRelationState(slug, acct);
+      let category: string;
+      if (isFirstDegree(s.networkDistance)) category = "ALREADY_CONNECTED";
+      else if (lead?.linkedin_internal_id && s.providerId && lead.linkedin_internal_id !== s.providerId) category = "PROVIDER_MISMATCH";
+      else if (s.invitationStatus === "PENDING") category = "PENDING";
+      else category = "NO_INVITATION";
+      counts[category] += 1;
+      detail.push({ id: (r as any).id, label, category, network_distance: s.networkDistance, invitation_status: s.invitationStatus, invited: (r as any).original_invite_sent_at });
+    } catch (e: any) {
+      counts.ERROR += 1;
+      detail.push({ id: (r as any).id, label, category: "ERROR", why: (e?.message ?? String(e)).slice(0, 120) });
+    }
+  }
+  const n = (rows ?? []).length;
+  return NextResponse.json({ ok: true, preflight: true, sampleN: n, counts, pendingRate: n > 0 ? Math.round((counts.PENDING / n) * 100) : null, detail });
+}
+
 export async function POST(req: NextRequest) { return handle(req); }
 export async function GET(req: NextRequest) { return handle(req); }
 
@@ -103,6 +149,14 @@ async function handle(req: NextRequest) {
   }
 
   const url = new URL(req.url);
+
+  // READ-ONLY preflight mode (?preflight=1): live Unipile GET over a sample of
+  // recovery rows to measure TRUE_ACTIONABLE. No writes, no withdraw/invite/DM;
+  // independent of the feature flag. Lives here (not /api/admin) because /api/cron
+  // is the Bearer-authed public path; /api/admin requires a browser session.
+  if (url.searchParams.get("preflight") === "1") {
+    return runPreflight(url);
+  }
   const execute = url.searchParams.get("execute") === "1";
   const enabled = process.env.LINKEDIN_RECOVERY_ENABLED === "true";
   const allowlist = parseAllowlist();
