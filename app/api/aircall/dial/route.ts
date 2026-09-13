@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import { advanceCallStepForLead } from "@/lib/advance-call-step";
+import { listUsers, getUser, startCall } from "@/integrations/aircall/client";
 
-const AIRCALL_AUTH = Buffer.from(
-  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
-).toString("base64");
 const DEFAULT_NUMBER_ID = Number(process.env.AIRCALL_DEFAULT_NUMBER_ID);
 
 export async function POST(req: NextRequest) {
@@ -171,8 +169,7 @@ export async function POST(req: NextRequest) {
   }
   if (!resolvedUserId) {
     try {
-      const usersRes = await fetch("https://api.aircall.io/v1/users?per_page=50", {
-        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+      const usersRes = await listUsers(50, {
       });
       if (usersRes.ok) {
         const usersData = await usersRes.json();
@@ -188,8 +185,7 @@ export async function POST(req: NextRequest) {
     // The caller (or tenant default) gave us a specific user_id — verify
     // they're signed in. Otherwise the call queues forever.
     try {
-      const userRes = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}`, {
-        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+      const userRes = await getUser(resolvedUserId, {
       });
       if (userRes.ok) {
         const userData = await userRes.json();
@@ -258,14 +254,7 @@ export async function POST(req: NextRequest) {
   // Aircall outbound endpoint: POST /v1/users/{user_id}/calls
   // Returns 204 No Content on success — body is empty, the actual call_id
   // comes later via webhook (call.created).
-  const res = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}/calls`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${AIRCALL_AUTH}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ number_id: resolvedNumberId, to: normalizedPhone }),
-  });
+  const res = await startCall(resolvedUserId, { number_id: resolvedNumberId, to: normalizedPhone });
 
   if (!res.ok) {
     // Aircall rejected the dial — clean up the dial row we just inserted

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
+import { getCall, getCallTranscription } from "@/integrations/aircall/client";
 
 // Call transcription. Two-tier strategy:
 //   1. Try Aircall AI Voice (GET /v1/calls/{id}/transcription). Higher
@@ -19,9 +20,6 @@ import { getSupabaseService } from "@/integrations/supabase/service";
 
 export const maxDuration = 60;
 
-const aircallAuth = () => Buffer.from(
-  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,
-).toString("base64");
 
 // Quick country → Whisper language code map. Whisper's `language` parameter
 // follows ISO-639-1. Default to multi-lang (no hint) when unknown.
@@ -67,10 +65,7 @@ export async function POST(req: NextRequest) {
   // 1) Try Aircall AI Voice first. 200 with transcription content → save and exit.
   //    403/404 → silently fall through to Whisper (subscription not active).
   try {
-    const aircallTrRes = await fetch(
-      `https://api.aircall.io/v1/calls/${call.aircall_call_id}/transcription`,
-      { headers: { Authorization: `Basic ${aircallAuth()}` } },
-    );
+    const aircallTrRes = await getCallTranscription(call.aircall_call_id);
     if (aircallTrRes.ok) {
       const body = await aircallTrRes.json().catch(() => null) as { transcription?: { content?: string; utterances?: Array<{ speaker?: string; text?: string }> } } | null;
       let aircallTranscript = body?.transcription?.content ?? "";
@@ -96,8 +91,7 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
-  const callRes = await fetch(`https://api.aircall.io/v1/calls/${call.aircall_call_id}`, {
-    headers: { Authorization: `Basic ${aircallAuth()}` },
+  const callRes = await getCall(call.aircall_call_id, {
   });
   if (!callRes.ok) {
     return NextResponse.json({

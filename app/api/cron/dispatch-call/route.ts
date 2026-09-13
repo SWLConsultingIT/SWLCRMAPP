@@ -4,6 +4,7 @@ import { completionFields } from "@/lib/campaign-complete";
 import { getUserScope } from "@/shared/auth/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { listUsers, startCall } from "@/integrations/aircall/client";
 
 // Same rationale as dispatch-queue: cap parallel seller batches so we don't
 // blow past the 60-direct-conn Supabase limit at scale.
@@ -32,9 +33,6 @@ const MAX_PARALLEL_SELLERS = 5;
 //       3. AIRCALL_DEFAULT_NUMBER_ID env (last resort, SWL admin only path)
 //   - Phone normalization to E.164 (strip non-digits, prepend +).
 
-const AIRCALL_AUTH = Buffer.from(
-  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,
-).toString("base64");
 const DEFAULT_NUMBER_ID = Number(process.env.AIRCALL_DEFAULT_NUMBER_ID);
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
@@ -365,11 +363,7 @@ async function dispatchOneCall(
   let callOk = false;
   let errReason = "";
   try {
-    const res = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}/calls`, {
-      method: "POST",
-      headers: { Authorization: `Basic ${AIRCALL_AUTH}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ number_id: numberId, to: normalizedPhone }),
-    });
+    const res = await startCall(resolvedUserId, { number_id: numberId, to: normalizedPhone });
     callOk = res.ok;
     if (!res.ok) errReason = (await res.text()) || `Aircall ${res.status}`;
   } catch (e: any) {
@@ -564,8 +558,7 @@ async function handle(req: NextRequest) {
   // trips.
   let aircallUsers: Array<{ id: number; available: boolean }> = [];
   try {
-    const usersRes = await fetch("https://api.aircall.io/v1/users?per_page=50", {
-      headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+    const usersRes = await listUsers(50, {
     });
     if (usersRes.ok) {
       const usersData = await usersRes.json();

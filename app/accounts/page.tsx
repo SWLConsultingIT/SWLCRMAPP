@@ -8,10 +8,10 @@ import AccountsClient from "./AccountsClient";
 import PageHero from "@/shared/ui/PageHero";
 import AuroraHero from "@/shared/ui/AuroraHero";
 import { listAccounts } from "@/integrations/instantly/client";
+import { listNumbers, listCalls } from "@/integrations/aircall/client";
 
 export const dynamic = "force-dynamic";
 
-const AIRCALL_AUTH = Buffer.from(`${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`).toString("base64");
 
 async function getInstantlyPool(bioId: string | null) {
   // Per-tenant Instantly API key (e.g. Arqy uses a different Hypergrowth
@@ -65,12 +65,10 @@ async function getAircallUsage() {
     // (minutes/calls per number this month). Real-time precision isn't needed.
     // Without this cache, every accounts-page nav hit Aircall twice (~2s each).
     const [numbersRes, callsRes] = await Promise.all([
-      fetch("https://api.aircall.io/v1/numbers", {
-        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+      listNumbers({
         next: { revalidate: 60, tags: ["aircall-numbers"] },
       }),
-      fetch(`https://api.aircall.io/v1/calls?from=${fromTs}&per_page=50&order=desc`, {
-        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+      listCalls(`from=${fromTs}&per_page=50&order=desc`, {
         next: { revalidate: 60, tags: ["aircall-calls"] },
       }),
     ]);

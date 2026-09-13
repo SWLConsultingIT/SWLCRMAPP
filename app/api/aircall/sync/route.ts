@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { phoneSuffixMatch, ilikeDigitPattern } from "@/integrations/aircall/phone-match";
 import { requireUser } from "@/shared/auth/require-scope";
 import { SB_REST_URL } from "@/integrations/supabase/rest";
+import { listCalls } from "@/integrations/aircall/client";
 
-const AIRCALL_AUTH = Buffer.from(
-  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
-).toString("base64");
 const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
@@ -83,8 +81,7 @@ export async function POST(req: NextRequest) {
 
   const { limit = 50 } = await req.json().catch(() => ({ limit: 50 }));
 
-  const res = await fetch(`https://api.aircall.io/v1/calls?per_page=${limit}&order=desc`, {
-    headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+  const res = await listCalls(`per_page=${limit}&order=desc`, {
   });
   if (!res.ok) {
     return NextResponse.json({ error: await res.text() }, { status: res.status });
