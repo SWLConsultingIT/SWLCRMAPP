@@ -1,9 +1,12 @@
 # Arquitectura — SWL Growth Engine
 
-> Estado: **en migración**. `features/activities/` es el primer módulo migrado
-> y es el ejemplo canónico. El resto del código sigue en `app/`, `components/`
-> y `lib/` planos, y se migra por fases. Si algo de acá no matchea el disco,
-> gana el disco — y corregí este archivo en el mismo commit.
+> Estado: **en migración**. `shared/` y `features/activities/` ya existen y son
+> los ejemplos canónicos. El resto del código sigue en `app/`, `components/` y
+> `lib/` planos, y se migra por fases. Si algo de acá no matchea el disco, gana
+> el disco — y corregí este archivo en el mismo commit.
+>
+> Las cuatro reglas de dependencia las hace cumplir `npm run boundaries`, que
+> corre dentro de `npm test`. No son una convención escrita: son un gate.
 
 ## Las cuatro capas
 
@@ -11,12 +14,27 @@
 app/            routing y composición de Next. Nada más.
 features/       un módulo por dominio de negocio.
 integrations/   todo lo que habla con un servicio externo.   (todavía no creada)
-shared/         lo que usan 2+ dominios de verdad.           (todavía no creada)
+shared/         lo que usan 2+ dominios de verdad.           ✅ creada
 ```
 
-Hoy `shared/` e `integrations/` viven de hecho en `lib/` y `components/`. Se
-formalizan en fases posteriores; hasta entonces un feature importa de `lib/`
-y eso es correcto, no deuda.
+`integrations/` todavía vive en `lib/` (los clientes de Supabase, Unipile,
+Instantly, Aircall, n8n, AI). Se formaliza en la Fase 3a; hasta entonces que
+`shared/` o un feature importen `@/lib/supabase-service` es correcto, no deuda.
+
+```
+shared/
+  ui/        primitivas (Card · Button · Badge · Modal), PageHero, AuroraHero,
+             LogoLoader, EmptyState, Breadcrumb, SocialIcons, toast, print-pdf
+    shell/   AppShell · Sidebar · TopHeader · CommandPalette · HelpMenu
+             KeyboardCheatsheet · Navigation* · RealtimeRefresh · mobile-menu
+  design/    tokens.ts · theme.tsx · brand.tsx
+  i18n/      i18n.tsx · server.ts · locale.ts · dicts.ts · dict-it.ts
+  auth/      scope.ts · require-scope.ts · auth-admin.ts · auth-context.tsx
+             user-profile-cache.ts
+  lib/       business-time.ts · timezone.ts · format.ts · initials.ts
+             session-cache.ts · display-name.ts
+  tests/     test-business-time.mts
+```
 
 ## Dirección de dependencias
 
@@ -73,10 +91,36 @@ crear `types/` salvo que haya tipos que no pertenezcan a un solo archivo.
 integración necesita un componente (un botón de "conectar"), el componente vive
 en el feature que lo usa y llama al wrapper.
 
-**UI compartida** → `shared/ui/` sólo cuando **2+ dominios ya la usan**. Uno
-solo no alcanza. No se abstrae por anticipado: en esta migración
-`WhenScheduler` se quedó en Activities justamente por esto — tiene cuatro
-consumidores, pero los cuatro son consumidores de Activity.
+**UI compartida** → `shared/ui/` sólo cuando **2+ dominios ya la usan**, o
+cuando es el shell global de la app. Uno solo no alcanza.
+
+## Qué va en shared y qué no
+
+La pregunta no es "¿esto parece genérico?" sino **"¿cuántos dominios lo usan
+hoy?"**. `shared/` no es donde se guarda lo que no sabemos dónde poner.
+
+| ✅ Va | Por qué |
+|---|---|
+| `shared/lib/timezone.ts` | leads, companies y activities lo usan |
+| `shared/ui/Button.tsx` | primitiva sin dominio |
+| `shared/i18n/` | 201 archivos, todos los dominios |
+| `shared/lib/business-time.ts` | "qué día de negocio es" no es una métrica |
+| `shared/ui/shell/` | es el shell, no una pieza de un dominio |
+
+| ❌ No va | Por qué | Dónde va |
+|---|---|---|
+| `ActivityComposer` | 4 consumidores, los 4 de Activity | `features/activities/` |
+| `WhenScheduler` | depende de `activities.ts` | `features/activities/` |
+| `LeadHero` | un solo dominio | `features/leads/` |
+| `lib/supabase-service` | cliente de proveedor | `integrations/supabase/` |
+| `lib/metric-defs` | reglas de negocio del Dashboard | `features/dashboard/` |
+| `lib/concurrency` | genérico, pero **1 dominio** hoy | `features/outreach/` |
+
+Los dos últimos son los que más cuesta dejar afuera. `metric-defs` es una
+fuente de verdad, no una utilidad: responde "qué cuenta como X". `concurrency`
+es un `pMap` de 43 líneas que parece shared de manual, pero sus dos
+importadores son el mismo cron. Se mueven cuando tengan un segundo dominio, y
+eso es una línea de diff.
 
 **Una API route** → se queda en `app/api/...`, con la URL que ya tiene. El
 cuerpo delega en `features/<dominio>/server/`. Las URLs no se mueven cuando se
@@ -115,9 +159,15 @@ el recordatorio.
   `ActivityComposer`. Las dos direcciones existen. No es un ciclo a nivel
   archivo, pero sí a nivel dominio: se resuelve cuando se migre Calls, subiendo
   lo común o invirtiendo con composición.
-- **Activities → Dashboard.** `activities.ts` importa `businessToday` y
-  `businessDayStartMs` de `lib/metric-defs.ts`. Son primitivas de día hábil,
-  no métricas: su lugar es `shared/lib/`, no el dominio Dashboard.
+- ~~**Activities → Dashboard.**~~ **Resuelta en la Fase 2**: las primitivas de
+  día hábil se extrajeron a `shared/lib/business-time.ts` y `metric-defs` las
+  re-exporta. Activities ya no importa del dominio Dashboard.
+- **`shared/ui/shell/` compone widgets de dominio.** `AppShell` monta
+  DemoBanner, OnboardingChecklist y PositiveReplyBanner; `Sidebar` monta
+  TenantSwitcher; `TopHeader` monta NotificationBell. Hoy no viola nada porque
+  esos 5 siguen en `components/` sin migrar. Cuando sean features, `shared`
+  pasaría a importar `features` y el gate lo va a frenar: la salida es
+  inyectarlos como slots desde `app/layout.tsx`, no mover el shell de vuelta.
 
 ## Lo que NO cambió y no debe cambiar
 

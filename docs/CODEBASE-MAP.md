@@ -7,7 +7,8 @@
 
 | Dominio | Archivos | Estado | Ubicación |
 |---|---:|---|---|
-| **Activities** | 14 | ✅ **migrado** | `features/activities/` |
+| **shared** | 30 | ✅ **migrado** (Fase 2) | `shared/` |
+| **Activities** | 14 | ✅ **migrado** (Fase 1) | `features/activities/` |
 | Leads | ~64 | pendiente | `app/leads/`, `components/lead/`, `components/Lead*`, `lib/lead-*` |
 | Companies | ~22 | pendiente | `app/companies/`, `components/company/` |
 | Inbox | ~18 | pendiente | `components/Inbox*`, `app/api/inbox/` |
@@ -18,7 +19,7 @@
 | Dashboard / Metrics | ~87 | pendiente | `app/dashboard*/`, `components/dashboard/`, `lib/*-data.ts` |
 | Admin / Auth | ~98 | pendiente | `app/admin/`, `app/api/admin/`, `lib/scope.ts` |
 | Notifications | ~4 | pendiente | `components/Notification*`, `lib/web-push.ts` |
-| i18n | 5 | pendiente → **shared** | `lib/i18n*` (201 consumidores) |
+| i18n | 5 | ✅ → `shared/i18n/` | 201 consumidores |
 
 ## features/activities/ — el módulo de referencia
 
@@ -70,11 +71,12 @@ components/CallOutcomePrompt.tsx          ─┘   (calls → activities)
 
 | Destino | Qué es | Futuro |
 |---|---|---|
-| `lib/design.ts`, `lib/i18n*`, `lib/toast.tsx` | tokens, traducción, toasts | → `shared/` |
+| `shared/design/tokens`, `shared/i18n/*`, `shared/ui/toast` | tokens, traducción, toasts | ✅ ya en shared |
 | `lib/supabase-service.ts` | cliente service-role | → `integrations/supabase/` |
 | `lib/web-push.ts` | push del navegador | → `integrations/push/` |
-| `lib/prospect-time.ts`, `lib/lead-label.ts` | timezone del prospect, label del lead | → `shared/` o `features/leads/` |
-| `lib/metric-defs.ts` | `businessToday`, `businessDayStartMs` | → `shared/lib/` (son primitivas, no métricas) |
+| `shared/lib/timezone` | timezone del prospect | ✅ ya en shared |
+| `lib/lead-label.ts` | label del lead | → `features/leads/` |
+| `shared/lib/business-time` | `businessToday`, `businessDayStartMs` | ✅ extraído de metric-defs en la Fase 2 |
 | `components/CallButton.tsx` | botón de llamar | → `features/calls/` |
 
 ## Archivos que el nombre sugiere Activities y NO lo son
@@ -91,6 +93,8 @@ components/CallOutcomePrompt.tsx          ─┘   (calls → activities)
   Vercel no valida tipos. El gate real es `npm test` + `npm run ratchet` en CI.
 - Baseline congelado: **42** errores de tipo, **1183** de lint, **306** warnings.
 - Las migraciones de `supabase/migrations/` se aplican a mano; ver `APPLIED.md`.
+- `npm run boundaries` reporta 1 warning conocido: `scripts/qa-console.mts`
+  importa `app/dashboard-console/tabs-data.ts`. Se resuelve con Dashboard.
 - 3 lugares leen/escriben la tabla `activities` fuera del feature:
   `app/leads/[id]/page.tsx`, `app/companies/[name]/page.tsx` y
   `app/api/leads/[id]/call-outcome/route.ts`.
