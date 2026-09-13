@@ -80,10 +80,27 @@ export async function POST(req: NextRequest) {
   if (!canViewAllTenantData(scope.tier)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { id, action } = await req.json().catch(() => ({}));
-  if (!id || (action !== "approve" && action !== "reject")) {
-    return NextResponse.json({ error: "expected { id, action: 'approve'|'reject' }" }, { status: 400 });
+  if (!id || (action !== "approve" && action !== "reject" && action !== "promote")) {
+    return NextResponse.json({ error: "expected { id, action: 'approve'|'reject'|'promote' }" }, { status: 400 });
   }
   const svc = getSupabaseService();
+
+  // promote: manual authorization to start recovery on a historical SHADOW row
+  // (no completed_at anchor). Sets eligible_withdraw_at=now so the withdraw can
+  // run immediately once enabled — the operator's promote IS the authorization,
+  // replacing the completed_at+5d wait that only applies to NEW campaigns. The
+  // 21-day post-withdrawal cooldown is unchanged (enforced at reinvite). This is
+  // an internal state write only; the withdraw itself still needs the feature
+  // flag + cron. Only from SHADOW, one at a time (max-5 pilot enforced by the
+  // operator, not here).
+  if (action === "promote") {
+    const { data, error } = await svc.from("linkedin_recovery")
+      .update({ state: RECOVERY_STATES.WAITING_WITHDRAWAL, eligible_withdraw_at: new Date().toISOString(), stop_reason: "manual_promote" })
+      .eq("id", id).eq("state", RECOVERY_STATES.SHADOW).select("id");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data || data.length === 0) return NextResponse.json({ error: "not promotable (not in SHADOW)" }, { status: 409 });
+    return NextResponse.json({ ok: true, id, promoted: true });
+  }
 
   if (action === "approve") {
     // Only approvable while still awaiting reinvite with generated copy.
