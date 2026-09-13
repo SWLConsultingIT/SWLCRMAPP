@@ -1,79 +1,103 @@
-# Fase 3B — inventario de llamadas inline a proveedores
+# Llamadas inline a proveedores — estado tras la Fase 3B
 
-> Generado al cerrar la Fase 3A. **Nada de esto se tocó todavía.** Es el mapa
-> para decidir el orden de extracción, no una lista de tareas aprobadas.
+> Actualizado al cerrar la Fase 3B acelerada. La versión anterior de este
+> archivo era el mapa previo; esto es el resultado.
 
-La Fase 3A movió los **17 wrappers que ya existían**. Lo que queda son llamadas
-armadas a mano dentro de route handlers: base URL, headers de auth, parseo de
-respuesta y manejo de error, repetidos en cada sitio.
+## Antes → después
 
-## Clasificación
+| Proveedor | Antes | Después | Estado |
+|---|---:|---:|---|
+| **Maps** | 2 archivos | **0** | ✅ `integrations/maps/places.ts` |
+| **Aircall** | 13 archivos | **0** | ✅ `integrations/aircall/client.ts` |
+| **Instantly** | 8 archivos | **0** | ✅ `integrations/instantly/client.ts` |
+| **n8n** | 9 archivos | **0** | ✅ `integrations/n8n/call-webhook.ts` |
+| **Supabase REST** | 17 archivos | **4** | ✅ `integrations/supabase/rest.ts` — los 4 restantes son zona diferida |
+| **AI** | 17 archivos | **0** | ✅ `integrations/ai/{anthropic,openai}.ts` |
+| **WhatsApp** | 1 archivo | **0** | ✅ `integrations/whatsapp/client.ts` |
+| **Unipile** | 11 archivos | **11** | ⏸️ **diferido a la Fase 3C** |
 
-| Clase | Qué significa |
-|---|---|
-| **ALREADY WRAPPED** | Ya hay un primitive en `integrations/` que hace esto |
-| **EASY EXTRACTION** | El fetch está aislado; se extrae sin tocar lógica de negocio |
-| **INTERLEAVED** | El fetch está entremezclado con decisiones de dominio |
-| **HIGH RISK** | Toca envíos reales a clientes vivos |
+**81 → 15.** De los 15 que quedan, 11 son Unipile por decisión, 3 son REST
+dentro de rutas de Unipile (misma zona), y 1 es `proxy.ts`.
 
-## Por proveedor
+## Primitives nuevos
 
-### MAPS · 2 archivos — `EASY EXTRACTION`
-`leads/[id]/nearby-companies`, `leads/[id]/place-detail`. Google Places, 2 fetch
-cada uno, sin estado. **El mejor primer candidato**: si el patrón de extracción
-falla acá, no se perdió nada.
+```
+integrations/
+  maps/places.ts        nearbySearch · placeDetails · findPlaceFromText
+                        photoUrl · streetViewUrl · staticMapUrl
+  aircall/client.ts     aircallFetch + listNumbers · getNumber · listUsers
+                        getUser · getCall · getCallTranscription · listCalls
+                        startCall  (el POST de dial)
+  instantly/client.ts   instantlyFetch · instantlyGet · listAccounts
+                        INSTANTLY_BASE
+  n8n/call-webhook.ts   N8N_BASE · n8nWebhookUrl · callWebhook
+  supabase/rest.ts      SB_REST_URL · restHeaders · restFetch · restGet
+  ai/anthropic.ts       getAnthropic
+  ai/openai.ts          OPENAI_CHAT_URL · OPENAI_TRANSCRIPTIONS_URL
+                        openaiChat · getOpenAI
+  whatsapp/client.ts    WA_BASE · sendWhatsAppMessage
+```
 
-### WHATSAPP · 1 archivo — `EASY EXTRACTION`
-`cron/dispatch-whatsapp`, 1 fetch a graph.facebook.com. Ojo: es envío real.
+## Lo que queda inline, y por qué
 
-### AIRCALL · 13 archivos — `EASY` + `INTERLEAVED`
-Los pesados son `aircall/webhook` (16 fetch) y `aircall/sync` (9), que mezclan
-llamadas a Aircall con lecturas REST a Supabase y reconciliación. Los livianos
-(`numbers`, `admin/aircall-*`, `settings/aircall-pool`, 1 fetch cada uno) son
-extracción directa. `components/CallButton` y `CampaignDetailClient` llaman
-desde el cliente: ahí el primitive tiene que quedar del lado del server.
+### Unipile — 11 archivos · **diferido**
+`inbox/reply` (6 fetch) · `cron/dispatch-queue` (4) · `unipile/hosted-link` (4)
+`sellers/[id]/connection-status` (4) · `cron/recover-replies` (3)
+`cron/resolve-telegram-users` (2) · `unipile/unlinked-accounts` (2)
+`unipile/webhook` (2) · `cron/dispatch-telegram` (1) · `inbox/thread` (1)
+`unipile/telegram-hosted-link` (1)
 
-### INSTANTLY · 8 archivos — `ALREADY WRAPPED` en su mayoría
-`integrations/instantly/` ya tiene config, campaign-pool, flow-campaign y el
-guard. Lo que queda inline (`inbox/reply` 6 fetch, `cron/recover-replies` 3,
-`accounts/page` 3) debería poder usar esos primitives casi tal cual.
-⚠️ `proxy.ts` tiene 1 fetch a Instantly: es middleware, va con cuidado propio.
+Acá viven los connection requests, los DMs, la aceptación, el withdraw y el
+enrichment de perfil. `integrations/unipile/linkedin.ts` ya tiene los contratos
+correctos (v1, `X-API-KEY`, host de fallback api21) y lo usan expire-invites,
+withdraw y linkedin-recovery: **ese es el modelo a seguir en 3C**, no inventar
+un cuarto cliente.
 
-### N8N · 9 archivos — `INTERLEAVED`
-No hay cliente: cada sitio arma la URL del webhook y el header. Un
-`integrations/n8n/callWebhook()` cubriría los 9. Pero acá adentro está la LEY de
-que toda la generación con IA pasa por n8n, así que cada call site hay que
-leerlo, no reemplazarlo mecánicamente.
+### Supabase REST — 3 archivos · misma zona
+`unipile/hosted-link`, `unipile/unlinked-accounts`, `unipile/webhook`. Son
+llamadas a Supabase, pero viven en rutas de Unipile y se migran con ellas.
 
-### UNIPILE · 11 archivos — `HIGH RISK`
-**Lo último que se toca.** Acá viven los envíos de LinkedIn.
-`inbox/reply` (6 fetch), `cron/dispatch-queue` (4), `unipile/hosted-link` (4),
-`cron/recover-replies` (3). `integrations/unipile/linkedin.ts` ya tiene los
-contratos correctos (v1, X-API-KEY, fallback api21) y los usan expire-invites,
-withdraw y linkedin-recovery: **ese es el modelo a seguir**, no inventar otro.
-Mirar `resolveOutbound` y el blindaje de nombres antes de tocar nada.
+### `proxy.ts` — 1 archivo · legítimo
+Es el middleware de Next: corre en otro runtime y no puede depender de módulos
+del árbol de la app de la misma forma. Se deja donde está.
 
-### AI · 17 archivos — `INTERLEAVED`
-No existe ningún wrapper. 13 archivos usan el SDK `@anthropic-ai/sdk` directo y
-4 hacen fetch a `api.openai.com`. `callHaiku()` está reimplementada 3 veces en
-los endpoints de tailoring. Extraer un `integrations/ai/` es viable, pero la
-consolidación de las 3 implementaciones cambia retries y prompts: eso es una
-decisión de producto, no un movimiento.
+## Caminos de envío real: qué se tocó y qué no
 
-### SUPABASE REST · 17 archivos — `INTERLEAVED`
-Fetch crudo a `/rest/v1` en vez del cliente. Es donde se cuela el techo de 1000
-filas de PostgREST. `integrations/supabase/bulk.ts` ya resuelve la paginación;
-migrar cada sitio es un archivo por commit, verificando el conteo antes y
-después.
+| Camino | Qué se movió | Qué **no** se tocó |
+|---|---|---|
+| `cron/dispatch-email` | sólo la constante `INSTANTLY_BASE` | el helper de envío entero, incluido el `content-type` condicional que arregló el 400 de `DELETE /leads` |
+| `inbox/reply` | las 2 **lecturas** (listado + verificación de entrega) | el `POST /emails/reply` |
+| `aircall/dial` · `cron/dispatch-call` | el POST pasa por `startCall()` | a qué asiento dialar, qué número, la normalización del teléfono, el 204 sin body |
+| `cron/dispatch-whatsapp` | el POST pasa por `sendWhatsAppMessage()` | destinatario, plantilla, ventana de 24h, batch de 5 |
 
-## Orden propuesto, de menor a mayor riesgo
+No se ejecutó ningún envío de prueba: ni email, ni LinkedIn, ni WhatsApp, ni
+llamadas.
 
-1. **maps** (2) — ensayo del patrón
-2. **aircall livianos** (5 archivos de 1 fetch)
-3. **instantly restantes** (5) — ya hay primitives
-4. **n8n** (9) — un `callWebhook()`, leyendo cada call site
-5. **supabase REST** (17) — un archivo por commit
-6. **aircall pesados** (webhook + sync)
-7. **ai** (17) — mover primero, consolidar después
-8. **unipile** (11) — al final, con el envío real de por medio
-9. **whatsapp** (1) — envío real, suelto
+## Dedupes anotados, no hechos
+
+- **`callHaiku()` ×3** en `preview-tailor`, `tailor` y `wizard-batch-preview`:
+  retries y manejo de error distintos. Unificarlos cambia comportamiento.
+- **`bulkParallel()` ×2** idénticas en los mismos endpoints.
+
+## Hallazgos de configuración (no son refactor)
+
+1. **API key de Google Maps hardcodeada** como fallback, duplicada en los 2
+   routes. Ahora está en un solo lugar, con el mismo comportamiento.
+   **Conviene rotarla y dejarla sólo en env.**
+2. **Id de proyecto Supabase hardcodeado** en 4 archivos
+   (`inbox/suggest`, `leads/[id]/stage`, `sellers/[id]`, `sellers`): apuntaban a
+   un proyecto fijo aunque `NEXT_PUBLIC_SUPABASE_URL` dijera otra cosa. En un
+   preview apuntado a otro Supabase, esas 4 rutas seguían escribiendo a prod.
+   Ya leen la env.
+
+## El gate
+
+`scripts/check-boundaries.mts` suma la **regla 8**: nadie instancia el SDK de un
+proveedor (`@anthropic-ai/sdk`, `openai`) fuera de `integrations/`. Se chequean
+SDKs con paquete propio porque ahí el import es evidencia directa; no se banea
+`fetch()` global, que sería frágil y llenaría el gate de falsos positivos.
+
+`import type` no cuenta: un tipo no llama a nadie.
+
+La regla ya encontró uno real — `campaigns/generate-field` importaba `openai`
+con un import dinámico que ningún grep de host hubiera visto.

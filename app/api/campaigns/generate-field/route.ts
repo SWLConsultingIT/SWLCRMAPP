@@ -3,6 +3,7 @@ import { getSupabaseService } from "@/integrations/supabase/service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { requireUser } from "@/shared/auth/require-scope";
 import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
+import { getOpenAI } from "@/integrations/ai/openai";
 
 // Proxies to the n8n workflow "SWL - CRM - Message Generator V8 Native".
 // Computes step_type_override per idx (the wizard knows which UI step the user clicked
@@ -360,7 +361,6 @@ async function generateCallScript(body: LegacyBody): Promise<NextResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing OPENAI_API_KEY on the server. Add it in Vercel → Settings → Environment Variables." }, { status: 500 });
 
-  const OpenAI = (await import("openai")).default;
   const svc = getSupabaseService();
 
   function coerce(v: unknown): string {
@@ -454,7 +454,7 @@ ${body.user_prompt ? `SELLER'S INTENT (honor this): ${body.user_prompt}` : ""}${
 Structure: (1) warm opener using {{first_name}} + why you're calling, (2) one open question about their situation, (3) a 2-line value pitch tied to their likely pain, (4) a close proposing a 15-minute follow-up. Keep it ~120-160 words. Use {{first_name}}, {{company}}, {{seller_name}} placeholders EVERYWHERE a literal name would naturally appear. Return ONLY the script text — no headings, no quotes, no commentary.`;
 
   try {
-    const client = new OpenAI({ apiKey });
+    const client = await getOpenAI(apiKey);
     // gpt-5-mini is a reasoning model: max_completion_tokens covers
     // BOTH reasoning tokens AND visible output. A 700 cap leaves zero
     // for the visible answer once the model thinks for a few hundred

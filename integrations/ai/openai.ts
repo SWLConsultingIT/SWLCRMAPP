@@ -22,3 +22,11 @@ export function openaiChat(apiKey: string, body: unknown, init?: RequestInit): P
     body: JSON.stringify(body),
   });
 }
+
+/** Cliente del SDK de OpenAI. Import dinamico a proposito: el paquete es
+ *  pesado y solo lo usa el generador de scripts de llamada, que no corre en
+ *  cada request. Igual que hacia el call site antes de moverse. */
+export async function getOpenAI(apiKey: string) {
+  const OpenAI = (await import("openai")).default;
+  return new OpenAI({ apiKey });
+}

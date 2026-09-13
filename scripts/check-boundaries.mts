@@ -37,6 +37,10 @@ function resolve(spec: string, from: string): string | null {
 }
 
 const IMPORT = /(?:from\s+|import\s*\(\s*|require\(\s*)["']([^"']+)["']/g;
+
+/** SDKs con paquete propio: el import es evidencia directa de que se esta
+ *  hablando con el proveedor. `import type` no cuenta — un tipo no llama. */
+const PROVIDER_SDKS = ["@anthropic-ai/sdk", "openai"];
 const featureOf = (p: string) => p.startsWith("features/") ? p.split("/")[1] : null;
 
 type V = { rule: string; from: string; to: string };
@@ -48,7 +52,11 @@ for (const f of files) {
   const src = readFileSync(f, "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "");  // sin comentarios
   for (const m of src.matchAll(IMPORT)) {
-    const to = resolve(m[1], f);
+    const spec = m[1];
+    if (PROVIDER_SDKS.includes(spec) && !f.startsWith("integrations/") && !/^\s*import type /m.test(src.slice(Math.max(0, m.index! - 60), m.index!))) {
+      violations.push({ rule: "8 · SDK de proveedor fuera de integrations/", from: f, to: spec });
+    }
+    const to = resolve(spec, f);
     if (!to) continue;
     if (f.startsWith("shared/") && to.startsWith("features/"))
       violations.push({ rule: "1 · shared -> features", from: f, to });
