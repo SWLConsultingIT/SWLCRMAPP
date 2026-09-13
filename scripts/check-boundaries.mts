@@ -41,6 +41,7 @@ const featureOf = (p: string) => p.startsWith("features/") ? p.split("/")[1] : n
 
 type V = { rule: string; from: string; to: string };
 const violations: V[] = [];
+const reported: V[] = [];
 
 for (const f of files) {
   if (!existsSync(f)) continue;
@@ -58,8 +59,18 @@ for (const f of files) {
       violations.push({ rule: "3 · feature -> otro feature", from: f, to });
     if (to.startsWith("app/") && !f.startsWith("app/"))
       violations.push({ rule: "4 · algo de afuera importa app/", from: f, to });
+    if (f.startsWith("integrations/") && to.startsWith("features/"))
+      violations.push({ rule: "5 · integrations -> features", from: f, to });
+    if (f.startsWith("integrations/") && to.startsWith("app/"))
+      violations.push({ rule: "6 · integrations -> app", from: f, to });
+    if (f.startsWith("integrations/") && to.startsWith("shared/ui"))
+      violations.push({ rule: "7 · integrations -> shared/ui", from: f, to });
+    if (f.startsWith("shared/") && to.startsWith("integrations/"))
+      reported.push({ rule: "shared -> integrations (permitido)", from: f, to });
   }
 }
+
+for (const r of reported) console.log(`\ni shared -> integrations\n     ${r.from}\n       -> ${r.to}`);
 
 const warn = violations.filter(v => v.from.startsWith("scripts/"));
 const hard = violations.filter(v => !v.from.startsWith("scripts/"));
@@ -67,7 +78,7 @@ const hard = violations.filter(v => !v.from.startsWith("scripts/"));
 for (const v of warn) console.log(`\n⚠ warning (herramienta, no rompe el gate)\n  [${v.rule}]\n     ${v.from}\n       -> ${v.to}`);
 
 if (hard.length === 0) {
-  console.log(`\n✓ fronteras OK — ${files.length} archivos, 0 violaciones duras, ${warn.length} warning(s)\n`);
+  console.log(`\n✓ fronteras OK — ${files.length} archivos, 0 violaciones duras, ${warn.length} warning(s), ${reported.length} arista(s) shared->integrations\n`);
   process.exit(0);
 }
 console.log(`\n✗ ${hard.length} violacion(es) de frontera:\n`);
