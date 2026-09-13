@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { fetchPrefsCached, clearAllSessionCache } from "@/lib/session-cache";
+import { fetchPrefsCached, clearAllSessionCache } from "@/shared/lib/session-cache";
 
 type Theme = "light" | "dark";
 

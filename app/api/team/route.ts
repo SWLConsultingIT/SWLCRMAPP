@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
-import { prettyDisplayName } from "@/lib/display-name";
+import { prettyDisplayName } from "@/shared/lib/display-name";
 
 // List team members of the caller's tenant.
 //

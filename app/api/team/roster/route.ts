@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/shared/auth/scope";
-import { prettyDisplayName } from "@/lib/display-name";
+import { prettyDisplayName } from "@/shared/lib/display-name";
 
 export async function GET(req: NextRequest) {
   const scope = await getUserScope();

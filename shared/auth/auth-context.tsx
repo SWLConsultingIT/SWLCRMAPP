@@ -26,7 +26,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, useRef } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { handleAuthFailure } from "@/lib/session-cache";
+import { handleAuthFailure } from "@/shared/lib/session-cache";
 
 export type AuthUser = {
   id: string;

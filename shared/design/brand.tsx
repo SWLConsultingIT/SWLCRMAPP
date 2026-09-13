@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { fetchBrandingCached, clearAllSessionCache } from "@/lib/session-cache";
+import { fetchBrandingCached, clearAllSessionCache } from "@/shared/lib/session-cache";
 
 type BrandState = {
   primaryColor: string;   // effective color (either brand or gold fallback)
