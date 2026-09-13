@@ -93,6 +93,60 @@ async function cas(svc: Svc, id: string, from: string, patch: Record<string, unk
   return !!(data && data.length > 0);
 }
 
+// READ-ONLY Unipile preflight over a sample of recovery rows. No writes.
+async function runPreflight(url: URL) {
+  if (!hasUnipileCreds()) return NextResponse.json({ error: "UNIPILE creds missing in this environment" }, { status: 503 });
+  const svc = getSupabaseService();
+  const tenant = url.searchParams.get("tenant");
+  const order = url.searchParams.get("order") ?? "recent";
+  const sample = Math.min(40, Math.max(1, parseInt(url.searchParams.get("sample") ?? "20", 10) || 20));
+  const idsParam = url.searchParams.get("ids");
+
+  // No FK from linkedin_recovery.seller_id → sellers (deliberate, avoids embed
+  // ambiguity), so resolve sellers with a separate query rather than an embed.
+  let q = svc.from("linkedin_recovery")
+    .select("id, seller_id, original_invite_sent_at, leads!inner(primary_first_name, primary_last_name, company_name, primary_linkedin_url, linkedin_internal_id)");
+  if (idsParam) q = q.in("id", idsParam.split(",").map((s) => s.trim()).filter(Boolean));
+  else {
+    if (tenant) q = q.eq("company_bio_id", tenant);
+    q = q.order("original_invite_sent_at", { ascending: order === "old" }).limit(sample);
+  }
+  const { data: rows, error } = await q;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const sellerIds = [...new Set((rows ?? []).map((r: any) => r.seller_id).filter(Boolean))] as string[];
+  const acctBySeller = new Map<string, string | null>();
+  if (sellerIds.length > 0) {
+    const { data: sel } = await svc.from("sellers").select("id, unipile_account_id").in("id", sellerIds);
+    for (const s of sel ?? []) acctBySeller.set((s as any).id, (s as any).unipile_account_id ?? null);
+  }
+
+  const counts: Record<string, number> = { PENDING: 0, ALREADY_CONNECTED: 0, NO_INVITATION: 0, PROVIDER_MISMATCH: 0, ERROR: 0 };
+  const detail: any[] = [];
+  for (const r of rows ?? []) {
+    const lead = Array.isArray((r as any).leads) ? (r as any).leads[0] : (r as any).leads;
+    const slug = extractLinkedinSlug(lead?.primary_linkedin_url ?? null);
+    const acct = acctBySeller.get((r as any).seller_id) ?? null;
+    const label = `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim() + (lead?.company_name ? ` · ${lead.company_name}` : "");
+    if (!slug || !acct) { counts.ERROR += 1; detail.push({ id: (r as any).id, label, category: "ERROR", why: !slug ? "no_slug" : "no_account" }); continue; }
+    try {
+      const s = await getRelationState(slug, acct);
+      let category: string;
+      if (isFirstDegree(s.networkDistance)) category = "ALREADY_CONNECTED";
+      else if (lead?.linkedin_internal_id && s.providerId && lead.linkedin_internal_id !== s.providerId) category = "PROVIDER_MISMATCH";
+      else if (s.invitationStatus === "PENDING") category = "PENDING";
+      else category = "NO_INVITATION";
+      counts[category] += 1;
+      detail.push({ id: (r as any).id, label, category, network_distance: s.networkDistance, invitation_status: s.invitationStatus, invited: (r as any).original_invite_sent_at });
+    } catch (e: any) {
+      counts.ERROR += 1;
+      detail.push({ id: (r as any).id, label, category: "ERROR", why: (e?.message ?? String(e)).slice(0, 120) });
+    }
+  }
+  const n = (rows ?? []).length;
+  return NextResponse.json({ ok: true, preflight: true, sampleN: n, counts, pendingRate: n > 0 ? Math.round((counts.PENDING / n) * 100) : null, detail });
+}
+
 export async function POST(req: NextRequest) { return handle(req); }
 export async function GET(req: NextRequest) { return handle(req); }
 
@@ -103,6 +157,14 @@ async function handle(req: NextRequest) {
   }
 
   const url = new URL(req.url);
+
+  // READ-ONLY preflight mode (?preflight=1): live Unipile GET over a sample of
+  // recovery rows to measure TRUE_ACTIONABLE. No writes, no withdraw/invite/DM;
+  // independent of the feature flag. Lives here (not /api/admin) because /api/cron
+  // is the Bearer-authed public path; /api/admin requires a browser session.
+  if (url.searchParams.get("preflight") === "1") {
+    return runPreflight(url);
+  }
   const execute = url.searchParams.get("execute") === "1";
   const enabled = process.env.LINKEDIN_RECOVERY_ENABLED === "true";
   const allowlist = parseAllowlist();
@@ -129,7 +191,9 @@ async function handle(req: NextRequest) {
     const candidates = await discoverCandidates(svc, { companyBioIds: allowlist.length ? allowlist : null, limit: DISCOVERY_LIMIT });
     const enrollable = candidates.filter((c) => c.decision.enroll);
     report.discovered = enrollable.length;
-    if (execute && enrollable.length > 0) {
+    // Enroll only when enabled — with the feature OFF the cron writes nothing
+    // (discovery still reports how many WOULD enroll).
+    if (execute && enabled && enrollable.length > 0) {
       const rows = enrollable.map(buildRecoveryRow).filter(Boolean) as Record<string, unknown>[];
       // Idempotent: UNIQUE(lead_id) — ignore conflicts.
       const { data, error } = await svc.from("linkedin_recovery").upsert(rows, { onConflict: "lead_id", ignoreDuplicates: true }).select("id");
@@ -141,8 +205,9 @@ async function handle(req: NextRequest) {
   }
 
   // ── 2. COPY generation for WAITING_REINVITE rows still missing copy ──
-  //    (internal-ish: n8n webhook, gated by execute; not a LinkedIn write).
-  if (execute) {
+  //    Gated by execute AND enabled: with the feature OFF the cron must not
+  //    mutate recovery state at all (beyond discovery tracking).
+  if (execute && enabled) {
     let qy = svc.from("linkedin_recovery")
       .select("id, lead_id, campaign_id, company_bio_id, second_connection_note")
       .eq("state", RECOVERY_STATES.WAITING_REINVITE)
@@ -195,7 +260,8 @@ async function handle(req: NextRequest) {
         originalInvitationId: (row as any).original_invitation_id, storedProviderId: snap.storedProviderId, live,
       });
       if (decision.action === "wait") { report.withdraw.waited += 1; continue; }
-      if (!execute) { report.withdraw[decision.action === "proceed" ? "proceeded" : decision.action] += 1; continue; }
+      // Feature OFF (or dry-run) ⇒ evaluate + report only, never write.
+      if (!execute || !externalOk) { report.withdraw[decision.action === "proceed" ? "proceeded" : decision.action] += 1; continue; }
       if (decision.action === "cancel") { await svc.from("linkedin_recovery").update({ state: decision.state, stop_reason: decision.reason }).eq("id", (row as any).id); report.withdraw.cancelled += 1; continue; }
       if (decision.action === "review") { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: decision.reason }).eq("id", (row as any).id); report.withdraw.review += 1; continue; }
       // proceed → external write
@@ -258,7 +324,7 @@ async function handle(req: NextRequest) {
         sellerActive: snap.sellerActive, accountAvailable: !!snap.accountId, live,
       });
       if (decision.action === "wait") { report.reinvite.waited += 1; continue; }
-      if (!execute) { report.reinvite[decision.action === "proceed" ? "sent" : decision.action] += 1; continue; }
+      if (!execute || !externalOk) { report.reinvite[decision.action === "proceed" ? "sent" : decision.action] += 1; continue; }
       if (decision.action === "cancel") { await svc.from("linkedin_recovery").update({ state: decision.state, stop_reason: decision.reason }).eq("id", (row as any).id); report.reinvite.cancelled += 1; continue; }
       if (decision.action === "review") { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: decision.reason }).eq("id", (row as any).id); report.reinvite.review += 1; continue; }
       if (!externalOk) { report.notes.push("reinvite ready but external writes disabled"); continue; }
@@ -296,7 +362,7 @@ async function handle(req: NextRequest) {
       const deadline = (row as any).second_invite_sent_at ? computeSecondAcceptDeadline((row as any).second_invite_sent_at) : null;
       const expired = deadline ? Date.parse(deadline) < nowMs : false;
       if (accepted) {
-        if (!execute) { report.accept.dmSent += 1; continue; }
+        if (!execute || !externalOk) { report.accept.dmSent += 1; continue; }
         if (budget <= 0) { report.notes.push("dm: budget exhausted"); break; }
         if (!externalOk) { report.notes.push("second DM ready but external writes disabled"); continue; }
         if (!(row as any).second_dm) { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: "second_dm_missing" }).eq("id", (row as any).id); continue; }
@@ -312,7 +378,7 @@ async function handle(req: NextRequest) {
           await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.SECOND_INVITE_SENT, last_error: e?.message ?? String(e), retry_count: ((row as any).retry_count ?? 0) + 1 }).eq("id", (row as any).id);
         }
       } else if (expired) {
-        if (execute) await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.STOPPED_UNACCEPTED, stop_reason: "second_invite_unaccepted" }).eq("id", (row as any).id);
+        if (execute && externalOk) await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.STOPPED_UNACCEPTED, stop_reason: "second_invite_unaccepted" }).eq("id", (row as any).id);
         report.accept.stoppedUnaccepted += 1;
       }
     }
