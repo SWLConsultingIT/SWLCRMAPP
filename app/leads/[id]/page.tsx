@@ -14,7 +14,7 @@ import LeadOverview from "@/components/lead/LeadOverview";
 import LeadEngagement from "@/components/lead/LeadEngagement";
 import LeadResearch from "@/components/lead/LeadResearch";
 import type { TimelineEvent } from "@/components/lead/LeadTimeline";
-import { countryToTimeZone } from "@/lib/prospect-time";
+import { countryToTimeZone } from "@/shared/lib/timezone";
 import { ACTIVITY_SELECT, bucketActivity } from "@/features/activities/lib/activities";
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import { intlTag } from "@/shared/i18n/locale";

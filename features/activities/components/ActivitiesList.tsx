@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
-import { bucketActivity, wallTimeToUtcIso, type ActivityType } from "@/features/activities/lib/activities";
+import { bucketActivity, wallTimeToUtcIso, browserTimeZone, type ActivityType } from "@/features/activities/lib/activities";
 import type { BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import { Check, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw, ChevronRight, Building2, CalendarClock } from "lucide-react";
 import { intlTag, type Locale } from "@/shared/i18n/dicts";
@@ -165,7 +165,7 @@ export default function ActivitiesList({
 // block). Respects the activity's own due_tz (falls back to browser tz).
 function RescheduleInline({ a, onSave, onCancel }: { a: BoardActivity; onSave: (iso: string, tz: string) => void; onCancel: () => void }) {
   const { t } = useLocale();
-  const tz = a.due_tz || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires";
+  const tz = a.due_tz || browserTimeZone();
   const base = a.due_at ? new Date(a.due_at) : new Date();
   const [date, setDate] = useState(base.toLocaleDateString("en-CA"));
   const [time, setTime] = useState(base.toTimeString().slice(0, 5));

@@ -3,7 +3,7 @@
 
 import { presetToWall } from "../lib/activity-presets.ts";
 import { wallTimeToUtcIso } from "../lib/activities.ts";
-import { resolveDueTimezone, DEFAULT_DUE_TZ } from "@/lib/prospect-time.ts";
+import { resolveDueTimezone, DEFAULT_DUE_TZ } from "@/shared/lib/timezone.ts";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];

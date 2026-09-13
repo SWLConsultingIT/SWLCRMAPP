@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useToast } from "@/shared/ui/toast";
-import { bucketActivity, wallTimeToUtcIso, type ActivityType, type ActivityStatus } from "@/features/activities/lib/activities";
+import { bucketActivity, wallTimeToUtcIso, browserTimeZone, type ActivityType, type ActivityStatus } from "@/features/activities/lib/activities";
 import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";
 import CallButton from "@/components/CallButton";
@@ -110,7 +110,7 @@ export default function LeadActivitiesPanel({
   }
 
   function openResched(a: A) {
-    const tz = a.due_tz || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires";
+    const tz = a.due_tz || browserTimeZone();
     const base = a.due_at ? new Date(a.due_at) : new Date();
     setReschedVal({ date: base.toLocaleDateString("en-CA"), time: base.toTimeString().slice(0, 5), tz, reminderOffset: "" });
     setReschedId(a.id);

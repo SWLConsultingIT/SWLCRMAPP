@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useToast } from "@/shared/ui/toast";
-import { wallTimeToUtcIso } from "@/features/activities/lib/activities";
+import { wallTimeToUtcIso, browserTimeZone } from "@/features/activities/lib/activities";
 import { Zap, Plus, Phone, RefreshCw, Mail, MessageSquare, Users, FileText, ListTodo, Clock, Check, CalendarClock } from "lucide-react";
 import CallButton from "@/components/CallButton";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";
@@ -93,7 +93,7 @@ export default function HeroNextAction({
 
   function openResched() {
     if (!nextAction) return;
-    const tz = nextAction.dueTz || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Argentina/Buenos_Aires";
+    const tz = nextAction.dueTz || browserTimeZone();
     const base = nextAction.dueAt ? new Date(nextAction.dueAt) : new Date();
     setReschedVal({ date: base.toLocaleDateString("en-CA"), time: base.toTimeString().slice(0, 5), tz, reminderOffset: "" });
     setResched(true);

@@ -5,7 +5,7 @@ import { ACTIVITY_SELECT, bucketActivity } from "@/features/activities/lib/activ
 import { C } from "@/shared/design/tokens";
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import { intlTag } from "@/shared/i18n/locale";
-import { countryToTimeZone } from "@/lib/prospect-time";
+import { countryToTimeZone } from "@/shared/lib/timezone";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";

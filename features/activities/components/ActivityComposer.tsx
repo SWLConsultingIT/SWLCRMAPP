@@ -18,7 +18,7 @@ import { createPortal } from "react-dom";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useToast } from "@/shared/ui/toast";
-import { countryToTimeZone } from "@/lib/prospect-time";
+import { countryToTimeZone } from "@/shared/lib/timezone";
 import { leadDisplayName } from "@/lib/lead-label";
 import { createActivity } from "@/features/activities/lib/create-activity";
 import WhenScheduler from "@/features/activities/components/WhenScheduler";
