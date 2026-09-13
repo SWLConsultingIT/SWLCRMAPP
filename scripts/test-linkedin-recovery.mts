@@ -14,6 +14,7 @@ import {
 import { isDistinctCopy, copySimilarity, normalizeForCompare } from "../lib/linkedin-recovery-copy.ts";
 import { completionFields } from "../lib/campaign-complete.ts";
 import { computeRecoveryKpis, kpisByDimension } from "../lib/linkedin-recovery-metrics.ts";
+import { resolveOutbound } from "../lib/placeholders.ts";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];
@@ -150,6 +151,27 @@ console.log("\ncomputeRecoveryKpis");
   eq("tenant t2 done", byT.t2.secondAccepted, 1);
 }
 eq("empty kpis acceptance null", computeRecoveryKpis([]).secondAcceptanceRate, null);
+
+/* ── placeholder gate: recovery copy must go through resolveOutbound, fail closed ── */
+console.log("\nplaceholder gate (second copy send-path)");
+const fullLead = (first: string | null) => ({
+  primary_first_name: first, primary_last_name: "García", company_name: "Acme",
+  primary_title_role: "CEO", company_city: null, company_industry: null,
+  company_country: null, company_website: null,
+});
+const sellerObj = { name: "Lucho" };
+{
+  const r = resolveOutbound("Hola {{first_name}}, me encantaría conectar.", fullLead("Ana") as any, sellerObj as any, "linkedin");
+  eq("first_name valid → resolved ok", r.ok, true);
+  if (r.ok) { eq("resolved text has name", r.text.includes("Ana"), true); eq("no leftover placeholder", r.text.includes("{{"), false); }
+}
+eq("missing first_name → NO SEND (ok=false)", resolveOutbound("Hola {{first_name}}", fullLead(null) as any, sellerObj as any, "linkedin").ok, false);
+eq("unknown placeholder → NO SEND (ok=false)", resolveOutbound("Hi {{unknown_token}}", fullLead("Ana") as any, sellerObj as any, "linkedin").ok, false);
+{
+  const dm = resolveOutbound("Gracias por conectar, {{first_name}}!", fullLead("Ana") as any, sellerObj as any, "linkedin");
+  eq("second DM resolved ok", dm.ok, true);
+  if (dm.ok) eq("second DM no leftover placeholder", dm.text.includes("{{"), false);
+}
 
 console.log(`\nLinkedIn Recovery: ${pass} passed, ${fail} failed`);
 if (fail > 0) { console.error("FAILURES:\n" + fails.map(f => "  - " + f).join("\n")); process.exit(1); }
