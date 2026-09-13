@@ -13,7 +13,7 @@ import CampaignDetailClient from "./CampaignDetailClient";
 import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
 import { getFlowMetrics } from "@/lib/flow-metrics-compute";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 // Hydrates client-source leads in a list by decrypting encrypted_payload
 // and merging the result over the plain row. Resolves the tenant key once

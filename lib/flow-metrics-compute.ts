@@ -5,7 +5,7 @@
 // a move + a decrypt-free resolver, not a logic change.
 import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
 import { isRealCall, isConnected, isPositiveOutcome, callOutcomeGroup, healthOf, pctOf, type CallRow } from "@/lib/flow-metrics-lib";
-import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 export type CampRow = { lead_id: string; status: string; current_step: number | null; started_at: string | null; seller_id: string | null; last_step_at: string | null };
 export type MetricsFilters = { sellerFilter: string | null; range: string; winFrom: number | null; winTo: number };

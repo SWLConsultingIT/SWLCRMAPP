@@ -258,10 +258,10 @@ export async function POST(
       // the reply into the WRONG person's inbox). Pull a small page and pick the
       // newest email whose sender/lead exactly equals this lead's address.
       const toKey = String(to).trim().toLowerCase();
-      const listUrl = `${INSTANTLY_BASE}/emails?limit=20&email_type=received&q=${encodeURIComponent(to)}`;
+      const listPath = `/emails?limit=20&email_type=received&q=${encodeURIComponent(to)}`;
       let inbound: any = null;
       try {
-        const lr = await fetch(listUrl, { headers: { Authorization: `Bearer ${config.apiKey}`, accept: "application/json" } });
+        const lr = await instantlyFetch(config.apiKey, listPath);
         if (lr.ok) {
           const lj = await lr.json();
           const items: any[] = Array.isArray(lj?.items) ? lj.items : [];
@@ -325,9 +325,7 @@ export async function POST(
         for (let i = 0; i < 3; i++) {
           await new Promise((r) => setTimeout(r, 1500));
           try {
-            const v = await fetch(`${INSTANTLY_BASE}/emails/${encodeURIComponent(providerMessageId)}`, {
-              headers: { Authorization: `Bearer ${config.apiKey}`, accept: "application/json" },
-            });
+            const v = await instantlyFetch(config.apiKey, `/emails/${encodeURIComponent(providerMessageId)}`);
             if (v.ok) { confirmed = true; break; }
           } catch { /* retry */ }
         }

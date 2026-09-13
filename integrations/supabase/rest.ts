@@ -35,6 +35,8 @@ export function restFetch(path: string, init?: RequestInit): Promise<Response> {
 
 /** GET con JSON parseado. Devuelve [] si la respuesta no es 2xx — el mismo
  *  fail-soft que ya tenian los call sites que leen listas. */
+// El shape depende del `select` que arma el call site.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function restGet<T = any>(path: string, init?: RequestInit): Promise<T[]> {
   try {
     const r = await restFetch(path, { cache: "no-store", ...init });

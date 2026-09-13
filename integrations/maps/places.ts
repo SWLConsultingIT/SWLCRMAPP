@@ -20,8 +20,12 @@ const PLACES = "https://maps.googleapis.com/maps/api/place";
 const MAPS = "https://maps.googleapis.com/maps/api";
 
 /** Respuesta cruda de Places. `status` es de Google, no HTTP. */
+// La respuesta de Places es un blob dinamico: los call sites leen los campos que
+// pidieron en `fields`. Tiparlo aca seria adivinar.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PlacesResponse<T = any> = { status: string; error_message?: string } & T;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function get<T = any>(url: string): Promise<PlacesResponse<T>> {
   const res = await fetch(url, { cache: "no-store" });
   return (await res.json()) as PlacesResponse<T>;

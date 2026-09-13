@@ -26,6 +26,8 @@ export function instantlyFetch(apiKey: string, path: string, init?: RequestInit)
 }
 
 /** GET con JSON ya parseado. Devuelve null si la respuesta no es 2xx. */
+// El shape lo define el endpoint de Instantly que pide el call site.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function instantlyGet<T = any>(apiKey: string, path: string, init?: RequestInit): Promise<T | null> {
   const res = await instantlyFetch(apiKey, path, init);
   if (!res.ok) return null;

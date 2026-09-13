@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { getSupabaseServer } from "@/integrations/supabase/server";
-import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;

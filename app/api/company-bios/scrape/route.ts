@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropic } from "@/integrations/ai/anthropic";
 import { requireUser } from "@/shared/auth/require-scope";
 

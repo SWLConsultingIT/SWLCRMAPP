@@ -17,7 +17,7 @@ import CompanyContacts, { type ContactRow } from "@/components/company/CompanyCo
 import CompanyEngagement, { type CampaignRollup } from "@/components/company/CompanyEngagement";
 import CompanyResearch from "@/components/company/CompanyResearch";
 import type { TimelineEvent } from "@/components/lead/LeadTimeline";
-import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 export const dynamic = "force-dynamic";
 

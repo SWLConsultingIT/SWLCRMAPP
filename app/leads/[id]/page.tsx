@@ -19,7 +19,7 @@ import { ACTIVITY_SELECT, bucketActivity } from "@/features/activities/lib/activ
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import { intlTag } from "@/shared/i18n/locale";
 import { renderPlaceholders } from "@/lib/placeholders";
-import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 // Bypass Next's render cache — freshly-sent steps must show immediately.
 export const dynamic = "force-dynamic";
