@@ -102,8 +102,10 @@ async function runPreflight(url: URL) {
   const sample = Math.min(40, Math.max(1, parseInt(url.searchParams.get("sample") ?? "20", 10) || 20));
   const idsParam = url.searchParams.get("ids");
 
+  // No FK from linkedin_recovery.seller_id → sellers (deliberate, avoids embed
+  // ambiguity), so resolve sellers with a separate query rather than an embed.
   let q = svc.from("linkedin_recovery")
-    .select("id, original_invite_sent_at, leads!inner(primary_first_name, primary_last_name, company_name, primary_linkedin_url, linkedin_internal_id), sellers(unipile_account_id)");
+    .select("id, seller_id, original_invite_sent_at, leads!inner(primary_first_name, primary_last_name, company_name, primary_linkedin_url, linkedin_internal_id)");
   if (idsParam) q = q.in("id", idsParam.split(",").map((s) => s.trim()).filter(Boolean));
   else {
     if (tenant) q = q.eq("company_bio_id", tenant);
@@ -112,13 +114,19 @@ async function runPreflight(url: URL) {
   const { data: rows, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const sellerIds = [...new Set((rows ?? []).map((r: any) => r.seller_id).filter(Boolean))] as string[];
+  const acctBySeller = new Map<string, string | null>();
+  if (sellerIds.length > 0) {
+    const { data: sel } = await svc.from("sellers").select("id, unipile_account_id").in("id", sellerIds);
+    for (const s of sel ?? []) acctBySeller.set((s as any).id, (s as any).unipile_account_id ?? null);
+  }
+
   const counts: Record<string, number> = { PENDING: 0, ALREADY_CONNECTED: 0, NO_INVITATION: 0, PROVIDER_MISMATCH: 0, ERROR: 0 };
   const detail: any[] = [];
   for (const r of rows ?? []) {
     const lead = Array.isArray((r as any).leads) ? (r as any).leads[0] : (r as any).leads;
-    const seller = Array.isArray((r as any).sellers) ? (r as any).sellers[0] : (r as any).sellers;
     const slug = extractLinkedinSlug(lead?.primary_linkedin_url ?? null);
-    const acct = seller?.unipile_account_id ?? null;
+    const acct = acctBySeller.get((r as any).seller_id) ?? null;
     const label = `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim() + (lead?.company_name ? ` · ${lead.company_name}` : "");
     if (!slug || !acct) { counts.ERROR += 1; detail.push({ id: (r as any).id, label, category: "ERROR", why: !slug ? "no_slug" : "no_account" }); continue; }
     try {
