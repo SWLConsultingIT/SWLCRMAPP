@@ -17,34 +17,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
+import { withdrawInvitation } from "@/lib/unipile-linkedin";
 
-const UNIPILE_BASE = process.env.UNIPILE_DSN
-  ? `https://${process.env.UNIPILE_DSN}`
-  : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
-
-type WithdrawResult =
-  | { ok: true; status: "withdrawn" }
-  | { ok: true; status: "already_gone" }
-  | { ok: false; status: "failed"; reason: string };
-
-async function withdrawInvitation(invitationId: string, accountId: string): Promise<WithdrawResult> {
-  if (!UNIPILE_KEY) return { ok: false, status: "failed", reason: "UNIPILE_API_KEY missing" };
-  const url = `${UNIPILE_BASE}/api/v1/users/invite/sent/${encodeURIComponent(invitationId)}?account_id=${encodeURIComponent(accountId)}`;
-  try {
-    const res = await fetch(url, {
-      method: "DELETE",
-      headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
-    });
-    if (res.ok) return { ok: true, status: "withdrawn" };
-    if (res.status === 404) return { ok: true, status: "already_gone" };
-    const body = await res.text().catch(() => "");
-    return { ok: false, status: "failed", reason: `HTTP ${res.status}: ${body.slice(0, 200)}` };
-  } catch (e: any) {
-    return { ok: false, status: "failed", reason: e?.message ?? String(e) };
-  }
-}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // Auth: cron-secret OR admin-like tier.

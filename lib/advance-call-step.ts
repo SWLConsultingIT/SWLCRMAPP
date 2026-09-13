@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { completionFields } from "@/lib/campaign-complete";
 
 // Advance a lead's active campaign(s) past a CALL step.
 //
@@ -59,7 +60,7 @@ export async function advanceCallStepForLead(
         .update({
           current_step: newStepNumber,
           last_step_at: now,
-          ...(nextEligibleAt === null ? { status: "completed" } : {}),
+          ...completionFields(nextEligibleAt, now),
         })
         .eq("id", c.id),
       ...(nextEligibleAt ? [

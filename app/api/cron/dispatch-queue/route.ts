@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { completionFields } from "@/lib/campaign-complete";
 import { getUserScope } from "@/shared/auth/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { fetchStepAttachments } from "@/lib/campaign-attachments";
@@ -1062,7 +1063,7 @@ async function dispatchOneMessage(
       // a date to render. Pre-2026-05-29 this column was always NULL across
       // every active campaign because nothing wrote it.
       next_step_due_at: nextEligibleAt,
-      ...(nextEligibleAt === null ? { status: "completed" } : {}),
+      ...completionFields(nextEligibleAt, now),
     }).eq("id", candidate.campaign_id),
   );
   // current_step only ADVANCES — never let a late lower-step send drag the
@@ -1303,6 +1304,20 @@ async function handle(req: NextRequest) {
   const sentCounts: Record<string, number> = {};
   for (const row of sentRows ?? []) {
     const sid = (row as any)?.campaigns?.seller_id as string | undefined;
+    if (sid) sentCounts[sid] = (sentCounts[sid] ?? 0) + 1;
+  }
+
+  // LinkedIn Recovery second invites consume the SAME per-seller invite cap as
+  // normal CRs (one scarce LinkedIn resource). Count them alongside step-0 sends
+  // so a seller can never exceed linkedin_daily_limit across both systems. This
+  // is the canonical cap — the recovery cron counts the same two sources.
+  const { data: recovInvites } = await svc
+    .from("linkedin_recovery")
+    .select("seller_id")
+    .gte("second_invite_sent_at", since24h)
+    .in("seller_id", sellerIds);
+  for (const row of recovInvites ?? []) {
+    const sid = (row as any)?.seller_id as string | undefined;
     if (sid) sentCounts[sid] = (sentCounts[sid] ?? 0) + 1;
   }
 

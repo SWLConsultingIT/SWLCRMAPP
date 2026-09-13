@@ -288,7 +288,7 @@ export async function GET(req: NextRequest) {
       // leaves the flow instead of sitting 'active' on a dead call step.
       const { error: campErr } = await svc
         .from("campaigns")
-        .update({ status: "completed", current_step: (c.campaign.current_step ?? 0) + 1, last_step_at: nowISO })
+        .update({ status: "completed", completed_at: nowISO, current_step: (c.campaign.current_step ?? 0) + 1, last_step_at: nowISO })
         .eq("id", c.campaign.id)
         .eq("status", "active");
       if (campErr) { errors.push({ campaignId: c.campaign.id, reason: `campaign complete: ${campErr.message}` }); continue; }
