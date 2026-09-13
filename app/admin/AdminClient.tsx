@@ -11,13 +11,13 @@ import {
   Activity, Theater, Zap, Plus, Edit3, Megaphone, LifeBuoy,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
-import PageHero from "@/components/PageHero";
-import AuroraHero from "@/components/AuroraHero";
+import PageHero from "@/shared/ui/PageHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import PendingUsersSection from "./PendingUsersSection";
 import ActivityWidget from "@/components/ActivityWidget";
 import TenantTeamTab from "./TenantTeamTab";
 import AddPersonModal from "./AddPersonModal";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 
 type UserRow = {
   id: string;

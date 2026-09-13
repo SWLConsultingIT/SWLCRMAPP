@@ -7,11 +7,11 @@
 // collapses to a horizontal scroll of chips above the content.
 
 import { useState, type ReactNode } from "react";
-import { Card } from "@/components/ui";
+import { Card } from "@/shared/ui";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, Building2, Share2, Bot } from "lucide-react";
-import { LinkedInIcon } from "@/components/SocialIcons";
+import { LinkedInIcon } from "@/shared/ui/SocialIcons";
 import { SectionHeader, EmptyLine, ChipCloud } from "@/components/lead/ui";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LinkedInEnrichment from "@/components/LinkedInEnrichment";

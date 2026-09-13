@@ -6,7 +6,7 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { C } from "@/shared/design/tokens";
 import { UserPlus, AlertTriangle, Trash2, Loader2 } from "lucide-react";
 import AddPersonModal, { type AddPersonResult } from "./AddPersonModal";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 
 const gold = "var(--brand, #c9a83a)";
 

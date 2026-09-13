@@ -13,7 +13,7 @@ import {
   Trophy, Share2, Mail, Phone, Star,
   ExternalLink, Search, X, ChevronRight,
 } from "lucide-react";
-import EmptyState from "@/components/EmptyState";
+import EmptyState from "@/shared/ui/EmptyState";
 import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";

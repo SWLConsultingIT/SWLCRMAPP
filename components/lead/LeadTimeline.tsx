@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { C } from "@/shared/design/tokens";
-import { LinkedInIcon } from "@/components/SocialIcons";
+import { LinkedInIcon } from "@/shared/ui/SocialIcons";
 import {
   Mail, Phone, Send, MessageSquare, UserPlus, Megaphone, CalendarClock, CheckCircle2,
   CornerDownLeft, ListTodo,

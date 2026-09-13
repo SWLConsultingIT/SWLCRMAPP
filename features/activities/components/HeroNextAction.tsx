@@ -13,7 +13,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { wallTimeToUtcIso } from "@/features/activities/lib/activities";
 import { Zap, Plus, Phone, RefreshCw, Mail, MessageSquare, Users, FileText, ListTodo, Clock, Check, CalendarClock } from "lucide-react";
 import CallButton from "@/components/CallButton";

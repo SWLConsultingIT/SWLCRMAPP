@@ -12,8 +12,8 @@ import {
   PhoneCall, User, PhoneOff, Bell, AlertTriangle, XCircle, Sparkles,
   ThumbsUp, ThumbsDown, Clock, Loader2, Trash2, Voicemail, Calendar, RotateCcw,
 } from "lucide-react";
-import PageHero from "@/components/PageHero";
-import AuroraHero from "@/components/AuroraHero";
+import PageHero from "@/shared/ui/PageHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import RecallList, { recallDueCount, type RecallItem } from "@/components/RecallList";
 import CallButton from "@/components/CallButton";
 import InboxView, { type InboxReply } from "@/components/InboxView";

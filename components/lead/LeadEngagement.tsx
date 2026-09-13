@@ -5,7 +5,7 @@
 // chronological Timeline (server-merged events); Campaign and Calls are
 // secondary sub-views, not top-level lead tabs.
 
-import { Card, Badge } from "@/components/ui";
+import { Card, Badge } from "@/shared/ui";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { ExternalLink } from "lucide-react";

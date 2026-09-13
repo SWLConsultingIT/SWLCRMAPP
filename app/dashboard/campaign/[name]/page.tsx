@@ -14,7 +14,7 @@ import { C, N } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getT, getServerLocale } from "@/shared/i18n/server";
-import PageHero from "@/components/PageHero";
+import PageHero from "@/shared/ui/PageHero";
 import KpiCard from "@/components/dashboard/KpiCard";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import SwlSignature from "@/components/dashboard/SwlSignature";

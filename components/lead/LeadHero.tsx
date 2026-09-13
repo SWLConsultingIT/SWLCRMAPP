@@ -17,7 +17,7 @@
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
-import { LinkedInIcon } from "@/components/SocialIcons";
+import { LinkedInIcon } from "@/shared/ui/SocialIcons";
 import { Mail, Building2, ExternalLink, ChevronLeft, ChevronRight, Phone, CalendarPlus, Clock } from "lucide-react";
 import CallButton from "@/components/CallButton";
 import WrongNumberPill from "@/components/WrongNumberPill";

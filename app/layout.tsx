@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
-import AppShell from "@/components/AppShell";
+import AppShell from "@/shared/ui/shell/AppShell";
 import { ThemeProvider } from "@/shared/design/theme";
 import { LocaleProvider } from "@/shared/i18n/i18n";
 import { BrandProvider } from "@/shared/design/brand";

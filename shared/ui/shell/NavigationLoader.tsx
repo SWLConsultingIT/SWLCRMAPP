@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import LogoLoader from "@/components/LogoLoader";
+import LogoLoader from "@/shared/ui/LogoLoader";
 
 // Forces the gold LogoLoader to appear on every internal navigation,
 // regardless of whether the destination is a server or client component.

@@ -10,7 +10,7 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
 import { intlTag, type Locale } from "@/shared/i18n/dicts";
 import {

@@ -4,7 +4,7 @@ import { Archive, RotateCcw } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
-import PageHero from "@/components/PageHero";
+import PageHero from "@/shared/ui/PageHero";
 import RecoveryClient from "./RecoveryClient";
 
 export const dynamic = "force-dynamic";

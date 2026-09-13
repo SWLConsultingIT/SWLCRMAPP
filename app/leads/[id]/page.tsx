@@ -7,7 +7,7 @@ import CompanyTabs from "@/components/CompanyTabs";
 import PreCallBrief from "@/components/PreCallBrief";
 import LeadActivitiesPanel from "@/features/activities/components/LeadActivitiesPanel";
 import LeadNotes from "@/components/LeadNotes";
-import Breadcrumb from "@/components/Breadcrumb";
+import Breadcrumb from "@/shared/ui/Breadcrumb";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
 import LeadHero from "@/components/lead/LeadHero";
 import LeadOverview from "@/components/lead/LeadOverview";

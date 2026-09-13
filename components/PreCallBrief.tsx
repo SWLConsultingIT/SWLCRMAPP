@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown, UserRound, Lightbulb, ShieldAlert, Building2, Brain } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import LogoLoader from "@/components/LogoLoader";
+import LogoLoader from "@/shared/ui/LogoLoader";
 import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";

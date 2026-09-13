@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import { useAuthUser } from "@/lib/auth-context";
-import EmptyState from "@/components/EmptyState";
+import EmptyState from "@/shared/ui/EmptyState";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,

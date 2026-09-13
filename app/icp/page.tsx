@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import PageHero from "@/components/PageHero";
-import AuroraHero from "@/components/AuroraHero";
-import LogoLoader from "@/components/LogoLoader";
+import PageHero from "@/shared/ui/PageHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
+import LogoLoader from "@/shared/ui/LogoLoader";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/shared/design/tokens";
 import Link from "next/link";

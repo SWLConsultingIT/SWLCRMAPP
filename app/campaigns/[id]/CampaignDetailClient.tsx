@@ -18,7 +18,7 @@ import CampaignCallsTab from "@/components/CampaignCallsTab";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import ReassignSellersModal from "@/components/ReassignSellersModal";
 import { classifyUrgency } from "@/lib/overdue";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
 
 const AIRCALL_USERS = [

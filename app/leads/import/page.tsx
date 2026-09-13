@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getT } from "@/shared/i18n/server";
 import { Upload } from "lucide-react";
-import PageHero from "@/components/PageHero";
+import PageHero from "@/shared/ui/PageHero";
 import { C } from "@/shared/design/tokens";
 import { getUserScope, canEditTenantSettings } from "@/lib/scope";
 import ImportWizardClient from "./ImportWizardClient";

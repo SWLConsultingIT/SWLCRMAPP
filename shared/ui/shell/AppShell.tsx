@@ -1,18 +1,18 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
-import TopHeader from "@/components/TopHeader";
+import Sidebar from "@/shared/ui/shell/Sidebar";
+import TopHeader from "@/shared/ui/shell/TopHeader";
 import PositiveReplyBanner from "@/components/PositiveReplyBanner";
-import RealtimeRefresh from "@/components/RealtimeRefresh";
-import CommandPalette from "@/components/CommandPalette";
-import NavigationProgress from "@/components/NavigationProgress";
-import NavigationLoader from "@/components/NavigationLoader";
+import RealtimeRefresh from "@/shared/ui/shell/RealtimeRefresh";
+import CommandPalette from "@/shared/ui/shell/CommandPalette";
+import NavigationProgress from "@/shared/ui/shell/NavigationProgress";
+import NavigationLoader from "@/shared/ui/shell/NavigationLoader";
 import DemoBanner from "@/components/DemoBanner";
-import KeyboardCheatsheet from "@/components/KeyboardCheatsheet";
+import KeyboardCheatsheet from "@/shared/ui/shell/KeyboardCheatsheet";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
-import { ToastProvider } from "@/lib/toast";
-import { MobileMenuProvider } from "@/lib/mobile-menu";
+import { ToastProvider } from "@/shared/ui/toast";
+import { MobileMenuProvider } from "@/shared/ui/shell/mobile-menu";
 
 // LogoLoader is the global route-transition loader (gold SWL mark). It
 // dismisses immediately when the next pathname renders so it doesn't stack

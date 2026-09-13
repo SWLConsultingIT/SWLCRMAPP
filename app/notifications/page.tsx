@@ -1,7 +1,7 @@
 // Notifications Center page (P2a). Thin server shell — the client component
 // owns fetching/filters/pagination/realtime against /api/notifications.
 
-import AuroraHero from "@/components/AuroraHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import NotificationsCenter from "@/components/NotificationsCenter";
 import { getT } from "@/shared/i18n/server";
 

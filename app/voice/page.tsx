@@ -8,11 +8,11 @@ import {
   MessageCircle, BookOpen, Plus, X, Pencil, Trash2, Loader2,
   Mail, Phone, Share2, Save, Layers,
 } from "lucide-react";
-import EmptyState from "@/components/EmptyState";
-import PageHero from "@/components/PageHero";
-import LogoLoader from "@/components/LogoLoader";
+import EmptyState from "@/shared/ui/EmptyState";
+import PageHero from "@/shared/ui/PageHero";
+import LogoLoader from "@/shared/ui/LogoLoader";
 import { useLocale } from "@/shared/i18n/i18n";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import TermTooltip from "@/components/TermTooltip";
 
 const gold = C.gold;

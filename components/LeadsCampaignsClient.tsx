@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { type OpportunityLead } from "@/components/OpportunitiesTable";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";

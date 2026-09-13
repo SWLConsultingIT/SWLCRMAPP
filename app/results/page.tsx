@@ -9,8 +9,8 @@ import {
 } from "@/lib/leads-crypto";
 import { C } from "@/shared/design/tokens";
 import { Trophy, ThumbsUp, X, Ban, RefreshCw } from "lucide-react";
-import PageHero from "@/components/PageHero";
-import AuroraHero from "@/components/AuroraHero";
+import PageHero from "@/shared/ui/PageHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import ResultsClient from "./ResultsClient";
 import { getT } from "@/shared/i18n/server";
 

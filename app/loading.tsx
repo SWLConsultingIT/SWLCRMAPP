@@ -1,4 +1,4 @@
-import LogoLoader from "@/components/LogoLoader";
+import LogoLoader from "@/shared/ui/LogoLoader";
 
 // Default page loader. Renders inside the `<main>` of AppShell — Sidebar +
 // TopHeader stay visible, only the content area animates while the next

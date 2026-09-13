@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { bucketActivity, wallTimeToUtcIso, type ActivityType, type ActivityStatus } from "@/features/activities/lib/activities";
 import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";

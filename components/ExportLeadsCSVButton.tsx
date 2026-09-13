@@ -1,7 +1,7 @@
 "use client";
 
 import { Download } from "lucide-react";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
 
 // Compact CSV export button rendered next to "Import Leads" in the page hero.

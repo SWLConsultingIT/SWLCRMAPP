@@ -8,8 +8,8 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { useTheme } from "@/shared/design/theme";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import HelpMenu from "./HelpMenu";
-import NotificationBell from "./NotificationBell";
-import { useMobileMenu } from "@/lib/mobile-menu";
+import NotificationBell from "@/components/NotificationBell";
+import { useMobileMenu } from "@/shared/ui/shell/mobile-menu";
 
 const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/":              { key: "nav.dashboard" },

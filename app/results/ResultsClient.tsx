@@ -23,7 +23,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
-import EmptyState from "@/components/EmptyState";
+import EmptyState from "@/shared/ui/EmptyState";
 import {
   Trophy, X, RefreshCw, Search, ChevronRight, Target,
   Star, CheckSquare, Square, Trash2, Flame, MessageCircle,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import LogoLoader from "@/components/LogoLoader";
+import LogoLoader from "@/shared/ui/LogoLoader";
 import { useRouter, useParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/shared/design/tokens";

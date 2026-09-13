@@ -5,8 +5,8 @@ import { getInstantlyConfig } from "@/lib/instantly-config";
 import { C } from "@/shared/design/tokens";
 import { UserCircle, Share2, Mail, Phone, Check, X } from "lucide-react";
 import AccountsClient from "./AccountsClient";
-import PageHero from "@/components/PageHero";
-import AuroraHero from "@/components/AuroraHero";
+import PageHero from "@/shared/ui/PageHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 
 export const dynamic = "force-dynamic";
 

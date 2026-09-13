@@ -39,7 +39,7 @@ import PortfolioView from "@/components/dashboard/PortfolioView";
 import { getPortfolioComparison } from "@/lib/portfolio";
 import ChannelComparison from "@/components/dashboard/ChannelComparison";
 import MicroKpi from "@/components/dashboard/MicroKpi";
-import AuroraHero from "@/components/AuroraHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import RateBar from "@/components/dashboard/RateBar";
 import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";

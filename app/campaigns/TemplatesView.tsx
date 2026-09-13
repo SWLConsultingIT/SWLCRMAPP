@@ -9,10 +9,10 @@ import {
   ChevronDown, ChevronRight, AlertCircle, ArrowRight, Pencil, Archive, Download,
 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import EmptyState from "@/components/EmptyState";
+import EmptyState from "@/shared/ui/EmptyState";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
-import { useToast } from "@/lib/toast";
-import { printPdf } from "@/lib/print-pdf";
+import { useToast } from "@/shared/ui/toast";
+import { printPdf } from "@/shared/ui/print-pdf";
 import { useLocale } from "@/shared/i18n/i18n";
 
 // 2026-05-17 — Templates organized by ICP.

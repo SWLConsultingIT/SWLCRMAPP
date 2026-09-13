@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { C } from "@/shared/design/tokens";
 import { ChevronDown, ChevronUp, CheckCircle2, Clock, Send, MessageSquare, Pencil, Save, Loader2 } from "lucide-react";
-import { LinkedInIcon } from "@/components/SocialIcons";
+import { LinkedInIcon } from "@/shared/ui/SocialIcons";
 import { useLocale } from "@/shared/i18n/i18n";
 import { intlTag, type Locale } from "@/shared/i18n/locale";
 

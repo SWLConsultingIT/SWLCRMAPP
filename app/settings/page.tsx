@@ -1,6 +1,6 @@
 import { Settings } from "lucide-react";
 import { getT } from "@/shared/i18n/server";
-import PageHero from "@/components/PageHero";
+import PageHero from "@/shared/ui/PageHero";
 import SettingsLayout from "./SettingsLayout";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";

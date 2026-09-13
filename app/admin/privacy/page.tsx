@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getT } from "@/shared/i18n/server";
 import { Lock, Shield } from "lucide-react";
-import PageHero from "@/components/PageHero";
+import PageHero from "@/shared/ui/PageHero";
 import { C } from "@/shared/design/tokens";
 import { getUserScope, canViewAdminMenu } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";

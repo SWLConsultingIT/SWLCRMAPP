@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import { Theater, Users, Target, Megaphone, ArrowLeft, ArrowRight, LogOut, Plus, Sparkles, X, Loader2, Sprout, Trash2, Globe, Wand2, Check } from "lucide-react";
-import PageHero from "@/components/PageHero";
+import PageHero from "@/shared/ui/PageHero";
 import { DEMO_INDUSTRY_OPTIONS, type DemoIndustryKey } from "@/lib/demo-seeds";
 import type { DemoTenant } from "./page";
 

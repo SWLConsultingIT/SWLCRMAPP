@@ -13,7 +13,7 @@ import { unsupportedPlaceholdersIn } from "@/lib/placeholders";
 import type { SampleLead, PlaceholderCoverage } from "@/components/ChannelMessageConfig";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
-import LogoLoader from "@/components/LogoLoader";
+import LogoLoader from "@/shared/ui/LogoLoader";
 import FlowTypePicker from "@/components/wizard/FlowTypePicker";
 import SignalCoverageBanner from "@/components/wizard/SignalCoverageBanner";
 import SampleLeadCards from "@/components/wizard/SampleLeadCards";

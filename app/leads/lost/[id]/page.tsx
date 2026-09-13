@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import Link from "next/link";
 import Anthropic from "@anthropic-ai/sdk";
-import Breadcrumb from "@/components/Breadcrumb";
+import Breadcrumb from "@/shared/ui/Breadcrumb";
 import LostLeadActions from "@/components/LostLeadActions";
 import RegenerateLossAnalysis from "@/components/RegenerateLossAnalysis";
 import CopyTemplateButton from "@/components/CopyTemplateButton";

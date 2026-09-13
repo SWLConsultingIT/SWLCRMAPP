@@ -4,7 +4,7 @@
 // Board alternate). Tenant + ownership scoped in code (service client bypasses
 // RLS). Completed history is loaded lazily later (block 11).
 
-import AuroraHero from "@/components/AuroraHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import ActivitiesWorkspace from "@/features/activities/components/ActivitiesWorkspace";
 import type { BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import { getSupabaseService } from "@/lib/supabase-service";

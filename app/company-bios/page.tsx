@@ -5,8 +5,8 @@ import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
-import LogoLoader from "@/components/LogoLoader";
-import AuroraHero from "@/components/AuroraHero";
+import LogoLoader from "@/shared/ui/LogoLoader";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import {
   Building2, Save, AlertCircle, Plus, X, Pencil, Globe, Loader2,
   MapPin, Award, Briefcase, Trash2, Upload, Image as ImageIcon,

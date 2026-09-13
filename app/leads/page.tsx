@@ -12,8 +12,8 @@ import { C } from "@/shared/design/tokens";
 import { Users, Upload, Megaphone, Percent, ThumbsUp } from "lucide-react";
 import Link from "next/link";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
-import PageHero from "@/components/PageHero";
-import AuroraHero from "@/components/AuroraHero";
+import PageHero from "@/shared/ui/PageHero";
+import AuroraHero from "@/shared/ui/AuroraHero";
 import ExportLeadsCSVButton from "@/components/ExportLeadsCSVButton";
 
 // Tenant-scoped + auth-gated → never static. Skip the optimization attempt.

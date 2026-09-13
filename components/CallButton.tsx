@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useAircallPhone } from "@/components/AircallPhoneProvider";
 

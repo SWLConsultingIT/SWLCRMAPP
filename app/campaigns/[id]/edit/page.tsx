@@ -3,16 +3,16 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/shared/ui/toast";
 import { C } from "@/shared/design/tokens";
 import Link from "next/link";
-import LogoLoader from "@/components/LogoLoader";
+import LogoLoader from "@/shared/ui/LogoLoader";
 import {
   ArrowLeft, Save, Loader2, Plus, Trash2, GripVertical,
   ChevronUp, ChevronDown, Share2, Mail, Phone, MessageCircle,
   User, Settings, AlertCircle, CheckCircle,
 } from "lucide-react";
-import { LinkedInIcon, EmailIcon, PhoneIcon, WhatsAppIcon } from "@/components/SocialIcons";
+import { LinkedInIcon, EmailIcon, PhoneIcon, WhatsAppIcon } from "@/shared/ui/SocialIcons";
 import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
 import { PlaceholdersHint } from "@/components/ChannelMessageConfig";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";

@@ -4,10 +4,10 @@
 // progressive disclosure. Empty sections are hidden or shown as a compact
 // "no signals" line — never a giant empty card.
 
-import { Card } from "@/components/ui";
+import { Card } from "@/shared/ui";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
-import { LinkedInIcon } from "@/components/SocialIcons";
+import { LinkedInIcon } from "@/shared/ui/SocialIcons";
 import { SectionHeader, ChipCloud, EmptyLine } from "@/components/lead/ui";
 
 const gold = "var(--brand, #c9a83a)";

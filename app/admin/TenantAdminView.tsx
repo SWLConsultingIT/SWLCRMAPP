@@ -2,8 +2,8 @@ import { Users, Building2, Megaphone, Phone } from "lucide-react";
 import { getT } from "@/shared/i18n/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { C } from "@/shared/design/tokens";
-import PageHero from "@/components/PageHero";
-import Breadcrumb from "@/components/Breadcrumb";
+import PageHero from "@/shared/ui/PageHero";
+import Breadcrumb from "@/shared/ui/Breadcrumb";
 import TenantTeamTab from "./TenantTeamTab";
 
 // Per-tenant admin panel — what an `owner` or `manager` sees at /admin.

@@ -6,13 +6,13 @@ import { useEffect, useState } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useAuthUser } from "@/lib/auth-context";
 import TenantSwitcher from "@/components/TenantSwitcher";
-import HelpMenu from "@/components/HelpMenu";
+import HelpMenu from "@/shared/ui/shell/HelpMenu";
 import {
   LayoutDashboard, Users, Megaphone, Home,
   Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
   PanelLeftClose, PanelLeftOpen, Trophy, X, CalendarCheck,
 } from "lucide-react";
-import { useMobileMenu } from "@/lib/mobile-menu";
+import { useMobileMenu } from "@/shared/ui/shell/mobile-menu";
 import { useRouter } from "next/navigation";
 
 const DARK   = "#060c18";
