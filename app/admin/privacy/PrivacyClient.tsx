@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { C } from "@/shared/design/tokens";
 import { Lock, Shield, Sparkles, Mail, X, Bot, User, Server, Eye, ExternalLink } from "lucide-react";
 

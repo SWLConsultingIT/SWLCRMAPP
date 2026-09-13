@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useToast } from "@/lib/toast";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useAircallPhone } from "@/components/AircallPhoneProvider";
 
 const DEFAULT_AIRCALL_USER_ID = process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID

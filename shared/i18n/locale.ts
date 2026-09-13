@@ -1,6 +1,6 @@
 // The locale registry — deliberately free of dictionary data.
 //
-// `lib/i18n-dicts.ts` carries ~240 KB of strings. Route handlers that only
+// `shared/i18n/dicts.ts` carries ~240 KB of strings. Route handlers that only
 // need to validate a locale used to import that module and, in one case, the
 // extra type surface pushed TypeScript past its instantiation limit in an
 // unrelated Supabase call (TS2589 in /api/settings/prefs). Keeping the type,

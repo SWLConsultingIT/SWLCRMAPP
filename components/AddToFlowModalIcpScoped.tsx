@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import { Megaphone, CheckSquare, X } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useToast } from "@/lib/toast";
 
 const gold = "var(--brand, #c9a83a)";

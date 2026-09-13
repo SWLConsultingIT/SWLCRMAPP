@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, AtSign, Tag, MessageSquare, CheckCheck, FileText, CalendarClock, Inbox as InboxIcon } from "lucide-react";

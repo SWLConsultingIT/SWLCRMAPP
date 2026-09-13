@@ -17,7 +17,7 @@ import { C, N } from "@/shared/design/tokens";
 import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { getDashboardData } from "@/lib/dashboard-data";
 import SellerPulseSection from "@/components/dashboard/SellerPulseSection";
-import { getT, getServerLocale } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/shared/i18n/server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
 import SellerRow from "@/components/dashboard/SellerRowExpand";
@@ -52,7 +52,7 @@ import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsC
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
 import { NOT_MEASURED_REASON } from "@/lib/metric-defs";
 import { DashboardTabsProvider, TabPanel, TabChrome } from "@/components/dashboard/DashboardTabs";
-import { intlTag } from "@/lib/i18n-dicts";
+import { intlTag } from "@/shared/i18n/dicts";
 
 const gold = "var(--brand, #c9a83a)";
 

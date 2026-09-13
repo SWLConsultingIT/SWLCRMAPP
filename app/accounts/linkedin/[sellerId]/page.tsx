@@ -7,7 +7,7 @@ import {
   TrendingUp, Send, MessageSquare, Users, Clock,
 } from "lucide-react";
 import LimitEditor from "./LimitEditor";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 
 const gold = "var(--brand, #c9a83a)";
 

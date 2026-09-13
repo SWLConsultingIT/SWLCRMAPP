@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { fetchPrefsCached, clearAllSessionCache } from "@/lib/session-cache";
-import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-dicts";
+import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/shared/i18n/dicts";
 
 export type { Locale };
 

@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 import { useToast } from "@/lib/toast";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // Compact CSV export button rendered next to "Import Leads" in the page hero.
 // Accepts the already-loaded lead list as a prop (page.tsx caps to 500); if

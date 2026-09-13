@@ -3,7 +3,7 @@
 // (cached 60s) via lib/n8n-workflows-status.ts.
 
 import { Workflow, CheckCircle2, XCircle, AlertCircle, Power, ExternalLink } from "lucide-react";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 import { getSwlWorkflowStatuses } from "@/lib/n8n-workflows-status";
 import FoldableSection from "./FoldableSection";

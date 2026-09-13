@@ -20,7 +20,7 @@
 import Link from "next/link";
 import { AlertTriangle, TrendingDown, TrendingUp, Minus, Send, MessageSquare, ArrowDown } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { t as tFn, type Locale } from "@/lib/i18n-server";
+import { t as tFn, type Locale } from "@/shared/i18n/server";
 
 type Step = {
   step: number;

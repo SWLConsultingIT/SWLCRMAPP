@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { UserPlus, Sparkles, X as XIcon, Check, Mail, Building2, ChevronDown } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useToast } from "@/lib/toast";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 export type ReferredContact = {
   name?: string | null;

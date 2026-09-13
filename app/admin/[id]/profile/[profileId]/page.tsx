@@ -1,7 +1,7 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { intlTag } from "@/lib/i18n-locale";
-import { getServerLocale } from "@/lib/i18n-server";
-import { getT } from "@/lib/i18n-server";
+import { intlTag } from "@/shared/i18n/locale";
+import { getServerLocale } from "@/shared/i18n/server";
+import { getT } from "@/shared/i18n/server";
 import { requireAdminPage } from "@/lib/auth-admin";
 import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";

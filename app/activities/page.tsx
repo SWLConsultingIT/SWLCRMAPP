@@ -9,7 +9,7 @@ import ActivitiesWorkspace from "@/features/activities/components/ActivitiesWork
 import type { BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAllTenantData } from "@/lib/scope";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { leadDisplayName } from "@/lib/lead-label";
 import { ACTIVITY_SELECT, type ActivityType, type ActivityStatus } from "@/features/activities/lib/activities";

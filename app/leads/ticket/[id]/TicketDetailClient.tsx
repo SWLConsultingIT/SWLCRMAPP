@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import {
   ArrowLeft, Star, Clock, ChevronRight, ChevronDown, ChevronUp, Megaphone,
   PlayCircle, CheckCircle, PauseCircle, XCircle,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
-import type { Locale } from "@/lib/i18n-dicts";
+import type { Locale } from "@/shared/i18n/dicts";
 
 type Tr = (key: string, vars?: Record<string, string | number>) => string;
 

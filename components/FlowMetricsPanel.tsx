@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import Link from "next/link";
 import { useSearchParams, usePathname } from "next/navigation";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { fmtPct } from "@/lib/flow-metrics-lib";
 import {
   Users, Send, UserCheck, MessageSquare, Trophy, TrendingUp, AlertTriangle,

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { X, CheckCircle2, Circle, ArrowRight } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // First-run guide. Each step reflects REAL tenant state (fetched from
 // /api/onboarding/checklist) and links to where the task is actually done —

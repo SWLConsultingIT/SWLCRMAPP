@@ -11,9 +11,9 @@ import Link from "next/link";
 import { Fragment, useState, useMemo } from "react";
 import { ChevronRight, Search, Mail, Share2, Phone, Smartphone, Send, MessageSquare } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { type Locale, intlTag, makeT } from "@/lib/i18n-dicts";
+import { type Locale, intlTag, makeT } from "@/shared/i18n/dicts";
 
-// Pure client-safe translator (mirrors lib/i18n-server.t signature) — only
+// Pure client-safe translator (mirrors shared/i18n/server.t signature) — only
 // imports the dict bundle, not the server-only locale resolver.
 
 export type LeadEngagementRow = {

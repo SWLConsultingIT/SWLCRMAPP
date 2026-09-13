@@ -9,7 +9,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, Badge } from "@/components/ui";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { ExternalLink, Megaphone } from "lucide-react";
 import { SubTabs, EmptyLine } from "@/components/lead/ui";
 import LeadTimeline, { type TimelineEvent } from "@/components/lead/LeadTimeline";

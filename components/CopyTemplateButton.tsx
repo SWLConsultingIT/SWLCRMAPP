@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Copy, Check } from "lucide-react";
 
 export default function CopyTemplateButton({ text }: { text: string }) {

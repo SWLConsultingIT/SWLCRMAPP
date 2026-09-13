@@ -54,7 +54,7 @@ proxy.ts        Middleware de Next 16 (antes middleware.ts)
 | Archivo | Regla que define |
 |---|---|
 | `lib/lead-outcome.ts` | Clasificación de resultado del lead. `/leads` y `/results` llaman a esta misma función |
-| `lib/i18n-locale.ts` | Definición de locale. Agregar un idioma NO requiere migración |
+| `shared/i18n/locale.ts` | Definición de locale. Agregar un idioma NO requiere migración |
 | `lib/require-scope.ts` | Scoping por tenant en los route handlers. Sin esto → IDOR cross-tenant |
 | `lib/metric-defs.ts` | Definición de cada métrica del dashboard |
 | `lib/placeholders.ts` | Placeholders de mensajes |

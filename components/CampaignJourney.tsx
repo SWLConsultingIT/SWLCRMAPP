@@ -4,8 +4,8 @@ import { useState } from "react";
 import { C } from "@/shared/design/tokens";
 import { ChevronDown, ChevronUp, CheckCircle2, Clock, Send, MessageSquare, Pencil, Save, Loader2 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
-import { useLocale } from "@/lib/i18n";
-import { intlTag, type Locale } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag, type Locale } from "@/shared/i18n/locale";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";

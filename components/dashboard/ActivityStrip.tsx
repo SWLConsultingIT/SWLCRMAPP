@@ -10,7 +10,7 @@
 import { Send, MessageSquare, ThumbsUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
-import { intlTag, type Locale } from "@/lib/i18n-dicts";
+import { intlTag, type Locale } from "@/shared/i18n/dicts";
 
 const gold = "var(--brand, #c9a83a)";
 

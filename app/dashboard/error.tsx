@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 

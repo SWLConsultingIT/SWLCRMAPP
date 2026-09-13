@@ -5,7 +5,7 @@
 import { C } from "@/shared/design/tokens";
 import { CheckCircle2, AlertTriangle, AlertCircle, Users, Send, MessageSquare, Clock, Sparkles } from "lucide-react";
 import type { TenantSummary } from "@/lib/reliability-summary";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import FoldableSection from "./FoldableSection";
 
 const gold = "var(--brand, #c9a83a)";

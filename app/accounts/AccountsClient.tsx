@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import EmailPoolManager from "@/components/EmailPoolManager";
 import AircallPoolManager from "@/components/AircallPoolManager";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 

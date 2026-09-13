@@ -25,7 +25,7 @@ import {
 } from "./ui";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 /* ── the card ───────────────────────────────────────────────────────────── */
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { intlTag } from "@/lib/i18n-locale";
-import { useLocale } from "@/lib/i18n";
+import { intlTag } from "@/shared/i18n/locale";
+import { useLocale } from "@/shared/i18n/i18n";
 import { C } from "@/shared/design/tokens";
 import { UserPlus, AlertTriangle, Trash2, Loader2 } from "lucide-react";
 import AddPersonModal, { type AddPersonResult } from "./AddPersonModal";

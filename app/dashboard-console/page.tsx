@@ -6,7 +6,7 @@
 // by canonical identity with Unknown always visible.
 import type { Metadata } from "next";
 import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
-import { getT, getServerLocale } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/shared/i18n/server";
 import AuroraHero from "@/components/AuroraHero";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardExportModal from "@/components/dashboard/DashboardExportModal";

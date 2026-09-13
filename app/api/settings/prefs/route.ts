@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getOrFetchProfile, invalidateProfileCache } from "@/lib/user-profile-cache";
-import { isLocale, normalizeLocale } from "@/lib/i18n-locale";
+import { isLocale, normalizeLocale } from "@/shared/i18n/locale";
 
 const THEME_COOKIE = "swl-theme";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days

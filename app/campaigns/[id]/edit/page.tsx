@@ -16,7 +16,7 @@ import { LinkedInIcon, EmailIcon, PhoneIcon, WhatsAppIcon } from "@/components/S
 import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
 import { PlaceholdersHint } from "@/components/ChannelMessageConfig";
 import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = C.gold;
 

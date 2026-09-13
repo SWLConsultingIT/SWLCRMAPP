@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { normalizeLocale, respondIn } from "@/lib/i18n-locale";
+import { normalizeLocale, respondIn } from "@/shared/i18n/locale";
 
 // Lead Copilot — a grounded Q&A chat about a single lead. The seller asks
 // questions ("how do I handle the price objection?", "what's the strongest

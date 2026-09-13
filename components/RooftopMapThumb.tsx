@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { X, Maximize2, MapPin } from "lucide-react";
 import { C, N } from "@/shared/design/tokens";
 

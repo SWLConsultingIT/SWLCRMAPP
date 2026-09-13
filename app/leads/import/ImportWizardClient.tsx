@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import {
   Upload, FileSpreadsheet, Loader2, AlertTriangle, CheckCircle2,
   Lock, ChevronRight, X, Sparkles, Target, Search, EyeOff, Database, Layers, Phone,

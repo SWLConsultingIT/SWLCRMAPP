@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, X, Phone, Globe, MapPin, Star, Loader2, Zap, UserPlus, CheckCircle2, Search, ArrowUpDown, ChevronRight } from "lucide-react";
 import { C, N } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null; distance_km?: number | null };
 type Review = { author: string | null; rating: number | null; text: string; when: string | null };

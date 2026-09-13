@@ -4,8 +4,8 @@ import { useState } from "react";
 import { FileDown, FileSpreadsheet, X, Loader2, Check, Minus } from "lucide-react";
 import { printPdf } from "@/lib/print-pdf";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
-import { LOCALES, type Locale } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { LOCALES, type Locale } from "@/shared/i18n/locale";
 
 const gold = "var(--brand, #C9A83A)";
 

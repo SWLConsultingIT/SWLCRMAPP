@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import PrintTrigger from "../../../../reports/print/PrintTrigger";

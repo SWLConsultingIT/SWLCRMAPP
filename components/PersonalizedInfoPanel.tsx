@@ -2,7 +2,7 @@ import { C, N } from "@/shared/design/tokens";
 import { Sparkles, TrendingUp, Building2, Info, Sun, FileText, Zap, CalendarClock, MapPin, Users, Maximize2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import RooftopMapThumb from "@/components/RooftopMapThumb";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.

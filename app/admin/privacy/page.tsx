@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { Lock, Shield } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import { C } from "@/shared/design/tokens";

@@ -4,12 +4,12 @@ import { cookies, headers } from "next/headers";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import { ThemeProvider } from "@/shared/design/theme";
-import { LocaleProvider } from "@/lib/i18n";
+import { LocaleProvider } from "@/shared/i18n/i18n";
 import { BrandProvider } from "@/shared/design/brand";
 import { AuthProvider } from "@/lib/auth-context";
 import AircallPhoneProvider from "@/components/AircallPhoneProvider";
-import { getServerLocale } from "@/lib/i18n-server";
-import { DEFAULT_LOCALE } from "@/lib/i18n-locale";
+import { getServerLocale } from "@/shared/i18n/server";
+import { DEFAULT_LOCALE } from "@/shared/i18n/locale";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["500", "600", "700", "800"] });

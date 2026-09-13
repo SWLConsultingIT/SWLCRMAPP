@@ -4,8 +4,8 @@ import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import PrintTrigger from "../../../reports/print/PrintTrigger";
 import PrintActions from "../../../reports/print/PrintActions";
-import { getT, getServerLocale } from "@/lib/i18n-server";
-import { intlTag } from "@/lib/i18n-locale";
+import { getT, getServerLocale } from "@/shared/i18n/server";
+import { intlTag } from "@/shared/i18n/locale";
 
 // Branded, print-optimized single-lead sheet ("Opportunity Sheet"). Opened in a
 // new tab from the "Export" button on the lead detail; auto-fires window.print()

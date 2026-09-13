@@ -31,8 +31,8 @@ const gold = C.gold;
 
 import { type StepAttachment } from "@/components/StepAttachments";
 import { readLeadSelection, clearLeadSelection, STASH_SENTINEL } from "@/lib/lead-selection";
-import { useLocale } from "@/lib/i18n";
-import { intlTag } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag } from "@/shared/i18n/locale";
 
 type SequenceStep = { channel: string; daysAfter: number; attachments?: StepAttachment[] };
 

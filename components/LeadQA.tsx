@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Sparkles, Send, Brain, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 
 type Turn = { role: "user" | "assistant"; text: string; at?: string };

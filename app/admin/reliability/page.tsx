@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { ShieldCheck } from "lucide-react";
 import { getAllTenantSummaries, getTenantCampaigns, buildGlobalSummary } from "@/lib/reliability-summary";
-import { getT, getServerLocale } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/shared/i18n/server";
 import TenantTabsNav from "./TenantTabsNav";
 import StatusGeneralSection from "./StatusGeneralSection";
 import FlowsInFlightSection from "./FlowsInFlightSection";

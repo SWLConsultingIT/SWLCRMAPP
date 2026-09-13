@@ -19,7 +19,7 @@ import MoveForwardButton from "@/components/MoveForwardButton";
 import ReassignSellersModal from "@/components/ReassignSellersModal";
 import { classifyUrgency } from "@/lib/overdue";
 import { useToast } from "@/lib/toast";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const AIRCALL_USERS = [
   { id: 1916199, name: "Francisco Fontana" },

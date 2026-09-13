@@ -1,5 +1,5 @@
 import CopilotChat from "@/components/CopilotChat";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 
 export const dynamic = "force-dynamic";

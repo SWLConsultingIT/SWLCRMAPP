@@ -24,7 +24,7 @@ import {
 import { CH_KEYS } from "@/lib/console-data";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const K = CH_KEYS;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Loader2, Plus, X, Trash2, Check } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useToast } from "@/lib/toast";

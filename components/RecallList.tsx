@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Check, Clock, RotateCcw, X, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 export type RecallItem = {
   leadId: string;

@@ -22,8 +22,8 @@ import {
   buildCoachUserMessage,
   extractCoachScore,
 } from "@/lib/prompts/call-coach";
-import { getServerLocale } from "@/lib/i18n-server";
-import { DEFAULT_LOCALE } from "@/lib/i18n-locale";
+import { getServerLocale } from "@/shared/i18n/server";
+import { DEFAULT_LOCALE } from "@/shared/i18n/locale";
 
 const MODEL = "claude-sonnet-4-6";
 const GENERATION_LOCK_MS = 90 * 1000;

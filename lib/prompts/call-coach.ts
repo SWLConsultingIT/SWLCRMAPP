@@ -9,7 +9,7 @@
  * message AFTER the cache breakpoint.
  */
 
-import { writeAllContentIn, type Locale } from "@/lib/i18n-locale";
+import { writeAllContentIn, type Locale } from "@/shared/i18n/locale";
 
 export const CALL_COACH_SYSTEM_PROMPT = `You are an elite B2B sales coach and call analyst integrated inside a sales operating system.
 

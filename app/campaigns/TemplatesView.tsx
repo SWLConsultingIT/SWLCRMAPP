@@ -13,7 +13,7 @@ import EmptyState from "@/components/EmptyState";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import { useToast } from "@/lib/toast";
 import { printPdf } from "@/lib/print-pdf";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // 2026-05-17 — Templates organized by ICP.
 // Default view: "By ICP" with collapsible sections per ICP. A "Needs ICP"

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useAuthUser } from "@/lib/auth-context";
 import TenantSwitcher from "@/components/TenantSwitcher";
 import HelpMenu from "@/components/HelpMenu";

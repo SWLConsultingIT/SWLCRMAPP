@@ -11,7 +11,7 @@ import { getUserScope } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import PageHero from "@/components/PageHero";
 import ReportPicker from "./ReportPicker";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 
 const gold = "var(--brand, #c9a83a)";
 

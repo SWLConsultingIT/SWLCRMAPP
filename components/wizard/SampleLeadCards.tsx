@@ -6,7 +6,7 @@
 // /api/campaigns/preview-tailor) without the modal chrome.
 
 import { useEffect, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, Loader2, Shuffle, AlertCircle, Phone, Mail, Share2, Megaphone } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 

@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { getUserScope, getMyAssignedLeadIds, canEditTenantSettings } from "@/lib/scope";
 import { classifyLeadOutcome } from "@/lib/lead-outcome";
 import {

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = C.gold;
 

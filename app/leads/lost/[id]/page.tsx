@@ -10,9 +10,9 @@ import LostLeadActions from "@/components/LostLeadActions";
 import RegenerateLossAnalysis from "@/components/RegenerateLossAnalysis";
 import CopyTemplateButton from "@/components/CopyTemplateButton";
 import LostReasonPanel from "@/components/LostReasonPanel";
-import { useLocale } from "@/lib/i18n";
-import { getT, getServerLocale } from "@/lib/i18n-server";
-import { intlTag, writeAllContentIn, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { getT, getServerLocale } from "@/shared/i18n/server";
+import { intlTag, writeAllContentIn, DEFAULT_LOCALE, type Locale } from "@/shared/i18n/locale";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, Send,
   MessageSquare, XCircle, AlertTriangle, Target, Megaphone,

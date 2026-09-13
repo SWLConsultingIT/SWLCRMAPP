@@ -7,7 +7,7 @@
 // compact instead of half-empty (Fran 2026-09-11).
 
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles } from "lucide-react";
 import CompanyHooksPanel from "@/components/CompanyHooksPanel";
 

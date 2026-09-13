@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireUser, assertTenant } from "@/lib/require-scope";
-import { getServerLocale } from "@/lib/i18n-server";
-import { writeAllContentIn, type Locale } from "@/lib/i18n-locale";
+import { getServerLocale } from "@/shared/i18n/server";
+import { writeAllContentIn, type Locale } from "@/shared/i18n/locale";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await requireUser();

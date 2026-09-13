@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/shared/design/tokens";
 import { Paperclip, X, FileText, Image as ImageIcon, Loader2 } from "lucide-react";

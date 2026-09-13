@@ -11,11 +11,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useToast } from "@/lib/toast";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { bucketActivity, wallTimeToUtcIso, type ActivityType } from "@/features/activities/lib/activities";
 import type { BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import { Check, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw, ChevronRight, Building2, CalendarClock } from "lucide-react";
-import { intlTag, type Locale } from "@/lib/i18n-dicts";
+import { intlTag, type Locale } from "@/shared/i18n/dicts";
 
 const gold = "var(--brand, #c9a83a)";
 

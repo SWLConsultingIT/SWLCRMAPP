@@ -6,8 +6,8 @@
 // Pure client-side toggle over server-preloaded data — no extra fetch.
 
 import { useState } from "react";
-import { useLocale } from "@/lib/i18n";
-import { intlTag } from "@/lib/i18n-dicts";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag } from "@/shared/i18n/dicts";
 import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { TrendingUp, TrendingDown, Minus, Users, Phone, MessageSquare, ThumbsUp, Building2, Trophy } from "lucide-react";

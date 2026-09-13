@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Link2, ChevronDown, Loader2, RefreshCw, ExternalLink, Briefcase, GraduationCap, Award, Languages as LangIcon, MapPin, Users } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const LI = "#0A66C2"; // LinkedIn blue
 

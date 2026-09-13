@@ -8,12 +8,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useAuthUser } from "@/lib/auth-context";
 import PushToggle from "@/components/PushToggle";
 import { Bell, AtSign, Tag, MessageSquare, FileText, CalendarClock, Inbox as InboxIcon, CheckCheck, CircleDot } from "lucide-react";
-import { intlTag, type Locale } from "@/lib/i18n-dicts";
+import { intlTag, type Locale } from "@/shared/i18n/dicts";
 
 type Notif = {
   id: string;

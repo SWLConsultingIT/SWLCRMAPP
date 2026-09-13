@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 

@@ -1,5 +1,5 @@
 "use client";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // Small client-side wrapper around window.print() so the report page can
 // stay a server component (data fetch on the server, no client bundle for

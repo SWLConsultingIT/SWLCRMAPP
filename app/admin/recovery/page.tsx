@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { Archive, RotateCcw } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";

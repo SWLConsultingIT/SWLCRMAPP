@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/shared/design/tokens";
 import { TrendingUp, X } from "lucide-react";
 import Link from "next/link";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 type NewReply = { id: string; lead_id: string; name: string; company: string };
 

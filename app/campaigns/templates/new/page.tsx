@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // 3-step wizard for creating a template:
 //   1. SOURCE     — pick how to start (PDF upload / import / scratch)

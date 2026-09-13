@@ -5,7 +5,7 @@
 // function props.
 
 import Link from "next/link";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Phone, ArrowUpRight } from "lucide-react";
 import { C, T } from "@/shared/design/tokens";
 

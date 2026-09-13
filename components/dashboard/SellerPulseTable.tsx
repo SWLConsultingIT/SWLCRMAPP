@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/shared/design/tokens";
 import { Phone, Clock, Users, PhoneCall, MessageSquare, ThumbsUp, AlertTriangle } from "lucide-react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 

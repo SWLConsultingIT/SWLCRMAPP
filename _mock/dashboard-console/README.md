@@ -11,7 +11,7 @@ Built 2026-09-07. Awaiting approval; **the production dashboard is untouched.**
 Static data only, in `app/dashboard-console/data.ts` (Overview) and
 `tabs-data.ts` (the other five). No query, no write, nothing imported from
 `lib/dashboard-data.ts` or `components/dashboard/*`. The only shared code is
-`lib/design.ts`.
+`shared/design/tokens.ts`.
 
 ## Files
 

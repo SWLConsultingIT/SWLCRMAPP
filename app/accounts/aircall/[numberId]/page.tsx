@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";
 import Link from "next/link";

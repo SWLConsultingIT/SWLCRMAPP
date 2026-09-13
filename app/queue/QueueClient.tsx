@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
-import { intlTag } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag } from "@/shared/i18n/locale";
 import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,

@@ -6,7 +6,7 @@
 // the operator expects mission-control style chrome.
 
 import { useEffect, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { RefreshCw, Pause, Play } from "lucide-react";

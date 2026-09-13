@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useTheme } from "@/shared/design/theme";
-import { LOCALES } from "@/lib/i18n-locale";
+import { LOCALES } from "@/shared/i18n/locale";
 import {
   Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2, Sparkles,
   LayoutDashboard, Users, Megaphone, Building2, Target, Shield, Bell,

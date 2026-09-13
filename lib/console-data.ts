@@ -30,7 +30,7 @@ import {
   emptyPhysicalCallScope, type CallGroupView,
 } from "@/lib/metrics/calls-read";
 import type { RawCallRow } from "@/lib/metrics/calls-identity";
-import { intlTag, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-locale";
+import { intlTag, DEFAULT_LOCALE, type Locale } from "@/shared/i18n/locale";
 
 /* ═══ the four things we can do to a lead ═══════════════════════════════ */
 export const CH_KEYS = ["li_cr", "li_dm", "email", "call"] as const;

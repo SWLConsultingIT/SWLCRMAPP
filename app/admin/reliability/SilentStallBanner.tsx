@@ -3,7 +3,7 @@
 // anything despite due work. The gap the verdict pill alone misses.
 
 import { AlertTriangle } from "lucide-react";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 import type { TenantSummary } from "@/lib/reliability-summary";
 

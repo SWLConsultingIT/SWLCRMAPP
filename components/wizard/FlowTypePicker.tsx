@@ -11,7 +11,7 @@
 // new Step 3 review (signal coverage banner + samples + tag grid).
 
 import { Sparkles, Zap, ArrowLeft, Users, Clock } from "lucide-react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { C } from "@/shared/design/tokens";
 
 const gold = C.gold;

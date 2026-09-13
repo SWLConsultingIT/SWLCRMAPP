@@ -14,7 +14,7 @@ import {
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { type OpportunityLead } from "@/components/OpportunitiesTable";
 import { useToast } from "@/lib/toast";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
 

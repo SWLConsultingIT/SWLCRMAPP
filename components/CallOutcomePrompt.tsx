@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight, PhoneMissed, Inbox as InboxIcon, Plus } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";
 import { browserTimeZone } from "@/features/activities/lib/activities";

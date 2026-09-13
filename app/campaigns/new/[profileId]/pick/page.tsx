@@ -5,7 +5,7 @@
 // where the wizard reads them out of searchParams.
 
 import Link from "next/link";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { notFound } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";

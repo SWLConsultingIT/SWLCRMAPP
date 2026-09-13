@@ -12,7 +12,7 @@
 // reuse them without burning Haiku a second time.
 
 import { useMemo, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, Loader2, AlertCircle, ChevronDown, ChevronUp, Search, Filter, Check, Phone, Mail, Share2, Megaphone } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { VIOLATION_LABELS, type ViolationCode } from "@/lib/message-validator";

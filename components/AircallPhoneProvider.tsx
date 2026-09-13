@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Phone, X } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import CallOutcomePrompt from "./CallOutcomePrompt";

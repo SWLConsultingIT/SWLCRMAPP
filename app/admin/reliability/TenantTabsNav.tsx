@@ -8,7 +8,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { AlertTriangle, AlertCircle, CheckCircle2, Globe } from "lucide-react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 

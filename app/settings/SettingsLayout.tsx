@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useTheme } from "@/shared/design/theme";
-import { useLocale } from "@/lib/i18n";
-import { LOCALES } from "@/lib/i18n-dicts";
+import { useLocale } from "@/shared/i18n/i18n";
+import { LOCALES } from "@/shared/i18n/dicts";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import { applyBrand, clearBrandVars } from "@/shared/design/brand";
 import ChangePasswordModal from "@/components/ChangePasswordModal";

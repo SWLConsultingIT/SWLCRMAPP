@@ -6,7 +6,7 @@ import {
   X, Plus, Trash2, Loader2, Search, Users, Rocket, AlertCircle,
 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 const ACCENT = gold;

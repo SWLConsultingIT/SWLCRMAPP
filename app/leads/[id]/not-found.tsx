@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 import { UserX } from "lucide-react";
 

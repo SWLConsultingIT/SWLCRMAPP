@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, ArrowRight, LogOut, Loader2 } from "lucide-react";
 import OnboardingForm from "./OnboardingForm";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // Gate shown to a logged-in user who has NO company assigned yet.
 // Default = a friendly "pending assignment" waiting screen (most people here

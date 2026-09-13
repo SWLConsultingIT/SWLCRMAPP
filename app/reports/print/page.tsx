@@ -4,7 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { C } from "@/shared/design/tokens";
 import PrintTrigger from "./PrintTrigger";
 import PrintActions from "./PrintActions";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 
 type Branding = {
   companyName: string;

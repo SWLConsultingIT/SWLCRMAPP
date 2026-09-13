@@ -12,7 +12,7 @@ import { Trophy, ThumbsUp, X, Ban, RefreshCw } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import AuroraHero from "@/components/AuroraHero";
 import ResultsClient from "./ResultsClient";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 
 // Tenant-scoped + auth-gated → never static. Skip the optimization attempt.
 export const dynamic = "force-dynamic";

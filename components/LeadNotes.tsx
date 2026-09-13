@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { C } from "@/shared/design/tokens";
 import { StickyNote, Phone, Trash2, Loader2, Star, AtSign, Send } from "lucide-react";
 

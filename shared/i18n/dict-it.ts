@@ -1,4 +1,4 @@
-// Italian UI dictionary. Mirrors the key set of `en`/`es` in lib/i18n-dicts.ts
+// Italian UI dictionary. Mirrors the key set of `en`/`es` in shared/i18n/dicts.ts
 // — `scripts/test-i18n.mts` fails `npm test` if it drifts.
 //
 // House style: formal-neutral business Italian (Lei implied, never spelled

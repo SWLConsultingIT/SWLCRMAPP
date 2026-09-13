@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { ChevronRight, PhoneCall } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const OUTFIT = "var(--font-outfit), system-ui, sans-serif";
 

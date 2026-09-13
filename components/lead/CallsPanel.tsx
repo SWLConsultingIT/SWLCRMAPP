@@ -11,8 +11,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
-import { intlTag } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag } from "@/shared/i18n/locale";
 import {
   Phone, PhoneOutgoing, PhoneIncoming, PhoneMissed, ChevronDown, Trash2, Loader2,
 } from "lucide-react";

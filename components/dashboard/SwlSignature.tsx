@@ -9,7 +9,7 @@
 //   ─ right: "Powered by" + SWL wordmark + sales-engine tagline
 
 import Image from "next/image";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 
 const LOGO_SRC = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";

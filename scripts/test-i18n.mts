@@ -5,7 +5,7 @@
 // notices until a customer does. These assertions make that a build failure.
 
 import { readFileSync } from "node:fs";
-import { en, es, it, dicts, LOCALES, normalizeLocale, isLocale, intlTag, type Locale } from "@/lib/i18n-dicts";
+import { en, es, it, dicts, LOCALES, normalizeLocale, isLocale, intlTag, type Locale } from "@/shared/i18n/dicts";
 
 let failed = 0;
 let checks = 0;
@@ -27,12 +27,12 @@ console.log("i18n · dictionary parity");
     ["en", ["export const en: Dict = {", "\n};"]],
     ["es", ["export const es: Dict = {", "\n};"]],
   ].map(([name, [open_, close]]) => {
-    const src = readFileSync("lib/i18n-dicts.ts", "utf8");
+    const src = readFileSync("shared/i18n/dicts.ts", "utf8");
     const i = src.indexOf(open_ as string);
     const j = src.indexOf(close as string, i);
     return [name as string, [...src.slice(i, j).matchAll(/^\s*"([^"]+)":/gm)].map(m => m[1])];
   });
-  SOURCES.push(["it", [...readFileSync("lib/i18n-dict-it.ts", "utf8").matchAll(/^\s*"([^"]+)":/gm)].map(m => m[1])]);
+  SOURCES.push(["it", [...readFileSync("shared/i18n/dict-it.ts", "utf8").matchAll(/^\s*"([^"]+)":/gm)].map(m => m[1])]);
   for (const [name, keys] of SOURCES) {
     const seen = new Set<string>();
     const dupes = keys.filter(k => (seen.has(k) ? true : (seen.add(k), false)));

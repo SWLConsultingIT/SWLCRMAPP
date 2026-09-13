@@ -30,7 +30,7 @@ import { C } from "@/shared/design/tokens";
 import { gold, n, Band, Opening, Drill, Eyebrow, CH_COLOR, TONE } from "./ui";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const days = (a: number[]) => a.filter(v => v > 0).length;
 

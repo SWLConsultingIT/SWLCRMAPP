@@ -4,8 +4,8 @@
 // + delete behave the same as the list view.
 
 import { notFound } from "next/navigation";
-import { getT, getServerLocale } from "@/lib/i18n-server";
-import { intlTag } from "@/lib/i18n-locale";
+import { getT, getServerLocale } from "@/shared/i18n/server";
+import { intlTag } from "@/shared/i18n/locale";
 import Link from "next/link";
 import {
   ArrowLeft, Share2, Mail, Phone, MessageSquare, FileText, Sparkles,

@@ -11,17 +11,17 @@
 // means that can only happen for a key added in the same commit.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { it } from "@/lib/i18n-dict-it";
+import { it } from "@/shared/i18n/dict-it";
 
-// The locale type, registry and normalizer live in lib/i18n-locale.ts so a
+// The locale type, registry and normalizer live in shared/i18n/locale.ts so a
 // caller that only validates a locale need not pull in the dictionaries.
 // Re-exported here because that is where most callers already import from.
 export {
   LOCALES, DEFAULT_LOCALE, isLocale, normalizeLocale, intlTag,
-} from "@/lib/i18n-locale";
-export type { Locale } from "@/lib/i18n-locale";
+} from "@/shared/i18n/locale";
+export type { Locale } from "@/shared/i18n/locale";
 
-import type { Locale } from "@/lib/i18n-locale";
+import type { Locale } from "@/shared/i18n/locale";
 
 export type Dict = Record<string, string>;
 

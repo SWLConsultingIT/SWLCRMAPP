@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import Link from "next/link";
 import { Phone, Loader2, ChevronRight, FileText } from "lucide-react";
 import { C } from "@/shared/design/tokens";

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C } from "@/shared/design/tokens";
 import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader, MessageSquare, Ban } from "lucide-react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
   new:           { color: C.blue,      bg: C.blueLight,   icon: Clock },

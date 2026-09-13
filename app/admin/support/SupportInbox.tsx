@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import Link from "next/link";
 import { ArrowLeft, ClipboardList, Loader2, RefreshCw, CheckCircle2, Clock, CircleDot, Ban, User, X, Search } from "lucide-react";
 import { C } from "@/shared/design/tokens";

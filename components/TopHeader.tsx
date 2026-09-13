@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Search, ChevronRight, LogOut, Settings, Menu, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useTheme } from "@/shared/design/theme";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import HelpMenu from "./HelpMenu";

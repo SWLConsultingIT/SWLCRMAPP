@@ -5,8 +5,8 @@ import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
-import { normalizeLocale, writeAllContentIn, type Locale } from "@/lib/i18n-locale";
-import { t } from "@/lib/i18n-server";
+import { normalizeLocale, writeAllContentIn, type Locale } from "@/shared/i18n/locale";
+import { t } from "@/shared/i18n/server";
 
 // Deep-dive research — the long-form companion to the 30-second Pre-Call Brief.
 // Where the brief is glanceable cards before a dial, this is a multi-section

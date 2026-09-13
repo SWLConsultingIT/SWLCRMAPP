@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useToast } from "@/lib/toast";
 import { countryToTimeZone } from "@/lib/prospect-time";
 import { leadDisplayName } from "@/lib/lead-label";

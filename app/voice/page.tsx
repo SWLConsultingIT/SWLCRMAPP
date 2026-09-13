@@ -11,7 +11,7 @@ import {
 import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
 import LogoLoader from "@/components/LogoLoader";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useToast } from "@/lib/toast";
 import TermTooltip from "@/components/TermTooltip";
 

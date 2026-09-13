@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, ChevronRight, CheckCircle2, ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 function ResetPasswordInner() {
   const { t } = useLocale();

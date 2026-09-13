@@ -27,7 +27,7 @@ import {
 import { CH_KEYS, RATE_FLOOR } from "@/lib/console-data";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const K = CH_KEYS;
 const sum = (t: CT.Touch) => K.reduce((a, k) => a + t[k], 0);

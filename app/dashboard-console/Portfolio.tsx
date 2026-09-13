@@ -26,7 +26,7 @@ import {
   gold, n, S, Band, Opening, Drill, Note, Eyebrow, WorthALook, DeltaTag, type Delta,
 } from "./ui";
 import * as T from "./tabs-data";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 function trend(now: number, prev: number): Delta {
   if (prev === 0) return null;

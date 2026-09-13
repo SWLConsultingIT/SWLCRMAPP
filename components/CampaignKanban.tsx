@@ -7,7 +7,7 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, u
 import { Share2, Mail, Phone, CheckCircle, Flag, User, Send, SkipForward, X, AlertTriangle } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { isTerminalCampaign } from "@/lib/campaign-status";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 

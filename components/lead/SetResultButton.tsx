@@ -8,7 +8,7 @@ import { useState } from "react";
 import { ClipboardCheck } from "lucide-react";
 import LeadResultModal from "@/components/LeadResultModal";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 export default function SetResultButton({
   leadId, autoReplies, size = "md",

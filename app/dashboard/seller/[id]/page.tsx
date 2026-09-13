@@ -15,14 +15,14 @@ import { C } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getDashboardData } from "@/lib/dashboard-data";
-import { getT, getServerLocale } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/shared/i18n/server";
 import PageHero from "@/components/PageHero";
 import KpiCard from "@/components/dashboard/KpiCard";
 import MultiLineChart from "@/components/dashboard/MultiLineChart";
 import Heatmap from "@/components/dashboard/Heatmap";
 import Donut from "@/components/dashboard/Donut";
 import SwlSignature from "@/components/dashboard/SwlSignature";
-import { intlTag, type Locale } from "@/lib/i18n-dicts";
+import { intlTag, type Locale } from "@/shared/i18n/dicts";
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);

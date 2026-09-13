@@ -4,10 +4,10 @@
 
 import { getUserScope } from "@/lib/scope";
 import { redirect } from "next/navigation";
-import { getServerLocale } from "@/lib/i18n-server";
+import { getServerLocale } from "@/shared/i18n/server";
 import { getPortfolioComparison, type PortfolioCompany } from "@/lib/portfolio";
 import PrintTrigger from "../print/PrintTrigger";
-import { intlTag, type Locale } from "@/lib/i18n-locale";
+import { intlTag, type Locale } from "@/shared/i18n/locale";
 
 export const dynamic = "force-dynamic";
 

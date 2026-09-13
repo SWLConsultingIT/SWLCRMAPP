@@ -7,7 +7,7 @@ import AuroraHero from "@/components/AuroraHero";
 import CampaignTabs from "./CampaignTabs";
 import TemplatesView from "./TemplatesView";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 // NewCampaignView import removed 2026-05-28 — Create New Flow tab dropped.
 // Flow creation now starts from a Lead Miner section header → lead picker
 // at /campaigns/new/[profileId]/pick.

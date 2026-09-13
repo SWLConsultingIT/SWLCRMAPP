@@ -15,7 +15,7 @@
 // underline + glow + bold label.
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useEffect, useState, useTransition } from "react";
 import { N } from "@/shared/design/tokens";
 import { useDashboardTab, isClientTab } from "@/components/dashboard/DashboardTabs";

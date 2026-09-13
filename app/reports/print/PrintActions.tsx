@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 export default function PrintActions() {
   const { t } = useLocale();

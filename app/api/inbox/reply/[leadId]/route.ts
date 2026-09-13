@@ -23,7 +23,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveOutbound } from "@/lib/placeholders";
-import { t, getServerLocale } from "@/lib/i18n-server";
+import { t, getServerLocale } from "@/shared/i18n/server";
 
 export const runtime = "nodejs";
 // Up to ~4.5s of post-send delivery polling on top of the send itself.

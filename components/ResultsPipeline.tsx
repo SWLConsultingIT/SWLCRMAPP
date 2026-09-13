@@ -14,7 +14,7 @@ import Link from "next/link";
 import { C, N } from "@/shared/design/tokens";
 import { Star, ChevronRight, Trophy, PhoneCall, MessageSquare, Loader2 } from "lucide-react";
 import { OPP_STAGES, SENT_TO_ODOO, normalizeStage, stageLabel } from "@/lib/opportunity-stages";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import type { OpportunityLead } from "@/components/OpportunitiesTable";
 
 const gold = "var(--brand, #c9a83a)";

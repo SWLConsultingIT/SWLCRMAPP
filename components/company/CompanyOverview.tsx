@@ -9,7 +9,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import { MapPin, ExternalLink, Globe, Megaphone, Phone, Zap } from "lucide-react";
 import { SectionHeader, InfoRow, EmptyLine } from "@/components/lead/ui";

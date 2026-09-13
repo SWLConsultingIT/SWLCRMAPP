@@ -5,7 +5,7 @@
 // here (Fran 2026-09-11: don't mix fundamentals with performance).
 
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Factory, MapPin, Globe, Target } from "lucide-react";
 import { MetricStrip } from "@/components/lead/ui";
 

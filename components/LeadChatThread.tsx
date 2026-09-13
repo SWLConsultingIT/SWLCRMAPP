@@ -12,7 +12,7 @@ import { Share2, Mail, Phone, Smartphone, MessageSquare, PhoneCall, ChevronRight
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import InboxComposer from "./InboxComposer";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // Call outcome → compact label + colour (mirrors the post-call popup + Calls
 // History so the wording reads the same across the app).

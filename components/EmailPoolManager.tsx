@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, X, Loader2, Check } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 // Modal that lets a tenant claim Instantly email accounts into their pool.
 // Lists every account in the connected Instantly org with one of three states:

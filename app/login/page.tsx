@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ChevronRight, Mail } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const REMEMBER_KEY = "crm_last_email";
 

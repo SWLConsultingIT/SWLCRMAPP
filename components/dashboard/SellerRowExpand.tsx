@@ -9,7 +9,7 @@
 // page passes only serializable data — no inline render slots.
 
 import { useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Megaphone, Target, ArrowRight } from "lucide-react";
 import { C } from "@/shared/design/tokens";

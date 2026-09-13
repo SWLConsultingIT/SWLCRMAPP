@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, Loader2, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Target, MessageSquare, Mic, Shield, TrendingUp, AlertTriangle, Award, X, Quote, ArrowRight, ListChecks } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 type CoachState = {
   analysis: string | null;

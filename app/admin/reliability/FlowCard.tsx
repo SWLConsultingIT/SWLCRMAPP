@@ -14,7 +14,7 @@ import {
   Share2, Mail, Bot, Hand,
 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import RetryButton from "./RetryButton";
 import type { CampaignSummary } from "@/lib/reliability-summary";
 

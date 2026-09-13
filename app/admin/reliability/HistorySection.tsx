@@ -3,7 +3,7 @@
 // timestamps; see lib/reliability-history.ts.
 
 import { History, Send, MessageSquare, AlertOctagon, PauseCircle } from "lucide-react";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 import { getTenantHistory, type HistoryEvent } from "@/lib/reliability-history";
 import FoldableSection from "./FoldableSection";

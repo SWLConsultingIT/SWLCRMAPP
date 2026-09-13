@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Sparkles, Target, Loader2, ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 type Step = 1 | 2 | 3;
 

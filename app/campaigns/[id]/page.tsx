@@ -1,8 +1,8 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { selectAllPages } from "@/lib/supabase-bulk";
 import { C } from "@/shared/design/tokens";
-import { getT, getServerLocale } from "@/lib/i18n-server";
-import { intlTag } from "@/lib/i18n-locale";
+import { getT, getServerLocale } from "@/shared/i18n/server";
+import { intlTag } from "@/shared/i18n/locale";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {

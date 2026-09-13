@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import AdminClient from "./AdminClient";
 import TenantAdminView from "./TenantAdminView";
 import { redirect } from "next/navigation";

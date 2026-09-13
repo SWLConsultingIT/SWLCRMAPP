@@ -7,8 +7,8 @@
 // draft the client drops straight into the ICP form; nothing is persisted here.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerLocale } from "@/lib/i18n-server";
-import { PROMPT_LANGUAGE } from "@/lib/i18n-locale";
+import { getServerLocale } from "@/shared/i18n/server";
+import { PROMPT_LANGUAGE } from "@/shared/i18n/locale";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";

@@ -12,7 +12,7 @@
 // funciona mal"). Portaling + fixed coords keeps it fully visible everywhere.
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import AddToFlowModal from "@/components/icp/AddToFlowModal";
 import { stashLeadSelection, leadSelectionQuery } from "@/lib/lead-selection";
-import { useLocale } from "@/lib/i18n";
-import { intlTag, type Locale } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag, type Locale } from "@/shared/i18n/locale";
 
 const gold = C.gold;
 const goldLight = C.goldGlow;

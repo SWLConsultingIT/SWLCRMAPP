@@ -13,14 +13,14 @@ import {
 import { C, N } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getT, getServerLocale } from "@/lib/i18n-server";
+import { getT, getServerLocale } from "@/shared/i18n/server";
 import PageHero from "@/components/PageHero";
 import KpiCard from "@/components/dashboard/KpiCard";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import SwlSignature from "@/components/dashboard/SwlSignature";
 import LeadEngagementTable, { type LeadEngagementRow } from "@/components/dashboard/LeadEngagementTable";
 import MessagesByStep, { type MessageStepGroup } from "@/components/dashboard/MessagesByStep";
-import { intlTag, type Locale } from "@/lib/i18n-dicts";
+import { intlTag, type Locale } from "@/shared/i18n/dicts";
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);

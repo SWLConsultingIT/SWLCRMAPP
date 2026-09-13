@@ -3,7 +3,7 @@
 
 import AuroraHero from "@/components/AuroraHero";
 import NotificationsCenter from "@/components/NotificationsCenter";
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 
 export const dynamic = "force-dynamic";
 

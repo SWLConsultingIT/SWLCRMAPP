@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { Megaphone, FileText } from "lucide-react";

@@ -3,9 +3,9 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import CopilotChat from "@/components/CopilotChat";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import type { HomeData } from "@/lib/home-data";
-import { intlTag, type Locale } from "@/lib/i18n-dicts";
+import { intlTag, type Locale } from "@/shared/i18n/dicts";
 
 const LOGO_URL = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
 

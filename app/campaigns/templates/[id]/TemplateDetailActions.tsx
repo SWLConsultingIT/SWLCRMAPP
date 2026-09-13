@@ -11,7 +11,7 @@ import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 import { useToast } from "@/lib/toast";
 import { printPdf } from "@/lib/print-pdf";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 

@@ -4,7 +4,7 @@
 // emails/calls/stuck/failed), the stuck-WHY breakdown, AND a grid of
 // cards (one per flow) you click into for the per-campaign detail.
 
-import { getT } from "@/lib/i18n-server";
+import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 import { Send, AlertOctagon, PauseCircle, Mail, Phone, Share2, CheckCircle2, Workflow } from "lucide-react";
 import type { TenantSummary, CampaignSummary } from "@/lib/reliability-summary";

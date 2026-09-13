@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "@/lib/i18n";
-import { intlTag } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag } from "@/shared/i18n/locale";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, MessageCircle } from "lucide-react";

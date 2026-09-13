@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useRef, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 

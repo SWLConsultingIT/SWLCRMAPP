@@ -7,7 +7,7 @@
 
 import { Card, Badge } from "@/components/ui";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { SubTabs, EmptyLine } from "@/components/lead/ui";

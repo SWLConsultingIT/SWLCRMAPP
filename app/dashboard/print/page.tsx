@@ -15,8 +15,8 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { loadConsoleSource, buildIndex, buildOverview, buildTabs, CH_KEYS } from "@/lib/console-data";
 import PrintTrigger from "@/app/reports/print/PrintTrigger";
-import { getT, getServerLocale } from "@/lib/i18n-server";
-import { isLocale, intlTag, type Locale } from "@/lib/i18n-locale";
+import { getT, getServerLocale } from "@/shared/i18n/server";
+import { isLocale, intlTag, type Locale } from "@/shared/i18n/locale";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

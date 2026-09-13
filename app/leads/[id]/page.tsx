@@ -16,8 +16,8 @@ import LeadResearch from "@/components/lead/LeadResearch";
 import type { TimelineEvent } from "@/components/lead/LeadTimeline";
 import { countryToTimeZone } from "@/lib/prospect-time";
 import { ACTIVITY_SELECT, bucketActivity } from "@/features/activities/lib/activities";
-import { getT, getServerLocale } from "@/lib/i18n-server";
-import { intlTag } from "@/lib/i18n-locale";
+import { getT, getServerLocale } from "@/shared/i18n/server";
+import { intlTag } from "@/shared/i18n/locale";
 import { renderPlaceholders } from "@/lib/placeholders";
 
 // Bypass Next's render cache — freshly-sent steps must show immediately.

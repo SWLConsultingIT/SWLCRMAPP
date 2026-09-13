@@ -28,7 +28,7 @@ import Campaigns from "./Campaigns";
 import Channels from "./Channels";
 import Sellers from "./Sellers";
 import Portfolio from "./Portfolio";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 /** Which filters mean anything on which tab. Portfolio is cross-tenant, so
  *  a campaign / ICP / seller picker there would be filtering by something

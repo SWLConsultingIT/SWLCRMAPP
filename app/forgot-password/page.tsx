@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, ChevronRight, ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 
 export default function ForgotPasswordPage() {
   const { t } = useLocale();

@@ -10,7 +10,7 @@
 // SWL gold styling, multi-flow ready (one pick per submission).
 
 import { useEffect, useState } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { X, Loader2, Share2, Mail, Phone, Smartphone, MessageSquare, Calendar, Megaphone, CheckCircle, AlertCircle } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 

@@ -7,8 +7,8 @@ import { C } from "@/shared/design/tokens";
 import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
 import CallSummary from "@/components/CallSummary";
-import { useLocale } from "@/lib/i18n";
-import { intlTag } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag } from "@/shared/i18n/locale";
 import { hasPlayableRecording } from "@/lib/call-recording";
 
 export type CallRecord = {

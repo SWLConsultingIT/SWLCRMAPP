@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
-import { useLocale } from "@/lib/i18n";
-import { intlTag } from "@/lib/i18n-locale";
+import { useLocale } from "@/shared/i18n/i18n";
+import { intlTag } from "@/shared/i18n/locale";
 
 type Props = {
   leadId: string;

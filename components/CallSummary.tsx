@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 

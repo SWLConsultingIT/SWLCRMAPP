@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
-import { useLocale } from "@/lib/i18n";
+import { useLocale } from "@/shared/i18n/i18n";
 import { bucketActivity } from "@/features/activities/lib/activities";
 import ActivitiesList from "@/features/activities/components/ActivitiesList";
 import ActivitiesBoard, { type BoardActivity } from "@/features/activities/components/ActivitiesBoard";

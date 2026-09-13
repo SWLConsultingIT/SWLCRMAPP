@@ -1,4 +1,4 @@
-// Server-side companion to lib/i18n.tsx. Reads the user's locale from
+// Server-side companion to shared/i18n/i18n.tsx. Reads the user's locale from
 // `user_profiles.locale` (the same row that drives the client LocaleProvider)
 // so server components can render with the user's chosen language without
 // shipping the dict bundle to the client.
@@ -15,7 +15,7 @@ import { cache } from "react";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getOrFetchProfile } from "@/lib/user-profile-cache";
 import { getUserScope } from "@/lib/scope";
-import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n-dicts";
+import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/shared/i18n/dicts";
 
 export const getServerLocale = cache(async function getServerLocale(): Promise<Locale> {
   try {

@@ -5,7 +5,7 @@ import { requireUser, assertTenant } from "@/lib/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
-import { normalizeLocale, writeAllContentIn } from "@/lib/i18n-locale";
+import { normalizeLocale, writeAllContentIn } from "@/shared/i18n/locale";
 
 // GET → return cached talking points (or null if not generated yet).
 // POST → (re)generate and persist. The Pre-Call Brief card calls POST on
