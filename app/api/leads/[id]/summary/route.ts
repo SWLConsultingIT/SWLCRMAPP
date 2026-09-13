@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
+import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/integrations/unipile/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
 import { normalizeLocale, writeAllContentIn, type Locale } from "@/shared/i18n/locale";
 import { t } from "@/shared/i18n/server";

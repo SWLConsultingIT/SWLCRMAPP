@@ -26,7 +26,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
-import { archiveCallRecording } from "@/lib/archive-call-recording";
+import { archiveCallRecording } from "@/integrations/aircall/archive-recording";
 
 export const maxDuration = 60;
 

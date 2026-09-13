@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
-import { withdrawInvitation } from "@/lib/unipile-linkedin";
+import { withdrawInvitation } from "@/integrations/unipile/linkedin";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 

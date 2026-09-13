@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
-import { archiveCallRecording } from "@/lib/archive-call-recording";
+import { archiveCallRecording } from "@/integrations/aircall/archive-recording";
 
 const BUCKET = "call-recordings";
 

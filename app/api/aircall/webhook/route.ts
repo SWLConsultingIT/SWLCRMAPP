@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "node:crypto";
-import { phoneSuffixMatch, ilikeDigitPattern } from "@/lib/phone-match";
+import { phoneSuffixMatch, ilikeDigitPattern } from "@/integrations/aircall/phone-match";
 
 // `after` work counts against the route's budget, and archiving a recording
 // means downloading an MP3 from Aircall's S3 and uploading it to Storage.
@@ -369,7 +369,7 @@ export async function POST(req: NextRequest) {
   // somebody happened to press play on, which archives synchronously.
   if (updatedRow?.id && update.recording_url && !updatedRow.recording_storage_path) {
     after(
-      import("@/lib/archive-call-recording")
+      import("@/integrations/aircall/archive-recording")
         .then(m => m.archiveCallRecording(updatedRow.id as string))
         .catch(() => { /* don't fail webhook on archive error */ }),
     );
@@ -492,7 +492,7 @@ export async function POST(req: NextRequest) {
           }).catch(() => {}),
         );
         after(
-          import("@/lib/archive-call-recording")
+          import("@/integrations/aircall/archive-recording")
             .then(m => m.archiveCallRecording(inserted.id as string))
             .catch(() => {}),
         );

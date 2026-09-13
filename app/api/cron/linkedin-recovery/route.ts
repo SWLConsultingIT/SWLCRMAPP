@@ -27,7 +27,7 @@ import { discoverCandidates, buildRecoveryRow } from "@/lib/linkedin-recovery-di
 import { generateSecondAttemptCopy } from "@/lib/linkedin-recovery-copy";
 import {
   getRelationState, withdrawInvitation, sendInvite, sendDm, extractLinkedinSlug, isFirstDegree, hasUnipileCreds,
-} from "@/lib/unipile-linkedin";
+} from "@/integrations/unipile/linkedin";
 
 export const maxDuration = 60;
 const CRON_SECRET = process.env.CRON_SECRET;

@@ -5,7 +5,7 @@
 import { Workflow, CheckCircle2, XCircle, AlertCircle, Power, ExternalLink } from "lucide-react";
 import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
-import { getSwlWorkflowStatuses } from "@/lib/n8n-workflows-status";
+import { getSwlWorkflowStatuses } from "@/integrations/n8n/workflows-status";
 import FoldableSection from "./FoldableSection";
 
 const gold = "var(--brand, #c9a83a)";

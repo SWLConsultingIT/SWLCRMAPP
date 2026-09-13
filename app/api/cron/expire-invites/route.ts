@@ -29,7 +29,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
-import { withdrawInvitation } from "@/lib/unipile-linkedin";
+import { withdrawInvitation } from "@/integrations/unipile/linkedin";
 
 // Withdrawing up to a full backlog of stale invites (one Unipile DELETE each)
 // can exceed the default function budget — give it room.

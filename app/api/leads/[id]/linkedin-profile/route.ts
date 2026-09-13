@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
-import { fetchLinkedInProfileFull, linkedinIdentifier } from "@/lib/linkedin-profile";
+import { fetchLinkedInProfileFull, linkedinIdentifier } from "@/integrations/unipile/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
 
 // GET → the lead's full LinkedIn profile (About, full work history with dates,

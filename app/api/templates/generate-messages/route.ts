@@ -18,7 +18,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
-import { sanitize } from "@/lib/sanitize-output";
+import { sanitize } from "@/integrations/n8n/sanitize-output";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_PDFS = 5;

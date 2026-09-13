@@ -17,7 +17,7 @@
 // callbacks. Set the env var to activate enforcement.
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifySellerName, verifyTelegramName } from "@/lib/unipile-name-signing";
+import { verifySellerName, verifyTelegramName } from "@/integrations/unipile/name-signing";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;

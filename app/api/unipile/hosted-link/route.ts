@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
-import { signSellerName } from "@/lib/unipile-name-signing";
+import { signSellerName } from "@/integrations/unipile/name-signing";
 
 const KEY = process.env.UNIPILE_API_KEY!;
 const DSN = process.env.UNIPILE_DSN!;
