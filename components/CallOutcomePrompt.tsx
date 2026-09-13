@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Loader2, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight, PhoneMissed, Inbox as InboxIcon, Plus } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import WhenScheduler, { type WhenValue } from "@/components/WhenScheduler";
-import ActivityComposer from "@/components/ActivityComposer";
-import { browserTimeZone } from "@/lib/activities";
+import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
+import ActivityComposer from "@/features/activities/components/ActivityComposer";
+import { browserTimeZone } from "@/features/activities/lib/activities";
 
 // Post-call outcome prompt. Lifted OUT of CallButton and driven by
 // AircallPhoneProvider so it ALWAYS appears when a call ends — regardless of

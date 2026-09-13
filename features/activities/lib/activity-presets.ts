@@ -4,7 +4,7 @@
 // the composer then converts to an absolute due_at via wallTimeToUtcIso — so the
 // human's intended local time is always preserved, DST included.
 
-import { wallPartsInTz } from "@/lib/activities";
+import { wallPartsInTz } from "@/features/activities/lib/activities";
 
 export type PresetKey =
   | "in_30m"

@@ -1,5 +1,5 @@
 // Unit tests for the Activities domain (Phase 1). Pure — no database.
-// Run: npx tsx scripts/test-activities.mts
+// Run: npx tsx features/activities/tests/test-activities.mts
 //
 // Pins the two rules that must not drift: bucket derivation from due_at (Overdue
 // / Today / Upcoming, in the team business tz) and create-payload validation.

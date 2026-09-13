@@ -12,8 +12,8 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
-import { bucketActivity, wallTimeToUtcIso, type ActivityType } from "@/lib/activities";
-import type { BoardActivity } from "@/components/ActivitiesBoard";
+import { bucketActivity, wallTimeToUtcIso, type ActivityType } from "@/features/activities/lib/activities";
+import type { BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import { Check, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw, ChevronRight, Building2, CalendarClock } from "lucide-react";
 import { intlTag, type Locale } from "@/lib/i18n-dicts";
 

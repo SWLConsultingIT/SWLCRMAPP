@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
-import { isValidTimeZone, wallTimeToUtcIso } from "@/lib/activities";
+import { isValidTimeZone, wallTimeToUtcIso } from "@/features/activities/lib/activities";
 import { resolveDueTimezone } from "@/lib/prospect-time";
-import { logActivityEvent } from "@/lib/activities-server";
+import { logActivityEvent } from "@/features/activities/server/activities-server";
 
 // Quick-classify endpoint triggered by the post-call popup on the lead
 // detail. Four mutually exclusive outcomes, each mapped to a concrete

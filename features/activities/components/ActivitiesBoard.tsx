@@ -19,7 +19,7 @@ import {
   type ActivityType,
   type ActivityStatus,
   type ActivityBucket,
-} from "@/lib/activities";
+} from "@/features/activities/lib/activities";
 import {
   Check, X, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw,
   Search, AlertTriangle, CalendarDays, CalendarClock, ChevronDown, ChevronRight, Building2,

@@ -13,9 +13,9 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
-import { bucketActivity, wallTimeToUtcIso, type ActivityType, type ActivityStatus } from "@/lib/activities";
-import WhenScheduler, { type WhenValue } from "@/components/WhenScheduler";
-import ActivityComposer from "@/components/ActivityComposer";
+import { bucketActivity, wallTimeToUtcIso, type ActivityType, type ActivityStatus } from "@/features/activities/lib/activities";
+import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
+import ActivityComposer from "@/features/activities/components/ActivityComposer";
 import CallButton from "@/components/CallButton";
 import {
   Check, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw,

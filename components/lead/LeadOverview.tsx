@@ -12,7 +12,7 @@ import { useLocale } from "@/lib/i18n";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import { Mail, Phone, MapPin, Building2, ExternalLink, Megaphone, Users, Send } from "lucide-react";
 import { SectionHeader, InfoRow, MetricStrip } from "@/components/lead/ui";
-import LeadActivitiesPanel from "@/components/LeadActivitiesPanel";
+import LeadActivitiesPanel from "@/features/activities/components/LeadActivitiesPanel";
 import LeadStatusSelect from "@/components/LeadStatusSelect";
 import SendToOdooPanel from "@/components/SendToOdooPanel";
 import ProspectClock from "@/components/ProspectClock";

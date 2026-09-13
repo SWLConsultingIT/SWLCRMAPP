@@ -14,11 +14,11 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
-import { wallTimeToUtcIso } from "@/lib/activities";
+import { wallTimeToUtcIso } from "@/features/activities/lib/activities";
 import { Zap, Plus, Phone, RefreshCw, Mail, MessageSquare, Users, FileText, ListTodo, Clock, Check, CalendarClock } from "lucide-react";
 import CallButton from "@/components/CallButton";
-import ActivityComposer from "@/components/ActivityComposer";
-import WhenScheduler, { type WhenValue } from "@/components/WhenScheduler";
+import ActivityComposer from "@/features/activities/components/ActivityComposer";
+import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
 
 const gold = "var(--brand, #c9a83a)";
 const goldInk = "#8a6b18";

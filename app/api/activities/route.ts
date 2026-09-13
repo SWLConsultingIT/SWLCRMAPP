@@ -12,8 +12,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAllTenantData, getMyAssignedLeadIds } from "@/lib/scope";
-import { ACTIVITY_SELECT, normalizeActivityCreate, isActivityType, isActivityStatus } from "@/lib/activities";
-import { logActivityEvent } from "@/lib/activities-server";
+import { ACTIVITY_SELECT, normalizeActivityCreate, isActivityType, isActivityStatus } from "@/features/activities/lib/activities";
+import { logActivityEvent } from "@/features/activities/server/activities-server";
 
 export async function GET(req: NextRequest) {
   const scope = await getUserScope();

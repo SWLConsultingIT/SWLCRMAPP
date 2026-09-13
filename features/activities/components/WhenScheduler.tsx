@@ -8,8 +8,8 @@
 
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { COMMON_TIMEZONES } from "@/lib/activities";
-import { presetToWall, PRESET_KEYS, type PresetKey } from "@/lib/activity-presets";
+import { COMMON_TIMEZONES } from "@/features/activities/lib/activities";
+import { presetToWall, PRESET_KEYS, type PresetKey } from "@/features/activities/lib/activity-presets";
 import { Bell } from "lucide-react";
 
 export type WhenValue = { date: string; time: string; tz: string; reminderOffset: string };

@@ -10,10 +10,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { bucketActivity } from "@/lib/activities";
-import ActivitiesList from "@/components/ActivitiesList";
-import ActivitiesBoard, { type BoardActivity } from "@/components/ActivitiesBoard";
-import ActivityComposer from "@/components/ActivityComposer";
+import { bucketActivity } from "@/features/activities/lib/activities";
+import ActivitiesList from "@/features/activities/components/ActivitiesList";
+import ActivitiesBoard, { type BoardActivity } from "@/features/activities/components/ActivitiesBoard";
+import ActivityComposer from "@/features/activities/components/ActivityComposer";
 import { Plus, AlertTriangle, CalendarClock, CalendarDays, List as ListIcon, LayoutGrid } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";

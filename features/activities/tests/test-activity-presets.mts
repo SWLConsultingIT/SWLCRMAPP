@@ -1,9 +1,9 @@
 // Unit tests for the universal scheduling presets (phase 1). Pure + tz-aware.
-// Run: npx tsx scripts/test-activity-presets.mts
+// Run: npx tsx features/activities/tests/test-activity-presets.mts
 
 import { presetToWall } from "../lib/activity-presets.ts";
 import { wallTimeToUtcIso } from "../lib/activities.ts";
-import { resolveDueTimezone, DEFAULT_DUE_TZ } from "../lib/prospect-time.ts";
+import { resolveDueTimezone, DEFAULT_DUE_TZ } from "@/lib/prospect-time.ts";
 
 let pass = 0, fail = 0;
 const fails: string[] = [];

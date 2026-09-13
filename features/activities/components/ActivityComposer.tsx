@@ -20,12 +20,12 @@ import { useLocale } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 import { countryToTimeZone } from "@/lib/prospect-time";
 import { leadDisplayName } from "@/lib/lead-label";
-import { createActivity } from "@/lib/create-activity";
-import WhenScheduler from "@/components/WhenScheduler";
+import { createActivity } from "@/features/activities/lib/create-activity";
+import WhenScheduler from "@/features/activities/components/WhenScheduler";
 import {
   ACTIVITY_TYPES, browserTimeZone, wallTimeToUtcIso, wallPartsInTz,
   type ActivityType,
-} from "@/lib/activities";
+} from "@/features/activities/lib/activities";
 import { X, Search, Building2, Calendar } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";

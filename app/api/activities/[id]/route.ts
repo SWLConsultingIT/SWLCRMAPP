@@ -13,8 +13,8 @@ import {
   isActivityPriority,
   isValidTimeZone,
   type ActivityStatus,
-} from "@/lib/activities";
-import { logActivityEvent, type ActivityEventType } from "@/lib/activities-server";
+} from "@/features/activities/lib/activities";
+import { logActivityEvent, type ActivityEventType } from "@/features/activities/server/activities-server";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();

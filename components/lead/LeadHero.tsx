@@ -25,7 +25,7 @@ import LeadMoreMenu from "@/components/LeadMoreMenu";
 import LeadSellerTags from "@/components/LeadSellerTags";
 import ProspectClock from "@/components/ProspectClock";
 import SetResultButton from "@/components/lead/SetResultButton";
-import HeroNextAction, { type HeroNext } from "@/components/lead/HeroNextAction";
+import HeroNextAction, { type HeroNext } from "@/features/activities/components/HeroNextAction";
 
 const gold = "var(--brand, #c9a83a)";
 
