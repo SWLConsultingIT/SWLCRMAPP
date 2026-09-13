@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import LogoLoader from "@/components/LogoLoader";
 import AuroraHero from "@/components/AuroraHero";

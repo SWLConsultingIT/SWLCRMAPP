@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { Share2, Mail, Phone, Smartphone, MessageSquare } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { t as tFn, type Locale } from "@/lib/i18n-server";
 
 const channelMeta: Record<string, { Icon: React.ElementType; key: string }> = {

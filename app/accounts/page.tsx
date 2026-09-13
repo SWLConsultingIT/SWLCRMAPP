@@ -2,7 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getT } from "@/lib/i18n-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getInstantlyConfig } from "@/lib/instantly-config";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { UserCircle, Share2, Mail, Phone, Check, X } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/components/PageHero";

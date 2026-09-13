@@ -12,7 +12,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Megaphone, Target, ArrowRight } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = "var(--brand, #c9a83a)";
 

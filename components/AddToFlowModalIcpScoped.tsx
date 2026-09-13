@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 import { Megaphone, CheckSquare, X } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 

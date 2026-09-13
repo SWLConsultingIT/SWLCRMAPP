@@ -1,5 +1,5 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Canonical card — ONE look for every surface (design-system pass 2026-06-26).
 // Radius 16, 1px border, one theme-aware shadow. Replaces the ad-hoc

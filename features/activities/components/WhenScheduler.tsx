@@ -6,7 +6,7 @@
 // component: it holds no business logic, just edits a { date, time, tz,
 // reminderOffset } value and calls onChange.
 
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { COMMON_TIMEZONES } from "@/features/activities/lib/activities";
 import { presetToWall, PRESET_KEYS, type PresetKey } from "@/features/activities/lib/activity-presets";

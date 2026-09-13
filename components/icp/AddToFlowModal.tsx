@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { X, Loader2, Share2, Mail, Phone, Smartphone, MessageSquare, Calendar, Megaphone, CheckCircle, AlertCircle } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = "var(--brand, #c9a83a)";
 

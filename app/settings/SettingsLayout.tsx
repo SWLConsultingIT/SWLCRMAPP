@@ -7,12 +7,12 @@ import {
   User, SlidersHorizontal, Link2, Phone, Shield, LogOut,
   CheckCircle2, Moon, Sun, Share2, Mail, ChevronRight,
 } from "lucide-react";
-import { C } from "@/lib/design";
-import { useTheme } from "@/lib/theme";
+import { C } from "@/shared/design/tokens";
+import { useTheme } from "@/shared/design/theme";
 import { useLocale } from "@/lib/i18n";
 import { LOCALES } from "@/lib/i18n-dicts";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
-import { applyBrand, clearBrandVars } from "@/lib/brand";
+import { applyBrand, clearBrandVars } from "@/shared/design/brand";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 type SectionId = "profile" | "preferences" | "operations" | "integrations";

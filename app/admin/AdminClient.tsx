@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   Building2, Users, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { Phone, Loader2, ChevronRight, FileText } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import CallCard, { CallRecord } from "@/components/CallCard";
 import CallButton from "@/components/CallButton";
 import PreCallBrief from "@/components/PreCallBrief";

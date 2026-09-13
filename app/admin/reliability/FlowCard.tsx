@@ -13,7 +13,7 @@ import {
   HelpCircle, Workflow, AlertTriangle, CheckCircle2, Users, Phone,
   Share2, Mail, Bot, Hand,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import RetryButton from "./RetryButton";
 import type { CampaignSummary } from "@/lib/reliability-summary";

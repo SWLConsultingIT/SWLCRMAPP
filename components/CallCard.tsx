@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Trash2, Sparkles, Loader2, RotateCw, AlertCircle, X } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
 import CallSummary from "@/components/CallSummary";

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getT } from "@/lib/i18n-server";
 import { AlertTriangle, ArrowRight } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 

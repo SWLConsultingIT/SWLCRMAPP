@@ -8,7 +8,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { Sparkles, Building2, Share2, Bot } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";

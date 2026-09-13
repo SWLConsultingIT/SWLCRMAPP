@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { X, Loader2, Users, Wand2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useToast } from "@/lib/toast";
 
 type Member = { userId: string; name: string };

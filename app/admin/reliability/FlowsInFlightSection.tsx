@@ -5,7 +5,7 @@
 // cards (one per flow) you click into for the per-campaign detail.
 
 import { getT } from "@/lib/i18n-server";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Send, AlertOctagon, PauseCircle, Mail, Phone, Share2, CheckCircle2, Workflow } from "lucide-react";
 import type { TenantSummary, CampaignSummary } from "@/lib/reliability-summary";
 import FoldableSection from "./FoldableSection";

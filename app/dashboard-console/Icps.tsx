@@ -16,7 +16,7 @@
 // inside a 30-day view.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   gold, n, S, Band, Opening, Drill, Note, Eyebrow, WorthALook,
   ChannelMark, CH_COLOR, CH_LABEL,

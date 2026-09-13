@@ -11,7 +11,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { Star, ChevronRight, Trophy, PhoneCall, MessageSquare, Loader2 } from "lucide-react";
 import { OPP_STAGES, SENT_TO_ODOO, normalizeStage, stageLabel } from "@/lib/opportunity-stages";
 import { useLocale } from "@/lib/i18n";

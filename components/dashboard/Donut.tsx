@@ -11,7 +11,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 type Slice = {
   label: string;

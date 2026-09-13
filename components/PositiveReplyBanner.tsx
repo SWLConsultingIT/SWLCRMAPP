@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { TrendingUp, X } from "lucide-react";
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";

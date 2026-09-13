@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 export default function SyncAircallButton() {
   const { t } = useLocale();

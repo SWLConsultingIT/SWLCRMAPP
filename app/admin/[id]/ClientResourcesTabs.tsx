@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Users, Share2, Phone, Mail, Loader2, CheckCircle } from "lucide-react";
 import TenantTeamTab from "../TenantTeamTab";
 

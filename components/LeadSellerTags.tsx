@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { createPortal } from "react-dom";
 import { Tag, X, Plus, Loader2, ChevronLeft } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // "Tagged teammates" on a lead — loop anyone on the team into a lead beyond the
 // single assigned owner. Tagging notifies them (in-app bell) and can carry an

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader, MessageSquare, Ban } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
 

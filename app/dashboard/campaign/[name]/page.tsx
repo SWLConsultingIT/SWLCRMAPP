@@ -10,7 +10,7 @@ import {
   ArrowLeft, ArrowRight, Megaphone, Send, MessageSquare, ThumbsUp, Users, Share2, Mail,
   Phone, Smartphone, Trophy, Calendar, Clock, Activity, AlertTriangle, Sparkles, TrendingDown,
 } from "lucide-react";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getT, getServerLocale } from "@/lib/i18n-server";

@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, AtSign, Tag, MessageSquare, CheckCheck, FileText, CalendarClock, Inbox as InboxIcon } from "lucide-react";
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useAuthUser } from "@/lib/auth-context";
 

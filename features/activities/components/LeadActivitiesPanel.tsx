@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { useToast } from "@/lib/toast";
 import { bucketActivity, wallTimeToUtcIso, type ActivityType, type ActivityStatus } from "@/features/activities/lib/activities";

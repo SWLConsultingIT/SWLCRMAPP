@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 export default function AdminActions({ id, table }: { id: string; table: "icp_profiles" | "campaign_requests" }) {

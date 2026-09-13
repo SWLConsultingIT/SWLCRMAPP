@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, Check, X } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Red "Wrong number" pill that opens an inline replace flow on click.
 // Renders in the lead detail header in place of the Call button when

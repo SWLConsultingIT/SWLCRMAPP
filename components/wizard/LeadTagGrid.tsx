@@ -14,7 +14,7 @@
 import { useMemo, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, AlertCircle, ChevronDown, ChevronUp, Search, Filter, Check, Phone, Mail, Share2, Megaphone } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { VIOLATION_LABELS, type ViolationCode } from "@/lib/message-validator";
 
 const gold = C.gold;

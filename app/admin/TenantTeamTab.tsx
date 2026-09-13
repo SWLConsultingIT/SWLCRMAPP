@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Loader2, Plus, X, Trash2, Check } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useToast } from "@/lib/toast";
 
 // Client-side Team tab. Fetches team via /api/team, exposes invite +

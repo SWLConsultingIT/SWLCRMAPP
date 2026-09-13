@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Send, Loader2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 export default function InboxComposer({

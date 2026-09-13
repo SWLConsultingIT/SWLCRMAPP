@@ -8,7 +8,7 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = "var(--brand, #c9a83a)";
 

@@ -8,7 +8,7 @@
 // chip turns amber to nudge a refresh.
 
 import { useEffect, useState } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 export default function FreshnessChip({ renderedAt }: { renderedAt: string }) {

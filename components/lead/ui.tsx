@@ -7,7 +7,7 @@
 // harness with mock data.
 
 import { useState, type ReactNode, type CSSProperties } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = "var(--brand, #c9a83a)";
 

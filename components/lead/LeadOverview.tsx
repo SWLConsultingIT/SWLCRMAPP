@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { Card } from "@/components/ui";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import { Mail, Phone, MapPin, Building2, ExternalLink, Megaphone, Users, Send } from "lucide-react";

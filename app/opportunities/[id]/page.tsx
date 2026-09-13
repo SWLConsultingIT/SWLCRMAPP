@@ -1,7 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import Link from "next/link";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, ExternalLink, Trophy,

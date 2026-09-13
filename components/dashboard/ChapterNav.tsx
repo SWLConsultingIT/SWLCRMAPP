@@ -17,7 +17,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLocale } from "@/lib/i18n";
 import { useEffect, useState, useTransition } from "react";
-import { N } from "@/lib/design";
+import { N } from "@/shared/design/tokens";
 import { useDashboardTab, isClientTab } from "@/components/dashboard/DashboardTabs";
 
 const gold = "var(--brand, #c9a83a)";

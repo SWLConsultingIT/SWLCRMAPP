@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getT } from "@/lib/i18n-server";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { SearchX } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";

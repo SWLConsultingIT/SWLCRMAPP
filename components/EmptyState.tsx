@@ -1,4 +1,4 @@
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 

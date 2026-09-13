@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, Shuffle, AlertCircle, Phone, Mail, Share2, Megaphone } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = C.gold;
 

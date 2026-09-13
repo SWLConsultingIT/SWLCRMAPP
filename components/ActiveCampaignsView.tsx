@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { isTerminalCampaign } from "@/lib/campaign-status";
 import { useLocale } from "@/lib/i18n";
 import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus, Search, X, Trophy, Play, CheckCircle2, MessageSquare, Link2 } from "lucide-react";

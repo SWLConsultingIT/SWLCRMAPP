@@ -11,7 +11,7 @@ import {
   ArrowLeft, Share2, Mail, Phone, MessageSquare, FileText, Sparkles,
   Trophy, Tag, Languages, Megaphone, Clock,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import TemplateDetailActions from "./TemplateDetailActions";

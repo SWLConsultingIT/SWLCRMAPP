@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Megaphone, FileDown, Trash2, AlertTriangle, Loader2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // "Mark result" was removed from this menu — it duplicated the hero's primary
 // "Set result" action (same LeadResultModal). More now holds only View flow /

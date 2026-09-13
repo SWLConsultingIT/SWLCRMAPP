@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Phone, Clock, Users, PhoneCall, MessageSquare, ThumbsUp, AlertTriangle } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
 

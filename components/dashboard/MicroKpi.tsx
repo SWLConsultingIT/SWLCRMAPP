@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
-import { C, T } from "@/lib/design";
+import { C, T } from "@/shared/design/tokens";
 
 export default function MicroKpi({
   label,

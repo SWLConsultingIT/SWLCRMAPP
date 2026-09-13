@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import {
   Share2, Mail, Phone, MessageCircle, Sparkles, Loader2,

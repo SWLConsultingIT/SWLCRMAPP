@@ -16,7 +16,7 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, X } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { gold, Pick } from "./ui";
 import type { OverviewData, TabsData } from "@/lib/console-data";
 import { ConsoleProvider, useD } from "./ctx";

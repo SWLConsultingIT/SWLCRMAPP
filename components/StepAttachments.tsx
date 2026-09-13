@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Paperclip, X, FileText, Loader2, AlertTriangle } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 export type StepAttachment = {
   path: string;

@@ -8,7 +8,7 @@ import {
   Sparkles, Send, Users, BarChart3, Plug, Shield, Inbox, Settings,
   MessageSquare, AlertTriangle, CreditCard, Clock, Lightbulb, ChevronDown, ArrowLeft,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";

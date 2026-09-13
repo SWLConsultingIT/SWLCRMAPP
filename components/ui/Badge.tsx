@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Canonical pill badge — consistent size/radius, color = meaning.
 // tone maps to the semantic palette so a "positive" badge looks the same

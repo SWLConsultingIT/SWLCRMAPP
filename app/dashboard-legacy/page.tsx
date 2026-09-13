@@ -13,7 +13,7 @@ import {
   AlertTriangle, ArrowRight, ChevronRight, MessageSquare, ThumbsUp, Sparkles,
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
 import { getDashboardData } from "@/lib/dashboard-data";
 import SellerPulseSection from "@/components/dashboard/SellerPulseSection";

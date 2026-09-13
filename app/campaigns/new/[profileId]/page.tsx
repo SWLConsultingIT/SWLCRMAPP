@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone, MessageCircle,
   Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle, Lock,

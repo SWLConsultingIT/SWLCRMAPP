@@ -8,7 +8,7 @@
 // delta label so the period-over-period delta lives where it matters
 // (next to the bar, not in a separate panel).
 
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 type Stage = { stage: string; count: number; color: string; prior?: number | null; definition?: string };
 

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import {
   ArrowLeft, Star, Clock, ChevronRight, ChevronDown, ChevronUp, Megaphone,

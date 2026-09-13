@@ -8,7 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Card, Badge } from "@/components/ui";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { ExternalLink, Megaphone } from "lucide-react";
 import { SubTabs, EmptyLine } from "@/components/lead/ui";

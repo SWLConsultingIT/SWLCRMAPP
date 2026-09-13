@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { intlTag } from "@/lib/i18n-locale";
 import { useLocale } from "@/lib/i18n";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { UserPlus, AlertTriangle, Trash2, Loader2 } from "lucide-react";
 import AddPersonModal, { type AddPersonResult } from "./AddPersonModal";
 import { useToast } from "@/lib/toast";

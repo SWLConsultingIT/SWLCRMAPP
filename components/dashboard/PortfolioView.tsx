@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { intlTag } from "@/lib/i18n-dicts";
 import { useRouter, useSearchParams } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { TrendingUp, TrendingDown, Minus, Users, Phone, MessageSquare, ThumbsUp, Building2, Trophy } from "lucide-react";
 import type { PortfolioCompany } from "@/lib/portfolio";
 

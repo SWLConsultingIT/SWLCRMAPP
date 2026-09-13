@@ -12,7 +12,7 @@
 
 import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { ShieldCheck } from "lucide-react";
 import { getAllTenantSummaries, getTenantCampaigns, buildGlobalSummary } from "@/lib/reliability-summary";
 import { getT, getServerLocale } from "@/lib/i18n-server";

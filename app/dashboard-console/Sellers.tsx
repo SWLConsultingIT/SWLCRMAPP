@@ -26,7 +26,7 @@
 
 import { Fragment, useState } from "react";
 import { ChevronRight, AlertTriangle } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { gold, n, Band, Opening, Drill, Eyebrow, CH_COLOR, TONE } from "./ui";
 import type * as CT from "@/lib/console-data";
 import { useT } from "./ctx";

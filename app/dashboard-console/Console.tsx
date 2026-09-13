@@ -27,7 +27,7 @@
 import {
   Share2, Mail, Phone, MessageSquare,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import {
   gold, n, S, Band, DeltaTag, Def, Drill,

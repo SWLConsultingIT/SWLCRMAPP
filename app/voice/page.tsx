@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   MessageCircle, BookOpen, Plus, X, Pencil, Trash2, Loader2,
   Mail, Phone, Share2, Save, Layers,

@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import Sparkline from "./Sparkline";
 
 export default function KpiCard({

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   Megaphone, ChevronRight, Target,
   Search, X, CheckCircle, Star, RefreshCw, Trash2, Square, CheckSquare,

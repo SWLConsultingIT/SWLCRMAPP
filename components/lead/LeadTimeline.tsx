@@ -7,7 +7,7 @@
 // real outcomes (positive=green, negative=red, callback/overdue=orange).
 
 import { useState } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import {
   Mail, Phone, Send, MessageSquare, UserPlus, Megaphone, CalendarClock, CheckCircle2,

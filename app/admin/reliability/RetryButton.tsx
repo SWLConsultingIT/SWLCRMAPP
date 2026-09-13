@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { RotateCcw, Loader2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Per-row retry button for failed campaign_messages. Calls
 // /api/admin/reliability/retry → flips status failed → queued and strips

@@ -8,7 +8,7 @@ import {
   Trash2, Play, Plus, MoreHorizontal, Copy, FolderTree, Clock, List,
   ChevronDown, ChevronRight, AlertCircle, ArrowRight, Pencil, Archive, Download,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import EmptyState from "@/components/EmptyState";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import { useToast } from "@/lib/toast";

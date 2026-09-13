@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Clock } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Shows the prospect's *local* time + a green/amber dot for "is this a sane hour
 // to call?" (08:00–19:00 local = good). Ticks every minute. Pure client clock —

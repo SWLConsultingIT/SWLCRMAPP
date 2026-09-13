@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { useRouter, useSearchParams } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import Link from "next/link";
 import {
   Share2, Mail, Phone, MessageCircle, Check, Pencil, X, Save, Copy,

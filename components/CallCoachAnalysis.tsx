@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, Loader2, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Target, MessageSquare, Mic, Shield, TrendingUp, AlertTriangle, Award, X, Quote, ArrowRight, ListChecks } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 type CoachState = {

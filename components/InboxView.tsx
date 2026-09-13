@@ -9,7 +9,7 @@ import {
   Check, X as XIcon, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeftOpen,
   ChevronDown, Megaphone, Target, Radio, Calendar, Maximize2, Minimize2, AlertCircle, User,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
 import { intlTag, type Locale } from "@/lib/i18n-locale";

@@ -5,7 +5,7 @@
 // "no signals" line — never a giant empty card.
 
 import { Card } from "@/components/ui";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import { SectionHeader, ChipCloud, EmptyLine } from "@/components/lead/ui";

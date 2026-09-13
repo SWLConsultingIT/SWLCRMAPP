@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Phone, X } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import CallOutcomePrompt from "./CallOutcomePrompt";
 
 // Aircall Everywhere SDK — embeds the Aircall web phone inside our app via

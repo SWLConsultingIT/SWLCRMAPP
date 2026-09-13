@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useAuthUser } from "@/lib/auth-context";
 import EmptyState from "@/components/EmptyState";
 import {

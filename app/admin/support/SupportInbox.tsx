@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useLocale } from "@/lib/i18n";
 import Link from "next/link";
 import { ArrowLeft, ClipboardList, Loader2, RefreshCw, CheckCircle2, Clock, CircleDot, Ban, User, X, Search } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = "var(--brand, #c9a83a)";
 

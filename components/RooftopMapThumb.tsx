@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { X, Maximize2, MapPin } from "lucide-react";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 
 // Rooftop satellite thumbnail that EXPANDS IN PLACE into an interactive Google
 // Maps, right inside the panel — no overlay, no black screen, no navigating

@@ -6,7 +6,7 @@
 // channels that fired. Designed for inline density (≤ 220px wide).
 
 import { Share2, Mail, Phone, MessageSquare } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 type Props = {
   linkedinSent: number;

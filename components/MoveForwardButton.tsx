@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { SkipForward, Send, AlertTriangle, X, Share2, Mail, Phone } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = "var(--brand, #c9a83a)";
 

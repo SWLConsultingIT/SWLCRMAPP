@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Settings, Info, Check, Loader2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useRouter } from "next/navigation";
 
 // stageKey/whyKey, not prose: module scope, no translator here.

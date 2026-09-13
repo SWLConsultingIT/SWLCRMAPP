@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, X, CheckCircle } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 /**
  * Tiny modal-based t("satb.saveAs") action. Lives next to the campaign

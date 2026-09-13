@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Users, CheckSquare, Building2, Globe, Briefcase, MapPin, Megaphone, Send, Share2, Mail, Phone } from "lucide-react";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
 import { stashLeadSelection, leadSelectionQuery, clearLeadSelection } from "@/lib/lead-selection";

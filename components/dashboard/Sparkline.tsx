@@ -1,7 +1,7 @@
 // Inline SVG sparkline — no chart lib dependency, fully RSC-safe.
 // Used in every KPI card to show the 30d trend behind the headline number.
 
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 export default function Sparkline({
   data,

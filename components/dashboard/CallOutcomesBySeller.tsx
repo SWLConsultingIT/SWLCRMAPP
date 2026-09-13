@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { ChevronRight, PhoneCall } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 const OUTFIT = "var(--font-outfit), system-ui, sans-serif";

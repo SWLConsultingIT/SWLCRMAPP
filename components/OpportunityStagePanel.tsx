@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle, Calendar, FileText, Loader2, Trophy } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { OPP_STAGES as STAGES, normalizeStage, stageLabel } from "@/lib/opportunity-stages";
 import { useLocale } from "@/lib/i18n";
 

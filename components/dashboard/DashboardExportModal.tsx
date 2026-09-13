@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FileDown, FileSpreadsheet, X, Loader2, Check, Minus } from "lucide-react";
 import { printPdf } from "@/lib/print-pdf";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { LOCALES, type Locale } from "@/lib/i18n-locale";
 

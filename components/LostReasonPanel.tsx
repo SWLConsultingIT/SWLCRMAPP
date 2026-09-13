@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Pencil, Check, X, Loader2, AlertCircle } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Panel that surfaces and edits the "why was this lead lost" reason on
 // /leads/lost/[id]. Storage: lead_replies row with [LOST_REASON] prefix

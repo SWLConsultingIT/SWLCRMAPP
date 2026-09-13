@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Keyboard } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 // Global keyboard-shortcuts cheatsheet. Mounted once at app shell level.

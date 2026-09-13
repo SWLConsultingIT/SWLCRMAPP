@@ -18,7 +18,7 @@
 // how many went out · how many people that reached · what came back.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   gold, n, Band, Opening, Drill, Note, Eyebrow, WorthALook, DeltaTag,
   ChannelMark, CH_COLOR, OutcomeBar, TONE,

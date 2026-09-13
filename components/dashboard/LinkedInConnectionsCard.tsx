@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { UserPlus, ArrowUpRight } from "lucide-react";
-import { C, T } from "@/lib/design";
+import { C, T } from "@/shared/design/tokens";
 
 const LI_COLOR = "#0A66C2";
 

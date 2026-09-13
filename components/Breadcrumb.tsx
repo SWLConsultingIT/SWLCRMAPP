@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 type Crumb = { label: string; href?: string };
 

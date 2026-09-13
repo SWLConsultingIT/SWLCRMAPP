@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocale } from "@/lib/i18n";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Activity, Clock, Circle } from "lucide-react";
 
 type ApiUser = {

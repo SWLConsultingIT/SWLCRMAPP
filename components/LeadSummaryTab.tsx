@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
 import { intlTag } from "@/lib/i18n-locale";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { ChevronDown, ChevronUp, CheckCircle2, Clock, Send, MessageSquare, Pencil, Save, Loader2 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import { useLocale } from "@/lib/i18n";

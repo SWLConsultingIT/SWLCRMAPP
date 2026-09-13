@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import LogoLoader from "@/components/LogoLoader";
 import { useRouter, useParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
   Loader2, Send, Megaphone, Plus, Trash2, User, Globe, Settings,

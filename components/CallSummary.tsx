@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 /**
  * Brief 1-2 sentence call summary. Cheap (Haiku 4.5, ~$0.0005). Runs once

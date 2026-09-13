@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Send, X, Loader2, Copy, Check, MessageSquare, Building2, User, ExternalLink, Trophy, AlertTriangle } from "lucide-react";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";

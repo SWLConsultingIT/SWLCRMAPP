@@ -8,7 +8,7 @@ import {
   bufferFromSupabaseBytea,
   ENCRYPTED_LEAD_COLUMNS,
 } from "@/lib/leads-crypto";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Users, Upload, Megaphone, Percent, ThumbsUp } from "lucide-react";
 import Link from "next/link";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";

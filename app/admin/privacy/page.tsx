@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getT } from "@/lib/i18n-server";
 import { Lock, Shield } from "lucide-react";
 import PageHero from "@/components/PageHero";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { getUserScope, canViewAdminMenu } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import PrivacyClient from "./PrivacyClient";

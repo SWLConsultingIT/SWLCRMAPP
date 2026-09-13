@@ -2,7 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import Link from "next/link";
 import Anthropic from "@anthropic-ai/sdk";
 import Breadcrumb from "@/components/Breadcrumb";

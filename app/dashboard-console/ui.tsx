@@ -17,7 +17,7 @@ import {
   Share2, Mail, Phone, MessageSquare, UserPlus, ChevronDown, ArrowUpRight, ArrowDownRight,
   Minus, Check, X, ArrowRight, HelpCircle,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { useGoTab } from "./ctx";
 

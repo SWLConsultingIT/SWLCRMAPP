@@ -11,7 +11,7 @@
 // and cannot ship event handlers across the RSC boundary.
 
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 export default function ScoreTile({
   label,

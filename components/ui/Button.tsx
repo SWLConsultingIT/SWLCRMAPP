@@ -1,7 +1,7 @@
 "use client";
 
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Canonical button — 4 variants, 2 sizes, one radius/height system.
 // Replaces per-caller inline button styling (each screen hand-rolled its own

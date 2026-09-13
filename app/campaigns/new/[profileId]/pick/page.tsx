@@ -11,7 +11,7 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { ArrowLeft } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import PickLeadsClient, { type PickableLead } from "./PickLeadsClient";
 
 async function loadPickerData(profileId: string) {

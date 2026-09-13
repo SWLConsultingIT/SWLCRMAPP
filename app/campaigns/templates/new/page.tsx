@@ -8,7 +8,7 @@ import {
   Share2, Mail, Phone, MessageCircle, FileText, AlertCircle,
   X, Sparkles, Upload, Copy, FilePlus2, Check,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 import { useLocale } from "@/lib/i18n";
 

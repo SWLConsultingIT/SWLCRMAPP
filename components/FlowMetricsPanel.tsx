@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import Link from "next/link";
 import { useSearchParams, usePathname } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { fmtPct } from "@/lib/flow-metrics-lib";
 import {

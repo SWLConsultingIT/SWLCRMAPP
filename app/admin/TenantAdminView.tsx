@@ -1,7 +1,7 @@
 import { Users, Building2, Megaphone, Phone } from "lucide-react";
 import { getT } from "@/lib/i18n-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import PageHero from "@/components/PageHero";
 import Breadcrumb from "@/components/Breadcrumb";
 import TenantTeamTab from "./TenantTeamTab";

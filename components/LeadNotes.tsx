@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useLocale } from "@/lib/i18n";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { StickyNote, Phone, Trash2, Loader2, Star, AtSign, Send } from "lucide-react";
 
 // The lead's collaboration hub — a proper notes log (replaces the weak

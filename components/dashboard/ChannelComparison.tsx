@@ -5,7 +5,7 @@
 // 100% width), and the raw counts inline.
 
 import { Share2, Mail, Phone, Smartphone, MessageSquare } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const channelMeta: Record<string, { Icon: React.ElementType; color: string; labelKey: string }> = {
   linkedin: { Icon: Share2,        color: "#0A66C2", labelKey: "dashx.ch.linkedin" },

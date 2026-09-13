@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { useLocale } from "@/lib/i18n";
 import { Phone, ArrowUpRight } from "lucide-react";
-import { C, T } from "@/lib/design";
+import { C, T } from "@/shared/design/tokens";
 
 const PHONE_COLOR = "#EA580C";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useId } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 const PALETTE = ["#C9A83A", "#38BDF8"];

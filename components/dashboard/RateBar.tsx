@@ -6,7 +6,7 @@
 // leader fills the bar and the rest scale relative to them. Stripe pattern:
 // rank by visual length, not raw value.
 
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 export default function RateBar({
   value,

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { Share2, Mail, Phone, CheckCircle, Flag, User, Send, SkipForward, X, AlertTriangle } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { isTerminalCampaign } from "@/lib/campaign-status";
 import { useLocale } from "@/lib/i18n";
 

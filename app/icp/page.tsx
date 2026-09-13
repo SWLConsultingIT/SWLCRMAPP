@@ -6,7 +6,7 @@ import PageHero from "@/components/PageHero";
 import AuroraHero from "@/components/AuroraHero";
 import LogoLoader from "@/components/LogoLoader";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import Link from "next/link";
 import {
   Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2, ArrowLeft,

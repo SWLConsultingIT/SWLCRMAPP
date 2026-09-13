@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown, UserRound, Lightbulb, ShieldAlert, Building2, Brain } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import LogoLoader from "@/components/LogoLoader";
 import { useLocale } from "@/lib/i18n";
 

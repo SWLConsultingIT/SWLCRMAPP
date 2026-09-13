@@ -1,6 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Megaphone, Send, MessageSquare, ThumbsUp, Sparkles, Percent } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import AuroraHero from "@/components/AuroraHero";

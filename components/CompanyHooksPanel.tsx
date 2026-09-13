@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Sparkles, Loader2, RefreshCw, AlertCircle, Phone } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Distilled-research panel for the company-detail page. Fran was spending
 // 20–30 minutes reading the portfolio site looking for a call hook; this

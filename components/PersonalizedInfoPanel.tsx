@@ -1,4 +1,4 @@
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { Sparkles, TrendingUp, Building2, Info, Sun, FileText, Zap, CalendarClock, MapPin, Users, Maximize2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import RooftopMapThumb from "@/components/RooftopMapThumb";

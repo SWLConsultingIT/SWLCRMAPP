@@ -3,7 +3,7 @@ import { intlTag } from "@/lib/i18n-locale";
 import { getServerLocale } from "@/lib/i18n-server";
 import { getT } from "@/lib/i18n-server";
 import { requireAdminPage } from "@/lib/auth-admin";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Target, Clock, MapPin, Users, Briefcase } from "lucide-react";

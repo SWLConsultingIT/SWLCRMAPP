@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Theater, Users, Target, Megaphone, ArrowLeft, ArrowRight, LogOut, Plus, Sparkles, X, Loader2, Sprout, Trash2, Globe, Wand2, Check } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import { DEMO_INDUSTRY_OPTIONS, type DemoIndustryKey } from "@/lib/demo-seeds";

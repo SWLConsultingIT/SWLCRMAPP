@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Copy, Check } from "lucide-react";
 
 export default function CopyableId({ label, value }: { label: string; value: string }) {

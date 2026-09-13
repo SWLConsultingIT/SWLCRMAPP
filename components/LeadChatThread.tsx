@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Share2, Mail, Phone, Smartphone, MessageSquare, PhoneCall, ChevronRight, Trophy } from "lucide-react";
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import InboxComposer from "./InboxComposer";
 import { useLocale } from "@/lib/i18n";
 

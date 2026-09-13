@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { RefreshCw, Pause, Play } from "lucide-react";
 
 const STORAGE_KEY = "swl-reliability-autorefresh";

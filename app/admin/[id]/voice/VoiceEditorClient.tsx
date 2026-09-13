@@ -6,7 +6,7 @@ import { intlTag } from "@/lib/i18n-locale";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, MessageCircle } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = C.gold;
 

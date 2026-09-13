@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { Loader2, X, Check, Building2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Reusable "add a person to one or more companies" modal. Talks to
 // /api/team/invite with companyBioIds[]. Works for brand-new users (sends a

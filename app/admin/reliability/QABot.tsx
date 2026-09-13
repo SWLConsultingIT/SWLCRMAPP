@@ -8,7 +8,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Bot, Send, Loader2, ChevronDown, User, Trash2, Copy, Check } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";

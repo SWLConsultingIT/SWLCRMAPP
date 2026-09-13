@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getT } from "@/lib/i18n-server";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { UserX } from "lucide-react";
 
 export default async function LeadNotFound() {

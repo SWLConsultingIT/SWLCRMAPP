@@ -13,7 +13,7 @@
 
 import { useState } from "react";
 import { Share2, Mail, Phone, Layers } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const DEFAULT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const gold = "var(--brand, #c9a83a)";

@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useAuthUser } from "@/lib/auth-context";

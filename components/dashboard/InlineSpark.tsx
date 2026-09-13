@@ -2,7 +2,7 @@
 // the trend line. Stripe/Linear use this exact pattern in their leaderboards
 // so you can see the trajectory without leaving the row.
 
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 export default function InlineSpark({
   data,

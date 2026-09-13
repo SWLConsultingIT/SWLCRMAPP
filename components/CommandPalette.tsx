@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { useTheme } from "@/shared/design/theme";
 import { LOCALES } from "@/lib/i18n-locale";
 import {
   Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2, Sparkles,

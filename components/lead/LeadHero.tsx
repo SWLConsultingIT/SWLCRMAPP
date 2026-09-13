@@ -15,7 +15,7 @@
 // a duplicate of the date, so it's gone).
 
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import { Mail, Building2, ExternalLink, ChevronLeft, ChevronRight, Phone, CalendarPlus, Clock } from "lucide-react";

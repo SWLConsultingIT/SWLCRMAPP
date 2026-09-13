@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Phone, X, Loader2, Check } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Modal that lets a tenant claim Aircall numbers into their pool.
 // Same shape as EmailPoolManager but for `company_bios.aircall_number_ids`.

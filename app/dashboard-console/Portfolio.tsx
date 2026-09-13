@@ -21,7 +21,7 @@
 
 import { useState } from "react";
 import { Check, X } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import {
   gold, n, S, Band, Opening, Drill, Note, Eyebrow, WorthALook, DeltaTag, type Delta,
 } from "./ui";

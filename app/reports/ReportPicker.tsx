@@ -6,7 +6,7 @@
 
 import { useState, useMemo } from "react";
 import { FileDown, Check, CheckSquare, Square } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";

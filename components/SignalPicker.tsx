@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Sparkles, Check, ChevronDown } from "lucide-react";
 
 // Picker driven by company_bios.enrichment_schema (per-tenant).

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Megaphone, FileText } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";

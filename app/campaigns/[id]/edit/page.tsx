@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useToast } from "@/lib/toast";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import Link from "next/link";
 import LogoLoader from "@/components/LogoLoader";
 import {

@@ -14,7 +14,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ThumbsUp, ThumbsDown, X, Check, Loader2 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 type Outcome = "positive" | "negative";

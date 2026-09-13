@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { Fragment, useState, useMemo } from "react";
 import { ChevronRight, Search, Mail, Share2, Phone, Smartphone, Send, MessageSquare } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { type Locale, intlTag, makeT } from "@/lib/i18n-dicts";
 
 // Pure client-safe translator (mirrors lib/i18n-server.t signature) — only

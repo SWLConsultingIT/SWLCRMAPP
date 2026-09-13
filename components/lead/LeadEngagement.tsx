@@ -6,7 +6,7 @@
 // secondary sub-views, not top-level lead tabs.
 
 import { Card, Badge } from "@/components/ui";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";

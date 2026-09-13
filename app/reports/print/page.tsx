@@ -1,7 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import PrintTrigger from "./PrintTrigger";
 import PrintActions from "./PrintActions";
 import { getT } from "@/lib/i18n-server";

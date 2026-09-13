@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { AlertTriangle, AlertCircle, CheckCircle2, Globe } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
 

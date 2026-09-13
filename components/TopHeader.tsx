@@ -3,9 +3,9 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Search, ChevronRight, LogOut, Settings, Menu, Sun, Moon } from "lucide-react";
 import Link from "next/link";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
-import { useTheme } from "@/lib/theme";
+import { useTheme } from "@/shared/design/theme";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import HelpMenu from "./HelpMenu";
 import NotificationBell from "./NotificationBell";

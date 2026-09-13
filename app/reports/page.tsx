@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { FileDown, ArrowLeft } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import PageHero from "@/components/PageHero";

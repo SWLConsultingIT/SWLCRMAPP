@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/lib/i18n";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { intlTag, type Locale } from "@/lib/i18n-dicts";
 
 const gold = "var(--brand, #c9a83a)";

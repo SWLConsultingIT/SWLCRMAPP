@@ -4,7 +4,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { getT } from "@/lib/i18n-server";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import type { TenantSummary } from "@/lib/reliability-summary";
 
 export default async function SilentStallBanner({ summary }: { summary: TenantSummary }) {

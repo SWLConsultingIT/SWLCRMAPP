@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useLocale } from "@/lib/i18n";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 // Canonical modal — backdrop + centered card, one shadow, Esc-to-close, scroll
 // lock. Replaces the copy-pasted `fixed inset-0 … rgba(0,0,0,0.5)` + inline card

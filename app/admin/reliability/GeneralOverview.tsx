@@ -9,7 +9,7 @@ import {
   Workflow, CheckCircle2, AlertTriangle, AlertCircle, ChevronRight, Share2,
 } from "lucide-react";
 import { getT } from "@/lib/i18n-server";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import type { GlobalSummary } from "@/lib/reliability-summary";
 import FoldableSection from "./FoldableSection";
 import WorkflowsSection from "./WorkflowsSection";

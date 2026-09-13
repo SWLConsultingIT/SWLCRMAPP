@@ -6,7 +6,7 @@
 // isn't configured server-side, so it never shows a dead control.
 
 import { useEffect, useState } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { BellRing, BellOff } from "lucide-react";
 

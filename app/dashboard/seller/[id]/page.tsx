@@ -11,7 +11,7 @@ import {
   Sparkles, ChevronRight, Sun, Users,
 } from "lucide-react";
 import InlineSpark from "@/components/dashboard/InlineSpark";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getDashboardData } from "@/lib/dashboard-data";

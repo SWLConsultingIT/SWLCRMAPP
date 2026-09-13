@@ -12,7 +12,7 @@
 
 import { Sparkles, Zap, ArrowLeft, Users, Clock } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 
 const gold = C.gold;
 

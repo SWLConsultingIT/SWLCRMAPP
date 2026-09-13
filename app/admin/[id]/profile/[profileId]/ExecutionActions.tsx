@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Clock, Upload, CheckCircle, Loader2 } from "lucide-react";
 
 // Module scope: `key` is the stored execution_status, `labelKey` is the label.

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, X, Loader2, Archive } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 type Counts = {

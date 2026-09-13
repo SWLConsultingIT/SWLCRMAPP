@@ -7,7 +7,7 @@ import {
   bufferFromSupabaseBytea,
   ENCRYPTED_LEAD_COLUMNS,
 } from "@/lib/leads-crypto";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { Trophy, ThumbsUp, X, Ban, RefreshCw } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import AuroraHero from "@/components/AuroraHero";

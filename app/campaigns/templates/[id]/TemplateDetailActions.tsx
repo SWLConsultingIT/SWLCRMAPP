@@ -6,7 +6,7 @@ import {
   Play, MoreHorizontal, Copy, FolderTree, Trash2, X, ArrowRight, Loader2,
   Pencil, Save, Share2, Mail, Phone, MessageSquare, Plus, GripVertical, Download,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 import { useToast } from "@/lib/toast";

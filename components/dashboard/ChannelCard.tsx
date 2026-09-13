@@ -8,7 +8,7 @@
 // SWL-cohesive.
 
 import { Share2, Mail, Phone, Smartphone, MessageSquare, Trophy } from "lucide-react";
-import { C, N, T } from "@/lib/design";
+import { C, N, T } from "@/shared/design/tokens";
 
 const gold = "var(--brand, #c9a83a)";
 

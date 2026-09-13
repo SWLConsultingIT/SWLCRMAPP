@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, X, Phone, Globe, MapPin, Star, Loader2, Zap, UserPlus, CheckCircle2, Search, ArrowUpDown, ChevronRight } from "lucide-react";
-import { C, N } from "@/lib/design";
+import { C, N } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 
 type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null; distance_km?: number | null };

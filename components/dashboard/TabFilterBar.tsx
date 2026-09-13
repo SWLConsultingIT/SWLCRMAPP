@@ -13,7 +13,7 @@
 import { useEffect, useState, useTransition, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Filter, ChevronDown, X, Calendar } from "lucide-react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { presetRange, businessToday } from "@/lib/metric-defs";
 

@@ -1,7 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope, canViewAllTenantData } from "@/lib/scope";
 import { decryptLeadPayload, redactClientLead, hydrateDecryptedLead, logDataAccess, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";
 import CompanyTabs from "@/components/CompanyTabs";
 import PreCallBrief from "@/components/PreCallBrief";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
-import { C } from "@/lib/design";
+import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/lib/i18n";
 import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown, Briefcase, Building2, Building, Globe } from "lucide-react";
 
