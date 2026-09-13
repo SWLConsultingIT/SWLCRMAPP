@@ -321,6 +321,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     id: naRow.id as string, title: naRow.title as string, type: naRow.type as string,
     dueAt: (naRow.due_at ?? null) as string | null, dueTz: (naRow.due_tz ?? null) as string | null,
     bucket: bucketActivity(naRow), isCallback: naRow.source === "call_callback",
+    note: (naRow.description ?? null) as string | null,
   } : null;
   const terminalLead = ["closed_won", "closed_lost", "discarded"].includes((lead.status ?? "").toLowerCase());
 
