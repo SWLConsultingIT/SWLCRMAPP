@@ -16,6 +16,7 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, Loader2, AlertCircle, ChevronDown, ChevronUp, Search, Filter, Check, Phone, Mail, Share2, Megaphone } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { VIOLATION_LABELS, type ViolationCode } from "@/lib/message-validator";
+import { initials } from "@/shared/lib/initials";
 
 const gold = C.gold;
 
@@ -58,13 +59,6 @@ const channelIcon: Record<string, typeof Phone> = {
   call: Phone,
   whatsapp: Megaphone,
 };
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "??";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, campaignRequestId, language, onResults }: Props) {
   const { t } = useLocale();
@@ -242,7 +236,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                     title={`${lead.name} · ${lead.company ?? ""} · ${lead.role ?? ""}`}
                   >
                     {hasIssues ? <AlertCircle size={9} /> : <Check size={9} />}
-                    {initialsOf(lead.name)}
+                    {initials(lead.name)}
                   </button>
                 );
               })}

@@ -5,6 +5,8 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/shared/design/tokens";
 import { Phone, Clock, Users, PhoneCall, MessageSquare, ThumbsUp, AlertTriangle } from "lucide-react";
 import { useLocale } from "@/shared/i18n/i18n";
+import { timeAgo } from "@/shared/lib/format";
+import { initials } from "@/shared/lib/initials";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -25,24 +27,6 @@ type SellerInput = {
 
 type PresenceMeta = { user_id: string; name: string };
 const PRESENCE_CHANNEL = "swl-activity-room";
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "??";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 type StatusKind = "live" | "recent" | "idle" | "offline";
 

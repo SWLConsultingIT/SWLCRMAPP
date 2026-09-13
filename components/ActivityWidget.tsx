@@ -5,6 +5,8 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/shared/design/tokens";
 import { Activity, Clock, Circle } from "lucide-react";
+import { timeAgo } from "@/shared/lib/format";
+import { initials } from "@/shared/lib/initials";
 
 type ApiUser = {
   id: string;
@@ -23,24 +25,6 @@ type PresenceMeta = {
 };
 
 const PRESENCE_CHANNEL = "swl-activity-room";
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "??";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 export default function ActivityWidget() {
   const { t } = useLocale();
