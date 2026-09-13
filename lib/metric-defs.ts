@@ -16,67 +16,28 @@ export { isRealCall, isConnected, callOutcomeGroup, isPositiveOutcome };
 export type { CallRow };
 
 /* ═══════════════════════════════════════════════════════════════════════
-   BUSINESS TIMEZONE  (audit Block 6)
+   BUSINESS TIMEZONE
 
-   The dashboard had four conventions at once: `T00:00:00Z` date presets,
-   a `toArgDay` helper at UTC−3, raw `new Date(iso)` day buckets, and
-   client-side `toISOString().slice(0,10)`. 95 sent messages landed in a
-   different period depending on which one ran.
+   Las primitivas viven ahora en shared/lib/business-time.ts. No son metricas
+   —dicen que dia/hora de negocio es un instante, no que cuenta como que— y
+   tenerlas aca obligaba a otros dominios (Activities) a importar del dominio
+   Dashboard solo para saber que dia es hoy.
 
-   One convention now: America/Argentina/Buenos_Aires. Argentina has not
-   observed DST since 2009, so the offset is a constant −180 minutes and we
-   can do the arithmetic without Intl on every row (this runs over ~30k
-   rows per dashboard load). `BUSINESS_TZ` is exported for display code.
+   Se re-exportan, igual que las reglas de llamadas de flow-metrics-lib, para
+   que los consumidores de metric-defs sigan teniendo un solo import.
    ═══════════════════════════════════════════════════════════════════════ */
 
-export const BUSINESS_TZ = "America/Argentina/Buenos_Aires";
-export const BUSINESS_UTC_OFFSET_MINUTES = -180;
-const OFFSET_MS = BUSINESS_UTC_OFFSET_MINUTES * 60_000;
+import {
+  BUSINESS_TZ, BUSINESS_UTC_OFFSET_MINUTES,
+  businessDayKey, businessHour, businessWeekday,
+  businessDayStartMs, businessDayEndMs, businessToday, businessDayMinus,
+} from "@/shared/lib/business-time";
 
-/** The business-local calendar day an instant falls on, as `YYYY-MM-DD`. */
-export function businessDayKey(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "";
-  return new Date(t + OFFSET_MS).toISOString().slice(0, 10);
-}
-
-/** Hour of day (0–23) in business time. Used by the reply-timing heatmap. */
-export function businessHour(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  return new Date(t + OFFSET_MS).getUTCHours();
-}
-
-/** Day of week in business time, 0 = Sunday — same convention as
- *  `Date.getDay()`, so existing day-indexed arrays keep their meaning. */
-export function businessWeekday(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  return new Date(t + OFFSET_MS).getUTCDay();
-}
-
-/** Epoch ms of 00:00:00.000 business-local on `YYYY-MM-DD`. */
-export function businessDayStartMs(day: string): number {
-  return Date.parse(`${day}T00:00:00.000Z`) - OFFSET_MS;
-}
-
-/** Epoch ms of 23:59:59.999 business-local on `YYYY-MM-DD`. */
-export function businessDayEndMs(day: string): number {
-  return Date.parse(`${day}T23:59:59.999Z`) - OFFSET_MS;
-}
-
-/** Today's business-local date as `YYYY-MM-DD`. */
-export function businessToday(now: Date = new Date()): string {
-  return businessDayKey(now.toISOString());
-}
-
-/** `YYYY-MM-DD` n days before the given business day. */
-export function businessDayMinus(day: string, days: number): string {
-  return new Date(Date.parse(`${day}T00:00:00.000Z`) - days * 86_400_000).toISOString().slice(0, 10);
-}
+export {
+  BUSINESS_TZ, BUSINESS_UTC_OFFSET_MINUTES,
+  businessDayKey, businessHour, businessWeekday,
+  businessDayStartMs, businessDayEndMs, businessToday, businessDayMinus,
+};
 
 export type Window = { fromMs: number | null; toMs: number | null };
 

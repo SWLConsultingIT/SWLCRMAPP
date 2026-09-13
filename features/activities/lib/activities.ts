@@ -7,7 +7,7 @@
 // helpers (service-role writes); this module is deliberately UI/route-agnostic
 // so it can be unit-tested without a DB.
 
-import { businessToday, businessDayStartMs, businessDayEndMs } from "@/lib/metric-defs";
+import { businessToday, businessDayStartMs, businessDayEndMs } from "@/shared/lib/business-time";
 
 // Canonical activity types (boss-approved 2026-09-10), aligned to the app's
 // channels (call / email / chat) + commercial actions (meeting, proposal).
