@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { resolveDueTimezone } from "@/lib/prospect-time";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

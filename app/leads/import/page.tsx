@@ -3,7 +3,7 @@ import { getT } from "@/shared/i18n/server";
 import { Upload } from "lucide-react";
 import PageHero from "@/shared/ui/PageHero";
 import { C } from "@/shared/design/tokens";
-import { getUserScope, canEditTenantSettings } from "@/lib/scope";
+import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
 import ImportWizardClient from "./ImportWizardClient";
 
 export default async function LeadsImportPage() {

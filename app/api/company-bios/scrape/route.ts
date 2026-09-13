@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { requireUser } from "@/lib/require-scope";
+import { requireUser } from "@/shared/auth/require-scope";
 
 const LANG_MAP: Record<string, string> = {
   EN: "English", IT: "Italian", ES: "Spanish", FR: "French", DE: "German",

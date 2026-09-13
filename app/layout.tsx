@@ -6,7 +6,7 @@ import AppShell from "@/shared/ui/shell/AppShell";
 import { ThemeProvider } from "@/shared/design/theme";
 import { LocaleProvider } from "@/shared/i18n/i18n";
 import { BrandProvider } from "@/shared/design/brand";
-import { AuthProvider } from "@/lib/auth-context";
+import { AuthProvider } from "@/shared/auth/auth-context";
 import AircallPhoneProvider from "@/components/AircallPhoneProvider";
 import { getServerLocale } from "@/shared/i18n/server";
 import { DEFAULT_LOCALE } from "@/shared/i18n/locale";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";

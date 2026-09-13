@@ -20,7 +20,7 @@
 // human conversation continuing inside a stopped flow.
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveOutbound } from "@/lib/placeholders";
 import { t, getServerLocale } from "@/shared/i18n/server";

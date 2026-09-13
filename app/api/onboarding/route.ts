@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { invalidateProfileCache } from "@/lib/user-profile-cache";
+import { invalidateProfileCache } from "@/shared/auth/user-profile-cache";
 
 export async function POST(req: NextRequest) {
   const supabase = await getSupabaseServer();

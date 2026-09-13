@@ -12,7 +12,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 const TERMINAL_STATUSES = ["completed", "failed", "closed_lost"] as const;
 const CHUNK = 40;

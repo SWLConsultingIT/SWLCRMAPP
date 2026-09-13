@@ -5,7 +5,7 @@
 // every other surface — cohort replies, business timezone, and calls counted
 // by canonical identity with Unknown always visible.
 import type { Metadata } from "next";
-import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/shared/auth/scope";
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import AuroraHero from "@/shared/ui/AuroraHero";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";

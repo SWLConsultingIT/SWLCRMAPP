@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
 
 // SWL super-admin cross-workspace view of inboxes available for assignment.

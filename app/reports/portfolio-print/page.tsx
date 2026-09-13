@@ -2,7 +2,7 @@
 // dashboard Portfolio "Descargar PDF" button; auto-prints. Branded SWL/GrowthAI.
 // Reads ?pdays=7|30|90 and ?companies=<bioId,bioId,...> (defaults to all).
 
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { redirect } from "next/navigation";
 import { getServerLocale } from "@/shared/i18n/server";
 import { getPortfolioComparison, type PortfolioCompany } from "@/lib/portfolio";

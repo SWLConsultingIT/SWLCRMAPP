@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { phoneSuffixMatch, ilikeDigitPattern } from "@/lib/phone-match";
-import { requireUser } from "@/lib/require-scope";
+import { requireUser } from "@/shared/auth/require-scope";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`

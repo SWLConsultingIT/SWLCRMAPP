@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 
 const KEY = process.env.UNIPILE_API_KEY!;
 const DSN = process.env.UNIPILE_DSN!;

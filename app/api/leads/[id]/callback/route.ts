@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 // PATCH /api/leads/[id]/callback   body: { callbackAt: string|null, note?: string }
 // Sets or clears the lead's call-back reminder (L-9). Used by the "Volver a

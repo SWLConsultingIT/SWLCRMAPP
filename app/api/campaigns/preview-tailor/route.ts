@@ -35,7 +35,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 // 3 leads × per-lead Haiku call (~3s each, concurrent) + bio/icp fetch.
 // Worst case ~20s, but we bump the cap so a slow Anthropic response

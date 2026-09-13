@@ -13,8 +13,8 @@
 
 import { cache } from "react";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getOrFetchProfile } from "@/lib/user-profile-cache";
-import { getUserScope } from "@/lib/scope";
+import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
+import { getUserScope } from "@/shared/auth/scope";
 import { dicts, normalizeLocale, DEFAULT_LOCALE, type Locale } from "@/shared/i18n/dicts";
 
 export const getServerLocale = cache(async function getServerLocale(): Promise<Locale> {

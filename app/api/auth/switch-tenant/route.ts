@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { ACTIVE_TENANT_COOKIE } from "@/lib/scope";
-import { getOrFetchProfile } from "@/lib/user-profile-cache";
+import { ACTIVE_TENANT_COOKIE } from "@/shared/auth/scope";
+import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
 
 // Switches the active tenant for the logged-in user.
 // Body: { companyBioId: string | null }

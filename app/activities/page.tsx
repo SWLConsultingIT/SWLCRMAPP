@@ -8,7 +8,7 @@ import AuroraHero from "@/shared/ui/AuroraHero";
 import ActivitiesWorkspace from "@/features/activities/components/ActivitiesWorkspace";
 import type { BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import { getT } from "@/shared/i18n/server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { leadDisplayName } from "@/lib/lead-label";

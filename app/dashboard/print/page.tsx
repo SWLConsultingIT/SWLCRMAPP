@@ -12,7 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/shared/auth/scope";
 import { loadConsoleSource, buildIndex, buildOverview, buildTabs, CH_KEYS } from "@/lib/console-data";
 import PrintTrigger from "@/app/reports/print/PrintTrigger";
 import { getT, getServerLocale } from "@/shared/i18n/server";

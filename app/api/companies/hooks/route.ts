@@ -3,7 +3,7 @@ import { getServerLocale } from "@/shared/i18n/server";
 import { writeAllContentIn, type Locale } from "@/shared/i18n/locale";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 // POST /api/companies/hooks — distills every enrichment field on a lead
 // into 3–5 punchy "call hooks" the seller can open with. Sellers were

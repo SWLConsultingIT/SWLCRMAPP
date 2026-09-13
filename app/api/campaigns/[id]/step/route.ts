@@ -10,7 +10,7 @@
 // campaign's cursor or force-send messages on any tenant.
 
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canCreateCampaigns } from "@/lib/scope";
+import { getUserScope, canCreateCampaigns } from "@/shared/auth/scope";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

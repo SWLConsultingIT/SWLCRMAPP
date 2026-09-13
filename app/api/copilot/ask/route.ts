@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 
 // Cross-prospect Copilot — the "strategic memory" over ALL of a tenant's

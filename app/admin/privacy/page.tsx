@@ -3,7 +3,7 @@ import { getT } from "@/shared/i18n/server";
 import { Lock, Shield } from "lucide-react";
 import PageHero from "@/shared/ui/PageHero";
 import { C } from "@/shared/design/tokens";
-import { getUserScope, canViewAdminMenu } from "@/lib/scope";
+import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import PrivacyClient from "./PrivacyClient";
 

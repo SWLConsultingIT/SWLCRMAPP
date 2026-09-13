@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { resolveOutbound, LEAD_PLACEHOLDER_COLUMNS, type OutboundLog } from "@/lib/placeholders";
 
 // Cron-driven WhatsApp dispatcher.

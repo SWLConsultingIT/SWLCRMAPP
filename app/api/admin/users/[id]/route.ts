@@ -1,6 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireAdminApi } from "@/lib/auth-admin";
-import { invalidateProfileCache } from "@/lib/user-profile-cache";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
+import { invalidateProfileCache } from "@/shared/auth/user-profile-cache";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

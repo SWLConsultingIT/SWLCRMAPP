@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
-import { useAuthUser } from "@/lib/auth-context";
+import { useAuthUser } from "@/shared/auth/auth-context";
 import EmptyState from "@/shared/ui/EmptyState";
 import {
   Share2, Mail, Phone, AlertTriangle,

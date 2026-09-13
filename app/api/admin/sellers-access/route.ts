@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
 
 // Per-tenant assignment of sellers. A seller has a primary owner

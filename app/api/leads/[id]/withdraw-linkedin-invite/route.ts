@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 
 const UNIPILE_BASE = process.env.UNIPILE_DSN
   ? `https://${process.env.UNIPILE_DSN}`

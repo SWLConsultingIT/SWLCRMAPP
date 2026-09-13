@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { selectAllPages } from "@/lib/supabase-bulk";
 
 export async function GET(_req: NextRequest) {

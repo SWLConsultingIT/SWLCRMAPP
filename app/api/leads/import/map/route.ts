@@ -2,7 +2,7 @@
 // shows it as a suggestion and the user can edit any row before /commit.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope, canEditTenantSettings } from "@/lib/scope";
+import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
 import { inferLeadMapping } from "@/lib/lead-csv-mapper";
 
 export const runtime = "nodejs";

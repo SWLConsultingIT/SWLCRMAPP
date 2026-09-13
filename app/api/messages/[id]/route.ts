@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { autoNormalizePlaceholders } from "@/lib/placeholders";
 import { NextResponse } from "next/server";
 

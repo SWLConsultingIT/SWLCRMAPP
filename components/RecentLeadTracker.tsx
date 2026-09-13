@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { pushRecentLead } from "@/lib/recent-leads";
-import { useAuthUser } from "@/lib/auth-context";
+import { useAuthUser } from "@/shared/auth/auth-context";
 
 // Tiny mount-only side effect — records that the user just opened this lead
 // so the sidebar's "Recent" list can offer one-click jump-back. Per-user

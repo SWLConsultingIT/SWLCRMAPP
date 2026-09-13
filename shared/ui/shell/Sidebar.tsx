@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
-import { useAuthUser } from "@/lib/auth-context";
+import { useAuthUser } from "@/shared/auth/auth-context";
 import TenantSwitcher from "@/components/TenantSwitcher";
 import HelpMenu from "@/shared/ui/shell/HelpMenu";
 import {

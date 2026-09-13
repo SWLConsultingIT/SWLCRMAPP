@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 const VALID = ["new", "contacted", "qualified", "cold", "closed_lost", "closed_won", "nurturing", "discarded"];

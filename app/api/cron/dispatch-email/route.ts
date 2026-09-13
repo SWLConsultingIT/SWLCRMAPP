@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveFlowCampaignId } from "@/lib/instantly-flow-campaign";
 import { signStepAttachments } from "@/lib/campaign-attachments";

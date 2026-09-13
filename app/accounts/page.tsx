@@ -120,7 +120,7 @@ async function getData(t: (k: string) => string) {
   // Graeme (Pathway). /accounts is an OPERATIONAL page (per-seller daily
   // usage, edits, etc.), not a super-admin cross-tenant view, so we always
   // scope to the current user's bio. The cross-tenant view lives at /admin.
-  const { getUserScope } = await import("@/lib/scope");
+  const { getUserScope } = await import("@/shared/auth/scope");
   const scope = await getUserScope();
   const userCompanyBioId = scope.companyBioId;
   let allowedEmails: string[] | null = null;

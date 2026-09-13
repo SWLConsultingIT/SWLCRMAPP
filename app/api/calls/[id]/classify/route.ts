@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope } from "@/lib/scope";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { getUserScope } from "@/shared/auth/scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;

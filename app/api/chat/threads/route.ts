@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { prettyDisplayName } from "@/lib/display-name";
 
 async function nameOf(svc: ReturnType<typeof getSupabaseService>, userId: string): Promise<string> {

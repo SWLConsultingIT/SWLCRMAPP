@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { renderPlaceholders } from "@/lib/placeholders";
 
 // Returns the auto-reply template text for a given reply + classification

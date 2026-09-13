@@ -4,7 +4,7 @@
 
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { createNotifications } from "@/lib/notify";
 import { prettyDisplayName } from "@/lib/display-name";
 import { ensureDm, postDmFromActor } from "@/lib/chat-dm";

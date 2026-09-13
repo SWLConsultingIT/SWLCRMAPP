@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser, assertTenant } from "@/lib/require-scope";
-import type { UserScope } from "@/lib/scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
+import type { UserScope } from "@/shared/auth/scope";
 
 const SB_URL = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;

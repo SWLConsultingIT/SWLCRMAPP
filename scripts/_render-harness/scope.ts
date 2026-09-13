@@ -1,4 +1,4 @@
-// TEST STUB — replaces @/lib/scope for the render harness ONLY, via
+// TEST STUB — replaces @/shared/auth/scope for the render harness ONLY, via
 // tsconfig.render.json path mapping. Production code is untouched: nothing
 // here is reachable from the app build.
 //

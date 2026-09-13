@@ -1,6 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getT } from "@/shared/i18n/server";
-import { requireAdminPage } from "@/lib/auth-admin";
+import { requireAdminPage } from "@/shared/auth/auth-admin";
 import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";
 import Link from "next/link";

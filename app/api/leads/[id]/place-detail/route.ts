@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 // Rich detail for a single nearby company (Gruppo Everest cross-sell demo).

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserScope, canApproveCampaigns } from "@/lib/scope";
+import { getUserScope, canApproveCampaigns } from "@/shared/auth/scope";
 import { autoNormalizePlaceholders, findTailoredSlots } from "@/lib/placeholders";
 
 // Approving a tailored request creates N campaigns + 8N messages and then

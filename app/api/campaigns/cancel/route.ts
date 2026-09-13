@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser } from "@/lib/require-scope";
+import { requireUser } from "@/shared/auth/require-scope";
 import { selectByIds, chunkIds } from "@/lib/supabase-bulk";
 
 type Action = "pause" | "resume" | "cancel";

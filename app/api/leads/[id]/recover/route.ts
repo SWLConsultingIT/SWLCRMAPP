@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canManageTeam } from "@/lib/scope";
+import { getUserScope, canManageTeam } from "@/shared/auth/scope";
 
 // Tenant-scoped Aircall number assignment.
 //

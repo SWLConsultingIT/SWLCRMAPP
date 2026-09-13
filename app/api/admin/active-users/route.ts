@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 
 // Admin-only feed for the live activity widget.
 // Returns every user with their last_seen_at (proxy heartbeat) + display info,

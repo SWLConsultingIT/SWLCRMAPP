@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canManageTeam, type Tier } from "@/lib/scope";
+import { getUserScope, canManageTeam, type Tier } from "@/shared/auth/scope";
 
 // Invite (or attach) a team member to one OR MORE tenants in a single call.
 //

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 // Duplicate a campaign — clones the campaign_request that originally spawned
 // it. The new request lands as 'pending_review' so the existing approval

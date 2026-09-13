@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import { advanceCallStepForLead } from "@/lib/advance-call-step";
 
 const AIRCALL_AUTH = Buffer.from(

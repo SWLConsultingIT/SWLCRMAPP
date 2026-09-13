@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { decryptLeadPayload, encryptLeadPayload, bufferFromSupabaseBytea, logDataAccess, ENCRYPTED_LEAD_COLUMNS } from "@/lib/leads-crypto";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

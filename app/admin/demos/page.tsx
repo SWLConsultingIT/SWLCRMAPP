@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import DemosClient from "./DemosClient";
 
 export const dynamic = "force-dynamic";

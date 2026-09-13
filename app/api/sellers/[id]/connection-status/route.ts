@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 // GET /api/aircall/active-call — answers "is the tenant's shared
 // Aircall seat currently busy with another seller's call?".

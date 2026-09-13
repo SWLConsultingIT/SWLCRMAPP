@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { parseFilters, resolveFlowMetricsLite } from "@/lib/flow-metrics-compute";
 

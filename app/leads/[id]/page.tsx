@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import { decryptLeadPayload, redactClientLead, hydrateDecryptedLead, logDataAccess, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";

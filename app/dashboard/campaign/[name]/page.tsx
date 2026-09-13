@@ -11,7 +11,7 @@ import {
   Phone, Smartphone, Trophy, Calendar, Clock, Activity, AlertTriangle, Sparkles, TrendingDown,
 } from "lucide-react";
 import { C, N } from "@/shared/design/tokens";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import PageHero from "@/shared/ui/PageHero";

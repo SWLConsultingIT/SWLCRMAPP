@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getUserScope, canViewSwlAdmin, DEMO_SESSION_COOKIE } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin, DEMO_SESSION_COOKIE } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 // DELETE /api/admin/demos/[id]

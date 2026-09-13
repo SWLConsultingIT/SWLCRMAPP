@@ -12,7 +12,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 const MODEL = "claude-haiku-4-5";
 const GENERATION_LOCK_MS = 90 * 1000;

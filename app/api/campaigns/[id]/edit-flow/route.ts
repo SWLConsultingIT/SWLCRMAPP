@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canCreateCampaigns } from "@/lib/scope";
+import { getUserScope, canCreateCampaigns } from "@/shared/auth/scope";
 import { selectAllPages, selectByIds, chunkIds } from "@/lib/supabase-bulk";
 import { autoNormalizePlaceholders } from "@/lib/placeholders";
 

@@ -10,7 +10,7 @@
 // When ?campaign=<id> is set, the campaigns list + status sections are
 // replaced by a CampaignDetailSection scoped to that single campaign.
 
-import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { ShieldCheck } from "lucide-react";

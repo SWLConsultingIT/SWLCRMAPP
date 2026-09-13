@@ -3,7 +3,7 @@ import { getServerLocale } from "@/shared/i18n/server";
 import { writeAllContentIn } from "@/shared/i18n/locale";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 
 // Free company-site scraper for a lead — no Tavily/Apify. The server fetches the
 // company homepage (+ a couple of common About/Services subpages), strips the

@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
 import { ChevronsUpDown, Check, Building2 } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/shared/auth/auth-context";
 
 const GOLD = "var(--brand, #c9a83a)";
 const BORDER = "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)";

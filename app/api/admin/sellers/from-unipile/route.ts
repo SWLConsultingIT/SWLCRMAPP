@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 // Super-admin shortcut: create a seller row for the currently-active tenant

@@ -5,7 +5,7 @@
 // pass and so super_admins on demo mode see only the impersonated tenant.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 export async function GET(req: NextRequest) {

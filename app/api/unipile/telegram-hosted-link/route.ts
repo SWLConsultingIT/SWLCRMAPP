@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewAdminMenu } from "@/lib/scope";
+import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
 import { signTelegramName } from "@/lib/unipile-name-signing";
 
 const KEY = process.env.UNIPILE_API_KEY!;

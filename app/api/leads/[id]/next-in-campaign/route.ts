@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 // Returns the next lead in the SAME outreach flow whose current step is a
 // call. Used by the "Next call →" button on the lead detail page so a

@@ -1,6 +1,6 @@
 // Mark a chat thread read for the current user (sets last_read_at = now).
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

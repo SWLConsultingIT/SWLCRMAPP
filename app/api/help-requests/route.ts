@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { getUserScope } from "@/shared/auth/scope";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { createNotifications } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";

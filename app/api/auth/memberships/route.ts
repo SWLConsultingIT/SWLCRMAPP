@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getOrFetchProfile } from "@/lib/user-profile-cache";
+import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
 
 // Lists every tenant the logged-in user can switch into. Powers the
 // TenantSwitcher dropdown. Excludes archived bios — the user shouldn't

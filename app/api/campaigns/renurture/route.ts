@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserScope, canApproveCampaigns } from "@/lib/scope";
+import { getUserScope, canApproveCampaigns } from "@/shared/auth/scope";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

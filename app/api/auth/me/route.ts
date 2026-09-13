@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/lib/scope";
-import { getOrFetchProfile } from "@/lib/user-profile-cache";
+import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/shared/auth/scope";
+import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
 
 export async function GET() {
   const supabase = await getSupabaseServer();

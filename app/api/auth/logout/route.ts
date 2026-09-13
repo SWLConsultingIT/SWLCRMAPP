@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/lib/scope";
+import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/shared/auth/scope";
 
 export async function POST() {
   const supabase = await getSupabaseServer();

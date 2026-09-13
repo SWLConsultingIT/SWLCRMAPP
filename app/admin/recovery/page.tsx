@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getT } from "@/shared/i18n/server";
 import { Archive, RotateCcw } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import PageHero from "@/shared/ui/PageHero";
 import RecoveryClient from "./RecoveryClient";

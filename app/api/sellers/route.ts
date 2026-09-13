@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewAdminMenu } from "@/lib/scope";
+import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
 
 const SB_URL = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;

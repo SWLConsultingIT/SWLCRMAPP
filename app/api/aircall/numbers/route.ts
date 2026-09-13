@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`

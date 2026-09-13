@@ -12,7 +12,7 @@
 
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import { createNotifications } from "@/lib/notify";
 import { ensureDm, postDmFromActor } from "@/lib/chat-dm";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";

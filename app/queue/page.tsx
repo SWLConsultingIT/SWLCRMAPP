@@ -1,7 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { prettyDisplayName } from "@/lib/display-name";
-import { getUserScope, getMyAssignedUserId, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId, canViewAllTenantData } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { computePendingCalls } from "@/lib/pending-calls";
 import { hasPlayableRecording } from "@/lib/call-recording";

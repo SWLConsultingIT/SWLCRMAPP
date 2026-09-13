@@ -3,7 +3,7 @@ import { getT } from "@/shared/i18n/server";
 import AdminClient from "./AdminClient";
 import TenantAdminView from "./TenantAdminView";
 import { redirect } from "next/navigation";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 export const dynamic = "force-dynamic";
 

@@ -25,7 +25,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
 
 export const runtime = "nodejs";

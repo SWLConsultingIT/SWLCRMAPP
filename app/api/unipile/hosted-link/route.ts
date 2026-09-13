@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { signSellerName } from "@/lib/unipile-name-signing";
 
 const KEY = process.env.UNIPILE_API_KEY!;

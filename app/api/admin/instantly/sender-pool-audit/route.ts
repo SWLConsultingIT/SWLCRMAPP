@@ -15,7 +15,7 @@
 //   ?live=1                    bypass the 10-minute pool cache
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { verifyCampaignSenderPool } from "@/lib/instantly-campaign-pool";

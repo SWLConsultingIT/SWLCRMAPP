@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewAllTenantData } from "@/lib/scope";
+import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
 import { selectByIds, chunkIds } from "@/lib/supabase-bulk";
 
 // Reassign the HUMAN owner/caller (campaigns.assigned_user_id) across a flow's

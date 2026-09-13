@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 
 // Server-side reader for campaign_messages. Browser-side queries return
 // empty because campaign_messages has RLS enabled with NO policies (default

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 
 // Lightweight list of active+paused campaigns scoped to the caller's
 // tenant. Powers the "Add to existing flow" modal in /leads bulk actions

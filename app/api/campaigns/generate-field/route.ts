@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { requireUser } from "@/lib/require-scope";
+import { requireUser } from "@/shared/auth/require-scope";
 
 // Proxies to the n8n workflow "SWL - CRM - Message Generator V8 Native".
 // Computes step_type_override per idx (the wizard knows which UI step the user clicked

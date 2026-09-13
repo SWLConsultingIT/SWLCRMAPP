@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
-import { requireUser } from "@/lib/require-scope";
+import { requireUser } from "@/shared/auth/require-scope";
 import { normalizeEnrichment, prettyLabel } from "@/lib/enrichment-export";
 
 export const maxDuration = 60;

@@ -1,4 +1,4 @@
-import { requireAdminPage } from "@/lib/auth-admin";
+import { requireAdminPage } from "@/shared/auth/auth-admin";
 import SupportInbox from "./SupportInbox";
 
 export const dynamic = "force-dynamic";

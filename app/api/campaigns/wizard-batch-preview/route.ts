@@ -31,7 +31,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope } from "@/shared/auth/scope";
 import { findTailoredSlots, substituteTailoredSlots, renderPlaceholders } from "@/lib/placeholders";
 import { buildTailorUserPrompt, TAILOR_SYSTEM_PROMPT, type TailorContext, type TailorLead, type TailorIcp, type TailorCompanyBio } from "@/lib/tailor-prompt";
 import { validateMessage, type Violation, type ViolationCode } from "@/lib/message-validator";

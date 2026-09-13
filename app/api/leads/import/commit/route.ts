@@ -20,7 +20,7 @@
 // company_bio_id always comes from the caller's scope, never from the body.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope, canEditTenantSettings } from "@/lib/scope";
+import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import {
   resolveTenantKey,

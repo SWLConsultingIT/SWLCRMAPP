@@ -6,7 +6,7 @@
 // inherit the caller's scope.companyBioId on create.
 
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canEditTenantSettings } from "@/lib/scope";
+import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
 import { NextRequest, NextResponse } from "next/server";
 
 function canManageSellers(tier: "super_admin" | "owner" | "manager" | "seller" | "viewer" | null): boolean {

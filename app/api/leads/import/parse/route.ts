@@ -3,7 +3,7 @@
 // /commit; we never store anything server-side at this step.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope, canEditTenantSettings } from "@/lib/scope";
+import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
 import { parseUploadedSheet } from "@/lib/csv-xlsx-parser";
 
 export const runtime = "nodejs";

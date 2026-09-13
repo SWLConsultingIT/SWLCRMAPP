@@ -15,7 +15,7 @@
 // weaken a real deployment.
 
 import { NextResponse } from "next/server";
-import { getUserScope, type UserScope } from "@/lib/scope";
+import { getUserScope, type UserScope } from "@/shared/auth/scope";
 
 /** True only in local dev preview mode (front-without-backend). Never true in
  *  production — the NODE_ENV check makes the flag inert even if the

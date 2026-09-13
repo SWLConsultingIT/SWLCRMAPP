@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, LogOut } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/shared/auth/auth-context";
 
 // Persistent gold strip rendered above TopHeader whenever the admin is
 // inside a demo tenant (cookie-driven). Reads demoMode from the shared

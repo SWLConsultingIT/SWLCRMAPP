@@ -6,7 +6,7 @@ import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useTheme } from "@/shared/design/theme";
-import { useAuthUser, useAuth } from "@/lib/auth-context";
+import { useAuthUser, useAuth } from "@/shared/auth/auth-context";
 import HelpMenu from "./HelpMenu";
 import NotificationBell from "@/components/NotificationBell";
 import { useMobileMenu } from "@/shared/ui/shell/mobile-menu";

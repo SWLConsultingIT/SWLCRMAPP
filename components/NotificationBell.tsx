@@ -8,7 +8,7 @@ import { Bell, AtSign, Tag, MessageSquare, CheckCheck, FileText, CalendarClock, 
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { useAuthUser } from "@/lib/auth-context";
+import { useAuthUser } from "@/shared/auth/auth-context";
 
 // Personal notification center in the TopHeader: @mentions, lead tags and (later)
 // chat messages. Recipient-scoped feed from /api/notifications, with a live

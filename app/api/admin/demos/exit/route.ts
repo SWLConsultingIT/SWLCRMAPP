@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { DEMO_SESSION_COOKIE } from "@/lib/scope";
+import { DEMO_SESSION_COOKIE } from "@/shared/auth/scope";
 
 // POST /api/admin/demos/exit  body: {}
 // Clears the demo-impersonation cookie. Doesn't require role check — anyone

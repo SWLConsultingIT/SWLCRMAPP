@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 const ALLOWED_STATUSES = ["not_started", "in_progress", "uploaded", "completed"] as const;

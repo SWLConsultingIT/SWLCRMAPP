@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope, getMyAssignedLeadIds } from "@/lib/scope";
+import { getUserScope, getMyAssignedLeadIds } from "@/shared/auth/scope";
 import { classifyLeadOutcome } from "@/lib/lead-outcome";
 import {
   resolveTenantKey,

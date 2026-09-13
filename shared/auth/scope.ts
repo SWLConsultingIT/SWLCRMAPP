@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getOrFetchProfile } from "@/lib/user-profile-cache";
+import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
 
 /** Cookie name for admin "demo impersonation". When set, an admin user
  * sees the app as if they belonged to a specific (is_demo=true) tenant. */

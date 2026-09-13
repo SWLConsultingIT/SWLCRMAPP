@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireAdminApi } from "@/lib/auth-admin";
+import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
 
 // Lists Aircall users and lets super_admin assign one to a seller. Without

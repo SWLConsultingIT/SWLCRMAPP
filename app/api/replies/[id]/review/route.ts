@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserScope } from "@/lib/scope";
-import { isPreviewNoAuth } from "@/lib/require-scope";
+import { getUserScope } from "@/shared/auth/scope";
+import { isPreviewNoAuth } from "@/shared/auth/require-scope";
 
 // Calls /api/inbox/reply internally (which now polls Unipile to confirm
 // delivery), so allow headroom beyond the default function timeout.

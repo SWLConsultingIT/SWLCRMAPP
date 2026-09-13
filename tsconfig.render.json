@@ -5,7 +5,7 @@
       "@/*": [
         "./*"
       ],
-      "@/lib/scope": [
+      "@/shared/auth/scope": [
         "./scripts/_render-harness/scope.ts"
       ],
       "@/lib/supabase-server": [
@@ -17,6 +17,8 @@
     "scripts/**/*",
     "lib/**/*",
     "components/**/*",
-    "app/**/*"
+    "app/**/*",
+    "shared/**/*",
+    "features/**/*"
   ]
 }

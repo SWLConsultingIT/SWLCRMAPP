@@ -5,7 +5,7 @@
 // campaigns, rows with no name + no contact info, etc.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope, canEditTenantSettings } from "@/lib/scope";
+import { getUserScope, canEditTenantSettings } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { buildImportPlan } from "@/lib/lead-import-dedup";
 import type { LeadMappingResult } from "@/lib/lead-csv-mapper";

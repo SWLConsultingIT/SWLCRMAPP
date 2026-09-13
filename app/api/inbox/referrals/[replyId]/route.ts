@@ -29,7 +29,7 @@
 // the new lead automatically becomes multichannel — nothing here changes.
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope, canApproveCampaigns } from "@/lib/scope";
+import { getUserScope, canApproveCampaigns } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import {
   resolveTenantKey,

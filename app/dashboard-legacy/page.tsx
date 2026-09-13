@@ -14,7 +14,7 @@ import {
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
 import { C, N } from "@/shared/design/tokens";
-import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/shared/auth/scope";
 import { getDashboardData } from "@/lib/dashboard-data";
 import SellerPulseSection from "@/components/dashboard/SellerPulseSection";
 import { getT, getServerLocale } from "@/shared/i18n/server";

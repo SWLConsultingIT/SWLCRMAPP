@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, canManageTeam, type Tier } from "@/lib/scope";
-import { invalidateProfileCache } from "@/lib/user-profile-cache";
+import { getUserScope, canManageTeam, type Tier } from "@/shared/auth/scope";
+import { invalidateProfileCache } from "@/shared/auth/user-profile-cache";
 
 // Manage one team member: change tier (PATCH) or remove (DELETE).
 //

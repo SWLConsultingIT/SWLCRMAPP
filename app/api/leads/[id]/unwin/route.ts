@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { requireUser, assertTenant } from "@/lib/require-scope";
+import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { NextRequest, NextResponse } from "next/server";
 
 // Undo a "won". Wins are signal-driven — a positive/meeting_intent lead_reply

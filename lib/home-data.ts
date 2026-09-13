@@ -13,7 +13,7 @@
 // stays light and fast (it must not run the 24 analytics aggregations).
 
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope, getMyAssignedUserId } from "@/lib/scope";
+import { getUserScope, getMyAssignedUserId } from "@/shared/auth/scope";
 import { selectAllPages } from "@/lib/supabase-bulk";
 import { computePendingCalls, type PendingCallCampaign, type PendingCallLead } from "@/lib/pending-calls";
 
