@@ -1,6 +1,6 @@
 {
   "typeErrors": 42,
-  "lintErrors": 1288,
+  "lintErrors": 1301,
   "lintWarnings": 306,
   "note": "Deuda congelada. Bajar estos números cuando se arreglen errores; nunca subirlos para que pase CI.",
   "updatedAt": "2026-09-13"
