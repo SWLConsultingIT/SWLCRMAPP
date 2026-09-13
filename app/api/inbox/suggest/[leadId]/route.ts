@@ -15,10 +15,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 export const runtime = "nodejs";
 
-const SB = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
+const SB = SB_REST_URL;
 
 function joinList(v: unknown): string {
   if (Array.isArray(v)) return v.filter(Boolean).join("; ");

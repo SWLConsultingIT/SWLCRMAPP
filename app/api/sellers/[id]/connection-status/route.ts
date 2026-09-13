@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
+import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
 
-const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const UNIPILE_KEY = process.env.UNIPILE_API_KEY!;
 const UNIPILE_DSN = process.env.UNIPILE_DSN!;
@@ -36,7 +37,7 @@ export async function GET(
 
   // 1. Fetch this seller
   const sellerRes = await fetch(
-    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,name,unipile_account_id,company_bio_id,created_at,updated_at&limit=1`,
+    `${SB_URL}/sellers?id=eq.${id}&select=id,name,unipile_account_id,company_bio_id,created_at,updated_at&limit=1`,
     { headers: sbHeaders, cache: "no-store" }
   );
   const [seller] = (await sellerRes.json().catch(() => [])) as Seller[];
@@ -62,7 +63,7 @@ export async function GET(
       headers: { "X-API-KEY": UNIPILE_KEY },
       cache: "no-store",
     }),
-    fetch(`${SB_URL}/rest/v1/sellers?select=unipile_account_id&unipile_account_id=not.is.null`, {
+    fetch(`${SB_URL}/sellers?select=unipile_account_id&unipile_account_id=not.is.null`, {
       headers: sbHeaders,
       cache: "no-store",
     }),
@@ -93,7 +94,7 @@ export async function GET(
   }
 
   // 4. Auto-link it
-  await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${id}`, {
+  await fetch(`${SB_URL}/sellers?id=eq.${id}`, {
     method: "PATCH",
     headers: { ...sbHeaders, "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify({ unipile_account_id: candidate.id, updated_at: new Date().toISOString() }),

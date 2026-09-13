@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
+import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
 
-const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const sbHeaders = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` };
 
@@ -14,7 +15,7 @@ export async function GET(
 
   const { id } = await params;
   const res = await fetch(
-    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,telegram_account_id,company_bio_id&limit=1`,
+    `${SB_URL}/sellers?id=eq.${id}&select=id,telegram_account_id,company_bio_id&limit=1`,
     { headers: sbHeaders, cache: "no-store" }
   );
   const [seller] = await res.json().catch(() => []);

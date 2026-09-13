@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { phoneSuffixMatch, ilikeDigitPattern } from "@/integrations/aircall/phone-match";
 import { requireUser } from "@/shared/auth/require-scope";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
 ).toString("base64");
-const SB_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`;
+const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
 type AircallCall = {

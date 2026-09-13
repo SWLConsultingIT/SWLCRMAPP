@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "node:crypto";
 import { phoneSuffixMatch, ilikeDigitPattern } from "@/integrations/aircall/phone-match";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
 // `after` work counts against the route's budget, and archiving a recording
 // means downloading an MP3 from Aircall's S3 and uploading it to Storage.
 // The default cap cuts that off mid-flight on longer calls.
 export const maxDuration = 60;
 
-const SB_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`;
+const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const AIRCALL_WEBHOOK_SECRET = process.env.AIRCALL_WEBHOOK_SECRET ?? "";
 

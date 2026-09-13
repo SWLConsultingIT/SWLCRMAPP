@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
+import { SB_REST_URL } from "@/integrations/supabase/rest";
 
-const SB_URL = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
+const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const H = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
 

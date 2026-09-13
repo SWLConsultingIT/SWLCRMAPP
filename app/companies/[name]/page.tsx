@@ -17,6 +17,7 @@ import CompanyContacts, { type ContactRow } from "@/components/company/CompanyCo
 import CompanyEngagement, { type CampaignRollup } from "@/components/company/CompanyEngagement";
 import CompanyResearch from "@/components/company/CompanyResearch";
 import type { TimelineEvent } from "@/components/lead/LeadTimeline";
+import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
 
 export const dynamic = "force-dynamic";
 
@@ -62,13 +63,12 @@ async function safe<T>(p: Promise<T[]>): Promise<T[]> {
 async function getCompanyCalls(ids: string[]): Promise<any[]> {
   if (!ids.length) return [];
   const key = process.env.SUPABASE_SERVICE_KEY;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!key || !url) return [];
+  if (!key) return [];
   const out: any[] = [];
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
     try {
-      const res = await fetch(`${url}/rest/v1/calls?lead_id=in.(${chunk.join(",")})&order=started_at.desc&select=id,lead_id,started_at,duration,classification,ai_summary,notes,aircall_call_id`,
+      const res = await fetch(`${SB_REST_URL}/calls?lead_id=in.(${chunk.join(",")})&order=started_at.desc&select=id,lead_id,started_at,duration,classification,ai_summary,notes,aircall_call_id`,
         { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" });
       const data = await res.json().catch(() => []);
       if (Array.isArray(data)) out.push(...data);

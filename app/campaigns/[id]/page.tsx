@@ -13,6 +13,7 @@ import CampaignDetailClient from "./CampaignDetailClient";
 import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
 import { getFlowMetrics } from "@/lib/flow-metrics-compute";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
 
 // Hydrates client-source leads in a list by decrypting encrypted_payload
 // and merging the result over the plain row. Resolves the tenant key once
@@ -83,7 +84,7 @@ async function getCampaign(id: string) {
 
 async function getMessages(campaignId: string) {
   // Use direct REST call with no-store so Next/Supabase never caches stale message state.
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/campaign_messages?campaign_id=eq.${campaignId}&select=*&order=step_number.asc`;
+  const url = `${SB_REST_URL}/campaign_messages?campaign_id=eq.${campaignId}&select=*&order=step_number.asc`;
   const key = process.env.SUPABASE_SERVICE_KEY!;
   const res = await fetch(url, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -276,10 +277,9 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
   const allCampaignIds = allGroupCampaigns.map(c => c.id);
   const step0Map: Record<string, { status: string; lastRateLimitAt: string | null; errorDetails: string | null; skippedReason: string | null } | undefined> = {};
   if (allCampaignIds.length > 0) {
-    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const sbKey = process.env.SUPABASE_SERVICE_KEY!;
     const inClause = `(${allCampaignIds.join(",")})`;
-    const url = `${sbUrl}/rest/v1/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=eq.0&channel=eq.linkedin&select=campaign_id,status,metadata,error_details`;
+    const url = `${SB_REST_URL}/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=eq.0&channel=eq.linkedin&select=campaign_id,status,metadata,error_details`;
     try {
       const res = await fetch(url, {
         headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
@@ -313,14 +313,13 @@ export default async function CampaignDetailPage({ params, searchParams }: { par
   // their current active step surfaced, not just the connection invite.
   const currentMsgMap: Record<string, { stepNumber: number; channel: string; status: string; lastRateLimitAt: string | null; errorDetails: string | null } | undefined> = {};
   if (allCampaignIds.length > 0) {
-    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const sbKey = process.env.SUPABASE_SERVICE_KEY!;
     const inClause = `(${allCampaignIds.join(",")})`;
     // Include `draft` so the kanban can surface "EMAIL DRAFT" / "CALL DRAFT"
     // on cards that already have an upcoming follow-up authored but not yet
     // queued by the dispatcher. Otherwise step-0 cards looked like they
     // only had a CR pending, hiding the email/call sitting one step ahead.
-    const url = `${sbUrl}/rest/v1/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=gt.0&status=in.(queued,draft,failed,dispatching)&select=campaign_id,step_number,channel,status,metadata,error_details&order=step_number.asc`;
+    const url = `${SB_REST_URL}/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=gt.0&status=in.(queued,draft,failed,dispatching)&select=campaign_id,step_number,channel,status,metadata,error_details&order=step_number.asc`;
     try {
       const res = await fetch(url, {
         headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },

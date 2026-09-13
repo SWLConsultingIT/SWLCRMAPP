@@ -5,6 +5,7 @@
 // a move + a decrypt-free resolver, not a logic change.
 import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
 import { isRealCall, isConnected, isPositiveOutcome, callOutcomeGroup, healthOf, pctOf, type CallRow } from "@/lib/flow-metrics-lib";
+import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
 
 export type CampRow = { lead_id: string; status: string; current_step: number | null; started_at: string | null; seller_id: string | null; last_step_at: string | null };
 export type MetricsFilters = { sellerFilter: string | null; range: string; winFrom: number | null; winTo: number };
@@ -32,11 +33,10 @@ export async function getFlowMetrics(
   sellerMap: Map<string, string>,
 ): Promise<FlowMetrics | null> {
   if (campaignIds.length === 0) return null;
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const sbKey = process.env.SUPABASE_SERVICE_KEY!;
   const headers = { apikey: sbKey, Authorization: `Bearer ${sbKey}` };
   const restGet = async (path: string): Promise<any[]> => {
-    try { const r = await fetch(`${sbUrl}/rest/v1/${path}`, { headers, cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
+    try { const r = await fetch(`${SB_REST_URL}/${path}`, { headers, cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
   };
   type Msg = { lead_id: string; step_number: number; channel: string; status: string; sent_at: string | null; error_details: string | null; metadata: Record<string, unknown> | null };
   const chunk = <T,>(arr: T[], n: number): T[][] => { const o: T[][] = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o; };
@@ -505,11 +505,10 @@ export function computeDeltas(cur: FlowMetrics, prev: FlowMetrics | null): FlowM
 // from the plaintext columns (encrypted client leads fall back to company/Lead),
 // so no per-lead decrypt. Then applies the cohort filter + prev period.
 export async function resolveFlowMetricsLite(campaignId: string, filters: MetricsFilters): Promise<{ metrics: FlowMetrics | null; sellers: { id: string; name: string }[] } | null> {
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const sbKey = process.env.SUPABASE_SERVICE_KEY!;
   const headers = { apikey: sbKey, Authorization: `Bearer ${sbKey}` };
   const rest = async (path: string): Promise<any[]> => {
-    try { const r = await fetch(`${sbUrl}/rest/v1/${path}`, { headers, cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
+    try { const r = await fetch(`${SB_REST_URL}/${path}`, { headers, cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
   };
   const campArr = await rest(`campaigns?id=eq.${campaignId}&select=name,sequence_steps,current_step,seller_id,sellers(linkedin_daily_limit)`);
   const camp = campArr[0];

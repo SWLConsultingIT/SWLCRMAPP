@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { getSupabaseServer } from "@/integrations/supabase/server";
+import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
 
-const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const headers = {
   apikey: SB_KEY,
@@ -35,7 +36,7 @@ export async function POST(
 
   // 1. Get the call
   const callRes = await fetch(
-    `${SB_URL}/rest/v1/calls?id=eq.${callId}&select=id,lead_id,started_at,transcript,classification&limit=1`,
+    `${SB_URL}/calls?id=eq.${callId}&select=id,lead_id,started_at,transcript,classification&limit=1`,
     { headers }
   );
   const [call] = (await callRes.json().catch(() => [])) as Array<{
@@ -54,7 +55,7 @@ export async function POST(
   // run the destructive outcome cascade (closes campaigns, flips lead status,
   // inserts a lead_reply that can transfer the lead to Odoo).
   const leadRes = await fetch(
-    `${SB_URL}/rest/v1/leads?id=eq.${call.lead_id}&select=company_bio_id&limit=1`,
+    `${SB_URL}/leads?id=eq.${call.lead_id}&select=company_bio_id&limit=1`,
     { headers }
   );
   const [leadRow] = (await leadRes.json().catch(() => [])) as Array<{ company_bio_id: string | null }>;
@@ -62,7 +63,7 @@ export async function POST(
   if (denied) return denied;
 
   // 2. Update call with classification (manual = ai_confidence 1)
-  await fetch(`${SB_URL}/rest/v1/calls?id=eq.${callId}`, {
+  await fetch(`${SB_URL}/calls?id=eq.${callId}`, {
     method: "PATCH",
     headers: { ...headers, Prefer: "return=minimal" },
     body: JSON.stringify({
@@ -83,7 +84,7 @@ export async function POST(
       const m = (user?.user_metadata ?? {}) as Record<string, unknown>;
       const authorName = (m.full_name as string) ?? (m.display_name as string) ?? (m.name as string)
         ?? (user?.email as string | undefined)?.split("@")[0] ?? "Call note";
-      await fetch(`${SB_URL}/rest/v1/lead_notes`, {
+      await fetch(`${SB_URL}/lead_notes`, {
         method: "POST",
         headers: { ...headers, Prefer: "return=minimal" },
         body: JSON.stringify({
@@ -104,20 +105,20 @@ export async function POST(
   //    button) converge on the same effect.
   if (classification === "wrong_number") {
     const now = new Date().toISOString();
-    await fetch(`${SB_URL}/rest/v1/leads?id=eq.${call.lead_id}`, {
+    await fetch(`${SB_URL}/leads?id=eq.${call.lead_id}`, {
       method: "PATCH",
       headers: { ...headers, Prefer: "return=minimal" },
       body: JSON.stringify({ allow_call: false, updated_at: now }),
     });
     // Skip queued/draft call messages for this lead.
     const callMsgsRes = await fetch(
-      `${SB_URL}/rest/v1/campaign_messages?lead_id=eq.${call.lead_id}&channel=eq.call&status=in.(queued,draft)&select=id`,
+      `${SB_URL}/campaign_messages?lead_id=eq.${call.lead_id}&channel=eq.call&status=in.(queued,draft)&select=id`,
       { headers }
     );
     const callMsgs = (await callMsgsRes.json().catch(() => [])) as Array<{ id: string }>;
     if (callMsgs.length > 0) {
       const idsCsv = callMsgs.map(m => m.id).join(",");
-      await fetch(`${SB_URL}/rest/v1/campaign_messages?id=in.(${idsCsv})`, {
+      await fetch(`${SB_URL}/campaign_messages?id=in.(${idsCsv})`, {
         method: "PATCH",
         headers: { ...headers, Prefer: "return=minimal" },
         body: JSON.stringify({
@@ -142,13 +143,13 @@ export async function POST(
     : `[Call outcome] Lead marked as ${classification === "positive" ? "POSITIVE" : "NEGATIVE"} via phone call.`;
 
   const campRes = await fetch(
-    `${SB_URL}/rest/v1/campaigns?lead_id=eq.${call.lead_id}&order=started_at.desc&limit=1&select=id`,
+    `${SB_URL}/campaigns?lead_id=eq.${call.lead_id}&order=started_at.desc&limit=1&select=id`,
     { headers }
   );
   const camps = (await campRes.json().catch(() => [])) as Array<{ id: string }>;
   const campaignId = camps[0]?.id ?? null;
 
-  const replyInsert = await fetch(`${SB_URL}/rest/v1/lead_replies`, {
+  const replyInsert = await fetch(`${SB_URL}/lead_replies`, {
     method: "POST",
     headers: { ...headers, Prefer: "return=representation" },
     body: JSON.stringify({
@@ -174,7 +175,7 @@ export async function POST(
       ? { status: "paused", paused_until: null, completed_at: new Date().toISOString() }
       : { status: "failed", completed_at: new Date().toISOString() };
 
-    await fetch(`${SB_URL}/rest/v1/campaigns?id=eq.${campaignId}`, {
+    await fetch(`${SB_URL}/campaigns?id=eq.${campaignId}`, {
       method: "PATCH",
       headers: { ...headers, Prefer: "return=minimal" },
       body: JSON.stringify(campaignPatch),
@@ -183,7 +184,7 @@ export async function POST(
 
   // 6. Lead status
   const leadStatus = classification === "positive" ? "qualified" : "closed_lost";
-  await fetch(`${SB_URL}/rest/v1/leads?id=eq.${call.lead_id}`, {
+  await fetch(`${SB_URL}/leads?id=eq.${call.lead_id}`, {
     method: "PATCH",
     headers: { ...headers, Prefer: "return=minimal" },
     body: JSON.stringify({ status: leadStatus, updated_at: new Date().toISOString() }),

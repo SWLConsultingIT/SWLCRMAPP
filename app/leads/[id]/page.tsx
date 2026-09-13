@@ -19,6 +19,7 @@ import { ACTIVITY_SELECT, bucketActivity } from "@/features/activities/lib/activ
 import { getT, getServerLocale } from "@/shared/i18n/server";
 import { intlTag } from "@/shared/i18n/locale";
 import { renderPlaceholders } from "@/lib/placeholders";
+import { SB_REST_URL, restHeaders } from "@/integrations/supabase/rest";
 
 // Bypass Next's render cache — freshly-sent steps must show immediately.
 export const dynamic = "force-dynamic";
@@ -119,9 +120,8 @@ async function getReplies(leadId: string) {
 
 async function getCalls(leadId: string) {
   const key = process.env.SUPABASE_SERVICE_KEY!;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const res = await fetch(
-    `${url}/rest/v1/calls?lead_id=eq.${leadId}&order=started_at.desc&select=id,aircall_call_id,direction,status,duration,phone_number,recording_url,recording_storage_path,transcript,notes,started_at,ended_at,classification,ai_confidence,ai_summary,coach_analysis,coach_score,coach_generated_at,coach_model,summary,summary_generated_at`,
+    `${SB_REST_URL}/calls?lead_id=eq.${leadId}&order=started_at.desc&select=id,aircall_call_id,direction,status,duration,phone_number,recording_url,recording_storage_path,transcript,notes,started_at,ended_at,classification,ai_confidence,ai_summary,coach_analysis,coach_score,coach_generated_at,coach_model,summary,summary_generated_at`,
     { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" }
   );
   const data = await res.json().catch(() => []);
