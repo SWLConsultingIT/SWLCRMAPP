@@ -29,6 +29,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { withdrawInvitation } from "@/lib/unipile-linkedin";
 
 // Withdrawing up to a full backlog of stale invites (one Unipile DELETE each)
 // can exceed the default function budget — give it room.
@@ -37,33 +38,8 @@ export const maxDuration = 60;
 const INVITE_TTL_DAYS = 21;
 const SUPPRESSION_TTL_DAYS = 90;
 const CRON_SECRET = process.env.CRON_SECRET;
-const UNIPILE_BASE = process.env.UNIPILE_DSN
-  ? `https://${process.env.UNIPILE_DSN}`
-  : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
-
-type WithdrawResult =
-  | { ok: true; status: "withdrawn" }
-  | { ok: true; status: "already_gone" }
-  | { ok: false; status: "failed"; reason: string };
-
-async function withdrawInvitation(invitationId: string, accountId: string): Promise<WithdrawResult> {
-  if (!UNIPILE_KEY) return { ok: false, status: "failed", reason: "UNIPILE_API_KEY missing" };
-  const url = `${UNIPILE_BASE}/api/v1/users/invite/sent/${encodeURIComponent(invitationId)}?account_id=${encodeURIComponent(accountId)}`;
-  try {
-    const res = await fetch(url, {
-      method: "DELETE",
-      headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
-    });
-    if (res.ok) return { ok: true, status: "withdrawn" };
-    // 404 = invitation already gone (accepted/declined/withdrawn manually). Treat as success.
-    if (res.status === 404) return { ok: true, status: "already_gone" };
-    const body = await res.text().catch(() => "");
-    return { ok: false, status: "failed", reason: `HTTP ${res.status}: ${body.slice(0, 200)}` };
-  } catch (e: any) {
-    return { ok: false, status: "failed", reason: e?.message ?? String(e) };
-  }
-}
+// withdrawInvitation now lives in lib/unipile-linkedin (shared with the manual
+// route and LinkedIn Recovery) so the Unipile v1 contract has a single home.
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization") ?? "";

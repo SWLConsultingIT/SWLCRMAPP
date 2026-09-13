@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { completionFields } from "@/lib/campaign-complete";
 import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
@@ -297,7 +298,7 @@ async function dispatchOneCall(
     await Promise.all([
       svc.from("campaigns").update({
         last_step_at: nowISO,
-        ...(nextEligible === null ? { status: "completed" } : {}),
+        ...completionFields(nextEligible, nowISO),
       }).eq("id", candidate.campaign_id),
       svc.from("campaigns").update({ current_step: candidate.step_number })
         .eq("id", candidate.campaign_id).lt("current_step", candidate.step_number),
@@ -425,7 +426,7 @@ async function dispatchOneCall(
     // last_step_at + status always update unconditionally.
     svc.from("campaigns").update({
       last_step_at: now,
-      ...(nextEligibleAt === null ? { status: "completed" } : {}),
+      ...completionFields(nextEligibleAt, now),
     }).eq("id", candidate.campaign_id),
     // current_step only ADVANCES — never retreats. Same .lt() guard as
     // dispatch-queue and dispatch-email: if another dispatcher (e.g. email)

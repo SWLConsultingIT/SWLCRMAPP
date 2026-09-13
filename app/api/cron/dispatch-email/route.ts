@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { completionFields } from "@/lib/campaign-complete";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveFlowCampaignId } from "@/lib/instantly-flow-campaign";
@@ -608,7 +609,7 @@ async function dispatchOneEmail(
       // See dispatch-queue/route.ts — mirror eligible_at onto the campaign so
       // the "Next step: ..." UI label has a date to render.
       next_step_due_at: nextEligibleAt,
-      ...(nextEligibleAt === null ? { status: "completed" } : {}),
+      ...completionFields(nextEligibleAt, now),
     }).eq("id", candidate.campaign_id),
     // current_step only ADVANCES — never retreats. See dispatch-queue: a late
     // step-0 CR after a step-1 email reset the cursor 1→0 and froze the flow.
