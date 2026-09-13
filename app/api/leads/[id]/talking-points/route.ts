@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
@@ -216,7 +216,7 @@ Rules:
 - Output ONLY the JSON array.`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = getAnthropic(apiKey);
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1500,

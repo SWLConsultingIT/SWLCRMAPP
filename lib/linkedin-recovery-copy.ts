@@ -9,9 +9,11 @@
 
 // Reuse the same n8n host as the existing campaign copy generator; a dedicated
 // path keeps the "second attempt" prompt/flow separate. Overridable by env.
+import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
+
 const N8N_RECOVERY_COPY_URL =
   process.env.N8N_LINKEDIN_RECOVERY_COPY_URL ??
-  "https://n8n.srv949269.hstgr.cloud/webhook/linkedin-recovery-copy";
+  n8nWebhookUrl("linkedin-recovery-copy");
 
 export function normalizeForCompare(s: string): string {
   return (s ?? "")

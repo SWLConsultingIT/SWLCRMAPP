@@ -4,7 +4,7 @@ import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import Link from "next/link";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import Breadcrumb from "@/shared/ui/Breadcrumb";
 import LostLeadActions from "@/components/LostLeadActions";
 import RegenerateLossAnalysis from "@/components/RegenerateLossAnalysis";
@@ -111,7 +111,7 @@ Output STRICT JSON (no markdown, no code fences) with this exact shape:
 }`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = getAnthropic(apiKey);
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 900,

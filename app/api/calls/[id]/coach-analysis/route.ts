@@ -13,7 +13,8 @@
 // for this task, ~60% cheaper, ~2x faster). Cost ~$0.02 per call,
 // shared across the prompt-cached system text.
 
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
@@ -155,7 +156,7 @@ export async function POST(
     locale,
   });
 
-  const anthropic = new Anthropic();
+  const anthropic = getAnthropic();
 
   let analysis: string;
   try {

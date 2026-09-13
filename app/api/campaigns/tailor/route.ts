@@ -25,7 +25,8 @@
 // reflects the personalized output everywhere.
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import {
@@ -270,7 +271,7 @@ export async function POST(req: NextRequest) {
   // multiple slots. Today the contract is one (hook,fit) per first-
   // touch — channel-specific tone differences are encoded in the prompt
   // via `stepChannel`.
-  const client = new Anthropic({ apiKey });
+  const client = getAnthropic(apiKey);
 
   // ONE Haiku call per (lead, channel). The hook+fit returned gets
   // applied to EVERY slotted row in that (lead, channel) so the

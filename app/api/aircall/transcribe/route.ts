@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getCall, getCallTranscription } from "@/integrations/aircall/client";
+import { OPENAI_TRANSCRIPTIONS_URL } from "@/integrations/ai/openai";
 
 // Call transcription. Two-tier strategy:
 //   1. Try Aircall AI Voice (GET /v1/calls/{id}/transcription). Higher
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest) {
     if (model === "whisper-1") {
       form.append("response_format", "verbose_json");
     }
-    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    const res = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
       body: form,

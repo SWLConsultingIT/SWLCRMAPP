@@ -33,7 +33,8 @@
 //   }
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
     : { data: null };
   const icp: TailorIcp | null = (icpRes.data as TailorIcp | null) ?? null;
 
-  const client = new Anthropic({ apiKey });
+  const client = getAnthropic(apiKey);
 
   // For each lead: fire ONE Haiku call (one (hook,fit) per lead) and
   // substitute into every step body + the CR. Preview is intentionally

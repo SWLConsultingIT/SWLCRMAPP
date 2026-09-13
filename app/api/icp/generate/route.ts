@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerLocale } from "@/shared/i18n/server";
 import { PROMPT_LANGUAGE } from "@/shared/i18n/locale";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
@@ -137,7 +137,7 @@ Rules:
 - Output ONLY the JSON object.`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = getAnthropic(apiKey);
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1200,

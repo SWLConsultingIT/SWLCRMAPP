@@ -9,6 +9,8 @@
 // when confidence is below a threshold so ambiguous replies don't trigger
 // auto-actions silently.
 
+import { OPENAI_CHAT_URL } from "@/integrations/ai/openai";
+
 export type ReplyClassification =
   | "positive"        // wants to talk / book a meeting / interested
   | "negative"        // not interested / hard no
@@ -60,7 +62,7 @@ export async function classifyReply(replyBody: string): Promise<ClassifyOutcome>
   }
 
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(OPENAI_CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

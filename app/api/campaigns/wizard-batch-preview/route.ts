@@ -29,7 +29,8 @@
 // }
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { findTailoredSlots, substituteTailoredSlots, renderPlaceholders } from "@/lib/placeholders";
@@ -166,7 +167,7 @@ export async function POST(req: NextRequest) {
     : { data: null };
   const icp = (icpRes.data ?? null) as TailorIcp | null;
 
-  const client = new Anthropic({ apiKey });
+  const client = getAnthropic(apiKey);
 
   // Infer the step type from (channel, idx-among-same-channel) so the
   // validator picks the right length cap (EMAIL_INTRO=950, INTRO_DM=600,

@@ -7,7 +7,9 @@
 // scrapes (Apollo, Phantom Buster, ZoomInfo, RFA, etc.) map identically.
 // Ported in-app to remove the n8n dependency for client onboarding.
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+import { OPENAI_CHAT_URL } from "@/integrations/ai/openai";
+
+const OPENAI_URL = OPENAI_CHAT_URL;
 const MODEL = "gpt-4o-mini";
 
 export type LeadColumnMapping = {

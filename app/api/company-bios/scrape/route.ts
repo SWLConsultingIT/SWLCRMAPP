@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { requireUser } from "@/shared/auth/require-scope";
 
 const LANG_MAP: Record<string, string> = {
@@ -337,7 +338,7 @@ ${cleaned}`;
 
     let parsed: Record<string, unknown>;
     try {
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
+      const anthropic = getAnthropic(anthropicKey);
       const aiRes = await anthropic.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1500,

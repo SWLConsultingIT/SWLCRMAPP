@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { resolveOutbound, LEAD_PLACEHOLDER_COLUMNS, type OutboundLog } from "@/lib/placeholders";
+import { sendWhatsAppMessage } from "@/integrations/whatsapp/client";
 
 // Cron-driven WhatsApp dispatcher.
 //
@@ -23,8 +24,6 @@ import { resolveOutbound, LEAD_PLACEHOLDER_COLUMNS, type OutboundLog } from "@/l
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN ?? "";
-const WA_API_VERSION = "v20.0";
-const WA_BASE = `https://graph.facebook.com/${WA_API_VERSION}`;
 const BATCH_SIZE = 5;
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -82,14 +81,7 @@ async function sendWhatsApp(
       };
 
   try {
-    const res = await fetch(`${WA_BASE}/${phoneNumberId}/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${WA_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    const res = await sendWhatsAppMessage(phoneNumberId, WA_TOKEN, payload);
     const data = await res.json();
     if (!res.ok) {
       return { ok: false, error: data?.error?.message ?? `HTTP ${res.status}` };

@@ -14,7 +14,8 @@
 // matches what the n8n dispatcher eventually sends (anti-fluff, anti-reintro,
 // length cap, auto-signature).
 
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
@@ -222,7 +223,7 @@ export async function POST(req: NextRequest) {
     { type: "text" as const, text: specText },
   ];
 
-  const anthropic = new Anthropic();
+  const anthropic = getAnthropic();
   let rawOutput: string;
   try {
     const response = await anthropic.messages.create({

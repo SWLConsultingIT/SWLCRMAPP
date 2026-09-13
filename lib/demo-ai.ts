@@ -8,6 +8,7 @@
 
 import type { SeedLead } from "@/lib/demo-seeds";
 import { pickSeedLeads, type DemoIndustryKey } from "@/lib/demo-seeds";
+import { OPENAI_CHAT_URL } from "@/integrations/ai/openai";
 
 type ScrapedBio = {
   company_name?: string | null;
@@ -182,7 +183,7 @@ export async function aiGenerateDemoData(
   const language = detectLanguage(scrape);
 
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(OPENAI_CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -9,7 +9,8 @@
 // endpoint runs auto-magically when a transcript lands — we don't want a
 // long blocking call in the webhook chain.
 
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
@@ -130,7 +131,7 @@ export async function POST(
     "Write 1-2 sentence summary in the same language as the transcript.",
   ].join("\n");
 
-  const anthropic = new Anthropic();
+  const anthropic = getAnthropic();
   let summary: string;
   try {
     const response = await anthropic.messages.create({

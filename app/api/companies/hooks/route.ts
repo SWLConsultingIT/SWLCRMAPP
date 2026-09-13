@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerLocale } from "@/shared/i18n/server";
 import { writeAllContentIn, type Locale } from "@/shared/i18n/locale";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ hooks: [], reason: "insufficient_enrichment" });
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = getAnthropic(apiKey);
   try {
     const msg = await client.messages.create({
       model: "claude-haiku-4-5-20251001",

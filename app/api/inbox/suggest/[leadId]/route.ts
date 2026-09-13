@@ -11,7 +11,7 @@
 // the same tenant context, so they never stare at a blank box.
 //
 // Auth: logged-in user, scope-gated to their tenant's lead (same as thread).
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
@@ -179,7 +179,7 @@ NEVER do this: do NOT write meta-commentary about yourself, about lacking inform
 FORMAT: same language as the lead, no greeting line, no subject, no signature block (first name only if natural), 2-4 sentences max, peer-to-peer and specific, warm, no corporate filler. Output ONLY the reply text — no quotes, no preamble, no markdown.`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = getAnthropic(apiKey);
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 400,

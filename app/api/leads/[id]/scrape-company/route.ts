@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerLocale } from "@/shared/i18n/server";
 import { writeAllContentIn } from "@/shared/i18n/locale";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/integrations/ai/anthropic";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 
@@ -70,7 +70,7 @@ Use only the text above. No markdown, no prose outside the JSON.
 ${writeAllContentIn(locale)} The website may be in another language; translate rather than quoting it. Company, product and place names stay as they are.`;
 
   try {
-    const client = new Anthropic({ apiKey });
+    const client = getAnthropic(apiKey);
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 700,
