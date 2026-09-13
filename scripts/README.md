@@ -9,6 +9,7 @@ Se corren de nuevo, forman parte del flujo de trabajo.
 | Archivo | Qué hace |
 |---|---|
 | `test-*.mts` (8) | Suites de lógica pura. Las corre `npm test`. **Gate duro de CI.** Las 2 de Activities viven en `features/activities/tests/`, junto al dominio que pinean. |
+| `check-boundaries.mts` | Hace cumplir la direccion de dependencias de `docs/ARCHITECTURE.md`. **Gate duro de CI.** `npm run boundaries` |
 | `ci-ratchet.mts` · `ci-baseline.json` | Mide tipos y lint contra un baseline congelado; falla si la deuda crece. `npm run ratchet` |
 | `verify-*.mts` | Verificadores de consistencia de datos (llamadas, métricas del dashboard). Lectura, no escriben. |
 | `consistency-calls.mts` · `shadow-calls.mts` · `calls-visible-snapshot.mts` | Diagnóstico del modelo de identidad de llamadas. |
