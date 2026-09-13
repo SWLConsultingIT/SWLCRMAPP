@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { requireUser } from "@/shared/auth/require-scope";
+import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
 
 // Proxies to the n8n workflow "SWL - CRM - Message Generator V8 Native".
 // Computes step_type_override per idx (the wizard knows which UI step the user clicked
@@ -17,7 +18,7 @@ import { requireUser } from "@/shared/auth/require-scope";
 // killed by Vercel returning a generic 500.
 export const maxDuration = 300;
 
-const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
+const N8N_WEBHOOK_URL = n8nWebhookUrl("generate-campaign-messages-v3");
 
 type SequenceEntry = { channel: string; daysAfter: number; user_prompt?: string; body?: string; step_type_override?: string };
 

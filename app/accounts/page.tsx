@@ -7,6 +7,7 @@ import { UserCircle, Share2, Mail, Phone, Check, X } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/shared/ui/PageHero";
 import AuroraHero from "@/shared/ui/AuroraHero";
+import { listAccounts } from "@/integrations/instantly/client";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,7 @@ async function getInstantlyPool(bioId: string | null) {
     // updated by Instantly itself on a slow rhythm and don't need second-
     // precision. Per-tenant cache tag so different Instantly accounts don't
     // share each other's listings in the route cache.
-    const res = await fetch("https://api.instantly.ai/api/v2/accounts?limit=100", {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    const res = await listAccounts(apiKey, 100, {
       next: { revalidate: 60, tags: [`instantly-accounts-${bioId ?? "env"}`] },
     });
     if (!res.ok) return null;

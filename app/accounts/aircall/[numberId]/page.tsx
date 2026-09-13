@@ -4,15 +4,12 @@ import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Phone, PhoneCall, PhoneMissed, Voicemail, Clock, CheckCircle, XCircle } from "lucide-react";
+import { getNumber as fetchAircallNumber } from "@/integrations/aircall/client";
 
 const FLAGS: Record<string, string> = { DE: "🇩🇪", US: "🇺🇸", AR: "🇦🇷", BR: "🇧🇷", MX: "🇲🇽", ES: "🇪🇸", FR: "🇫🇷", UK: "🇬🇧", GB: "🇬🇧" };
 
 async function getNumber(id: string) {
-  const AUTH = Buffer.from(`${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`).toString("base64");
-  const res = await fetch(`https://api.aircall.io/v1/numbers/${id}`, {
-    headers: { Authorization: `Basic ${AUTH}` },
-    next: { revalidate: 120 },
-  });
+  const res = await fetchAircallNumber(id, { next: { revalidate: 120 } });
   if (!res.ok) return null;
   const { number } = await res.json();
   return number;

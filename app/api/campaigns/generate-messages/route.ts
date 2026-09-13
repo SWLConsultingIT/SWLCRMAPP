@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/shared/auth/require-scope";
+import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
 
-const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
+const N8N_WEBHOOK_URL = n8nWebhookUrl("generate-campaign-messages-v3");
 
 export async function POST(req: NextRequest) {
   // Auth gate — proxies to an n8n LLM job; was previously reachable by any

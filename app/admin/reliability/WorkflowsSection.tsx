@@ -7,9 +7,9 @@ import { getT } from "@/shared/i18n/server";
 import { C } from "@/shared/design/tokens";
 import { getSwlWorkflowStatuses } from "@/integrations/n8n/workflows-status";
 import FoldableSection from "./FoldableSection";
+import { N8N_BASE } from "@/integrations/n8n/call-webhook";
 
 const gold = "var(--brand, #c9a83a)";
-const N8N_BASE = (process.env.N8N_API_BASE_URL ?? "https://n8n.srv949269.hstgr.cloud").replace(/\/+$/, "");
 
 function formatRelative(iso: string | null): string | null {
   if (!iso) return null;

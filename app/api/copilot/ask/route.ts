@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
+import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
 
 // Cross-prospect Copilot — the "strategic memory" over ALL of a tenant's
 // prospects. Answers questions that span the book: "compare the objections from
@@ -85,8 +86,7 @@ export async function POST(req: NextRequest) {
     // per the "AI generation via n8n only" rule. The app assembles the corpus
     // (tenant-scoped replies + calls); n8n runs the model with the multilingual
     // + topic-gated system prompt and returns { answer }.
-    const base = process.env.N8N_API_BASE_URL || "https://n8n.srv949269.hstgr.cloud";
-    const res = await fetch(`${base}/webhook/copilot-ask`, {
+    const res = await fetch(n8nWebhookUrl("copilot-ask"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, corpus, history: historyStr }),

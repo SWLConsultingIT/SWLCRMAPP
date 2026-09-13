@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canManageTeam } from "@/shared/auth/scope";
+import { listNumbers } from "@/integrations/aircall/client";
 
 // Tenant-scoped Aircall number assignment.
 //
@@ -11,7 +12,6 @@ import { getUserScope, canManageTeam } from "@/shared/auth/scope";
 
 const AIRCALL_API_ID = process.env.AIRCALL_API_ID ?? "";
 const AIRCALL_API_TOKEN = process.env.AIRCALL_API_TOKEN ?? "";
-const AIRCALL_AUTH = Buffer.from(`${AIRCALL_API_ID}:${AIRCALL_API_TOKEN}`).toString("base64");
 
 type AircallNumber = {
   id: number;
@@ -24,10 +24,7 @@ type AircallNumber = {
 
 async function fetchAircallNumbers(): Promise<AircallNumber[]> {
   if (!AIRCALL_API_ID || !AIRCALL_API_TOKEN) return [];
-  const res = await fetch("https://api.aircall.io/v1/numbers", {
-    headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-    next: { revalidate: 60, tags: ["aircall-numbers"] },
-  });
+  const res = await listNumbers({ next: { revalidate: 60, tags: ["aircall-numbers"] } });
   if (!res.ok) return [];
   const data: { numbers?: AircallNumber[] } = await res.json();
   return data.numbers ?? [];

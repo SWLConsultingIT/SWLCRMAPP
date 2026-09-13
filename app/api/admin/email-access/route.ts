@@ -1,6 +1,7 @@
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
+import { instantlyFetch } from "@/integrations/instantly/client";
 
 // SWL super-admin cross-workspace view of inboxes available for assignment.
 //
@@ -15,7 +16,6 @@ import { NextRequest, NextResponse } from "next/server";
 // PATCH: set company_bios.email_accounts. Same shape as before — admin picks
 // inboxes from any workspace and assigns them to a tenant.
 
-const INSTANTLY_BASE = "https://api.instantly.ai/api/v2";
 
 type EmailAccount = {
   email: string;
@@ -34,8 +34,7 @@ async function fetchWorkspaceInboxes(apiKey: string): Promise<{ inboxes: any[]; 
       ? `/accounts?limit=100&starting_after=${encodeURIComponent(cursor)}`
       : "/accounts?limit=100";
     try {
-      const res = await fetch(`${INSTANTLY_BASE}${path}`, {
-        headers: { Authorization: `Bearer ${apiKey}`, accept: "application/json" },
+      const res = await instantlyFetch(apiKey, path, {
         cache: "no-store",
       });
       if (!res.ok) {

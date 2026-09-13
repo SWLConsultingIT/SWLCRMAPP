@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/integrations/supabase/service";
+import { findPlaceFromText, placeDetails, photoUrl as photoUrlFor, streetViewUrl, staticMapUrl } from "@/integrations/maps/places";
 
 // Rich detail for a single nearby company (Gruppo Everest cross-sell demo).
 // Resolves a place by text (name + address) → Google Place Details with photo,
@@ -9,7 +10,6 @@ import { getSupabaseService } from "@/integrations/supabase/service";
 export const maxDuration = 30;
 
 const EVEREST_BIO = "4ab610c8-e852-4b37-97d7-c41ba19b0d0e";
-const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY || "AIzaSyDFMsj9b2TLRBt9ISZOJ_8GtQhUNZL0Qso";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
@@ -31,9 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!resolvedId) {
     const q = [name, address].filter(Boolean).join(", ");
     if (!q) return NextResponse.json({ error: "name or address required" }, { status: 400 });
-    const findUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(q)}&inputtype=textquery&fields=place_id&key=${GOOGLE_KEY}`;
-    const fRes = await fetch(findUrl, { cache: "no-store" });
-    const fData = await fRes.json();
+    const fData = await findPlaceFromText(q);
     resolvedId = fData.candidates?.[0]?.place_id;
     if (!resolvedId) {
       // No match — return whatever we were given so the modal still shows basics.
@@ -42,24 +40,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // 2) Place details.
-  const detUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${resolvedId}&fields=name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,photos,types,url,business_status,editorial_summary,price_level,opening_hours,geometry,reviews&key=${GOOGLE_KEY}`;
-  const dRes = await fetch(detUrl, { cache: "no-store" });
-  const dData = await dRes.json();
+  const dData = await placeDetails(resolvedId, "name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,photos,types,url,business_status,editorial_summary,price_level,opening_hours,geometry,reviews");
   if (dData.status !== "OK") {
     return NextResponse.json({ error: `Places details: ${dData.status}` }, { status: 502 });
   }
   const d = dData.result;
   const photoUrls: string[] = Array.isArray(d.photos)
-    ? d.photos.slice(0, 6).map((p: { photo_reference: string }) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=640&photo_reference=${p.photo_reference}&key=${GOOGLE_KEY}`)
+    ? d.photos.slice(0, 6).map((p: { photo_reference: string }) => photoUrlFor(p.photo_reference))
     : [];
   // Guarantee at least one image for the demo: if the place has no Google
   // photos, fall back to a Street View shot + a satellite shot of its location.
   const loc = d.geometry?.location;
   if (loc?.lat != null && loc?.lng != null) {
     if (photoUrls.length === 0) {
-      photoUrls.push(`https://maps.googleapis.com/maps/api/streetview?size=640x400&location=${loc.lat},${loc.lng}&fov=82&key=${GOOGLE_KEY}`);
+      photoUrls.push(streetViewUrl(loc.lat, loc.lng));
     }
-    photoUrls.push(`https://maps.googleapis.com/maps/api/staticmap?center=${loc.lat},${loc.lng}&zoom=18&size=640x400&maptype=satellite&markers=color:0xC9A83A%7C${loc.lat},${loc.lng}&key=${GOOGLE_KEY}`);
+    photoUrls.push(staticMapUrl(loc.lat, loc.lng));
   }
   const photoUrl = photoUrls[0] ?? null;
   const reviews = Array.isArray(d.reviews)

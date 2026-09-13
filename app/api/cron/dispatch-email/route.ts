@@ -9,6 +9,7 @@ import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } fro
 import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
 import { verifyCampaignSenderPool } from "@/integrations/instantly/campaign-pool";
 import { senderPoolLogPayload } from "@/integrations/instantly/sender-pool";
+import { INSTANTLY_BASE } from "@/integrations/instantly/client";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -51,7 +52,6 @@ import { senderPoolLogPayload } from "@/integrations/instantly/sender-pool";
 // a separate Instantly account (e.g. Arqy on a different Hypergrowth plan)
 // set their own key and the dispatcher routes accordingly.
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
-const INSTANTLY_BASE = "https://api.instantly.ai/api/v2";
 
 type QueuedEmail = {
   id: string;

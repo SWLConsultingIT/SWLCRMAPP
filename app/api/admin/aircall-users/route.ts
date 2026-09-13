@@ -1,6 +1,7 @@
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
+import { listUsers } from "@/integrations/aircall/client";
 
 // Lists Aircall users and lets super_admin assign one to a seller. Without
 // this mapping, dispatch-call / dial both fall back to "first user with
@@ -8,9 +9,6 @@ import { NextRequest, NextResponse } from "next/server";
 // than one seller is signed in (Lucia in SWL ringing on a Pathway lead's
 // dispatch). Per-seller user_id resolution removes that.
 
-const AIRCALL_AUTH = Buffer.from(
-  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,
-).toString("base64");
 
 type AircallUser = {
   id: number;
@@ -24,10 +22,7 @@ export async function GET() {
   const guard = await requireAdminApi();
   if (guard instanceof NextResponse) return guard;
 
-  const usersRes = await fetch("https://api.aircall.io/v1/users?per_page=50", {
-    headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-    next: { revalidate: 60 },
-  });
+  const usersRes = await listUsers(50, { next: { revalidate: 60 } });
   if (!usersRes.ok) {
     return NextResponse.json({ error: `Aircall ${usersRes.status}` }, { status: 502 });
   }

@@ -14,6 +14,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
+import { instantlyFetch } from "@/integrations/instantly/client";
+import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // many Unipile + Instantly calls; needs headroom
@@ -66,8 +68,7 @@ async function insertIfNew(svc: Svc, leadId: string, channel: string, text: stri
 // positive/negative → persist + close-campaign side effects — even when Unipile
 // never delivered the original event (the #1 drop cause). Only used for RECENT
 // replies; stale ones go to manual review so we never auto-reply hours late.
-const N8N_BASE = (process.env.N8N_API_BASE_URL ?? "https://n8n.srv949269.hstgr.cloud").replace(/\/+$/, "");
-const LINKEDIN_HANDLER_WEBHOOK = `${N8N_BASE}/webhook/linkedin-response-handler`;
+const LINKEDIN_HANDLER_WEBHOOK = n8nWebhookUrl("linkedin-response-handler");
 const REINJECT_MAX_AGE_MIN = 45;
 
 async function replyExists(svc: Svc, leadId: string, channel: string, text: string): Promise<boolean> {
@@ -184,10 +185,10 @@ export async function GET(req: NextRequest) {
     let cursor: string | null = null;
     for (let page = 0; page < 15; page++) {
       let body: any = { items: [] };
-      const url = `https://api.instantly.ai/api/v2/emails?limit=100&email_type=received${cursor ? `&starting_after=${cursor}` : ""}`;
+      const path = `/emails?limit=100&email_type=received${cursor ? `&starting_after=${cursor}` : ""}`;
       for (let t = 0; t < 5; t++) {
         try {
-          const r = await fetch(url, { headers: { Authorization: `Bearer ${key}`, accept: "application/json", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" } });
+          const r = await instantlyFetch(key, path, { headers: { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" } });
           if (r.status === 403 || r.status === 429) { await sleep(5000); continue; }
           body = await r.json(); break;
         } catch { await sleep(3000); }

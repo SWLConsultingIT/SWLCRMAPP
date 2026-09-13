@@ -15,6 +15,7 @@ import { getUserScope, canViewSwlAdmin } from "@/shared/auth/scope";
 import { getTenantSummary, getAllTenantSummaries, buildGlobalSummary } from "@/lib/reliability-summary";
 import { getTenantHistory } from "@/lib/reliability-history";
 import { getSupabaseService } from "@/integrations/supabase/service";
+import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,8 +25,7 @@ export const maxDuration = 60;
 // Haiku grounded on the payload we POST here. Hardcoded (same pattern
 // as other n8n webhooks the repo calls — keeps everything portable
 // across hosting platforms instead of behind a Vercel env var).
-const N8N_BASE = (process.env.N8N_API_BASE_URL ?? "https://n8n.srv949269.hstgr.cloud").replace(/\/+$/, "");
-const QA_WEBHOOK_URL = `${N8N_BASE}/webhook/swl-crm-reliability-qa`;
+const QA_WEBHOOK_URL = n8nWebhookUrl("swl-crm-reliability-qa");
 
 export async function POST(req: Request) {
   const scope = await getUserScope();

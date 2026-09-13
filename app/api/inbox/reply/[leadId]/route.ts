@@ -24,6 +24,7 @@ import { getUserScope } from "@/shared/auth/scope";
 import { getInstantlyConfig } from "@/integrations/instantly/config";
 import { resolveOutbound } from "@/lib/placeholders";
 import { t, getServerLocale } from "@/shared/i18n/server";
+import { INSTANTLY_BASE, instantlyFetch } from "@/integrations/instantly/client";
 
 export const runtime = "nodejs";
 // Up to ~4.5s of post-send delivery polling on top of the send itself.
@@ -33,7 +34,6 @@ const UNIPILE_BASE = process.env.UNIPILE_DSN
   ? `https://${process.env.UNIPILE_DSN}`
   : "https://api21.unipile.com:15107";
 const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
-const INSTANTLY_BASE = "https://api.instantly.ai/api/v2";
 
 type Channel = "linkedin" | "email";
 

@@ -1,10 +1,8 @@
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
+import { listNumbers } from "@/integrations/aircall/client";
 
-const AIRCALL_AUTH = Buffer.from(
-  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
-).toString("base64");
 
 type AircallNumber = { id: number; name: string; digits: string; country: string };
 
@@ -13,10 +11,7 @@ export async function GET() {
   if (guard instanceof NextResponse) return guard;
   const supabase = getSupabaseService();
   const [res, { data: bios }] = await Promise.all([
-    fetch("https://api.aircall.io/v1/numbers", {
-      headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-      next: { revalidate: 300 },
-    }),
+    listNumbers({ next: { revalidate: 300 } }),
     supabase.from("company_bios").select("id, company_name, aircall_number_ids, aircall_user_id").is("archived_at", null).order("company_name"),
   ]);
   const { numbers = [] } = (await res.json()) as { numbers: AircallNumber[] };

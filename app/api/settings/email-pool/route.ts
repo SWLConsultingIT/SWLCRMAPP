@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canManageTeam } from "@/shared/auth/scope";
 import { getInstantlyConfig } from "@/integrations/instantly/config";
+import { instantlyFetch } from "@/integrations/instantly/client";
 
 // Tenant-scoped Instantly account assignment.
 //
@@ -19,7 +20,6 @@ import { getInstantlyConfig } from "@/integrations/instantly/config";
 //         list, and optionally updates instantly_campaign_id and
 //         instantly_api_key. Validates email conflicts before saving.
 
-const INSTANTLY_BASE = "https://api.instantly.ai/api/v2";
 
 type InstantlyAccount = {
   email: string;
@@ -42,8 +42,7 @@ async function fetchInstantlyAccounts(apiKey: string, cacheTag: string): Promise
     // updates slowly. Email pool manager UI doesn't need second-precision.
     // Per-tenant cache tag so different tenants don't share each other's
     // account listings (one Instantly key sees one set of inboxes).
-    const res: Response = await fetch(`${INSTANTLY_BASE}${path}`, {
-      headers: { Authorization: `Bearer ${apiKey}`, accept: "application/json" },
+    const res: Response = await instantlyFetch(apiKey, path, {
       next: { revalidate: 60, tags: [cacheTag] },
     });
     if (!res.ok) break;

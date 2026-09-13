@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserScope } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/integrations/supabase/service";
+import { nearbySearch, placeDetails } from "@/integrations/maps/places";
 import {
   resolveTenantKey,
   decryptWithResolvedKey,
@@ -18,7 +19,6 @@ import {
 export const maxDuration = 60;
 
 const EVEREST_BIO = "4ab610c8-e852-4b37-97d7-c41ba19b0d0e";
-const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY || "AIzaSyDFMsj9b2TLRBt9ISZOJ_8GtQhUNZL0Qso";
 
 type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null };
 
@@ -62,9 +62,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // 1) Nearby search (legacy Places API — matches the client's Apps Script).
-  const nbUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&type=establishment&key=${GOOGLE_KEY}`;
-  const nbRes = await fetch(nbUrl, { cache: "no-store" });
-  const nbData = await nbRes.json();
+  const nbData = await nearbySearch(lat, lng);
   if (nbData.status !== "OK" && nbData.status !== "ZERO_RESULTS") {
     return NextResponse.json({ error: `Places nearby: ${nbData.status} ${nbData.error_message ?? ""}` }, { status: 502 });
   }
@@ -74,9 +72,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const companies: NearbyCompany[] = [];
   for (const place of results) {
     try {
-      const dUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website&key=${GOOGLE_KEY}`;
-      const dRes = await fetch(dUrl, { cache: "no-store" });
-      const dData = await dRes.json();
+      const dData = await placeDetails(place.place_id, "name,formatted_address,formatted_phone_number,website");
       if (dData.status === "OK") {
         const d = dData.result;
         companies.push({

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
+import { listNumbers } from "@/integrations/aircall/client";
 
-const AIRCALL_AUTH = Buffer.from(
-  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
-).toString("base64");
 
 type AircallNumber = { id: number; name: string; digits: string; country: string };
 
@@ -24,10 +22,7 @@ export async function GET(req: NextRequest) {
   // button next to the CallButton picker) bypasses the cache so the seller
   // sees newly-claimed numbers immediately instead of waiting for the TTL.
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
-  const res = await fetch("https://api.aircall.io/v1/numbers", {
-    headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-    ...(fresh ? { cache: "no-store" as const } : { next: { revalidate: 300 } }),
-  });
+  const res = await listNumbers(fresh ? { cache: "no-store" as const } : { next: { revalidate: 300 } });
   if (!res.ok) {
     return NextResponse.json({ error: await res.text() }, { status: res.status });
   }
