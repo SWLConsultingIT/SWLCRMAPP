@@ -28,6 +28,7 @@ import { generateSecondAttemptCopy } from "@/lib/linkedin-recovery-copy";
 import {
   getRelationState, withdrawInvitation, sendInvite, sendDm, extractLinkedinSlug, isFirstDegree, hasUnipileCreds,
 } from "@/integrations/unipile/linkedin";
+import { resolveOutbound } from "@/lib/placeholders";
 
 export const maxDuration = 60;
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -52,10 +53,10 @@ type Svc = ReturnType<typeof getSupabaseService>;
 async function loadGuardSnapshot(svc: Svc, row: any) {
   const { data: lead } = await svc
     .from("leads")
-    .select("id, status, archived, linkedin_connected, allow_linkedin, linkedin_internal_id, primary_linkedin_url")
+    .select("id, status, archived, linkedin_connected, allow_linkedin, linkedin_internal_id, primary_linkedin_url, primary_first_name, primary_last_name, company_name, primary_title_role, company_city, company_industry, company_country, company_website")
     .eq("id", row.lead_id).maybeSingle();
   const { data: seller } = row.seller_id
-    ? await svc.from("sellers").select("id, linkedin_status, unipile_account_id, active").eq("id", row.seller_id).maybeSingle()
+    ? await svc.from("sellers").select("id, name, linkedin_status, unipile_account_id, active").eq("id", row.seller_id).maybeSingle()
     : { data: null as any };
   const nowISO = new Date().toISOString();
   const { data: supp } = await svc
@@ -328,12 +329,16 @@ async function handle(req: NextRequest) {
       if (decision.action === "cancel") { await svc.from("linkedin_recovery").update({ state: decision.state, stop_reason: decision.reason }).eq("id", (row as any).id); report.reinvite.cancelled += 1; continue; }
       if (decision.action === "review") { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: decision.reason }).eq("id", (row as any).id); report.reinvite.review += 1; continue; }
       if (!externalOk) { report.notes.push("reinvite ready but external writes disabled"); continue; }
+      // Render the CR note through the canonical outbound gate; fail closed if
+      // any {{token}} is unresolved — never ship literal placeholders to Unipile.
+      const noteRender = resolveOutbound((row as any).second_connection_note ?? "", (snap.lead ?? {}) as any, (snap.seller ?? {}) as any, "linkedin");
+      if (!noteRender.ok) { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: "placeholder_unresolved", last_error: noteRender.error }).eq("id", (row as any).id); report.reinvite.review += 1; continue; }
       if (!await cas(svc, (row as any).id, RECOVERY_STATES.WAITING_REINVITE, { state: RECOVERY_STATES.SECOND_INVITE_SENDING })) continue;
       budget -= 1;
       try {
         const providerId = snap.storedProviderId || live?.providerId;
         if (!providerId) throw new Error("no provider_id for reinvite");
-        const inv = await sendInvite(snap.accountId!, providerId, (row as any).second_connection_note ?? undefined);
+        const inv = await sendInvite(snap.accountId!, providerId, noteRender.text);
         await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.SECOND_INVITE_SENT, second_invitation_id: inv.invitationId, second_invite_sent_at: new Date().toISOString(), attempt_count: 2, last_error: null }).eq("id", (row as any).id);
         capCache.delete((row as any).seller_id);
         report.reinvite.sent += 1;
@@ -366,12 +371,14 @@ async function handle(req: NextRequest) {
         if (budget <= 0) { report.notes.push("dm: budget exhausted"); break; }
         if (!externalOk) { report.notes.push("second DM ready but external writes disabled"); continue; }
         if (!(row as any).second_dm) { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: "second_dm_missing" }).eq("id", (row as any).id); continue; }
+        const dmRender = resolveOutbound((row as any).second_dm ?? "", (snap.lead ?? {}) as any, (snap.seller ?? {}) as any, "linkedin");
+        if (!dmRender.ok) { await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.MANUAL_REVIEW, stop_reason: "placeholder_unresolved", last_error: dmRender.error }).eq("id", (row as any).id); continue; }
         if (!await cas(svc, (row as any).id, RECOVERY_STATES.SECOND_INVITE_SENT, { state: RECOVERY_STATES.SECOND_MESSAGE_SENDING })) continue;
         budget -= 1;
         try {
           const providerId = snap.storedProviderId || live?.providerId;
           if (!providerId) throw new Error("no provider_id for second DM");
-          const dm = await sendDm(snap.accountId!, providerId, (row as any).second_dm);
+          const dm = await sendDm(snap.accountId!, providerId, dmRender.text);
           await svc.from("linkedin_recovery").update({ state: RECOVERY_STATES.DONE, second_message_id: dm.messageId, second_message_sent_at: new Date().toISOString(), last_error: null }).eq("id", (row as any).id);
           report.accept.dmSent += 1;
         } catch (e: any) {
