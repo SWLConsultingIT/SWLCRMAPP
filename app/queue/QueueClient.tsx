@@ -700,7 +700,7 @@ function CallBulkBar({ count, allSelected, onSelectAll, onClear, onDelete, delet
 
 function CallHistoryPanel({
   entries, search, histClass, setHistClass, histFrom, setHistFrom, histTo, setHistTo, histDialer, setHistDialer,
-  selectedCalls, onToggleSelect, onBulkDelete, bulkDeleting, onClearSelection, onSelectAll,
+  selectedCalls, onToggleSelect, onBulkDelete, bulkDeleting, onClearSelection, onSelectAll, canViewAllSellers = false,
 }: {
   entries: CallHistoryEntry[];
   search: string;
@@ -718,6 +718,7 @@ function CallHistoryPanel({
   bulkDeleting: boolean;
   onClearSelection: () => void;
   onSelectAll: (ids: string[]) => void;
+  canViewAllSellers?: boolean;
 }) {
   const { t } = useLocale();
   const HIST_TABS_I18N: Record<HistClass, string> = {
@@ -799,7 +800,9 @@ function CallHistoryPanel({
               </button>
             )}
           </div>
-          {dialerNames.length > 0 && (
+          {/* "Called by" filter — hidden for a seller (incl. Admin → View As
+              Seller): the log is already their own cohort. Admin keeps it. */}
+          {canViewAllSellers && dialerNames.length > 0 && (
             <div className="inline-flex items-center gap-1.5">
               <span className="w-px h-4" style={{ backgroundColor: C.border }} />
               <PhoneCall size={12} style={{ color: C.textDim }} />
@@ -1201,8 +1204,11 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
             </div>
 
             {/* Seller filter — To Call + Awaiting (History has its own
-                "Called by"). Lets a manager see just one rep's queue. */}
-            {callSubTab !== 2 && callSubTab !== 3 && callSellerNames.length > 1 && (
+                "Called by"). Lets a manager see just one rep's queue. Hidden
+                for a seller (incl. Admin → View As Seller): the data is already
+                scoped to their own cohort, so a cross-seller selector would
+                misrepresent the scope. */}
+            {canViewAllSellers && callSubTab !== 2 && callSubTab !== 3 && callSellerNames.length > 1 && (
               <div className="flex items-center gap-1.5 mb-3 text-xs">
                 <PhoneCall size={12} style={{ color: C.textDim }} />
                 <span style={{ color: C.textMuted }}>{t("queue.calls.seller")}</span>
@@ -1272,6 +1278,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
                 bulkDeleting={bulkDeleting}
                 onClearSelection={clearCallSelection}
                 onSelectAll={selectAllCalls}
+                canViewAllSellers={canViewAllSellers}
               />
             ) : callSubTab === 1 ? (
               // Awaiting Outcome — every made-but-unclassified call, rich rows

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { prettyDisplayName } from "@/shared/lib/display-name";
-import { getUserScope, getMyAssignedUserId, canViewAllTenantData } from "@/shared/auth/scope";
+import { getUserScope, getMyAssignedUserId, getMyAssignedLeadIds, canViewAllTenantData } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { computePendingCalls } from "@/lib/pending-calls";
 import { hasPlayableRecording } from "@/lib/call-recording";
@@ -41,6 +41,16 @@ async function getQueueData() {
   // For tier='seller', restrict campaigns/replies to the flows the user is
   // assigned to work/call (campaigns.assigned_user_id = them). null → no filter.
   const myUserId = await getMyAssignedUserId();
+
+  // Seller ownership for the calls table — the `calls` rows carry no
+  // assigned_user_id, so a call belongs to a seller when its LEAD is in the
+  // seller's assigned set (campaigns.assigned_user_id = them). This is the same
+  // ownership boundary To Call already uses, expressed via the canonical
+  // getMyAssignedLeadIds() chokepoint. null → not a seller (tenant-wide log).
+  // Under Admin → View As Seller the effective scope is the impersonated
+  // seller, so this returns that seller's leads automatically.
+  const myCallLeadIds = await getMyAssignedLeadIds();
+  const myCallLeadIdArr = myCallLeadIds ? [...myCallLeadIds] : null;
 
   // The current user's own seller identities (by name) — powers the Inbox
   // per-seller "My leads" quick filter. Empty for users with no seller row
@@ -127,8 +137,13 @@ async function getQueueData() {
 
   // Call History — every classified call (Interested / Not interested / Bad
   // timing / Wrong number) so the team can review what was actually dialed,
-  // filter by date, and replay recordings. Tenant-scoped via leads join; not
-  // seller-filtered on purpose — managers want the whole team's call log.
+  // filter by date, and replay recordings.
+  //  • Admin / owner / manager  → tenant-wide log (they run the whole team).
+  //  • Seller (incl. Admin → View As Seller) → ONLY calls on the seller's
+  //    assigned leads — the same ownership boundary as To Call. A call on a
+  //    peer seller's lead is invisible. This closes the last seller-scope gap:
+  //    History (and Awaiting Outcome, which derives from it) used to be
+  //    tenant-wide for sellers too.
   // NOTE: no `sellers(name)` embed — the calls table has NO foreign-key
   // relationship to sellers in the schema, so embedding it 400s the whole
   // query and History silently renders 0 calls (caught 2026-06-04). seller_id
@@ -138,11 +153,34 @@ async function getQueueData() {
   // two-rows-per-call reality (dial-marker + Aircall record) and drop pure
   // dial-attempts below. recording_storage_path + phone_number are needed for
   // the merge + the player.
-  let callHistoryQuery = supabase.from("calls")
-    .select("id, lead_id, seller_id, dialed_by_user_id, classification, status, duration, started_at, recording_url, recording_storage_path, transcript, notes, aircall_call_id, phone_number, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, primary_phone, primary_secondary_phone)")
-    .order("started_at", { ascending: false })
-    .limit(1000);
-  if (scopedCompanyBioId) callHistoryQuery = callHistoryQuery.eq("leads.company_bio_id", scopedCompanyBioId);
+  const CALL_HISTORY_SELECT = "id, lead_id, seller_id, dialed_by_user_id, classification, status, duration, started_at, recording_url, recording_storage_path, transcript, notes, aircall_call_id, phone_number, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, primary_phone, primary_secondary_phone)";
+  type CallRow = Record<string, unknown>;
+  const fetchCallHistory = async (): Promise<{ data: CallRow[] }> => {
+    // Seller: fetch exactly the calls on their assigned leads, chunked by
+    // lead_id (their slice is small — avoids a giant .in() URL and the
+    // PostgREST 1000-row cap), then merge + sort desc + cap to 1000 for display.
+    if (myCallLeadIdArr !== null) {
+      if (myCallLeadIdArr.length === 0) return { data: [] };
+      const all: CallRow[] = [];
+      for (let i = 0; i < myCallLeadIdArr.length; i += 300) {
+        let q = supabase.from("calls").select(CALL_HISTORY_SELECT)
+          .in("lead_id", myCallLeadIdArr.slice(i, i + 300))
+          .order("started_at", { ascending: false })
+          .limit(1000);
+        if (scopedCompanyBioId) q = q.eq("leads.company_bio_id", scopedCompanyBioId);
+        const { data } = await q;
+        if (data) all.push(...(data as CallRow[]));
+      }
+      all.sort((a, b) => String(b.started_at ?? "").localeCompare(String(a.started_at ?? "")));
+      return { data: all.slice(0, 1000) };
+    }
+    let q = supabase.from("calls").select(CALL_HISTORY_SELECT)
+      .order("started_at", { ascending: false })
+      .limit(1000);
+    if (scopedCompanyBioId) q = q.eq("leads.company_bio_id", scopedCompanyBioId);
+    const { data } = await q;
+    return { data: (data ?? []) as CallRow[] };
+  };
 
   // (Pending Reviews + Updates tabs were removed from /queue per boss
   // feedback 2026-05-27 — Pending Reviews deleted entirely, Updates moved
@@ -153,7 +191,7 @@ async function getQueueData() {
     { data: rawRecentAccepts },
     { data: rawEmailIssues },
     { data: rawCallHistory },
-  ] = await Promise.all([campQuery, replyQuery, acceptQuery, emailIssuesQuery, callHistoryQuery]);
+  ] = await Promise.all([campQuery, replyQuery, acceptQuery, emailIssuesQuery, fetchCallHistory()]);
 
   // Decrypt client-source leads nested inside the three join queries so
   // sellers see real names instead of "Unknown" for tenants with encrypted

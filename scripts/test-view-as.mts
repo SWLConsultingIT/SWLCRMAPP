@@ -184,6 +184,63 @@ eq("  getVisibleCampaign(own) → row with owner", (await getVisibleCampaign(rls
 eq("  getVisibleCampaign(cross-tenant / absent) → null", await getVisibleCampaign(rlsSvc, "camp-foreign"), null);
 eq("  getVisibleCampaign(unknown) → null", await getVisibleCampaign(rlsSvc, "camp-nope"), null);
 
+/* ── 9 · Calls queue seller-scope (To Call · Awaiting Outcome · History) ──── */
+// The last seller-scope gap: the `calls` table carries no assigned_user_id, so
+// ownership is the LEAD's — a call belongs to a seller when its lead is in the
+// seller's assigned set (getMyAssignedLeadIds). page.tsx scopes all three call
+// cohorts through exactly that set; here we model each cohort with the same
+// canonical predicate (scopeRowsToAssigned on lead_id) and prove:
+//   · a seller sees only calls on their own leads (peer's call invisible)
+//   · Real Isaac === Admin→View-As-Isaac (identical effective set → parity:
+//     equal counts AND empty set-diff, per cohort)
+//   · Admin (null set) sees the whole tenant's log, every cohort
+console.log("\n9. Calls queue — seller-scope parity (To Call · Awaiting · History)");
+
+type CallRow = { id: string; lead_id: string | null; cohort: "tocall" | "awaiting" | "history" };
+// One tenant's call log. l1/l2 are Isaac's assigned leads (isaacLeads above);
+// l3 is a PEER seller's; the null-lead row is an orphan dial-marker.
+const callLog: CallRow[] = [
+  { id: "k1", lead_id: "l1", cohort: "tocall" },   // Isaac's
+  { id: "k2", lead_id: "l2", cohort: "tocall" },   // Isaac's
+  { id: "k3", lead_id: "l3", cohort: "tocall" },   // PEER's — invisible to Isaac
+  { id: "k4", lead_id: "l1", cohort: "awaiting" }, // Isaac's
+  { id: "k5", lead_id: "l3", cohort: "awaiting" }, // PEER's — invisible to Isaac
+  { id: "k6", lead_id: "l2", cohort: "history" },  // Isaac's
+  { id: "k7", lead_id: "l3", cohort: "history" },  // PEER's — invisible to Isaac
+  { id: "k8", lead_id: null, cohort: "history" },  // orphan — no lead, invisible to a seller
+];
+const COHORTS = ["tocall", "awaiting", "history"] as const;
+const cohortRows = (c: CallRow["cohort"]) => callLog.filter(r => r.cohort === c);
+const idsOf = (rows: CallRow[]) => new Set(rows.map(r => r.id));
+const setDiff = (a: Set<string>, b: Set<string>) => [...a].filter(x => !b.has(x));
+
+// Effective assigned set is IDENTICAL for real Isaac and for an admin
+// previewing as Isaac — applyViewAs rewrites the effective userId to Isaac's,
+// so getMyAssignedLeadIds() returns the same set on both paths.
+const realIsaacSet = isaacLeads;
+const viewAsIsaacSet = new Set(isaacLeads); // resolved the same way, modeled distinct
+
+for (const c of COHORTS) {
+  const rows = cohortRows(c);
+  const real = scopeRowsToAssigned(realIsaacSet, rows, r => r.lead_id) as CallRow[];
+  const viewAs = scopeRowsToAssigned(viewAsIsaacSet, rows, r => r.lead_id) as CallRow[];
+  const admin = scopeRowsToAssigned(null, rows, r => r.lead_id) as CallRow[];
+  // Parity: same counts and zero set-diff both ways.
+  eq(`  ${c} — Real Isaac count === View-As Isaac count`, real.length, viewAs.length);
+  check(`  ${c} — Real vs View-As set-diff empty`, setDiff(idsOf(real), idsOf(viewAs)).length === 0 && setDiff(idsOf(viewAs), idsOf(real)).length === 0);
+  // Seller sees strictly fewer than admin whenever a peer/orphan row exists.
+  check(`  ${c} — seller ⊆ admin (peer rows dropped)`, real.length < admin.length);
+  // No peer (l3) or orphan (null) row ever survives the seller view.
+  check(`  ${c} — no peer/orphan call visible to Isaac`, !real.some(r => r.lead_id !== "l1" && r.lead_id !== "l2"));
+}
+
+// Explicit own-vs-peer at the row level (the acceptance case the boss named).
+eq("  own call (l1) visible to Isaac", leadInScope(isaacLeads, "l1"), true);
+eq("  peer's call (l3) invisible to Isaac", leadInScope(isaacLeads, "l3"), false);
+// Admin normal — both own and peer calls visible (tenant-wide unchanged).
+eq("  admin sees own-lead call", leadInScope(null, "l1"), true);
+eq("  admin sees peer-lead call", leadInScope(null, "l3"), true);
+
 console.log(`\n${"─".repeat(70)}\n  ${pass} passed · ${fail} failed`);
 if (fail) { console.log("\nFAILURES:"); for (const f of fails) console.log(`  · ${f}`); process.exit(1); }
 console.log("  View-as narrows scope and never crosses a tenant.\n");
