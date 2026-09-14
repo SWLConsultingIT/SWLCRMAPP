@@ -17,7 +17,6 @@ import AuroraHero from "@/shared/ui/AuroraHero";
 import RecallList, { recallDueCount, type RecallItem } from "@/components/RecallList";
 import CallButton from "@/components/CallButton";
 import InboxView, { type InboxReply } from "@/components/InboxView";
-import ChatPanel from "@/components/ChatPanel";
 import PreCallBrief from "@/components/PreCallBrief";
 import { classifyUrgency } from "@/lib/overdue";
 
@@ -837,16 +836,17 @@ function CallHistoryPanel({
 export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [], recalls = [], canViewAllSellers = false }: Props) {
   const { t, locale } = useLocale();
   const searchParams = useSearchParams();
-  // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls, 2 = Team
-  // Chat. The default is 0 — the reply-triage surface sellers want when they
-  // open "Inbox" from the sidebar (matches the sidebar's pendingReplies badge).
-  // Deep-linked via `?tab=` — `calls` → 1, `chat` → 2, and `inbox`/`replies`
-  // → 0 (explicit so documented links resolve, not just fall through).
+  // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls. The
+  // default is 0 — the reply-triage surface sellers want when they open
+  // "Inbox" from the sidebar (matches the sidebar's pendingReplies badge).
+  // Deep-linked via `?tab=` — `calls` → 1, and `inbox`/`replies` → 0
+  // (explicit so documented links resolve, not just fall through).
   // Removed `?tab=reviews` / `?tab=updates` — those tabs were deleted.
+  // `?tab=chat` (Team Chat) is now redirected to /team-chat by page.tsx and
+  // never reaches this component.
   const initialTab = (() => {
     const t = searchParams.get("tab");
     if (t === "calls") return 1;
-    if (t === "chat") return 2;
     if (t === "inbox" || t === "replies") return 0;
     return 0;
   })();
@@ -920,23 +920,6 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
     } catch { /* ignore */ }
   }, []);
 
-  // Unread team-chat count → drives the "new activity" dot on the Team Chat tab.
-  // Refetched on mount, on every tab switch (so it clears after reading), and
-  // polled every 25s so a teammate's message lights the dot without a reload.
-  const [chatUnread, setChatUnread] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    const pull = async () => {
-      try {
-        const r = await fetch("/api/chat/threads", { cache: "no-store" });
-        const d = await r.json();
-        if (!cancelled) setChatUnread((d.threads ?? []).reduce((s: number, t: { unread?: number }) => s + (t.unread ?? 0), 0));
-      } catch { /* ignore */ }
-    };
-    pull();
-    const iv = setInterval(pull, 25000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, [tab]);
   const dismiss = (id: string) => {
     setDismissed(prev => {
       const next = new Set(prev);
@@ -1043,12 +1026,13 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
   // History is first (sellers open Notifications to triage replies +
   // acceptances, not to start cold calls). Pending Reviews + Updates tabs
   // were deleted entirely. Today's Focus card was removed too.
-  // `id` is the stable render index (0=replies, 1=calls, 2=chat) — used by the
-  // tab===N render blocks and deep links. The array order is just the visual
-  // order: conversations first (Replies, Team Chat), call queue last.
+  // `id` is the stable render index (0=replies, 1=calls) — used by the
+  // tab===N render blocks and deep links. Team Chat was id 2 here until
+  // 2026-09-14; it is its own sidebar section now (/team-chat), so the ids of
+  // the surviving tabs are deliberately left alone rather than renumbered —
+  // `?tab=calls` and any stored `1` keep meaning Calls.
   const tabs = [
     { id: 0, label: t("queue.tab.replies"), count: pendingReplyCount,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false, dot: false },
-    { id: 2, label: t("queue.tab.chat"),    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false, dot: chatUnread > 0 },
     { id: 1, label: t("queue.tab.calls"),   count: callsNeedingAttention, color: "#F97316", reviewCount: 0,                dividerBefore: true,  dot: false },
   ];
 
@@ -1511,8 +1495,6 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
           canViewAllSellers={canViewAllSellers}
         />
       )}
-
-      {tab === 2 && <ChatPanel initialThreadId={searchParams.get("thread")} />}
     </div>
   );
 }

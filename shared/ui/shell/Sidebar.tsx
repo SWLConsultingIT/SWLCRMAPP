@@ -10,7 +10,7 @@ import HelpMenu from "@/shared/ui/shell/HelpMenu";
 import {
   LayoutDashboard, Users, Megaphone, Home,
   Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
-  PanelLeftClose, PanelLeftOpen, Trophy, X, CalendarCheck,
+  PanelLeftClose, PanelLeftOpen, Trophy, X, CalendarCheck, MessagesSquare,
 } from "lucide-react";
 import { useMobileMenu } from "@/shared/ui/shell/mobile-menu";
 import { useRouter } from "next/navigation";
@@ -28,7 +28,7 @@ type NavItem = {
   icon: React.ElementType;
   brandLabel?: string;
   tag?: string;
-  badgeKey?: "calls" | "pending" | "pendingReplies";
+  badgeKey?: "calls" | "pending" | "pendingReplies" | "teamChat";
   adminOnly?: boolean;
   // Single-letter chord shortcut (press G then this key). Chosen from the
   // VISIBLE label's initial so the mnemonic is discoverable — surfaced as a
@@ -52,6 +52,10 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
       { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, shortcut: "D" },
       { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2, shortcut: "B", adminOnly: true },
       { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "pendingReplies", shortcut: "I" },
+      // Team Chat is no longer tab 2 of /queue: it is internal conversation,
+      // not work on a lead. It sits next to Inbox because they are the two
+      // inboxes, but it gets its own entry. "T" was free.
+      { href: "/team-chat", labelKey: "nav.teamChat", icon: MessagesSquare, badgeKey: "teamChat", shortcut: "T" },
     ],
   },
   {
@@ -92,6 +96,7 @@ export default function Sidebar() {
   const [callCount, setCallCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingRepliesCount, setPendingRepliesCount] = useState(0);
+  const [teamChatCount, setTeamChatCount] = useState(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   // "Recent leads" panel removed 2026-06-08 (boss: useless). The
   // lib/recent-leads tracker + pushRecentLead calls elsewhere are left in
@@ -156,11 +161,12 @@ export default function Sidebar() {
       try {
         const res = await fetch("/api/sidebar/badges", { cache: "no-store" });
         if (!res.ok) return;
-        const { calls, pending, pendingReplies } = await res.json();
+        const { calls, pending, pendingReplies, teamChat } = await res.json();
         if (cancelled) return;
         setCallCount(calls ?? 0);
         setPendingCount(pending ?? 0);
         setPendingRepliesCount(pendingReplies ?? 0);
+        setTeamChatCount(teamChat ?? 0);
       } catch {
         // Silent — non-critical UI; will retry on next interval.
       }
@@ -182,7 +188,7 @@ export default function Sidebar() {
     items: s.items.filter(item => !item.adminOnly || showAdmin),
   })).filter(s => s.items.length > 0);
 
-  const badges: Record<string, number> = { calls: callCount, pending: pendingCount, pendingReplies: pendingRepliesCount };
+  const badges: Record<string, number> = { calls: callCount, pending: pendingCount, pendingReplies: pendingRepliesCount, teamChat: teamChatCount };
   const toggleSection = (label: string) => setCollapsed(prev => ({ ...prev, [label]: !prev[label] }));
 
   return (

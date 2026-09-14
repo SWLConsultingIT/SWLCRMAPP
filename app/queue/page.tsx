@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { prettyDisplayName } from "@/shared/lib/display-name";
@@ -590,7 +591,24 @@ async function getQueueData() {
   return { pendingCalls, newReplies, callHistory, mySellerNames, recalls, canViewAllSellers };
 }
 
-export default async function QueuePage() {
+// Team Chat used to be tab 2 of this page. It is now its own sidebar section
+// at /team-chat, so `?tab=chat` links that already exist in the wild — old
+// notification rows in the DB, browser history, anything a seller bookmarked —
+// are forwarded instead of landing on the Inbox with a tab that no longer
+// exists. `?thread=` is carried across so a notification still opens the same
+// conversation. Server-side so there is no Inbox flash before the hop.
+export default async function QueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const tab = Array.isArray(sp.tab) ? sp.tab[0] : sp.tab;
+  if (tab === "chat") {
+    const thread = Array.isArray(sp.thread) ? sp.thread[0] : sp.thread;
+    redirect(thread ? `/team-chat?thread=${encodeURIComponent(thread)}` : "/team-chat");
+  }
+
   const data = await getQueueData();
   return <QueueClient {...JSON.parse(JSON.stringify(data))} />;
 }

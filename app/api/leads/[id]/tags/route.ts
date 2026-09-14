@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     type: "tag",
     leadId: id,
     body: `tagged you on ${leadLabel}${reasonText ? ` — ${reasonText}` : ""}`,
-    link: threadId ? `/queue?tab=chat&thread=${threadId}` : `/leads/${id}`,
+    link: threadId ? `/team-chat?thread=${threadId}` : `/leads/${id}`,
   });
   return NextResponse.json({ ok: true, threadId });
 }
