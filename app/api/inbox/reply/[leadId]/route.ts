@@ -25,15 +25,13 @@ import { getInstantlyConfig } from "@/integrations/instantly/config";
 import { resolveOutbound } from "@/lib/placeholders";
 import { t, getServerLocale } from "@/shared/i18n/server";
 import { INSTANTLY_BASE, instantlyFetch } from "@/integrations/instantly/client";
+import { unipileFetch, hasUnipileCreds } from "@/integrations/unipile/client";
+import { listChatsRaw, getMessageRaw, chatMessagesPath } from "@/integrations/unipile/chats";
 
 export const runtime = "nodejs";
 // Up to ~4.5s of post-send delivery polling on top of the send itself.
 export const maxDuration = 30;
 
-const UNIPILE_BASE = process.env.UNIPILE_DSN
-  ? `https://${process.env.UNIPILE_DSN}`
-  : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
 
 type Channel = "linkedin" | "email";
 
@@ -128,7 +126,7 @@ export async function POST(
 
   try {
     if (channel === "linkedin") {
-      if (!UNIPILE_KEY) return NextResponse.json({ error: "Unipile not configured" }, { status: 500 });
+      if (!hasUnipileCreds()) return NextResponse.json({ error: "Unipile not configured" }, { status: 500 });
       // chat_id: pull from the most recent message we sent this lead.
       const { data: lastSent } = await svc
         .from("campaign_messages")
@@ -182,7 +180,7 @@ export async function POST(
           }
           for (const acct of accountsToTry) {
             try {
-              const r = await fetch(`${UNIPILE_BASE}/api/v1/chats?account_id=${encodeURIComponent(acct)}&limit=200`, { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" } });
+              const r = await listChatsRaw(acct, 200);
               const body: any = await r.json().catch(() => ({}));
               const match = (body?.items ?? []).find((c: any) => c.attendee_provider_id === pid);
               if (match?.id) { chatId = match.id as string; if (!unipileAccountId) unipileAccountId = acct; break; }
@@ -193,7 +191,7 @@ export async function POST(
       if (!chatId) {
         return NextResponse.json({ error: "no LinkedIn chat found for this lead" }, { status: 422 });
       }
-      const url = `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(chatId)}/messages`;
+      const url = chatMessagesPath(chatId);
       // Unipile's chat-message endpoint expects native multipart/form-data (it's
       // the attachment-capable endpoint). Posting application/json returns a
       // success-shaped response with an id, but the message NEVER actually
@@ -203,11 +201,7 @@ export async function POST(
       // boundary automatically — do NOT set Content-Type by hand.)
       const fd = new FormData();
       fd.append("text", outgoing);
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
-        body: fd,
-      });
+      const res = await unipileFetch(url, { method: "POST", body: fd });
       const raw = await res.text();
       let parsed: any = null;
       try { parsed = raw ? JSON.parse(raw) : null; } catch { /* */ }
@@ -228,10 +222,7 @@ export async function POST(
         for (let i = 0; i < 3; i++) {
           await new Promise((r) => setTimeout(r, 1500));
           try {
-            const v = await fetch(
-              `${UNIPILE_BASE}/api/v1/messages/${encodeURIComponent(providerMessageId)}?account_id=${encodeURIComponent(unipileAccountId)}`,
-              { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" } },
-            );
+            const v = await getMessageRaw(providerMessageId, unipileAccountId);
             if (v.ok) { deliveryConfirmed = true; break; }
           } catch { /* retry */ }
         }

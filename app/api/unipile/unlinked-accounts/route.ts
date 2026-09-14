@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
+import { listAccountsRaw } from "@/integrations/unipile/accounts";
 
-const KEY = process.env.UNIPILE_API_KEY!;
-const DSN = process.env.UNIPILE_DSN!;
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
@@ -22,10 +21,7 @@ export async function GET() {
   const guard = await requireAdminApi();
   if (guard instanceof NextResponse) return guard;
   const [upRes, sbRes] = await Promise.all([
-    fetch(`https://${DSN}/api/v1/accounts`, {
-      headers: { "X-API-KEY": KEY },
-      next: { revalidate: 30, tags: ["unipile-accounts"] },
-    }),
+    listAccountsRaw({ next: { revalidate: 30, tags: ["unipile-accounts"] } }),
     fetch(`${SB_URL}/rest/v1/sellers?select=unipile_account_id&unipile_account_id=not.is.null`, {
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
       next: { revalidate: 30, tags: ["sellers"] },

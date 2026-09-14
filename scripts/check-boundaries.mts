@@ -41,6 +41,16 @@ const IMPORT = /(?:from\s+|import\s*\(\s*|require\(\s*)["']([^"']+)["']/g;
 /** SDKs con paquete propio: el import es evidencia directa de que se esta
  *  hablando con el proveedor. `import type` no cuenta — un tipo no llama. */
 const PROVIDER_SDKS = ["@anthropic-ai/sdk", "openai"];
+
+/** Credenciales de proveedor. Si un archivo fuera de integrations/ las lee, esta
+ *  armando la llamada a mano. Son nombres exactos: cero ambiguedad. */
+const PROVIDER_SECRETS = [
+  "UNIPILE_DSN", "UNIPILE_API_KEY",
+  "AIRCALL_API_ID", "AIRCALL_API_TOKEN",
+  "INSTANTLY_API_KEY",
+  "GOOGLE_MAPS_API_KEY",
+  "WHATSAPP_ACCESS_TOKEN",
+];
 const featureOf = (p: string) => p.startsWith("features/") ? p.split("/")[1] : null;
 
 type V = { rule: string; from: string; to: string };
@@ -51,6 +61,16 @@ for (const f of files) {
   if (!existsSync(f)) continue;
   const src = readFileSync(f, "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "");  // sin comentarios
+  if (!f.startsWith("integrations/") && !f.startsWith("scripts/") && !f.endsWith(".md")) {
+    for (const secret of PROVIDER_SECRETS) {
+      // se ignoran comentarios: documentar el nombre de una env no es usarla
+      const code = src.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      if (code.includes(`process.env.${secret}`)) {
+        violations.push({ rule: "9 · credencial de proveedor fuera de integrations/", from: f, to: secret });
+      }
+    }
+  }
+
   for (const m of src.matchAll(IMPORT)) {
     const spec = m[1];
     if (PROVIDER_SDKS.includes(spec) && !f.startsWith("integrations/") && !/^\s*import type /m.test(src.slice(Math.max(0, m.index! - 60), m.index!))) {

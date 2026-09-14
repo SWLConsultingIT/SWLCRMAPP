@@ -1,7 +1,7 @@
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { requireAdminApi } from "@/shared/auth/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
-import { instantlyFetch } from "@/integrations/instantly/client";
+import { instantlyFetch, INSTANTLY_ENV_KEY } from "@/integrations/instantly/client";
 
 // SWL super-admin cross-workspace view of inboxes available for assignment.
 //
@@ -81,7 +81,7 @@ export async function GET() {
   // section (the legacy INSTANTLY_API_KEY env var) ONLY if no registered
   // workspace shares its account_user_id — otherwise we'd list duplicate
   // inboxes for the same Instantly Organization.
-  const envKey = process.env.INSTANTLY_API_KEY ?? "";
+  const envKey = INSTANTLY_ENV_KEY;
   let envAccountUserId: string | null = null;
   if (envKey) {
     try {

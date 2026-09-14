@@ -14,12 +14,19 @@
 const WA_API_VERSION = "v20.0";
 export const WA_BASE = `https://graph.facebook.com/${WA_API_VERSION}`;
 
+/** Token de sistema, compartido entre tenants. */
+const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN ?? "";
+
+export function hasWhatsAppCredentials(): boolean {
+  return !!WA_TOKEN;
+}
+
 /** POST /{phoneNumberId}/messages. Envio real. Devuelve el Response crudo:
  *  el cron lee el body para sacar el message id y para loguear el error. */
 export function sendWhatsAppMessage(
   phoneNumberId: string,
-  token: string,
   payload: unknown,
+  token: string = WA_TOKEN,
 ): Promise<Response> {
   return fetch(`${WA_BASE}/${phoneNumberId}/messages`, {
     method: "POST",

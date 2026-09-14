@@ -6,6 +6,8 @@ import { mapLimit } from "@/lib/concurrency";
 import { fetchStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
+import { getUserProfile, sendInvite } from "@/integrations/unipile/linkedin";
+import { createChat, sendChatMessage, sendChatMessageMultipart, createChatMultipart } from "@/integrations/unipile/chats";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -42,10 +44,6 @@ const MAX_PARALLEL_SELLERS = 5;
 //   distribute across the day's ticks (96 ticks/day at 15 min), and let
 //   the cooldown machinery handle bursts.
 
-const UNIPILE_BASE = process.env.UNIPILE_DSN
-  ? `https://${process.env.UNIPILE_DSN}`
-  : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY!;
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
 // LinkedIn caps invite notes at ~200 chars for non-Premium accounts. Prior
@@ -227,69 +225,12 @@ function nameMatches(
 // (2026-09-02): dispatch-queue (LinkedIn), dispatch-email, dispatch-telegram,
 // dispatch-whatsapp and inbox/reply all call that ONE gate, so there is a
 // single substitution table and a single validation stack across channels.
-async function unipileGet(url: string): Promise<any> {
-  const res = await fetch(url, {
-    headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
-  });
-  const body = await res.text();
-  let parsed: any = null;
-  try { parsed = body ? JSON.parse(body) : null; } catch { /* ignore */ }
-  if (!res.ok) {
-    const err = parsed?.detail || parsed?.message || body || `HTTP ${res.status}`;
-    throw new Error(`Unipile GET ${url} → ${res.status}: ${err}`);
-  }
-  return parsed;
-}
-
-async function unipilePost(url: string, body: any): Promise<any> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "X-API-KEY": UNIPILE_KEY,
-      accept: "application/json",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  let parsed: any = null;
-  try { parsed = text ? JSON.parse(text) : null; } catch { /* ignore */ }
-  if (!res.ok) {
-    const err = parsed?.detail || parsed?.title || parsed?.message || text || `HTTP ${res.status}`;
-    throw new Error(`Unipile POST ${url} → ${res.status}: ${err}`);
-  }
-  return parsed;
-}
 
 // Multipart POST for chat-message endpoints that carry file attachments.
 // Unipile expects native multipart/form-data with one `attachments` field per
 // file plus the text fields; the regular JSON POST helper above can't express
 // that. Pulled into its own helper so the dispatcher stays readable and we
 // don't end up with two different fetch-and-parse patterns drifting.
-type UnipileFile = { name: string; mimeType: string; data: Buffer };
-async function unipileMultipartPost(url: string, fields: Record<string, string>, files: { name: string; file: UnipileFile }[]): Promise<any> {
-  const fd = new FormData();
-  for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-  for (const { name, file } of files) {
-    // Blob is the cross-runtime way to attach binary data to a FormData entry
-    // in modern fetch (Node 18+ / Edge / browser). We pass the original
-    // filename so LinkedIn shows it to the recipient.
-    fd.append(name, new Blob([file.data as unknown as ArrayBuffer], { type: file.mimeType }), file.name);
-  }
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
-    body: fd,
-  });
-  const text = await res.text();
-  let parsed: any = null;
-  try { parsed = text ? JSON.parse(text) : null; } catch { /* ignore */ }
-  if (!res.ok) {
-    const err = parsed?.detail || parsed?.title || parsed?.message || text || `HTTP ${res.status}`;
-    throw new Error(`Unipile POST ${url} → ${res.status}: ${err}`);
-  }
-  return parsed;
-}
 
 function isRateLimitError(reason: string): boolean {
   const r = reason.toLowerCase();
@@ -793,9 +734,7 @@ async function dispatchOneMessage(
     // before each send.
     const needsFetch = true;
     if (needsFetch) {
-      const userResp = await unipileGet(
-        `${UNIPILE_BASE}/api/v1/users/${encodeURIComponent(slug)}?account_id=${encodeURIComponent(seller.unipile_account_id)}`,
-      );
+      const userResp = await getUserProfile(slug, seller.unipile_account_id);
       providerId = userResp?.provider_id ?? providerId;
       networkDistance = userResp?.network_distance ?? null;
       invitationStatus = userResp?.invitation?.status ?? null;
@@ -936,12 +875,11 @@ async function dispatchOneMessage(
   let chatId: string | null = null;
   try {
     if (candidate.step_number === 0) {
-      const inviteResp = await unipilePost(`${UNIPILE_BASE}/api/v1/users/invite`, {
-        account_id: seller.unipile_account_id,
-        provider_id: providerId,
-        message: outgoing || undefined,
-      });
-      providerMessageId = inviteResp?.invitation_id ?? null;
+      // providerId no puede ser null aca: el guard de arriba corta con
+      // failMessage("Unipile did not return a provider_id"). TS no lo estrecha
+      // porque es un `let` reasignado dentro del bloque.
+      const { invitationId } = await sendInvite(seller.unipile_account_id, providerId!, outgoing || undefined);
+      providerMessageId = invitationId;
     } else {
       let prevChatId: string | null = null;
       if (candidate.step_number > 1) {
@@ -961,20 +899,17 @@ async function dispatchOneMessage(
       const hasFiles = dmAttachments.length > 0;
       if (prevChatId) {
         const msgResp = hasFiles
-          ? await unipileMultipartPost(
-              `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(prevChatId)}/messages`,
+          ? await sendChatMessageMultipart(
+              prevChatId,
               { text: outgoing },
               dmAttachments.map((f) => ({ name: "attachments", file: f })),
             )
-          : await unipilePost(`${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(prevChatId)}/messages`, {
-              text: outgoing,
-            });
+          : await sendChatMessage(prevChatId, { text: outgoing });
         chatId = prevChatId;
         providerMessageId = msgResp?.id ?? msgResp?.message_id ?? null;
       } else {
         const chatResp = hasFiles
-          ? await unipileMultipartPost(
-              `${UNIPILE_BASE}/api/v1/chats`,
+          ? await createChatMultipart(
               {
                 account_id: seller.unipile_account_id,
                 attendees_ids: providerId ?? "",
@@ -982,7 +917,7 @@ async function dispatchOneMessage(
               },
               dmAttachments.map((f) => ({ name: "attachments", file: f })),
             )
-          : await unipilePost(`${UNIPILE_BASE}/api/v1/chats`, {
+          : await createChat({
               account_id: seller.unipile_account_id,
               attendees_ids: [providerId],
               text: outgoing,

@@ -7,7 +7,7 @@ import { UserCircle, Share2, Mail, Phone, Check, X } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/shared/ui/PageHero";
 import AuroraHero from "@/shared/ui/AuroraHero";
-import { listAccounts } from "@/integrations/instantly/client";
+import { listAccounts, INSTANTLY_ENV_KEY } from "@/integrations/instantly/client";
 import { listNumbers, listCalls } from "@/integrations/aircall/client";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ async function getInstantlyPool(bioId: string | null) {
   // without impersonation, who shouldn't be hitting this page anyway).
   const apiKey = bioId
     ? (await getInstantlyConfig(bioId))?.apiKey ?? ""
-    : (process.env.INSTANTLY_API_KEY ?? "");
+    : INSTANTLY_ENV_KEY;
   if (!apiKey) return null;
   try {
     // 60s revalidate — Instantly accounts (warmup score, daily limits) are

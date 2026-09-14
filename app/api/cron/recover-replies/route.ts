@@ -14,16 +14,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
-import { instantlyFetch } from "@/integrations/instantly/client";
+import { instantlyFetch, INSTANTLY_ENV_KEY } from "@/integrations/instantly/client";
 import { n8nWebhookUrl } from "@/integrations/n8n/call-webhook";
+import { listChatsRaw, getChatMessagesRaw } from "@/integrations/unipile/chats";
+import { hasUnipileCreds } from "@/integrations/unipile/client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // many Unipile + Instantly calls; needs headroom
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const UNIPILE_BASE = process.env.UNIPILE_DSN ? `https://${process.env.UNIPILE_DSN}` : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
-const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY ?? "";
+const INSTANTLY_KEY = INSTANTLY_ENV_KEY;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -93,9 +93,10 @@ async function reinjectLinkedIn(acct: string, chatId: string, senderProviderId: 
   } catch { return false; }
 }
 
-async function uni(path: string): Promise<any> {
+async function uniSafe(res: Promise<Response>): Promise<any> {
+  // fail-soft: una corrida de recuperacion nunca se cae por un 500 del proveedor
   try {
-    const r = await fetch(`${UNIPILE_BASE}${path}`, { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" } });
+    const r = await res;
     if (!r.ok) return { items: [] };
     return await r.json();
   } catch { return { items: [] }; }
@@ -129,16 +130,16 @@ export async function GET(req: NextRequest) {
   let emailRecovered = 0;
 
   // ── LinkedIn: poll each seller account's recent chats ──────────────
-  if (UNIPILE_KEY) {
+  if (hasUnipileCreds()) {
     const { data: sellers } = await svc.from("sellers").select("unipile_account_id").not("unipile_account_id", "is", null);
     const accounts = [...new Set((sellers ?? []).map(s => s.unipile_account_id as string))];
     for (const acct of accounts) {
-      const chats = (await uni(`/api/v1/chats?account_id=${acct}&limit=100`))?.items ?? [];
+      const chats = (await uniSafe(listChatsRaw(acct, 100)))?.items ?? [];
       for (const ch of chats) {
         if ((ch.timestamp ?? "") < cutoff) continue;
         const leadId = internalToLead.get(ch.attendee_provider_id);
         if (!leadId) continue;
-        const msgs = (await uni(`/api/v1/chats/${ch.id}/messages?limit=15`))?.items ?? [];
+        const msgs = (await uniSafe(getChatMessagesRaw(ch.id, { limit: 15 })))?.items ?? [];
         for (const m of msgs) {
           const inbound = m.is_sender === 0 || m.is_sender === false;
           const text = (m.text ?? "").trim();

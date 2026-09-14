@@ -17,13 +17,11 @@ import { getUserScope } from "@/shared/auth/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { renderPlaceholders } from "@/lib/placeholders";
 import { hasPlayableRecording } from "@/lib/call-recording";
+import { chatMessagesPath } from "@/integrations/unipile/chats";
+import { unipileFetch, hasUnipileCreds } from "@/integrations/unipile/client";
 
 export const runtime = "nodejs";
 
-const UNIPILE_BASE = process.env.UNIPILE_DSN
-  ? `https://${process.env.UNIPILE_DSN}`
-  : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
 
 type ThreadAttachment = {
   id?: string | null;
@@ -82,11 +80,9 @@ function normalizeAttachments(raw: any): ThreadAttachment[] {
 }
 
 async function unipileGet(url: string): Promise<any | null> {
-  if (!UNIPILE_KEY) return null;
+  if (!hasUnipileCreds()) return null;
   try {
-    const res = await fetch(url, {
-      headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
-    });
+    const res = await unipileFetch(url);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -264,7 +260,7 @@ export async function GET(
   const chatId = chatIdFromDb || providerThreadId;
   if (chatId) {
     if (unipileAccountId) {
-      const url = `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(chatId)}/messages?account_id=${encodeURIComponent(unipileAccountId)}&limit=50`;
+      const url = chatMessagesPath(chatId, { accountId: unipileAccountId, limit: 50 });
       const data = await unipileGet(url);
       const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
       // Track which message ids the live chat still has + the oldest one we

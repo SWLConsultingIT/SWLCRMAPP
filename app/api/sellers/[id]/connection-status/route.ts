@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, assertTenant } from "@/shared/auth/require-scope";
 import { SB_REST_URL } from "@/integrations/supabase/rest";
+import { listAccountsRaw } from "@/integrations/unipile/accounts";
 
 const SB_URL = SB_REST_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY!;
-const UNIPILE_DSN = process.env.UNIPILE_DSN!;
 
 const sbHeaders = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` };
 
@@ -59,10 +58,7 @@ export async function GET(
   // 3. Try auto-linking: look at Unipile for an account created after the seller
   //    that isn't linked to any other seller yet.
   const [upRes, linkedRes] = await Promise.all([
-    fetch(`https://${UNIPILE_DSN}/api/v1/accounts`, {
-      headers: { "X-API-KEY": UNIPILE_KEY },
-      cache: "no-store",
-    }),
+    listAccountsRaw({ cache: "no-store" }),
     fetch(`${SB_URL}/sellers?select=unipile_account_id&unipile_account_id=not.is.null`, {
       headers: sbHeaders,
       cache: "no-store",

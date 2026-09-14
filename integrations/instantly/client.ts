@@ -15,6 +15,11 @@
 
 export const INSTANTLY_BASE = "https://api.instantly.ai/api/v2";
 
+/** La api key legacy de env (workspace de SWL). Fallback cuando el tenant no
+ *  tiene workspace propio registrado. La resolucion por tenant sigue en
+ *  getInstantlyConfig(); esto es solo de donde sale el valor. */
+export const INSTANTLY_ENV_KEY = process.env.INSTANTLY_API_KEY ?? "";
+
 /** Llamada cruda. `path` arranca con "/" y va despues de /api/v2. */
 export function instantlyFetch(apiKey: string, path: string, init?: RequestInit): Promise<Response> {
   const headers: Record<string, string> = {

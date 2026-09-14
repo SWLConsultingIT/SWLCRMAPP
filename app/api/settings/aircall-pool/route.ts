@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canManageTeam } from "@/shared/auth/scope";
-import { listNumbers } from "@/integrations/aircall/client";
+import { listNumbers, hasAircallCredentials } from "@/integrations/aircall/client";
 
 // Tenant-scoped Aircall number assignment.
 //
@@ -10,8 +10,6 @@ import { listNumbers } from "@/integrations/aircall/client";
 // by the tenant. The /accounts UI filters the Aircall card by this list, so
 // each tenant only sees their own numbers (no cross-tenant leak).
 
-const AIRCALL_API_ID = process.env.AIRCALL_API_ID ?? "";
-const AIRCALL_API_TOKEN = process.env.AIRCALL_API_TOKEN ?? "";
 
 type AircallNumber = {
   id: number;
@@ -23,7 +21,7 @@ type AircallNumber = {
 };
 
 async function fetchAircallNumbers(): Promise<AircallNumber[]> {
-  if (!AIRCALL_API_ID || !AIRCALL_API_TOKEN) return [];
+  if (!hasAircallCredentials()) return [];
   const res = await listNumbers({ next: { revalidate: 60, tags: ["aircall-numbers"] } });
   if (!res.ok) return [];
   const data: { numbers?: AircallNumber[] } = await res.json();

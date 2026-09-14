@@ -13,9 +13,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope, canViewAdminMenu } from "@/shared/auth/scope";
 import { signTelegramName } from "@/integrations/unipile/name-signing";
+import { createHostedAuthLink } from "@/integrations/unipile/accounts";
+import { UNIPILE_BASE } from "@/integrations/unipile/client";
 
-const KEY = process.env.UNIPILE_API_KEY!;
-const DSN = process.env.UNIPILE_DSN!;
 
 function getBaseUrl(req: NextRequest) {
   const fwdHost = req.headers.get("x-forwarded-host");
@@ -72,13 +72,10 @@ export async function POST(req: NextRequest) {
   const baseUrl = getBaseUrl(req);
   const expiresOn = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-  const unipileRes = await fetch(`https://${DSN}/api/v1/hosted/accounts/link`, {
-    method: "POST",
-    headers: { "X-API-KEY": KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const unipileRes = await createHostedAuthLink({
       type: "create",
       providers: ["TELEGRAM"],
-      api_url: `https://${DSN}`,
+      api_url: UNIPILE_BASE,
       expiresOn,
       // "tg:<sellerId>:<hmac>" — the webhook routes by this prefix to update
       // telegram_account_id instead of unipile_account_id.
@@ -86,7 +83,6 @@ export async function POST(req: NextRequest) {
       success_redirect_url: `${baseUrl}/accounts?tg_connected=1`,
       failure_redirect_url: `${baseUrl}/accounts?tg_connected=0`,
       notify_url: `${baseUrl}/api/unipile/webhook`,
-    }),
   });
 
   if (!unipileRes.ok) {

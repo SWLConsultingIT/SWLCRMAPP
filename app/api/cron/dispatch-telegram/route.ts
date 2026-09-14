@@ -27,14 +27,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { resolveOutbound, type OutboundLog } from "@/lib/placeholders";
+import { createChatRaw, sendChatMessageRaw } from "@/integrations/unipile/chats";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const UNIPILE_BASE = process.env.UNIPILE_DSN
-  ? `https://${process.env.UNIPILE_DSN}`
-  : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY!;
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const BATCH_SIZE_PER_SELLER = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -64,13 +61,6 @@ function authorized(req: NextRequest, scopeRole: string | null): boolean {
   return (req.headers.get("authorization") ?? "") === `Bearer ${CRON_SECRET}`;
 }
 
-async function unipilePost(path: string, body: unknown): Promise<Response> {
-  return fetch(`${UNIPILE_BASE}${path}`, {
-    method: "POST",
-    headers: { "X-API-KEY": UNIPILE_KEY, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-}
 
 export async function POST(req: NextRequest) {
   const scope = await getUserScope();
@@ -218,7 +208,7 @@ export async function POST(req: NextRequest) {
       let chatId = existingChatId;
 
       if (!chatId) {
-        const chatRes = await unipilePost("/api/v1/chats", {
+        const chatRes = await createChatRaw({
           account_id: seller.telegram_account_id,
           attendees_ids: [telegramUserId],
         });
@@ -251,7 +241,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Send the message.
-      const sendRes = await unipilePost(`/api/v1/chats/${chatId}/messages`, {
+      const sendRes = await sendChatMessageRaw(chatId, {
         account_id: seller.telegram_account_id,
         text: content,
       });

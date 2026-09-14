@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { signSellerName } from "@/integrations/unipile/name-signing";
+import { createHostedAuthLink } from "@/integrations/unipile/accounts";
+import { UNIPILE_BASE } from "@/integrations/unipile/client";
 
-const KEY = process.env.UNIPILE_API_KEY!;
-const DSN = process.env.UNIPILE_DSN!;
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
@@ -104,16 +104,10 @@ export async function POST(req: NextRequest) {
   const baseUrl = getBaseUrl(req);
   const expiresOn = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
 
-  const unipileRes = await fetch(`https://${DSN}/api/v1/hosted/accounts/link`, {
-    method: "POST",
-    headers: {
-      "X-API-KEY": KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const unipileRes = await createHostedAuthLink({
       type: "create",
       providers: ["LINKEDIN"],
-      api_url: `https://${DSN}`,
+      api_url: UNIPILE_BASE,
       expiresOn,
       // HMAC-signed so the webhook can verify the callback came from a link
       // we generated (not an attacker forging a raw seller UUID). Unipile
@@ -122,7 +116,6 @@ export async function POST(req: NextRequest) {
       success_redirect_url: `${baseUrl}/accounts?connected=1`,
       failure_redirect_url: `${baseUrl}/accounts?connected=0`,
       notify_url: `${baseUrl}/api/unipile/webhook`,
-    }),
   });
 
   if (!unipileRes.ok) {

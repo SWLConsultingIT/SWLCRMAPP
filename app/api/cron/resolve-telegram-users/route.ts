@@ -24,14 +24,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
+import { createChatRaw, deleteChat } from "@/integrations/unipile/chats";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const UNIPILE_BASE = process.env.UNIPILE_DSN
-  ? `https://${process.env.UNIPILE_DSN}`
-  : "https://api21.unipile.com:15107";
-const UNIPILE_KEY = process.env.UNIPILE_API_KEY!;
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const BATCH_SIZE = 50;
 
@@ -55,21 +52,7 @@ function authorized(req: NextRequest, scopeRole: string | null): boolean {
   return (req.headers.get("authorization") ?? "") === `Bearer ${CRON_SECRET}`;
 }
 
-async function unipilePost(path: string, body: unknown) {
-  const r = await fetch(`${UNIPILE_BASE}${path}`, {
-    method: "POST",
-    headers: { "X-API-KEY": UNIPILE_KEY, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-  return r;
-}
 
-async function unipileDelete(path: string) {
-  await fetch(`${UNIPILE_BASE}${path}`, {
-    method: "DELETE",
-    headers: { "X-API-KEY": UNIPILE_KEY, Accept: "application/json" },
-  }).catch(() => null);
-}
 
 export async function POST(req: NextRequest) {
   const scope = await getUserScope();
@@ -139,7 +122,7 @@ export async function POST(req: NextRequest) {
     try {
       // POST /api/v1/chats — Unipile resolves phone → Telegram user and returns
       // the chat object containing the attendees with their provider_id (telegram_user_id).
-      const chatRes = await unipilePost("/api/v1/chats", {
+      const chatRes = await createChatRaw({
         account_id: telegramAccountId,
         attendees_ids: [phone],
       });
@@ -184,7 +167,7 @@ export async function POST(req: NextRequest) {
 
       // Delete the trial chat — we don't want ghost conversations.
       if (chatId) {
-        await unipileDelete(`/api/v1/chats/${chatId}`);
+        await deleteChat(chatId).catch(() => null);
       }
 
       if (telegramUserId) { resolved++; } else { skipped++; }

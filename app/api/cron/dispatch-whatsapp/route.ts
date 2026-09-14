@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getUserScope } from "@/shared/auth/scope";
 import { resolveOutbound, LEAD_PLACEHOLDER_COLUMNS, type OutboundLog } from "@/lib/placeholders";
-import { sendWhatsAppMessage } from "@/integrations/whatsapp/client";
+import { sendWhatsAppMessage, hasWhatsAppCredentials } from "@/integrations/whatsapp/client";
 
 // Cron-driven WhatsApp dispatcher.
 //
@@ -23,7 +23,6 @@ import { sendWhatsAppMessage } from "@/integrations/whatsapp/client";
 // Auth: same Bearer CRON_SECRET pattern as other dispatchers.
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
-const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN ?? "";
 const BATCH_SIZE = 5;
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -81,7 +80,7 @@ async function sendWhatsApp(
       };
 
   try {
-    const res = await sendWhatsAppMessage(phoneNumberId, WA_TOKEN, payload);
+    const res = await sendWhatsAppMessage(phoneNumberId, payload);
     const data = await res.json();
     if (!res.ok) {
       return { ok: false, error: data?.error?.message ?? `HTTP ${res.status}` };
@@ -97,7 +96,7 @@ export async function POST(req: NextRequest) { return handle(req); }
 export async function GET(req: NextRequest) { return handle(req); }
 
 async function handle(req: NextRequest) {
-  if (!WA_TOKEN) {
+  if (!hasWhatsAppCredentials()) {
     return NextResponse.json({ error: "WHATSAPP_ACCESS_TOKEN not configured" }, { status: 500 });
   }
 
