@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/shared/auth/scope";
+import { VIEW_AS_COOKIE } from "@/shared/auth/view-as";
 
 export async function POST() {
   const supabase = await getSupabaseServer();
@@ -26,6 +27,11 @@ export async function POST() {
   res.headers.append("Set-Cookie", expire("swl-brand"));
   res.headers.append("Set-Cookie", expire(DEMO_SESSION_COOKIE, true));
   res.headers.append("Set-Cookie", expire(ACTIVE_TENANT_COOKIE, true));
+  //  - VIEW_AS_SELLER   : admin "view as seller" preview override. Without
+  //                       clearing, the next admin login inherits the read-only
+  //                       seller preview and sees a downgraded, seller-scoped
+  //                       app until they notice and return to Admin view.
+  res.headers.append("Set-Cookie", expire(VIEW_AS_COOKIE, true));
   res.headers.append("Set-Cookie", expire("swl-theme"));
   res.headers.append("Set-Cookie", expire("swl-locale"));
   return res;

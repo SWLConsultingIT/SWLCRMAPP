@@ -118,9 +118,13 @@ async function getData(t: (k: string) => string) {
   // Graeme (Pathway). /accounts is an OPERATIONAL page (per-seller daily
   // usage, edits, etc.), not a super-admin cross-tenant view, so we always
   // scope to the current user's bio. The cross-tenant view lives at /admin.
-  const { getUserScope } = await import("@/shared/auth/scope");
+  const { getUserScope, getMyAssignedSellerIds } = await import("@/shared/auth/scope");
   const scope = await getUserScope();
   const userCompanyBioId = scope.companyBioId;
+  // Seller scope: a seller (incl. an admin previewing as one) sees only their
+  // own sending account(s), not the tenant roster. null for owner/manager/
+  // super_admin → full roster (unchanged).
+  const mySellerIds = await getMyAssignedSellerIds();
   let allowedEmails: string[] | null = null;
   let allowedAircallIds: number[] | null = null;
 
@@ -143,6 +147,10 @@ async function getData(t: (k: string) => string) {
     .order("name");
   if (userCompanyBioId) {
     sellersQuery = sellersQuery.or(`company_bio_id.eq.${userCompanyBioId},shared_with_company_bio_ids.cs.{${userCompanyBioId}}`);
+  }
+  // Seller narrowing to their own record(s). Empty array → no roster shown.
+  if (mySellerIds !== null) {
+    sellersQuery = sellersQuery.in("id", mySellerIds.length ? mySellerIds : ["__none__"]);
   }
 
   const [

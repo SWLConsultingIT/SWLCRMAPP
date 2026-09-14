@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { VIEW_AS_COOKIE } from "@/shared/auth/view-as";
 
 const PUBLIC_PATHS = [
   "/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback",
@@ -106,6 +107,24 @@ export async function proxy(req: NextRequest) {
       }
     }
     return redirectRes;
+  }
+
+  // ── Admin "View as Seller" = READ-ONLY preview ──────────────────────────
+  // Block every mutating API call while the view-as cookie is present. Defense
+  // in depth: the effective scope is already downgraded to the seller, but many
+  // write routes gate only on tenancy (not tier) and would otherwise execute
+  // under the admin's real user id. Only /api/auth/* stays writable so the
+  // admin can return to Admin view (and log out / refresh identity). A seller
+  // can't set this cookie via the UI, and forging it only blocks their own
+  // writes — never a security escalation.
+  const method = req.method.toUpperCase();
+  const isMutating = method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE";
+  const viewingAsSeller = !!req.cookies.get(VIEW_AS_COOKIE)?.value;
+  if (viewingAsSeller && isMutating && pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/")) {
+    return NextResponse.json(
+      { error: "read_only_seller_preview", message: "Unavailable while viewing as a seller. Return to Admin view to act." },
+      { status: 403 }
+    );
   }
 
   // Heartbeat — update user_profiles.last_seen_at at most once per 5 min. We

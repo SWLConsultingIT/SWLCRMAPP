@@ -27,6 +27,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, useRef } from "react";
 import { getSupabaseBrowser } from "@/integrations/supabase/browser";
 import { handleAuthFailure } from "@/shared/lib/session-cache";
+import { setViewAsActive } from "@/shared/auth/view-as-flag";
 
 export type AuthUser = {
   id: string;
@@ -34,8 +35,12 @@ export type AuthUser = {
   displayName?: string;
   /** Legacy binary role. Prefer `tier`. */
   role: "admin" | "client" | string;
-  /** RBAC tier. New, source of truth for access control. */
+  /** RBAC tier. New, source of truth for access control. While viewing-as a
+   *  seller this reads "seller" (the effective tier) so admin nav hides. */
   tier: "super_admin" | "owner" | "manager" | "seller" | "viewer" | null;
+  /** The admin's REAL tier — never downgraded by view-as. The header ViewAs
+   *  control gates on this so it stays visible during the seller preview. */
+  realTier?: "super_admin" | "owner" | "manager" | "seller" | "viewer" | null;
   companyBioId: string | null;
   companyName: string | null;
   companyLogoUrl: string | null;
@@ -44,6 +49,13 @@ export type AuthUser = {
 export type DemoMode =
   | { active: false }
   | { active: true; bioId: string; companyName: string | null; logoUrl: string | null };
+
+export type ViewAs =
+  | { active: false }
+  | { active: true; sellerId: string; sellerName: string };
+
+/** A seller an admin can preview via the header ViewAs control. */
+export type ViewAsSellerOption = { sellerId: string; userId: string; name: string };
 
 export type Membership = {
   companyBioId: string;
@@ -55,6 +67,13 @@ export type Membership = {
 type AuthState = {
   user: AuthUser | null;
   demoMode: DemoMode;
+  /** Active seller preview (Admin "View as Seller"). */
+  viewAs: ViewAs;
+  /** True on the tick where a stale/invalid view-as cookie was self-healed —
+   *  the UI announces "Seller preview ended" instead of a silent fallback. */
+  viewAsEnded: boolean;
+  /** Sellers the current admin can preview. Empty for non-admins. */
+  sellers: ViewAsSellerOption[];
   memberships: Membership[];
   loading: boolean;
   /** Force a refetch from /api/auth/me — useful after a mutation that changes role/tenant. */
@@ -67,6 +86,9 @@ type AuthState = {
 const AuthContext = createContext<AuthState>({
   user: null,
   demoMode: { active: false },
+  viewAs: { active: false },
+  viewAsEnded: false,
+  sellers: [],
   memberships: [],
   loading: true,
   refetch: async () => {},
@@ -76,6 +98,9 @@ const AuthContext = createContext<AuthState>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [demoMode, setDemoMode] = useState<DemoMode>({ active: false });
+  const [viewAs, setViewAs] = useState<ViewAs>({ active: false });
+  const [viewAsEnded, setViewAsEnded] = useState(false);
+  const [sellers, setSellers] = useState<ViewAsSellerOption[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
   // Track in-flight fetch so concurrent triggers (mount + visibilitychange)
@@ -90,6 +115,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (res.status === 401) {
           setUser(null);
           setDemoMode({ active: false });
+          setViewAs({ active: false });
+          setSellers([]);
           setMemberships([]);
           handleAuthFailure();
           return;
@@ -97,12 +124,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!res.ok) {
           setUser(null);
           setDemoMode({ active: false });
+          setViewAs({ active: false });
+          setSellers([]);
           setMemberships([]);
           return;
         }
         const data = await res.json();
         setUser(data.user ?? null);
         setDemoMode(data.demoMode ?? { active: false });
+        setViewAs(data.viewAs ?? { active: false });
+        setViewAsEnded(data.viewAsEnded === true);
+        setSellers(Array.isArray(data.sellers) ? data.sellers : []);
         setMemberships(Array.isArray(data.memberships) ? data.memberships : []);
       } catch {
         // Network errors — keep last-known user, don't blow up the UI.
@@ -113,6 +145,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
     return inFlight.current;
   }, []);
+
+  // Mirror the server-validated view-as flag into the module singleton that
+  // getSupabaseBrowser() reads, so direct browser writes are blocked during a
+  // seller preview (the /api hard-block only covers /api/* routes). One effect
+  // covers every path that sets `viewAs` — fetch success, 401/signout reset,
+  // clearAuth — because they all flow through this state.
+  useEffect(() => { setViewAsActive(viewAs.active); }, [viewAs]);
 
   // Initial load.
   useEffect(() => { fetchAuth(); }, [fetchAuth]);
@@ -135,6 +174,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === "SIGNED_OUT") {
         setUser(null);
         setDemoMode({ active: false });
+        setViewAs({ active: false });
+        setSellers([]);
         setMemberships([]);
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         fetchAuth();
@@ -146,11 +187,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearAuth = useCallback(() => {
     setUser(null);
     setDemoMode({ active: false });
+    setViewAs({ active: false });
+    setSellers([]);
     setMemberships([]);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, demoMode, memberships, loading, refetch: fetchAuth, clearAuth }}>
+    <AuthContext.Provider value={{ user, demoMode, viewAs, viewAsEnded, sellers, memberships, loading, refetch: fetchAuth, clearAuth }}>
       {children}
     </AuthContext.Provider>
   );

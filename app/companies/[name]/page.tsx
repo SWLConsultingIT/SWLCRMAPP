@@ -1,4 +1,6 @@
 import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getMyAssignedLeadIds } from "@/shared/auth/scope";
+import { scopeRowsToAssigned } from "@/shared/auth/seller-scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { selectByIds } from "@/integrations/supabase/bulk";
 import { ACTIVITY_SELECT, bucketActivity } from "@/features/activities/lib/activities";
@@ -36,9 +38,16 @@ async function getCompanyLeads(companyName: string) {
   const byId = new Map<string, any>();
   for (const l of (plain ?? []) as any[]) byId.set(l.id, l);
   for (const l of hydratedEnc as any[]) { if (l.company_name === companyName) byId.set(l.id, l); }
+  // Seller scope: narrow to the seller's assigned contacts at this company.
+  // getMyAssignedLeadIds() is null for owner/manager/super_admin (tenant-wide,
+  // unchanged). Because contactIds and every batched section read derive from
+  // this array, this one filter scopes the whole page; an empty result →
+  // notFound() at the call site.
+  const assignedLeadIds = await getMyAssignedLeadIds();
+  const rows = scopeRowsToAssigned(assignedLeadIds, [...byId.values()], l => l.id);
   // Sort by score desc so the representative row (company-level fields, hooks)
   // is the strongest lead, not an arbitrary first row.
-  return [...byId.values()].sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
+  return rows.sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
 }
 
 async function getAngleContext(icpId: string | null, bioId: string | null) {

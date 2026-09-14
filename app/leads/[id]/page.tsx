@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/integrations/supabase/server";
-import { getUserScope, canViewAllTenantData } from "@/shared/auth/scope";
+import { getUserScope, canViewAllTenantData, getMyAssignedLeadIds } from "@/shared/auth/scope";
+import { leadInScope } from "@/shared/auth/seller-scope";
 import { decryptLeadPayload, redactClientLead, hydrateDecryptedLead, logDataAccess, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { C } from "@/shared/design/tokens";
 import { notFound } from "next/navigation";
@@ -32,6 +33,12 @@ async function getLead(id: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase.from("leads").select("*").eq("id", id).single();
   if (!data) return null;
+  // Seller scope: a seller — including an admin previewing as one — may only
+  // open a lead assigned to them. getMyAssignedLeadIds() returns null for
+  // owner/manager/super_admin (tenant-wide, unchanged). null return here →
+  // notFound() at the call site, which transitively hides every sub-panel.
+  const assignedLeadIds = await getMyAssignedLeadIds();
+  if (!leadInScope(assignedLeadIds, data.id)) return null;
   if (data.source !== "client") return data;
   const scope = await getUserScope();
   const sameTenant = scope.companyBioId && scope.companyBioId === data.company_bio_id;

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
+import { VIEW_AS_COOKIE, resolveViewAsSeller } from "@/shared/auth/view-as";
 
 /** Cookie name for admin "demo impersonation". When set, an admin user
  * sees the app as if they belonged to a specific (is_demo=true) tenant. */
@@ -38,6 +39,21 @@ export type UserScope = {
   isDemoMode: boolean;
   /** When `isDemoMode`, this is the demo tenant's bio id (mirror of companyBioId for clarity). */
   demoBioId: string | null;
+
+  // ── Admin "View as Seller" (effective view scope, NOT identity mutation) ──
+  /** The REAL authenticated user id — never changed by view-as. Use this for
+   *  authorization decisions + attribution, never for data filtering. */
+  realUserId: string | null;
+  /** The REAL tier — while viewing-as-seller, `tier` is downgraded to 'seller'
+   *  (so RBAC gates + seller-scope resolvers behave as the seller) but this
+   *  stays the admin's real tier (drives the ViewAs control + write-block). */
+  realTier: Tier | null;
+  /** True when a real admin is previewing the app as a specific seller. */
+  isViewingAsSeller: boolean;
+  /** The sellers.id being previewed (for display/logging), else null. */
+  viewAsSellerId: string | null;
+  /** Display name of the previewed seller. */
+  viewAsSellerName: string | null;
 };
 
 // ── RBAC helpers ────────────────────────────────────────────────────────────
@@ -167,6 +183,40 @@ export const getMyAssignedLeadIds = cache(async function getMyAssignedLeadIds():
  * data fetcher, sidebar query) ran `auth.getUser()` + `user_profiles`
  * fetch three times.
  */
+// Apply the admin "View as Seller" override to a resolved (non-demo) scope.
+// Always stamps the real-identity fields (realUserId/realTier). When a real
+// admin has a valid view-as cookie for a seller in THEIR OWN tenant, it
+// downgrades the EFFECTIVE identity to that seller (userId + tier='seller')
+// so every RBAC gate + seller-scope resolver behaves as the seller — a strict
+// NARROWING of what the admin sees. Reads only; writes are blocked in preview.
+async function applyViewAs(base: UserScope): Promise<UserScope> {
+  const withReal: UserScope = {
+    ...base,
+    realUserId: base.userId,
+    realTier: base.tier,
+    isViewingAsSeller: false,
+    viewAsSellerId: null,
+    viewAsSellerName: null,
+  };
+  if (base.isDemoMode) return withReal;                 // demo already impersonates a tenant
+  if (!canViewAllTenantData(base.tier)) return withReal; // only admins can view-as
+  const cookieStore = await cookies();
+  const cookieValue = cookieStore.get(VIEW_AS_COOKIE)?.value ?? null;
+  if (!cookieValue) return withReal;
+  const seller = await resolveViewAsSeller(getSupabaseService(), cookieValue, true, base.companyBioId);
+  if (!seller) return withReal;                          // invalid / cross-tenant → fail closed
+  return {
+    ...withReal,
+    userId: seller.sellerUserId,   // effective view identity (reads only)
+    role: "client",
+    tier: "seller",                // trips every seller-scope + admin-UI-hide path
+    isScoped: true,
+    isViewingAsSeller: true,
+    viewAsSellerId: seller.sellerId,
+    viewAsSellerName: seller.sellerName,
+  };
+}
+
 export const getUserScope = cache(async function getUserScope(): Promise<UserScope> {
   const supabase = await getSupabaseServer();
   // Defensive: when the refresh token has been rotated/expired, supabase-ssr
@@ -182,7 +232,7 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
     user = null;
   }
   if (!user) {
-    return { userId: null, role: null, tier: null, companyBioId: null, isScoped: false, isDemoMode: false, demoBioId: null };
+    return { userId: null, role: null, tier: null, companyBioId: null, isScoped: false, isDemoMode: false, demoBioId: null, realUserId: null, realTier: null, isViewingAsSeller: false, viewAsSellerId: null, viewAsSellerName: null };
   }
 
   const svc = getSupabaseService();
@@ -243,6 +293,11 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
           isScoped: true,
           isDemoMode: true,
           demoBioId: demoBio.id,
+          realUserId: user.id,
+          realTier: tier,
+          isViewingAsSeller: false,
+          viewAsSellerId: null,
+          viewAsSellerName: null,
         };
       }
     }
@@ -263,7 +318,7 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
         .eq("id", activeCookie)
         .maybeSingle();
       if (bio?.id && !bio.archived_at) {
-        return {
+        return applyViewAs({
           userId: user.id,
           role: "admin",
           tier: "super_admin",
@@ -271,7 +326,12 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
           isScoped: true,
           isDemoMode: false,
           demoBioId: null,
-        };
+          realUserId: user.id,
+          realTier: "super_admin",
+          isViewingAsSeller: false,
+          viewAsSellerId: null,
+          viewAsSellerName: null,
+        });
       }
     } else {
       const { data: membership } = await svc
@@ -284,7 +344,7 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
       const memBioRow = Array.isArray(memBio) ? memBio[0] : memBio;
       if (membership && !memBioRow?.archived_at) {
         const switchedTier = (membership.tier as Tier | undefined) ?? tier;
-        return {
+        return applyViewAs({
           userId: user.id,
           role: switchedTier === "super_admin" ? "admin" : "client",
           tier: switchedTier,
@@ -292,7 +352,12 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
           isScoped: true,
           isDemoMode: false,
           demoBioId: null,
-        };
+          realUserId: user.id,
+          realTier: switchedTier,
+          isViewingAsSeller: false,
+          viewAsSellerId: null,
+          viewAsSellerName: null,
+        });
       }
     }
   }
@@ -304,5 +369,8 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   // directly and bypass this scope. Demo impersonation is handled above
   // and overrides this branch entirely.
   const isScoped = !!ownBioId;
-  return { userId: user.id, role, tier, companyBioId: ownBioId, isScoped, isDemoMode: false, demoBioId: null };
+  return applyViewAs({
+    userId: user.id, role, tier, companyBioId: ownBioId, isScoped, isDemoMode: false, demoBioId: null,
+    realUserId: user.id, realTier: tier, isViewingAsSeller: false, viewAsSellerId: null, viewAsSellerName: null,
+  });
 });

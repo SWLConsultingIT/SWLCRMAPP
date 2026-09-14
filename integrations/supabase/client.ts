@@ -1,9 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
+import { guardClientWrites } from '@/integrations/supabase/view-as-guard'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// Same read-only-preview guard as getSupabaseBrowser(): this legacy singleton
+// (realtime subscriptions + the MessageAttachments storage upload) must also
+// refuse direct writes during a seller preview, so no browser client can slip
+// a mutation past the block.
+export const supabase = guardClientWrites(createClient(supabaseUrl, supabaseKey))
 
 export type Lead = {
   id: string

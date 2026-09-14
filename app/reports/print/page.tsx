@@ -1,6 +1,7 @@
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
-import { getUserScope } from "@/shared/auth/scope";
+import { getUserScope, getMyAssignedLeadIds, getMyAssignedSellerIds } from "@/shared/auth/scope";
+import { scopeRowsToAssigned } from "@/shared/auth/seller-scope";
 import { C } from "@/shared/design/tokens";
 import PrintTrigger from "./PrintTrigger";
 import PrintActions from "./PrintActions";
@@ -66,11 +67,27 @@ async function getReportData() {
     bioId ? sellersQ.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : sellersQ,
   ]);
 
-  const leads = allLeads ?? [];
-  const campaigns = allCampaigns ?? [];
-  const replies = allReplies ?? [];
-  const messages = allMessages ?? [];
+  // Seller scope: narrow the tenant rows to the seller's assigned leads before
+  // any stat is derived. We fetch tenant-wide (RLS) then filter in-memory —
+  // the unfiltered rows never leave the server, and this avoids a 400+ id
+  // `.in()` URL blowup. null for owner/manager/super_admin → tenant-wide PDF.
+  const assignedLeadIds = await getMyAssignedLeadIds();
+  const mySellerIds = await getMyAssignedSellerIds();
+  let leads = allLeads ?? [];
+  let campaigns = allCampaigns ?? [];
+  let replies = allReplies ?? [];
+  let messages = allMessages ?? [];
   const profiles = allProfiles ?? [];
+  let sellers = allSellers ?? [];
+  if (assignedLeadIds !== null) {
+    leads = scopeRowsToAssigned(assignedLeadIds, leads, l => l.id);
+    campaigns = scopeRowsToAssigned(assignedLeadIds, campaigns, c => c.lead_id);
+    replies = scopeRowsToAssigned(assignedLeadIds, replies, r => r.lead_id);
+    const campIds = new Set(campaigns.map(c => c.id));
+    messages = messages.filter(m => m.campaign_id && campIds.has(m.campaign_id));
+    const sellerIdSet = new Set(mySellerIds ?? []);
+    sellers = sellers.filter(s => sellerIdSet.has(s.id));
+  }
 
   const profileMap: Record<string, string> = {};
   for (const p of profiles) profileMap[p.id] = p.profile_name;
@@ -138,7 +155,7 @@ async function getReportData() {
 
   // Seller performance
   const sellerMap: Record<string, string> = {};
-  for (const s of allSellers ?? []) sellerMap[s.id] = s.name;
+  for (const s of sellers) sellerMap[s.id] = s.name;
   const sellerGroups: Record<string, { name: string; contacted: Set<string>; replied: Set<string>; positive: Set<string>; active: number }> = {};
   for (const c of campaigns) {
     if (!c.seller_id) continue;

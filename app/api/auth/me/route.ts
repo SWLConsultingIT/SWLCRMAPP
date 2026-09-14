@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/integrations/supabase/server";
 import { getSupabaseService } from "@/integrations/supabase/service";
-import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/shared/auth/scope";
+import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE, canViewAllTenantData, type Tier } from "@/shared/auth/scope";
 import { getOrFetchProfile } from "@/shared/auth/user-profile-cache";
+import { VIEW_AS_COOKIE, resolveViewAsSeller, listViewAsSellers, type ViewAsSellerOption } from "@/shared/auth/view-as";
 
 export async function GET() {
   const supabase = await getSupabaseServer();
@@ -175,19 +176,68 @@ export async function GET() {
     }).filter((m): m is MemEntry => m !== null);
   }
 
+  // ─── Admin "View as Seller" ──────────────────────────────────────────────
+  // Client-payload mirror of scope.ts `applyViewAs`. Only real admins
+  // (canViewAllTenantData over the effective tenant tier) can preview one of
+  // THEIR OWN sellers. When active, the effective role/tier are downgraded to
+  // client/seller so admin-only nav (Sidebar `adminOnly`, /admin guards) hides
+  // with no per-page edits — while `realTier` stays truthful so the header
+  // control + banner still render. The auth user, JWT and persisted role never
+  // change. Server-validated: a forged cookie can't cross tenants or target a
+  // non-seller (resolveViewAsSeller fails closed). `sellers` feeds the dropdown.
+  const isAdminViewer = canViewAllTenantData(effectiveTier as Tier);
+  let viewAs: { active: false } | { active: true; sellerId: string; sellerName: string } = { active: false };
+  // True on the single response where a stale/invalid view-as cookie was found
+  // and cleared — lets the client announce "Seller preview ended" instead of
+  // silently dropping back to Admin scope.
+  let viewAsEnded = false;
+  let sellers: ViewAsSellerOption[] = [];
+  let effectiveRole = role;
+  let effectiveViewTier = effectiveTier;
+  if (isAdminViewer) {
+    sellers = await listViewAsSellers(svc, effectiveBioId);
+    const cookieStoreVA = await cookies();
+    const vaCookie = cookieStoreVA.get(VIEW_AS_COOKIE)?.value ?? null;
+    if (vaCookie) {
+      const seller = await resolveViewAsSeller(svc, vaCookie, true, effectiveBioId);
+      if (seller) {
+        viewAs = { active: true, sellerId: seller.sellerId, sellerName: seller.sellerName };
+        effectiveRole = "client";
+        effectiveViewTier = "seller";
+      } else {
+        // Self-heal: the cookie is present but no longer resolves (seller went
+        // inactive / deleted / cross-tenant / tampered). Clear it now so the
+        // state is unambiguous — otherwise scope.ts falls back to full admin
+        // reads while proxy.ts (which only checks cookie PRESENCE) keeps
+        // blocking writes, stranding the admin in a "looks like Admin but
+        // can't act, and might think they're still previewing" trap. After
+        // this delete the next request is clean admin: full reads + writes,
+        // no banner. /me is polled on mount + tab focus, so it heals promptly.
+        cookieStoreVA.delete(VIEW_AS_COOKIE);
+        viewAsEnded = true;
+      }
+    }
+  }
+
   return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
       displayName,
-      role,
-      tier: effectiveTier,
+      role: effectiveRole,
+      tier: effectiveViewTier,
+      // Real tier — always the admin's true tier, never downgraded by view-as.
+      // The header ViewAs control gates on this so it survives the downgrade.
+      realTier: effectiveTier,
       companyBioId: effectiveBioId,
       companyName: effectiveBioName,
       companyLogoUrl: effectiveBioLogo,
     },
     memberships,
     demoMode,
+    viewAs,
+    viewAsEnded,
+    sellers,
   }, {
     // No-store on auth payload. The earlier 30s cache was eating logout/login
     // flips: user A logs out, user B logs in, and the browser served user A's
