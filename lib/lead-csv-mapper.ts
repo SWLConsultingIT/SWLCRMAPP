@@ -356,6 +356,37 @@ function normSeniority(v: string): string | null {
 // serializes a valid array literal.
 const ARRAY_FIELDS = new Set<string>(["organization_technologies"]);
 
+// Lead columns typed numeric/integer in Postgres. Sheets ship these as
+// FORMATTED text — Apollo's "Annual Revenue" column is "$35,194,000", ZoomInfo
+// writes "1.2B", others use "94 employees" or a "11-50" band. Written verbatim
+// Postgres throws `invalid input syntax for type numeric: "$35,194,000"` and,
+// because the commit route falls back to per-row inserts on a failed batch,
+// EVERY row lands as an error and the import silently imports nothing. Coerce
+// to a number here; when the cell can't be read as one (a range like "11-50"),
+// drop the field rather than break the insert — same fail-soft policy as
+// primary_seniority and primary_linkedin_url above.
+const NUMERIC_FIELDS = new Set<string>(["annual_revenue", "employees", "google_reviews_rating"]);
+const INTEGER_FIELDS = new Set<string>(["employees"]);
+const MAGNITUDE: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9, t: 1e12 };
+
+function parseNumericCell(raw: string): number | null {
+  // Strip currency symbols, spaces and thousands separators, keeping digits,
+  // sign, decimal point and a trailing magnitude letter.
+  const cleaned = raw
+    .replace(/[\s\u00a0]/g, "")
+    .replace(/[$€£¥]/g, "")
+    .replace(/,/g, "");
+  // "1.2M" / "500K" / "3B"
+  const suffixed = cleaned.match(/^(-?\d+(?:\.\d+)?)([kmbt])$/i);
+  if (suffixed) {
+    const n = Number(suffixed[1]) * MAGNITUDE[suffixed[2].toLowerCase()];
+    return Number.isFinite(n) ? n : null;
+  }
+  if (!/^-?\d+(?:\.\d+)?$/.test(cleaned)) return null; // ranges ("11-50"), "N/A", ""
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
 // ─── Phone consolidation ─────────────────────────────────────────────────
 // Apollo / ZoomInfo / Sales Nav sheets routinely ship 3-6 phone columns per
 // person: "Mobile Phone", "Work Direct Phone", "Corporate Phone", "Home
@@ -425,6 +456,12 @@ export function applyMappingToRow(
       // ignore — never write internal columns from CSV
     } else if (ARRAY_FIELDS.has(m.target)) {
       out[m.target] = value.split(",").map(p => p.trim()).filter(Boolean);
+    } else if (NUMERIC_FIELDS.has(m.target)) {
+      const n = parseNumericCell(value);
+      // Unreadable number → leave the column null but keep the original text in
+      // enrichment so the operator can still see what the sheet said.
+      if (n === null) enrichment[m.source] = value;
+      else out[m.target] = INTEGER_FIELDS.has(m.target) ? Math.round(n) : n;
     } else if (m.target === "primary_seniority") {
       const s = normSeniority(value);
       if (s) out.primary_seniority = s; // unknown → leave null, never break the insert
