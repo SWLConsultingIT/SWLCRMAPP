@@ -861,35 +861,27 @@ export default function NewCampaignWizard() {
 
   // Submit
   async function handleSubmit() {
-    const supabase = getSupabaseBrowser();
     setSubmitting(true);
     setSubmitError(null);
 
-    // Tenant-isolation RLS on campaign_requests requires company_bio_id = the caller's tenant.
-    // Resolve it from the signed-in user's profile; admins without a tenant can't submit here.
-    const { data: companyBioId, error: scopeErr } = await supabase.rpc("get_auth_company_bio_id");
-    if (scopeErr || !companyBioId) {
-      setSubmitError(scopeErr?.message ?? t("wiz.err.noCompany"));
-      setSubmitting(false);
-      return;
-    }
-
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
+    // company_bio_id is resolved + pinned server-side (from the signed-in user's
+    // tenant), so it's no longer sent from here.
     const insertData: Record<string, any> = {
       name: campaignName.trim() || `${profile?.profile_name} — ${uniqueChannels.map(c => channelOptions.find(o => o.key === c)?.label).join(" + ")}`,
       icp_profile_id: profileId,
-      company_bio_id: companyBioId,
       channels: uniqueChannels,
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
       message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId, callAdvanceMode, preview_outputs: flowType === "tailored" && Object.keys(previewOutputs).length > 0 ? previewOutputs : undefined },
       flow_type: flowType ?? "generic",
-      status: "pending_review",
     };
-    const { error } = await supabase.from("campaign_requests").insert(insertData);
-    if (error) {
-      setSubmitError(error.message);
+    // Routed through /api so the View-As read-only block (proxy.ts) covers it.
+    const res = await fetch("/api/campaigns/requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ request: insertData }) });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      setSubmitError(e.message ?? e.error ?? t("wiz.err.noCompany"));
       setSubmitting(false);
     } else {
       setSubmitting(false);

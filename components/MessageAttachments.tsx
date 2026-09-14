@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
-import { supabase } from "@/integrations/supabase/client";
 import { C } from "@/shared/design/tokens";
 import { Paperclip, X, FileText, Image as ImageIcon, Loader2 } from "lucide-react";
 
@@ -19,20 +18,16 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-function getFileType(file: File): "image" | "pdf" | "file" {
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type === "application/pdf") return "pdf";
-  return "file";
-}
-
 export default function MessageAttachments({
   attachments,
   onChange,
   stepNumber,
+  campaignId,
 }: {
   attachments: Attachment[];
   onChange: (attachments: Attachment[]) => void;
   stepNumber: number;
+  campaignId: string;
 }) {
   const { t } = useLocale();
   const [uploading, setUploading] = useState(false);
@@ -49,24 +44,16 @@ export default function MessageAttachments({
       // Max 10MB
       if (file.size > 10 * 1024 * 1024) continue;
 
-      const ext = file.name.split(".").pop() ?? "bin";
-      const path = `campaign-attachments/${Date.now()}-step${stepNumber}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-      const { error } = await supabase.storage
-        .from("campaign-files")
-        .upload(path, file, { upsert: false });
-
-      if (!error) {
-        const { data: urlData } = supabase.storage
-          .from("campaign-files")
-          .getPublicUrl(path);
-
-        newAttachments.push({
-          name: file.name,
-          url: urlData.publicUrl,
-          type: getFileType(file),
-          size: file.size,
-        });
+      // Routed through /api (server authorizes the campaign + uploads under the
+      // caller's RLS session) so the View-As read-only block covers it. Same
+      // bucket, path shape and public-URL result as before.
+      const body = new FormData();
+      body.append("file", file);
+      body.append("stepNumber", String(stepNumber));
+      const res = await fetch(`/api/campaigns/${campaignId}/attachments`, { method: "POST", body });
+      if (res.ok) {
+        const { attachment } = await res.json();
+        if (attachment) newAttachments.push(attachment as Attachment);
       }
     }
 

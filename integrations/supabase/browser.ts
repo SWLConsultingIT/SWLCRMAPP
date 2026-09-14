@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { guardClientWrites } from "@/integrations/supabase/view-as-guard";
 
 // Singleton — without caching, each provider (Theme, Locale, Brand) creates its
 // own GoTrueClient on mount, producing the "Multiple GoTrueClient instances
@@ -17,10 +18,10 @@ export function getSupabaseBrowser(): BrowserClient {
     );
   }
   if (!instance) {
-    instance = createBrowserClient(
+    instance = guardClientWrites(createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    ));
   }
   return instance;
 }

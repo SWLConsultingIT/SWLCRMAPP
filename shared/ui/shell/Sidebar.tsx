@@ -50,7 +50,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/home", labelKey: "", brandLabel: "Home", icon: Home, shortcut: "H" },
       { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, shortcut: "D" },
-      { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2, shortcut: "B" },
+      { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2, shortcut: "B", adminOnly: true },
       { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "pendingReplies", shortcut: "I" },
     ],
   },
@@ -59,7 +59,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
     items: [
       // "M" for Lead *M*iner — "L" belongs to Leads, so the Miner keeps the
       // next-best mnemonic from its own name.
-      { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI", shortcut: "M" },
+      { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI", shortcut: "M", adminOnly: true },
       { href: "/campaigns", labelKey: "", brandLabel: "Outreach Flow™", icon: Megaphone, tag: "AI", shortcut: "O" },
       { href: "/leads", labelKey: "nav.leads", icon: Users, shortcut: "L" },
       { href: "/activities", labelKey: "nav.activities", icon: CalendarCheck, shortcut: "Y" },

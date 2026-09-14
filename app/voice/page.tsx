@@ -259,7 +259,7 @@ function TemplatesTab() {
   });
 
   async function handleSave(form: typeof emptyForm) {
-    const sb = getSupabaseBrowser();
+    // Routed through /api so the View-As read-only block (proxy.ts) covers it.
     const payload = {
       ...form,
       company_bio_id: companyBioId,
@@ -267,15 +267,11 @@ function TemplatesTab() {
       label: form.label.trim() || null,
       icp_profile_id: form.icp_profile_id || null,
     };
-    if (editingId) {
-      const { error } = await sb.from("message_templates").update(payload).eq("id", editingId);
-      if (error) { toast.show({ kind: "error", title: t("vc.saveFailed"), description: error.message }); return; }
-      toast.show({ kind: "success", title: t("vc.templateUpdated") });
-    } else {
-      const { error } = await sb.from("message_templates").insert(payload);
-      if (error) { toast.show({ kind: "error", title: t("vc.saveFailed"), description: error.message }); return; }
-      toast.show({ kind: "success", title: t("vc.templateCreated") });
-    }
+    const res = editingId
+      ? await fetch("/api/voice/templates", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingId, payload }) })
+      : await fetch("/api/voice/templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload }) });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); toast.show({ kind: "error", title: t("vc.saveFailed"), description: e.message ?? e.error }); return; }
+    toast.show({ kind: "success", title: editingId ? t("vc.templateUpdated") : t("vc.templateCreated") });
     setShowForm(false);
     setEditingId(null);
     await load();
@@ -283,9 +279,8 @@ function TemplatesTab() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this template? This can't be undone.")) return;
-    const sb = getSupabaseBrowser();
-    const { error } = await sb.from("message_templates").delete().eq("id", id);
-    if (error) { toast.show({ kind: "error", title: t("vc.couldntDelete"), description: error.message }); return; }
+    const res = await fetch("/api/voice/templates", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); toast.show({ kind: "error", title: t("vc.couldntDelete"), description: e.message ?? e.error }); return; }
     toast.show({ kind: "success", title: t("vc.templateDeleted") });
     await load();
   }
@@ -590,7 +585,8 @@ function SequencesTab() {
   }
 
   async function handleSave(form: typeof emptySequence) {
-    const sb = getSupabaseBrowser();
+    // Routed through /api (create/update + step relink happen server-side) so
+    // the View-As read-only block covers the whole operation.
     const payload = {
       company_bio_id: companyBioId,
       icp_profile_id: form.icp_profile_id || null,
@@ -600,26 +596,11 @@ function SequencesTab() {
       channels: form.channels,
       status: form.status,
     };
-
-    let seqId = editingId;
-    if (editingId) {
-      const { error } = await sb.from("message_sequences").update(payload).eq("id", editingId);
-      if (error) { toast.show({ kind: "error", title: t("vc.saveFailed"), description: error.message }); return; }
-    } else {
-      const { data, error } = await sb.from("message_sequences").insert(payload).select("id").single();
-      if (error || !data) { toast.show({ kind: "error", title: t("vc.couldntCreateSeq"), description: error?.message || "Insert failed" }); return; }
-      seqId = data.id;
-    }
-
-    if (!seqId) return;
-
-    // Reset steps: clear current, then assign new ones
-    await sb.from("message_templates").update({ sequence_id: null, sequence_order: null }).eq("sequence_id", seqId);
-    for (let i = 0; i < form.steps.length; i++) {
-      const s = form.steps[i];
-      if (!s.template_id) continue;
-      await sb.from("message_templates").update({ sequence_id: seqId, sequence_order: i }).eq("id", s.template_id);
-    }
+    const steps = form.steps.map(s => ({ template_id: s.template_id }));
+    const res = editingId
+      ? await fetch("/api/voice/sequences", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingId, payload, steps }) })
+      : await fetch("/api/voice/sequences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload, steps }) });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); toast.show({ kind: "error", title: editingId ? t("vc.saveFailed") : t("vc.couldntCreateSeq"), description: e.message ?? e.error }); return; }
 
     setShowForm(false);
     setEditingId(null);
@@ -629,9 +610,8 @@ function SequencesTab() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this sequence? Templates that belong to it will become standalone in the library (not deleted).")) return;
-    const sb = getSupabaseBrowser();
-    const { error } = await sb.from("message_sequences").delete().eq("id", id);
-    if (error) { toast.show({ kind: "error", title: t("vc.couldntDeleteSeq"), description: error.message }); return; }
+    const res = await fetch("/api/voice/sequences", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); toast.show({ kind: "error", title: t("vc.couldntDeleteSeq"), description: e.message ?? e.error }); return; }
     toast.show({ kind: "success", title: t("vc.sequenceDeleted") });
     await load();
   }

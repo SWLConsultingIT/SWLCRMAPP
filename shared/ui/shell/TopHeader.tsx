@@ -8,6 +8,7 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { useTheme } from "@/shared/design/theme";
 import { useAuthUser, useAuth } from "@/shared/auth/auth-context";
 import HelpMenu from "./HelpMenu";
+import ViewAsControl from "./ViewAsControl";
 import NotificationBell from "@/components/NotificationBell";
 import { useMobileMenu } from "@/shared/ui/shell/mobile-menu";
 
@@ -143,7 +144,8 @@ export default function TopHeader() {
       </div>
 
       {/* Right: actions + user */}
-      <div className="flex items-center gap-2 w-56 justify-end">
+      <div className="flex items-center gap-2 min-w-56 justify-end">
+        <ViewAsControl />
         <HelpMenu />
         <NotificationBell />
         {/* Dark / light toggle — writes cookie + DB via useTheme (boss 2026-08-25). */}

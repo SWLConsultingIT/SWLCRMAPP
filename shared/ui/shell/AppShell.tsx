@@ -9,6 +9,8 @@ import CommandPalette from "@/shared/ui/shell/CommandPalette";
 import NavigationProgress from "@/shared/ui/shell/NavigationProgress";
 import NavigationLoader from "@/shared/ui/shell/NavigationLoader";
 import DemoBanner from "@/components/DemoBanner";
+import ViewAsBanner from "@/components/ViewAsBanner";
+import ViewAsEndedToast from "@/components/ViewAsEndedToast";
 import KeyboardCheatsheet from "@/shared/ui/shell/KeyboardCheatsheet";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { ToastProvider } from "@/shared/ui/toast";
@@ -48,12 +50,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             back to whatever the parent flex allocates. */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <DemoBanner />
+          <ViewAsBanner />
           <TopHeader />
           <main className="flex-1 overflow-y-auto main-bg">
             <NavigationLoader>{children}</NavigationLoader>
           </main>
         </div>
         <OnboardingChecklist />
+        <ViewAsEndedToast />
         <PositiveReplyBanner />
         <RealtimeRefresh />
         <CommandPalette />

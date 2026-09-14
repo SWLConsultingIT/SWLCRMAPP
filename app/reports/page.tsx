@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { FileDown, ArrowLeft } from "lucide-react";
 import { C } from "@/shared/design/tokens";
-import { getUserScope } from "@/shared/auth/scope";
+import { getUserScope, getMyAssignedUserId, getMyAssignedSellerIds } from "@/shared/auth/scope";
 import { getSupabaseService } from "@/integrations/supabase/service";
 import PageHero from "@/shared/ui/PageHero";
 import ReportPicker from "./ReportPicker";
@@ -20,12 +20,19 @@ async function loadFilterOptions() {
   const bioId = scope.isScoped ? scope.companyBioId! : null;
   const svc = getSupabaseService();
 
-  const campsQ = bioId
+  // Seller scope: narrow the pickable filters to the seller's own campaigns +
+  // their own seller record. null for owner/manager/super_admin → tenant-wide.
+  const myUserId = await getMyAssignedUserId();
+  const mySellerIds = await getMyAssignedSellerIds();
+
+  let campsQ = bioId
     ? svc.from("campaigns").select("name, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId)
     : svc.from("campaigns").select("name");
-  const sellersQ = bioId
+  if (myUserId) campsQ = campsQ.eq("assigned_user_id", myUserId) as typeof campsQ;
+  let sellersQ = bioId
     ? svc.from("sellers").select("id, name").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`).order("name")
     : svc.from("sellers").select("id, name").order("name");
+  if (mySellerIds !== null) sellersQ = sellersQ.in("id", mySellerIds.length ? mySellerIds : ["__none__"]) as typeof sellersQ;
   const icpsQ = bioId
     ? svc.from("icp_profiles").select("id, profile_name").eq("company_bio_id", bioId).eq("status", "approved").order("profile_name")
     : svc.from("icp_profiles").select("id, profile_name").eq("status", "approved").order("profile_name");

@@ -818,6 +818,7 @@ export default function FlowEditorPage() {
                           attachments={attachments[msgKey] ?? []}
                           onChange={atts => setAttachments(prev => ({ ...prev, [msgKey]: atts }))}
                           stepNumber={msgKey}
+                          campaignId={campaignId}
                         />
                       )}
                     </div>

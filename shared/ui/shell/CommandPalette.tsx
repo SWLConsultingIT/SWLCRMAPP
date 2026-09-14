@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useTheme } from "@/shared/design/theme";
+import { useAuthUser } from "@/shared/auth/auth-context";
 import { LOCALES } from "@/shared/i18n/locale";
 import {
   Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2, Sparkles,
@@ -42,6 +43,13 @@ export default function CommandPalette() {
   const router = useRouter();
   const { t, locale, setLocale } = useLocale();
   const { theme, setTheme } = useTheme();
+  const authUser = useAuthUser();
+  // Admin-only routes (Lead Miner, Company Bio, Admin) are server-gated to
+  // owner/manager/super_admin. Hide them from the palette for an effective
+  // seller — including an admin previewing as one (tier reads 'seller') — so we
+  // never offer a route that would just redirect. Same tier signal the Sidebar
+  // uses, so nav parity holds between real seller and view-as.
+  const isAdminTier = ["super_admin", "owner", "manager"].includes(authUser?.tier ?? "");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [leadResults, setLeadResults] = useState<LeadResult[]>([]);
@@ -51,7 +59,7 @@ export default function CommandPalette() {
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Static commands — labels follow the active locale.
-  const navCommands: NavCommand[] = useMemo(() => [
+  const navCommands: NavCommand[] = useMemo(() => ([
     { id: "dashboard",  label: t("nav.dashboard"),    hint: t("cmd.hint.dashboard"),                      icon: LayoutDashboard, href: "/",              group: "navigation", keywords: ["home", "inicio"] },
     { id: "leads",      label: t("nav.leads"),        hint: t("cmd.hint.leads"),           icon: Users,           href: "/leads",         group: "navigation", keywords: ["pipeline", "prospects"] },
     { id: "campaigns",  label: "Outreach Flow™",      hint: t("cmd.hint.campaigns"), icon: Megaphone,       href: "/campaigns",     group: "navigation", keywords: ["outreach", "campaigns", "campañas"] },
@@ -79,7 +87,7 @@ export default function CommandPalette() {
       group: "actions" as const,
       keywords: ["language", "idioma", "lingua", "lang", l.id, l.label.toLowerCase()],
     })),
-  ], [t, locale, theme, setTheme, setLocale]);
+  ] as NavCommand[]).filter(c => isAdminTier || !["icp", "company", "admin"].includes(c.id)), [t, locale, theme, setTheme, setLocale, isAdminTier]);
 
   // Filter nav commands by query (case-insensitive substring on label, hint, keywords).
   const filteredNav = useMemo(() => {

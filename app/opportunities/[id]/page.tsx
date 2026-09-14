@@ -1,4 +1,6 @@
 import { getSupabaseServer } from "@/integrations/supabase/server";
+import { getMyAssignedLeadIds } from "@/shared/auth/scope";
+import { leadInScope, scopeRowsToAssigned } from "@/shared/auth/seller-scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import { C } from "@/shared/design/tokens";
@@ -73,6 +75,10 @@ async function getLeadOpportunity(id: string) {
     .eq("id", id)
     .maybeSingle();
   if (!rawLead) return null;
+  // Seller scope: only an assigned lead is visible. null for admins → unchanged.
+  const assignedLeadIds = await getMyAssignedLeadIds();
+  const leadRowId = (rawLead as unknown as { id: string }).id;
+  if (!leadInScope(assignedLeadIds, leadRowId)) return null;
   const [hydrated] = await hydrateClientLeads([rawLead as Record<string, unknown>]);
   const lead = hydrated as any;
 
@@ -208,7 +214,11 @@ async function getCampaignRollup(id: string) {
     .eq("name", pivotName!)
     .order("created_at", { ascending: false });
 
-  const leadIds = (allCampaigns ?? []).map(c => c.lead_id).filter(Boolean);
+  // Seller scope: narrow the cross-name rollup to the seller's assigned leads
+  // so a seller never sees a peer's slice of a shared campaign. null for admins.
+  const assignedLeadIds = await getMyAssignedLeadIds();
+  const scopedCampaigns = scopeRowsToAssigned(assignedLeadIds, allCampaigns ?? [], c => c.lead_id as string | null);
+  const leadIds = scopedCampaigns.map(c => c.lead_id).filter(Boolean);
   if (leadIds.length === 0) return null;
 
   const [{ data: rawLeads }, { data: allReplies }] = await Promise.all([
@@ -235,13 +245,13 @@ async function getCampaignRollup(id: string) {
     (allReplies ?? []).filter(r => r.classification === "positive" || r.classification === "meeting_intent").map(r => r.lead_id)
   );
 
-  const totalLeads = (allCampaigns ?? []).length;
+  const totalLeads = scopedCampaigns.length;
   const convertedLeads = [...positiveLeadIds].map(lid => {
     const lead = leadsMap[lid];
     if (!lead) return null;
     const reps = repliesByLead[lid] ?? [];
     const winReply = reps.find((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
-    const camp = (allCampaigns ?? []).find(c => c.lead_id === lid);
+    const camp = scopedCampaigns.find(c => c.lead_id === lid);
     return {
       id: lead.id,
       name: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || lead.company_name || "Unknown",
@@ -261,7 +271,7 @@ async function getCampaignRollup(id: string) {
     transferred: convertedLeads.filter((l: any) => l.transferred).length,
     conversionRate: totalLeads > 0 ? Math.round((convertedLeads.length / totalLeads) * 100) : 0,
     convertedLeads,
-    seller: ((allCampaigns ?? [])[0]?.sellers as any)?.name ?? null,
+    seller: (scopedCampaigns[0]?.sellers as any)?.name ?? null,
   };
 }
 
