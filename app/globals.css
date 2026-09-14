@@ -745,7 +745,63 @@ thead th {
 .hm-qi svg { width:19px; height:19px; }
 .hm-qcard small { display:block; color:var(--c-textDim); font-weight:600; font-size:11.5px; margin-top:1px; }
 .hm-err { color:#d06b6b; font-size:12.5px; font-weight:600; }
-@media (max-width:1080px) { .hm-day { grid-template-columns:repeat(2,1fr); } .hm-qa { grid-template-columns:1fr; } }
+
+/* ── Home hierarchy (2026-09-14) ───────────────────────────────────────────
+   Three tiers, separated by SIZE and DENSITY rather than colour, so the eye
+   lands on the priority list first and the week's numbers read as context:
+     PRIMARY   "Start here"  — tall rows, heavier heading, lifted card
+     SECONDARY day + queue   — normal weight, two columns
+     TERTIARY  performance   — compact strip, dimmed heading
+   Colour is reserved for per-signal meaning (the reason chips), so it cannot
+   also carry hierarchy without the two fighting each other. */
+.hm-sec-primary h2 { font-size:21px; letter-spacing:-.02em; }
+.hm-sec-tertiary h2 { font-size:14px; color:var(--c-textMuted); }
+.hm-prio-primary { box-shadow:0 2px 4px rgba(15,20,35,.06),0 22px 48px -24px rgba(15,20,35,.32); }
+.hm-prio-primary .hm-prow { padding:18px; gap:16px; }
+.hm-pco { font-size:12.5px; font-weight:600; color:var(--c-textDim); margin-left:7px; }
+.hm-psnip { margin:3px 0 0 !important; font-style:italic; color:var(--c-textDim) !important; font-size:12px !important; }
+.hm-prow .hm-pt p { white-space:normal; }
+
+.hm-two { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+.hm-two > section { display:flex; flex-direction:column; gap:10px; min-width:0; }
+
+.hm-daylist { display:flex; flex-direction:column; gap:10px; }
+.hm-dayrow { display:flex; align-items:center; gap:13px; background:var(--c-card); border:1px solid var(--c-border); border-radius:14px; padding:14px 16px; font-weight:700; font-size:14px; color:var(--c-textPrimary); text-decoration:none; transition:transform .15s,border-color .15s; }
+.hm-dayrow:hover { border-color:var(--hm-gold); transform:translateY(-2px); }
+.hm-dayrow small { display:block; color:var(--c-textDim); font-weight:600; font-size:11.5px; margin-top:1px; }
+.hm-dayrow > div { min-width:0; }
+.hm-daygo { margin-left:auto; color:var(--c-textDim); flex:none; }
+.hm-daygo svg { width:15px; height:15px; }
+
+.hm-score { background:var(--c-card); border:1px solid var(--c-border); border-radius:16px; overflow:hidden; }
+.hm-scg { padding:12px 16px; }
+.hm-scg + .hm-scg { border-top:1px solid var(--c-border); }
+.hm-scg h3 { margin:0 0 6px; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--c-textDim); }
+.hm-scrow { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0; font-size:13px; font-weight:600; color:var(--c-textBody); text-decoration:none; border-radius:8px; }
+.hm-scrow b { font-size:16px; font-weight:800; color:var(--c-textPrimary); font-family:var(--font-outfit),system-ui,sans-serif; }
+.hm-sclink { margin:0 -8px; padding:6px 8px; transition:background .14s; }
+.hm-sclink:hover { background:var(--c-cardHov); }
+.hm-sclink:hover b { color:var(--hm-gold); }
+
+.hm-perf { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; background:var(--c-card); border:1px solid var(--c-border); border-radius:16px; padding:16px 18px; }
+.hm-pf { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.hm-pf b { font-size:26px; font-weight:800; letter-spacing:-.03em; line-height:1.05; color:var(--c-textPrimary); font-family:var(--font-outfit),system-ui,sans-serif; }
+.hm-pf span { font-size:11.5px; font-weight:600; color:var(--c-textDim); }
+.hm-of { font-size:17px; font-weight:700; color:var(--c-textDim); }
+.hm-bar { margin-top:7px; height:5px; border-radius:99px; background:var(--c-cardHov); overflow:hidden; }
+.hm-bar i { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,#EBD07A,#C9A83A); transition:width .5s ease; }
+
+@media (max-width:1080px) {
+  .hm-day { grid-template-columns:repeat(2,1fr); }
+  .hm-qa { grid-template-columns:1fr; }
+  .hm-two { grid-template-columns:1fr; }
+  .hm-perf { grid-template-columns:repeat(2,1fr); }
+}
+@media (max-width:620px) {
+  .hm-perf { grid-template-columns:1fr; }
+  .hm-prio-primary .hm-prow { flex-wrap:wrap; }
+  .hm-prio-primary .hm-pbtn { margin-left:auto; }
+}
 /* Home floating Copilot */
 .hm-fab { position:fixed; right:26px; bottom:26px; z-index:60; width:58px; height:58px; border-radius:50%; border:none; cursor:pointer; background:radial-gradient(120% 120% at 30% 22%,#20264a,#11152a 58%,#0A0C17); display:grid; place-items:center; box-shadow:0 16px 34px -10px rgba(10,12,25,.7),inset 0 0 0 1px rgba(201,168,58,.35),0 0 22px -4px rgba(201,168,58,.55); }
 .hm-fab-mark { width:22px; height:32px; }
