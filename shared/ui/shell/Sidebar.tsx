@@ -449,18 +449,13 @@ export default function Sidebar() {
 
       {/* "Recent leads" panel removed 2026-06-08 (boss: useless). */}
 
-      {/* AI Status — hidden in rail-collapsed mode to keep the column tight. */}
-      {!railOnly && (
-        <div className="relative mx-4 mb-3 px-3 py-2 rounded-lg"
-          style={{ backgroundColor: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.15)" }}>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
-            <span className="text-[11px] font-medium" style={{ color: "rgba(34,197,94,0.9)" }}>
-              {t("nav.aiActive")}
-            </span>
-          </div>
-        </div>
-      )}
+      {/* "AI Models Active" pill removed 2026-09-14 (Fran): it sat between the
+          nav and the footer and ate the vertical space the last OPERATIONS
+          items needed, so "Admin" fell under the fold and the column scrolled
+          on a normal laptop. It was decoration — a hardcoded green dot, not a
+          real health signal — so the space is better spent showing the menu.
+          The `nav.aiActive` key stays in the dictionaries; nothing else reads
+          it, and removing 3 locales' worth of string is not worth the churn. */}
 
       {/* Footer — "{t("nav.poweredBy")}" + settings gear. Settings stays visible in
           rail mode so the gear is reachable without expanding. */}
