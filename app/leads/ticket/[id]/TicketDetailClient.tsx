@@ -719,7 +719,14 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
   // Unassigned bucket is selectable so they can bulk-create a new flow or
   // attach to an existing one.
   type LeadsSub = "with_campaign" | "unassigned";
-  const [leadsSub, setLeadsSub] = useState<LeadsSub>("unassigned");
+  // Deep-linkable via `?sub=`. The Home "Leads to assign" CTA points straight
+  // at the Unassigned bucket, and before this the link only worked because
+  // that happened to be the default — nothing read the parameter, so changing
+  // the default would have broken the CTA silently. Unknown values fall back
+  // to the default rather than rendering an empty sub-tab.
+  const subParam = searchParams?.get("sub") ?? null;
+  const initialSub: LeadsSub = subParam === "with_campaign" ? "with_campaign" : "unassigned";
+  const [leadsSub, setLeadsSub] = useState<LeadsSub>(initialSub);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAddExisting, setShowAddExisting] = useState(false);
 
