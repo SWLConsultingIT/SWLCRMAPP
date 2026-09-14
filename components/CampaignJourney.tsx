@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, CheckCircle2, Clock, Send, MessageSquare, Penci
 import { LinkedInIcon } from "@/shared/ui/SocialIcons";
 import { useLocale } from "@/shared/i18n/i18n";
 import { intlTag, type Locale } from "@/shared/i18n/locale";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -98,6 +99,7 @@ function CampaignBlock({
   defaultOpen: boolean;
 }) {
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [open, setOpen] = useState(defaultOpen);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -114,6 +116,7 @@ function CampaignBlock({
   const connectionSent = connectionMsg?.status === "sent";
 
   async function saveMessage(msgId: string) {
+    if (readOnly) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/messages/${msgId}`, {
@@ -387,7 +390,8 @@ function CampaignBlock({
                                     style={{ backgroundColor: "#fff", borderColor: gold, color: C.textBody, outline: "none" }}
                                   />
                                   <div className="flex items-center gap-2 mt-2">
-                                    <button onClick={() => saveMessage(msg.id)} disabled={saving}
+                                    <button onClick={() => saveMessage(msg.id)} disabled={saving || readOnly}
+                                      title={readOnly ? viewAsOff : undefined}
                                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-white"
                                       style={{ backgroundColor: gold, opacity: saving ? 0.7 : 1 }}>
                                       {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}

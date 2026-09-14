@@ -24,6 +24,7 @@ import {
   Check, X, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw,
   Search, AlertTriangle, CalendarDays, CalendarClock, ChevronDown, ChevronRight, Building2,
 } from "lucide-react";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -58,6 +59,7 @@ export default function ActivitiesBoard({
   initial, seesAll, currentScope,
 }: { initial: BoardActivity[]; seesAll: boolean; currentScope: "mine" | "all" }) {
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const toast = useToast();
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -103,6 +105,7 @@ export default function ActivitiesBoard({
   };
 
   async function patch(id: string, body: Record<string, unknown>, msg?: string) {
+    if (readOnly) return;
     setBusyId(id);
     try {
       const r = await fetch(`/api/activities/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -153,8 +156,8 @@ export default function ActivitiesBoard({
           </div>
           {/* quick actions */}
           <div className="flex flex-col gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button disabled={busyId === a.id} onClick={() => patch(a.id, { status: "completed" }, t("activities.toast.completed"))} title={t("activities.action.complete")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.greenLight, color: C.green }}><Check size={14} /></button>
-            <button disabled={busyId === a.id} onClick={() => patch(a.id, { status: "cancelled" })} title={t("activities.action.cancel")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textDim }}><X size={13} /></button>
+            <button disabled={busyId === a.id || readOnly} onClick={() => patch(a.id, { status: "completed" }, t("activities.toast.completed"))} title={readOnly ? viewAsOff : t("activities.action.complete")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.greenLight, color: C.green }}><Check size={14} /></button>
+            <button disabled={busyId === a.id || readOnly} onClick={() => patch(a.id, { status: "cancelled" })} title={readOnly ? viewAsOff : t("activities.action.cancel")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textDim }}><X size={13} /></button>
           </div>
         </div>
       </div>
@@ -232,7 +235,7 @@ export default function ActivitiesBoard({
                     <Icon size={13} style={{ color: C.textDim }} />
                     <span className="text-[12.5px] flex-1 min-w-0 truncate" style={{ color: C.textPrimary, textDecoration: "line-through" }}>{a.title}</span>
                     {a.lead_id && <Link href={`/leads/${a.lead_id}`} className="text-[11px] hover:underline shrink-0" style={{ color: C.textMuted }}>{a.leadName}</Link>}
-                    <button onClick={() => patch(a.id, { status: "pending" })} title={t("activities.action.reopen")} className="shrink-0 w-6 h-6 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textMuted }}><RefreshCw size={12} /></button>
+                    <button onClick={() => patch(a.id, { status: "pending" })} disabled={readOnly} title={readOnly ? viewAsOff : t("activities.action.reopen")} className="shrink-0 w-6 h-6 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textMuted }}><RefreshCw size={12} /></button>
                   </div>
                 );
               })}

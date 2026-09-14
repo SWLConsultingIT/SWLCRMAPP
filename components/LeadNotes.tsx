@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
 import { C } from "@/shared/design/tokens";
 import { StickyNote, Phone, Trash2, Loader2, Star, AtSign, Send } from "lucide-react";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 // The lead's collaboration hub — a proper notes log (replaces the weak
 // "Team Notes" textarea). Notes read top-to-bottom (oldest → newest), composer
@@ -46,6 +47,7 @@ function highlight(text: string, names: string[]): (string | ReactElement)[] | s
 
 export default function LeadNotes({ leadId }: { leadId: string }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   // notes kept oldest → newest for top-to-bottom reading.
   const [notes, setNotes] = useState<Note[]>([]);
   const [roster, setRoster] = useState<Member[]>([]);
@@ -85,6 +87,7 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
   }
 
   async function post() {
+    if (readOnly) return;
     if (!text.trim()) return;
     setSaving(true); setErr(null);
     const ids = mentioned.filter(m => text.includes(`@${m.name}`)).map(m => m.userId);
@@ -98,12 +101,14 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
   }
 
   async function togglePin(n: Note) {
+    if (readOnly) return;
     setBusyId(n.id);
     setNotes(prev => prev.map(x => x.id === n.id ? { ...x, pinned: !x.pinned } : x));
     try { await fetch(`/api/leads/${leadId}/notes`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ noteId: n.id, pinned: !n.pinned }) }); }
     finally { setBusyId(null); }
   }
   async function del(n: Note) {
+    if (readOnly) return;
     if (!confirm("Delete this note?")) return;
     setBusyId(n.id);
     try { const r = await fetch(`/api/leads/${leadId}/notes?noteId=${n.id}`, { method: "DELETE" }); if (r.ok) setNotes(prev => prev.filter(x => x.id !== n.id)); }
@@ -135,13 +140,13 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
                   {n.note_type === "call" && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${C.phone} 14%, transparent)`, color: C.phone }}>{t("ln.call")}</span>}
                   <span className="text-xs tabular-nums" style={{ color: C.textDim }}>{timeAgo(n.created_at)}</span>
                 </div>
-                <button onClick={() => del(n)} disabled={busyId === n.id} title={t("ln.deleteNote")} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.04] shrink-0">
+                <button onClick={() => del(n)} disabled={busyId === n.id || readOnly} title={readOnly ? viewAsOff : t("ln.deleteNote")} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.04] shrink-0">
                   {busyId === n.id ? <Loader2 size={11} className="animate-spin" style={{ color: C.textDim }} /> : <Trash2 size={11} style={{ color: C.textDim }} />}
                 </button>
               </div>
               <p className="text-sm leading-relaxed whitespace-pre-wrap ml-9" style={{ color: C.textBody }}>{highlight(n.content, names)}</p>
               <div className="ml-9 mt-1.5">
-                <button onClick={() => togglePin(n)} disabled={busyId === n.id}
+                <button onClick={() => togglePin(n)} disabled={busyId === n.id || readOnly} title={readOnly ? viewAsOff : undefined}
                   className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors"
                   style={{ borderColor: n.pinned ? C.gold : C.border, backgroundColor: n.pinned ? `color-mix(in srgb, ${C.gold} 12%, transparent)` : "transparent", color: n.pinned ? C.gold : C.textDim }}>
                   <Star size={10} style={{ fill: n.pinned ? C.gold : "none" }} /> {n.pinned ? "In Profile Overview" : "Add to Profile Overview"}
@@ -184,7 +189,7 @@ export default function LeadNotes({ leadId }: { leadId: string }) {
             ))}
             {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
           </div>
-          <button onClick={post} disabled={saving || !text.trim()} className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40 shrink-0" style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
+          <button onClick={post} disabled={saving || !text.trim() || readOnly} title={readOnly ? viewAsOff : undefined} className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40 shrink-0" style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} {t("ln.addNote")}
           </button>
         </div>

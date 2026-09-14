@@ -21,6 +21,7 @@ import { useToast } from "@/shared/ui/toast";
 import { countryToTimeZone } from "@/shared/lib/timezone";
 import { leadDisplayName } from "@/lib/lead-label";
 import { createActivity } from "@/features/activities/lib/create-activity";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 import WhenScheduler from "@/features/activities/components/WhenScheduler";
 import {
   ACTIVITY_TYPES, browserTimeZone, wallTimeToUtcIso, wallPartsInTz,
@@ -61,6 +62,7 @@ export default function ActivityComposer({
 }) {
   const { t } = useLocale();
   const toast = useToast();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
 
   const knownLead = !!context.leadId;
   const fixedType = mode === "inline" && !!context.type;
@@ -114,6 +116,7 @@ export default function ActivityComposer({
   }
 
   async function save() {
+    if (readOnly) return;
     const finalTitle = title.trim() || (fixedType ? t(`activities.type.${type}`) : "");
     if (!finalTitle || saving) return;
     setSaving(true);
@@ -228,7 +231,7 @@ export default function ActivityComposer({
   const footer = (
     <div className="flex items-center justify-end gap-2">
       {onClose && <button onClick={onClose} className="rounded-lg px-3.5 py-2 text-[12px] font-semibold" style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textMuted }}>{t("activities.form.cancel")}</button>}
-      <button disabled={saving || !canSave} onClick={save} className="rounded-lg px-4 py-2 text-[12px] font-bold" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`, color: "#1a1205", opacity: saving || !canSave ? 0.6 : 1 }}>
+      <button disabled={saving || !canSave || readOnly} title={readOnly ? viewAsOff : undefined} onClick={save} className="rounded-lg px-4 py-2 text-[12px] font-bold" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`, color: "#1a1205", opacity: saving || !canSave ? 0.6 : 1 }}>
         {saving ? t("activities.form.saving") : t("activities.form.save")}
       </button>
     </div>

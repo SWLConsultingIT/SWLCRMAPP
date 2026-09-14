@@ -10,6 +10,7 @@ import CallSummary from "@/components/CallSummary";
 import { useLocale } from "@/shared/i18n/i18n";
 import { intlTag } from "@/shared/i18n/locale";
 import { hasPlayableRecording } from "@/lib/call-recording";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 export type CallRecord = {
   id: string;
@@ -68,6 +69,7 @@ export default function CallCard({ call, compact = false, hideHeader = false, pe
 }) {
   const router = useRouter();
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [deleting, setDeleting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   // Inline error replaces the native alert() popups — they were ugly
@@ -81,6 +83,7 @@ export default function CallCard({ call, compact = false, hideHeader = false, pe
   const sc = call.status ?? "initiated";
 
   async function handleDelete() {
+    if (readOnly) return;
     if (deleting) return;
     if (!confirm("Delete this call from the lead history? This can't be undone (a fresh Aircall sync will repull if it still exists upstream).")) return;
     setDeleting(true);
@@ -101,6 +104,7 @@ export default function CallCard({ call, compact = false, hideHeader = false, pe
   }
 
   async function handleTranscribe(force = false) {
+    if (readOnly) return;
     if (transcribing) return;
     if (force) {
       // Surface the cost-confirm as an inline state, not a native confirm() —
@@ -190,9 +194,9 @@ export default function CallCard({ call, compact = false, hideHeader = false, pe
           <button
             type="button"
             onClick={handleDelete}
-            disabled={deleting}
+            disabled={deleting || readOnly}
             aria-label={t("callCard.deleteCall")}
-            title={t("callCard.deleteCall")}
+            title={readOnly ? viewAsOff : t("callCard.deleteCall")}
             className="ml-1 p-1.5 rounded transition-colors disabled:opacity-50"
             style={{ color: C.textMuted, backgroundColor: "transparent" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = C.red; e.currentTarget.style.backgroundColor = C.redLight; }}
@@ -211,8 +215,8 @@ export default function CallCard({ call, compact = false, hideHeader = false, pe
               <button
                 type="button"
                 onClick={() => handleTranscribe(true)}
-                disabled={transcribing}
-                title={t("callCard.retranscribeTitle")}
+                disabled={transcribing || readOnly}
+                title={readOnly ? viewAsOff : t("callCard.retranscribeTitle")}
                 className="p-1 rounded inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                 style={{ color: C.textMuted }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = "#b79832"; }}
@@ -241,7 +245,8 @@ export default function CallCard({ call, compact = false, hideHeader = false, pe
                 </button>
                 <button
                   onClick={() => handleTranscribe(true)}
-                  disabled={transcribing}
+                  disabled={transcribing || readOnly}
+                  title={readOnly ? viewAsOff : undefined}
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1 disabled:opacity-50"
                   style={{ backgroundColor: "#D97706", color: "#fff" }}>
                   {transcribing ? <Loader2 size={10} className="animate-spin" /> : <RotateCw size={10} />}
@@ -282,10 +287,10 @@ export default function CallCard({ call, compact = false, hideHeader = false, pe
           <button
             type="button"
             onClick={() => handleTranscribe(false)}
-            disabled={transcribing}
+            disabled={transcribing || readOnly}
             className="text-xs font-medium px-3 py-1.5 rounded-md border inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
             style={{ color: C.textBody, borderColor: C.border, backgroundColor: C.surface }}
-            title={t("callCard.transcribeTitle")}
+            title={readOnly ? viewAsOff : t("callCard.transcribeTitle")}
           >
             {transcribing ? (
               <>

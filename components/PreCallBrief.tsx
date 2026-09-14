@@ -5,6 +5,7 @@ import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown
 import { C } from "@/shared/design/tokens";
 import LogoLoader from "@/shared/ui/LogoLoader";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -216,6 +217,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
   initialGeneratedAt: string | null;
 }) {
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [points, setPoints] = useState<AnyPoint[] | null>(initialPoints);
   const [generatedAt, setGeneratedAt] = useState<string | null>(initialGeneratedAt);
   const [loading, setLoading] = useState(false);
@@ -223,6 +225,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
   const ranOnce = useRef(false);
 
   async function generate() {
+    if (readOnly) return;
     setLoading(true);
     setError(null);
     try {
@@ -245,6 +248,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
   // Auto-fire once on first view when nothing is cached. Ref-guarded so it
   // never loops on re-render.
   useEffect(() => {
+    if (readOnly) return;
     if (ranOnce.current) return;
     if (points && points.length > 0) return;
     ranOnce.current = true;
@@ -305,7 +309,8 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
         <button
           type="button"
           onClick={generate}
-          disabled={loading}
+          disabled={loading || readOnly}
+          title={readOnly ? viewAsOff : undefined}
           className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all hover:shadow-sm hover:-translate-y-px disabled:opacity-50 disabled:translate-y-0"
           style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}
         >
@@ -375,7 +380,9 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
             <button
               type="button"
               onClick={generate}
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg"
+              disabled={readOnly}
+              title={readOnly ? viewAsOff : undefined}
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
               style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 35%, transparent)` }}
             >
               <RefreshCw size={11} /> {t("brief.generate")}

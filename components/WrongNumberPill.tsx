@@ -5,6 +5,7 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, Check, X } from "lucide-react";
 import { C } from "@/shared/design/tokens";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 // Red "Wrong number" pill that opens an inline replace flow on click.
 // Renders in the lead detail header in place of the Call button when
@@ -21,12 +22,14 @@ type Props = {
 export default function WrongNumberPill({ leadId, currentPhone }: Props) {
   const { t } = useLocale();
   const router = useRouter();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(currentPhone ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function save() {
+    if (readOnly) return;
     const next = value.trim();
     if (!next) {
       setErr("Enter a new number first");
@@ -90,7 +93,8 @@ export default function WrongNumberPill({ leadId, currentPhone }: Props) {
           <button
             type="button"
             onClick={save}
-            disabled={saving}
+            disabled={saving || readOnly}
+            title={readOnly ? viewAsOff : undefined}
             aria-label={t("wnp.saveNew")}
             className="rounded-md p-1.5 transition-opacity hover:opacity-85 disabled:opacity-50"
             style={{ backgroundColor: "#16A34A", color: "#fff" }}

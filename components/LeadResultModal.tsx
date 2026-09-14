@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { ThumbsUp, ThumbsDown, X, Check, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 type Outcome = "positive" | "negative";
 
@@ -26,6 +27,7 @@ export default function LeadResultModal({ leadId, autoReplies, onClose }: {
 }) {
   const { t } = useLocale();
   const router = useRouter();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [mounted, setMounted] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [note, setNote] = useState("");
@@ -42,6 +44,7 @@ export default function LeadResultModal({ leadId, autoReplies, onClose }: {
   }
 
   async function submit() {
+    if (readOnly) return;
     if (!outcome || busy) return;
     setBusy(true); setErr(null);
     try {
@@ -126,7 +129,8 @@ export default function LeadResultModal({ leadId, autoReplies, onClose }: {
             {err && <p className="text-[11px] mt-2" style={{ color: C.red }}>{err}</p>}
             <div className="flex items-center gap-2 mt-3">
               <button type="button" disabled={busy} onClick={() => setOutcome(null)} className="px-3 py-2 rounded-lg border text-[12px] font-semibold disabled:opacity-50" style={{ borderColor: C.border, color: C.textMuted }}>{t("resultModal.back")}</button>
-              <button type="button" disabled={busy || (sendReply && !replyText.trim())} onClick={submit}
+              <button type="button" disabled={busy || (sendReply && !replyText.trim()) || readOnly} onClick={submit}
+                title={readOnly ? viewAsOff : undefined}
                 className="flex-1 px-3 py-2 rounded-lg text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                 style={{ backgroundColor: outcome === "positive" ? C.green : C.red, color: "#fff" }}>
                 {busy ? <Loader2 size={13} className="animate-spin" /> : null}

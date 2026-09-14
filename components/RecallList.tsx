@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Check, Clock, RotateCcw, X, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 export type RecallItem = {
   leadId: string;
@@ -49,6 +50,7 @@ const BUCKET = {
 
 export default function RecallList({ recalls, mySellerNames = [] }: { recalls: RecallItem[]; mySellerNames?: string[] }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const router = useRouter();
   const now = useMemo(() => new Date(), []);
   const mine = new Set(mySellerNames);
@@ -81,6 +83,7 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
   }, [visible, now]);
 
   async function markDone(leadId: string) {
+    if (readOnly) return;
     setBusy(leadId);
     try {
       await fetch(`/api/leads/${leadId}/callback`, {
@@ -100,6 +103,7 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
   }
 
   async function saveReschedule(leadId: string) {
+    if (readOnly) return;
     setBusy(leadId);
     try {
       const callbackAt = new Date(`${rsDate}T${rsTime}`).toISOString();
@@ -165,7 +169,7 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
                       <div className="flex items-end gap-1.5">
                         <input type="date" value={rsDate} onChange={e => setRsDate(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
                         <input type="time" value={rsTime} onChange={e => setRsTime(e.target.value)} className="rounded-md border px-2 py-1 text-[11px] outline-none" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textPrimary, colorScheme: "dark" }} />
-                        <button onClick={() => saveReschedule(r.leadId)} disabled={busy === r.leadId} className="w-7 h-7 rounded-md grid place-items-center" style={{ backgroundColor: gold, color: "#1A1505" }} title={t("recall.save")}>
+                        <button onClick={() => saveReschedule(r.leadId)} disabled={busy === r.leadId || readOnly} className="w-7 h-7 rounded-md grid place-items-center" style={{ backgroundColor: gold, color: "#1A1505" }} title={readOnly ? viewAsOff : t("recall.save")}>
                           {busy === r.leadId ? <Loader2 size={12} className="animate-spin" /> : <Check size={13} />}
                         </button>
                         <button onClick={() => setRescheduling(null)} className="w-7 h-7 rounded-md border grid place-items-center" style={{ borderColor: C.border, color: C.textDim }} title={t("recall.cancel")}><X size={12} /></button>
@@ -177,7 +181,7 @@ export default function RecallList({ recalls, mySellerNames = [] }: { recalls: R
                         </div>
                         <div className="flex gap-1 shrink-0">
                           <button onClick={() => router.push(`/leads/${r.leadId}`)} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors" style={{ borderColor: `color-mix(in srgb, ${C.green} 45%, transparent)`, color: C.green }} title={t("recall.openToCall")}><Phone size={14} /></button>
-                          <button onClick={() => markDone(r.leadId)} disabled={busy === r.leadId} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title={t("recall.done")}>
+                          <button onClick={() => markDone(r.leadId)} disabled={busy === r.leadId || readOnly} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title={readOnly ? viewAsOff : t("recall.done")}>
                             {busy === r.leadId ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} />}
                           </button>
                           <button onClick={() => openReschedule(r)} className="w-8 h-8 rounded-lg border grid place-items-center transition-colors hover:opacity-80" style={{ borderColor: C.border, color: C.textMuted }} title={t("recall.reschedule")}><Clock size={14} /></button>

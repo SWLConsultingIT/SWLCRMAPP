@@ -14,6 +14,7 @@ import { bucketActivity } from "@/features/activities/lib/activities";
 import ActivitiesList from "@/features/activities/components/ActivitiesList";
 import ActivitiesBoard, { type BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 import { Plus, AlertTriangle, CalendarClock, CalendarDays, List as ListIcon, LayoutGrid } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
@@ -25,6 +26,7 @@ export default function ActivitiesWorkspace({
   initial, seesAll, currentScope, canAssignOthers,
 }: { initial: BoardActivity[]; seesAll: boolean; currentScope: "mine" | "all"; canAssignOthers: boolean }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const router = useRouter();
   const [view, setView] = useState<"list" | "board">("list");
   const [activeBucket, setActiveBucket] = useState<Bucket | null>(null);
@@ -96,7 +98,7 @@ export default function ActivitiesWorkspace({
             <button onClick={() => changeView("list")} title={t("activities.view.list")} className="px-2.5 py-2" style={{ background: view === "list" ? gold : C.card, color: view === "list" ? "#1a1205" : C.textMuted }}><ListIcon size={15} /></button>
             <button onClick={() => changeView("board")} title={t("activities.view.board")} className="px-2.5 py-2" style={{ background: view === "board" ? gold : C.card, color: view === "board" ? "#1a1205" : C.textMuted }}><LayoutGrid size={15} /></button>
           </div>
-          <button onClick={() => setModalOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold"
+          <button onClick={() => setModalOpen(true)} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`, color: "#1a1205" }}>
             <Plus size={15} /> {t("activities.new")}
           </button>
@@ -106,7 +108,7 @@ export default function ActivitiesWorkspace({
       {isEmpty ? (
         <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("activities.empty.title")}</p>
-          <button onClick={() => setModalOpen(true)} className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`, color: "#1a1205" }}>
+          <button onClick={() => setModalOpen(true)} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`, color: "#1a1205" }}>
             <Plus size={15} /> {t("activities.empty.cta")}
           </button>
         </div>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 import { intlTag } from "@/shared/i18n/locale";
 import {
   Phone, Share2, Mail, Megaphone, Target,
@@ -168,6 +169,7 @@ function timeAgo(iso: string | null, t: (k: string, vars?: Record<string, string
 function InlineClassifier({ call }: { call: PendingCall }) {
   const router = useRouter();
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   // 2026-06-01: aligned with the 4 outcomes the post-call popup uses.
   // Wire values stay legacy-compatible (interested → positive, etc.) so
   // the existing classify endpoint + downstream cascades don't need to
@@ -181,6 +183,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   const [showMore, setShowMore] = useState(false);
 
   async function classify(c: "positive" | "negative" | "follow_up" | "voicemail" | "wrong_number") {
+    if (readOnly) return;
     if (!call.latestCall) return;
     setBusy(c);
     setErr(null);
@@ -241,7 +244,8 @@ function InlineClassifier({ call }: { call: PendingCall }) {
       </span>
       <button
         onClick={() => classify("positive")}
-        disabled={busy !== null}
+        disabled={busy !== null || readOnly}
+        title={readOnly ? viewAsOff : undefined}
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.green} 35%, transparent)`, color: C.green }}>
         {busy === "positive" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsUp size={10} />}
@@ -249,7 +253,8 @@ function InlineClassifier({ call }: { call: PendingCall }) {
       </button>
       <button
         onClick={() => classify("negative")}
-        disabled={busy !== null}
+        disabled={busy !== null || readOnly}
+        title={readOnly ? viewAsOff : undefined}
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.red} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.red} 35%, transparent)`, color: C.red }}>
         {busy === "negative" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsDown size={10} />}
@@ -257,7 +262,8 @@ function InlineClassifier({ call }: { call: PendingCall }) {
       </button>
       <button
         onClick={() => classify("follow_up")}
-        disabled={busy !== null}
+        disabled={busy !== null || readOnly}
+        title={readOnly ? viewAsOff : undefined}
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", borderColor: "color-mix(in srgb, #D97706 35%, transparent)", color: "#D97706" }}>
         {busy === "follow_up" ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
@@ -267,7 +273,8 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         <>
           <button
             onClick={() => classify("voicemail")}
-            disabled={busy !== null}
+            disabled={busy !== null || readOnly}
+            title={readOnly ? viewAsOff : undefined}
             className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
             style={{ backgroundColor: "color-mix(in srgb, #0EA5E9 12%, transparent)", borderColor: "color-mix(in srgb, #0EA5E9 35%, transparent)", color: "#0EA5E9" }}>
             {busy === "voicemail" ? <Loader2 size={10} className="animate-spin" /> : <Voicemail size={10} />}
@@ -275,7 +282,8 @@ function InlineClassifier({ call }: { call: PendingCall }) {
           </button>
           <button
             onClick={() => classify("wrong_number")}
-            disabled={busy !== null}
+            disabled={busy !== null || readOnly}
+            title={readOnly ? viewAsOff : undefined}
             className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
             style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textMuted }}>
             {busy === "wrong_number" ? <Loader2 size={10} className="animate-spin" /> : <PhoneOff size={10} />}
@@ -345,6 +353,7 @@ const HIST_TABS: Array<{ key: HistClass; labelKey: string; color: string }> = [
 function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; selected?: boolean; onToggleSelect?: (id: string) => void }) {
   const router = useRouter();
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [expanded, setExpanded] = useState(false);
   const [transcript, setTranscript] = useState(e.transcript);
   const [transcribing, setTranscribing] = useState(false);
@@ -375,6 +384,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
   }, [expanded, roster.length]);
 
   async function classifyOutcome(c: string) {
+    if (readOnly) return;
     if (classifying) return;
     setClassifying(c); setErr(null);
     try {
@@ -393,6 +403,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
   const canTranscribe = e.hasRecording && !transcript && !!e.aircallCallId;
 
   async function remove() {
+    if (readOnly) return;
     if (deleting) return;
     if (!confirm(t("qc.confirmDelete"))) return;
     setDeleting(true); setErr(null);
@@ -406,6 +417,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
   if (hidden) return null;
 
   async function transcribe() {
+    if (readOnly) return;
     if (transcribing) return;
     setTranscribing(true); setErr(null);
     try {
@@ -422,6 +434,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
   }
 
   async function saveNote() {
+    if (readOnly) return;
     if (savingNote || !note.trim()) return;
     if (!e.leadId) { setErr(t("qc.err.noLead")); return; }
     setSavingNote(true); setErr(null); setNoteSaved(false);
@@ -510,8 +523,8 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                         {visible.map(o => {
                           const active = cls === o.key;
                           return (
-                            <button key={o.key} onClick={() => { classifyOutcome(o.key); setEditOutcome(false); }} disabled={!!classifying}
-                              title={`Mark as ${o.label}`}
+                            <button key={o.key} onClick={() => { classifyOutcome(o.key); setEditOutcome(false); }} disabled={!!classifying || readOnly}
+                              title={readOnly ? viewAsOff : `Mark as ${o.label}`}
                               className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
                               style={active
                                 ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
@@ -582,7 +595,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
             style={{ borderColor: C.border, color: C.textMuted, backgroundColor: expanded ? C.surface : "transparent" }}>
             {expanded ? t("queue.history.hide") : t("queue.history.transcriptNotes")} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
           </button>
-          <button onClick={remove} disabled={deleting} title={t("qc.deleteCall")}
+          <button onClick={remove} disabled={deleting || readOnly} title={readOnly ? viewAsOff : t("qc.deleteCall")}
             className="inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors shrink-0 hover:bg-black/[0.03] disabled:opacity-50"
             style={{ borderColor: C.border, color: C.textMuted }}>
             {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
@@ -598,7 +611,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
             {transcript ? (
               <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{transcript}</p>
             ) : canTranscribe ? (
-              <button onClick={transcribe} disabled={transcribing}
+              <button onClick={transcribe} disabled={transcribing || readOnly} title={readOnly ? viewAsOff : undefined}
                 className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85 disabled:opacity-50"
                 style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.surface }}>
                 {transcribing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
@@ -638,7 +651,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
               </div>
             )}
             <div className="flex items-center gap-2 mt-1.5">
-              <button onClick={saveNote} disabled={savingNote || !note.trim() || !e.leadId}
+              <button onClick={saveNote} disabled={savingNote || !note.trim() || !e.leadId || readOnly} title={readOnly ? viewAsOff : undefined}
                 className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: "#F97316" }}>
                 {savingNote ? <Loader2 size={11} className="animate-spin" /> : null}
@@ -659,6 +672,7 @@ function CallBulkBar({ count, allSelected, onSelectAll, onClear, onDelete, delet
   count: number; allSelected: boolean; onSelectAll: () => void; onClear: () => void; onDelete: () => void; deleting: boolean;
 }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   if (count === 0) return null;
   return (
     <div className="sticky top-0 z-20 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg border"
@@ -674,7 +688,7 @@ function CallBulkBar({ count, allSelected, onSelectAll, onClear, onDelete, delet
         style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.card }}>
         {t("queue.bulk.cancel")}
       </button>
-      <button onClick={onDelete} disabled={deleting}
+      <button onClick={onDelete} disabled={deleting || readOnly} title={readOnly ? viewAsOff : undefined}
         className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-md transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: C.red, color: "#fff" }}>
         {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
@@ -835,6 +849,7 @@ function CallHistoryPanel({
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function QueueClient({ pendingCalls, newReplies, callHistory, mySellerNames = [], recalls = [], canViewAllSellers = false }: Props) {
   const { t, locale } = useLocale();
+  const { readOnly } = useViewAsReadOnly();
   const searchParams = useSearchParams();
   // Tabs (see array below): 0 = Lead Replies (the Inbox), 1 = Calls. The
   // default is 0 — the reply-triage surface sellers want when they open
@@ -893,6 +908,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory, myS
     return next;
   });
   async function bulkDeleteSelectedCalls() {
+    if (readOnly) return;
     if (selectedCalls.size === 0 || bulkDeleting) return;
     setBulkDeleting(true);
     const ids = [...selectedCalls];

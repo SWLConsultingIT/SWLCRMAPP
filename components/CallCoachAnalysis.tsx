@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Sparkles, Loader2, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Target, MessageSquare, Mic, Shield, TrendingUp, AlertTriangle, Award, X, Quote, ArrowRight, ListChecks } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 type CoachState = {
   analysis: string | null;
@@ -197,6 +198,7 @@ export default function CallCoachAnalysis(props: {
   initial: CoachState;
 }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [state, setState] = useState<CoachState>(props.initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,6 +247,7 @@ export default function CallCoachAnalysis(props: {
   }, [props.callId, props.hasTranscript]);
 
   async function generate() {
+    if (readOnly) return;
     if (loading || state.analysis) return;
     setLoading(true);
     setError(null);
@@ -304,7 +307,8 @@ export default function CallCoachAnalysis(props: {
         <button
           type="button"
           onClick={generate}
-          disabled={loading}
+          disabled={loading || readOnly}
+          title={readOnly ? viewAsOff : undefined}
           className="text-xs font-medium px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 disabled:opacity-60 shrink-0"
           style={{ backgroundColor: "#b79832", color: "#04070d" }}
         >

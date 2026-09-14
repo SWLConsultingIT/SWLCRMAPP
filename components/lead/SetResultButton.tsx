@@ -9,6 +9,7 @@ import { ClipboardCheck } from "lucide-react";
 import LeadResultModal from "@/components/LeadResultModal";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 export default function SetResultButton({
   leadId, autoReplies, size = "md",
@@ -19,13 +20,14 @@ export default function SetResultButton({
 }) {
   const [open, setOpen] = useState(false);
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const pad = size === "sm" ? "px-3 py-2 text-xs" : "px-3.5 py-2 text-[13px]";
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}
+      <button type="button" onClick={() => setOpen(true)} disabled={readOnly}
         className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold border transition-colors hover:bg-black/[0.03] ${pad}`}
         style={{ borderColor: C.border, color: C.textBody }}
-        title={t("ld2.setResult")}>
+        title={readOnly ? viewAsOff : t("ld2.setResult")}>
         <ClipboardCheck size={14} style={{ color: "var(--brand,#c9a83a)" }} /> {t("ld2.setResult")}
       </button>
       {open && <LeadResultModal leadId={leadId} autoReplies={autoReplies ?? null} onClose={() => setOpen(false)} />}

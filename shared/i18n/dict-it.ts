@@ -6894,6 +6894,7 @@ export const it: Record<string, string> = {
   "viewAs.returning": "Ritorno…",
   "viewAs.endedTitle": "Anteprima seller terminata",
   "viewAs.endedBody": "Tornato alla vista Admin — il seller in anteprima non è più disponibile.",
+  "viewAs.actionUnavailable": "Non disponibile nell'anteprima seller",
   "pool.instantlyApiKey": "API key di Instantly",
   "pool.cancel": "Annulla",
   "pool.saveN": "Salva ({n})",

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail, FileText, RotateCcw, UserPlus, ArrowRight, PhoneMissed, Inbox as InboxIcon, Plus } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";
 import { browserTimeZone } from "@/features/activities/lib/activities";
@@ -30,6 +31,7 @@ function defaultCallbackDate(): string {
 export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string; onClose: () => void }) {
   const router = useRouter();
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [note, setNote] = useState("");
   // Callback scheduling — one shared value driven by <WhenScheduler>. Default:
@@ -83,6 +85,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
   const SUGGESTS: ReadonlySet<Outcome> = new Set(["interested", "info", "voicemail", "other_person", "no_contact_established", "mailbox_full"]);
 
   async function submit() {
+    if (readOnly) return;
     if (!outcome || classifying) return;
     setClassifying(true);
     setErr(null);
@@ -228,7 +231,8 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
             <div className="mt-4">
               <button
                 type="button"
-                disabled={!outcome || classifying}
+                disabled={!outcome || classifying || readOnly}
+                title={readOnly ? viewAsOff : undefined}
                 onClick={submit}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-[12px] font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 70%, white))`, color: "#1A1505" }}

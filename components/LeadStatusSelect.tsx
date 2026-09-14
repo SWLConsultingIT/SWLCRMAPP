@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { C } from "@/shared/design/tokens";
 import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader, MessageSquare, Ban } from "lucide-react";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
   new:           { color: C.blue,      bg: C.blueLight,   icon: Clock },
@@ -24,6 +25,7 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
   onUpdate?: (newStatus: string) => void;
 }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [status, setStatus] = useState(initialStatus);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,7 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
   }, []);
 
   async function select(newStatus: string) {
+    if (readOnly) return;
     if (newStatus === status) { setOpen(false); return; }
     setOpen(false);
     setLoading(true);
@@ -94,8 +97,8 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
           {Object.entries(statusConfig).map(([key, cfg]) => {
             const Ic = cfg.icon;
             return (
-              <button key={key} onClick={() => select(key)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left transition-colors"
+              <button key={key} onClick={() => select(key)} disabled={readOnly} title={readOnly ? viewAsOff : undefined}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left transition-colors disabled:opacity-50"
                 style={{
                   color: cfg.color,
                   backgroundColor: status === key ? cfg.bg : "transparent",

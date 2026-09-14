@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { Send, X, Loader2, Copy, Check, MessageSquare, Building2, User, ExternalLink, Trophy, AlertTriangle } from "lucide-react";
 import { C, N } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -25,6 +26,7 @@ type Payload = {
 export default function SendToOdooPanel({ leadId, transferred = false }: { leadId: string; transferred?: boolean }) {
   const { t } = useLocale();
   const router = useRouter();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [p, setP] = useState<Payload | null>(null);
@@ -36,6 +38,7 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
   const [odooId, setOdooId] = useState<number | null>(null);
 
   async function sendToOdoo() {
+    if (readOnly) return;
     if (!drafts) return;
     setPhase("sending"); setErrMsg("");
     try {
@@ -189,7 +192,7 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
               ) : phase === "confirm" ? (
                 <>
                   <button onClick={() => setPhase("idle")} className="text-[12.5px] font-semibold px-3 py-2 rounded-lg" style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>{t("odoo.cancel")}</button>
-                  <button onClick={sendToOdoo} className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-4 py-2 rounded-lg" style={{ background: `linear-gradient(135deg, ${gold}, ${C.goldDim})`, color: N.ink }}>
+                  <button onClick={sendToOdoo} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-4 py-2 rounded-lg disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${gold}, ${C.goldDim})`, color: N.ink }}>
                     <Send size={13} /> {t("odoo.confirmSend")}
                   </button>
                 </>

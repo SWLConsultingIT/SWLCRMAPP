@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Sparkles, Send, Brain, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 
 type Turn = { role: "user" | "assistant"; text: string; at?: string };
@@ -14,6 +15,7 @@ type Turn = { role: "user" | "assistant"; text: string; at?: string };
 export default function LeadQA({ leadId, initialHistory, accent }: { leadId: string; initialHistory?: Turn[] | null; accent?: string }) {
   const gold = accent ?? "var(--brand, #c9a83a)";
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [turns, setTurns] = useState<Turn[]>(Array.isArray(initialHistory) ? initialHistory : []);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,6 +30,7 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
   ];
 
   async function ask(q: string) {
+    if (readOnly) return;
     const question = q.trim();
     if (!question || loading) return;
     setError(null);
@@ -81,7 +84,9 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => ask(s)}
-                  className="text-[12px] text-left px-3 py-1.5 rounded-lg border transition-colors hover:shadow-sm"
+                  disabled={readOnly}
+                  title={readOnly ? viewAsOff : undefined}
+                  className="text-[12px] text-left px-3 py-1.5 rounded-lg border transition-colors hover:shadow-sm disabled:opacity-50"
                   style={{ color: C.textBody, borderColor: `color-mix(in srgb, ${gold} 30%, ${C.border})`, backgroundColor: `color-mix(in srgb, ${gold} 5%, transparent)` }}>
                   {s}
                 </button>
@@ -135,7 +140,8 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
           />
           <button
             onClick={() => ask(input)}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || readOnly}
+            title={readOnly ? viewAsOff : undefined}
             className="rounded-xl px-3.5 py-2.5 flex items-center gap-1.5 text-[12px] font-semibold transition-all disabled:opacity-40"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#fff" }}>
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}

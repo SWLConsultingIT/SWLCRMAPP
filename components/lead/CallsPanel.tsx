@@ -20,6 +20,7 @@ import CallCard, { type CallRecord } from "@/components/CallCard";
 import CallButton from "@/components/CallButton";
 import SyncAircallButton from "@/components/SyncAircallButton";
 import { EmptyLine } from "@/components/lead/ui";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -63,6 +64,7 @@ export default function CallsPanel({
   companyPhone: string | null;
 }) {
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const router = useRouter();
   const tag = intlTag(locale);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -76,6 +78,7 @@ export default function CallsPanel({
     });
 
   async function del(id: string) {
+    if (readOnly) return;
     if (deleting) return;
     if (!confirm(t("callCard.deleteConfirm"))) return;
     setDeleting(id);
@@ -172,7 +175,7 @@ export default function CallsPanel({
                     </span>
                   )}
                   <button type="button" onClick={(e) => { e.stopPropagation(); del(call.id); }}
-                    disabled={deleting === call.id} aria-label={t("callCard.deleteCall")} title={t("callCard.deleteCall")}
+                    disabled={deleting === call.id || readOnly} aria-label={t("callCard.deleteCall")} title={readOnly ? viewAsOff : t("callCard.deleteCall")}
                     className="p-1.5 rounded transition-colors disabled:opacity-50 shrink-0"
                     style={{ color: C.textDim }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = C.red; }}

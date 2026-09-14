@@ -6,6 +6,7 @@ import { C } from "@/shared/design/tokens";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { useLocale } from "@/shared/i18n/i18n";
 import { intlTag } from "@/shared/i18n/locale";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 type Props = {
   leadId: string;
@@ -17,12 +18,14 @@ type Props = {
 export default function LeadSummaryTab({ leadId, initialSummary, initialGeneratedAt, accent = "var(--brand, #c9a83a)" }: Props) {
   const router = useRouter();
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [summary, setSummary] = useState<string | null>(initialSummary);
   const [generatedAt, setGeneratedAt] = useState<string | null>(initialGeneratedAt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function generate() {
+    if (readOnly) return;
     setLoading(true);
     setError(null);
     try {
@@ -90,7 +93,8 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
         {summary && (
           <button
             onClick={generate}
-            disabled={loading}
+            disabled={loading || readOnly}
+            title={readOnly ? viewAsOff : undefined}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[opacity,transform,box-shadow] disabled:opacity-50 hover:-translate-y-0.5 hover:shadow-md"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}
           >
@@ -156,7 +160,8 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
           </p>
           <button
             onClick={generate}
-            disabled={loading}
+            disabled={loading || readOnly}
+            title={readOnly ? viewAsOff : undefined}
             className="inline-flex items-center gap-2 text-xs font-semibold px-5 py-2.5 rounded-lg transition-[opacity,transform,box-shadow] disabled:opacity-50 hover:-translate-y-0.5 hover:shadow-lg"
             style={{
               background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,

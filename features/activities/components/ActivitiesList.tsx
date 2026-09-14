@@ -16,6 +16,7 @@ import { bucketActivity, wallTimeToUtcIso, browserTimeZone, type ActivityType } 
 import type { BoardActivity } from "@/features/activities/components/ActivitiesBoard";
 import { Check, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw, ChevronRight, Building2, CalendarClock } from "lucide-react";
 import { intlTag, type Locale } from "@/shared/i18n/dicts";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -36,6 +37,7 @@ export default function ActivitiesList({
   activeBucket: "overdue" | "today" | "upcoming" | null;
 }) {
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const toast = useToast();
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export default function ActivitiesList({
   const isToday = (iso: string | null) => { if (!iso) return false; const d = new Date(iso), n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
 
   async function patch(id: string, body: Record<string, unknown>, msg?: string) {
+    if (readOnly) return;
     setBusyId(id);
     try {
       const r = await fetch(`/api/activities/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -129,8 +132,8 @@ export default function ActivitiesList({
           {a.assigned_to && team[a.assigned_to] && <span className="hidden lg:block text-[11px] shrink-0 max-w-[120px] truncate" style={{ color: C.textMuted }}>{team[a.assigned_to]}</span>}
           {/* actions */}
           <div className="flex items-center gap-1 shrink-0">
-            <button disabled={busyId === a.id} onClick={() => patch(a.id, { status: "completed" }, t("activities.toast.completed"))} title={t("activities.action.complete")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.greenLight, color: C.green }}><Check size={14} /></button>
-            <button disabled={busyId === a.id} onClick={() => setRescheduling(editing ? null : a.id)} title={t("activities.action.reschedule")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textMuted }}><CalendarClock size={13} /></button>
+            <button disabled={busyId === a.id || readOnly} onClick={() => patch(a.id, { status: "completed" }, t("activities.toast.completed"))} title={readOnly ? viewAsOff : t("activities.action.complete")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.greenLight, color: C.green }}><Check size={14} /></button>
+            <button disabled={busyId === a.id || readOnly} onClick={() => setRescheduling(editing ? null : a.id)} title={readOnly ? viewAsOff : t("activities.action.reschedule")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textMuted }}><CalendarClock size={13} /></button>
             {a.lead_id && <Link href={`/leads/${a.lead_id}`} title={t("activities.openLead")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textDim }}><ChevronRight size={14} /></Link>}
           </div>
         </div>
@@ -165,6 +168,7 @@ export default function ActivitiesList({
 // block). Respects the activity's own due_tz (falls back to browser tz).
 function RescheduleInline({ a, onSave, onCancel }: { a: BoardActivity; onSave: (iso: string, tz: string) => void; onCancel: () => void }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const tz = a.due_tz || browserTimeZone();
   const base = a.due_at ? new Date(a.due_at) : new Date();
   const [date, setDate] = useState(base.toLocaleDateString("en-CA"));
@@ -177,7 +181,7 @@ function RescheduleInline({ a, onSave, onCancel }: { a: BoardActivity; onSave: (
       <span className="text-[10.5px]" style={{ color: C.textDim }}>{tz}</span>
       <div className="ml-auto flex items-center gap-2">
         <button onClick={onCancel} className="text-[12px] font-semibold" style={{ color: C.textMuted }}>{t("activities.form.cancel")}</button>
-        <button onClick={() => { const iso = wallTimeToUtcIso(date, time, tz); if (iso) onSave(iso, tz); }} className="rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: C.green, color: "#fff" }}>{t("activities.form.save")}</button>
+        <button disabled={readOnly} title={readOnly ? viewAsOff : undefined} onClick={() => { const iso = wallTimeToUtcIso(date, time, tz); if (iso) onSave(iso, tz); }} className="rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: C.green, color: "#fff" }}>{t("activities.form.save")}</button>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
 import { C } from "@/shared/design/tokens";
 import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 import { intlTag, type Locale } from "@/shared/i18n/locale";
 import InboxComposer from "./InboxComposer";
 import ReferralContactsPanel, { type ReferredContact } from "./ReferralContactsPanel";
@@ -295,6 +296,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   const searchParams = useSearchParams();
   const toast = useToast();
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
 
   // ONE row per LEAD, not per reply. A lead who sends two messages in a row
   // (e.g. "Hola" then "Mucho gusto!") used to show as TWO separate cards in
@@ -706,6 +708,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   const [arPreview, setArPreview] = useState<{ text: string; send: boolean; loading: boolean }>({ text: "", send: true, loading: false });
   const confirmOffKey = (c: ConfirmClass) => `swl-confirm-off-${c}`;
   function requestClassify(replyId: string, classification: ConfirmClass) {
+    if (readOnly) return;
     let off = false;
     // positive/negative always show the modal (auto-reply choice must be explicit).
     if (classification === "follow_up") {
@@ -728,6 +731,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
     }
   }
   function confirmClassifyNow() {
+    if (readOnly) return;
     const c = confirmClassify;
     if (!c) return;
     if (dontAskAgain) { try { window.localStorage.setItem(confirmOffKey(c.classification), "1"); } catch { /* */ } }
@@ -744,6 +748,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   // review endpoint so the campaign cascade (negative → closed_lost + 90d
   // suppression, positive → qualified) runs for each. One refresh at the end.
   async function bulkApply(action: "negative" | "positive" | "reviewed") {
+    if (readOnly) return;
     if (working || selectedIds.size === 0) return;
     setWorking(true);
     // Each selected card is a lead — expand to all of that lead's pending
@@ -777,6 +782,7 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
   }
 
   async function review(status: "approved" | "rejected" | "pending") {
+    if (readOnly) return;
     if (!selected || working) return;
     setWorking(true);
     try {
@@ -1010,17 +1016,17 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                 </label>
                 {selectedIds.size > 0 && (
                   <div className="flex items-center gap-1.5 ml-auto">
-                    <button disabled={working} onClick={() => bulkApply("negative")} title={t("inbox.action.markNegative")}
+                    <button disabled={working || readOnly} onClick={() => bulkApply("negative")} title={readOnly ? viewAsOff : t("inbox.action.markNegative")}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
                       style={{ color: C.red, backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}>
                       <ThumbsDown size={11} /> {t("inbox.bulk.negative")}
                     </button>
-                    <button disabled={working} onClick={() => bulkApply("positive")} title={t("inbox.action.markPositive")}
+                    <button disabled={working || readOnly} onClick={() => bulkApply("positive")} title={readOnly ? viewAsOff : t("inbox.action.markPositive")}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
                       style={{ color: C.green, backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }}>
                       <ThumbsUp size={11} /> {t("inbox.bulk.positive")}
                     </button>
-                    <button disabled={working} onClick={() => bulkApply("reviewed")} title={t("inbox.action.markReviewed")}
+                    <button disabled={working || readOnly} onClick={() => bulkApply("reviewed")} title={readOnly ? viewAsOff : t("inbox.action.markReviewed")}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
                       style={{ color: C.textMuted, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
                       <Check size={11} /> {t("inbox.bulk.reviewed")}
@@ -1143,9 +1149,9 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                       >
                         <button
                           type="button"
-                          disabled={working}
+                          disabled={working || readOnly}
                           onClick={(e) => { e.stopPropagation(); requestClassify(r.id, "positive"); }}
-                          title={t("inbox.action.markPositive")}
+                          title={readOnly ? viewAsOff : t("inbox.action.markPositive")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.green} 18%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
                         >
@@ -1153,9 +1159,9 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                         </button>
                         <button
                           type="button"
-                          disabled={working}
+                          disabled={working || readOnly}
                           onClick={(e) => { e.stopPropagation(); requestClassify(r.id, "negative"); }}
-                          title={t("inbox.action.markNegative")}
+                          title={readOnly ? viewAsOff : t("inbox.action.markNegative")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
                         >
@@ -1163,9 +1169,9 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                         </button>
                         <button
                           type="button"
-                          disabled={working}
+                          disabled={working || readOnly}
                           onClick={(e) => { e.stopPropagation(); requestClassify(r.id, "follow_up"); }}
-                          title={t("inbox.action.markFollowUp")}
+                          title={readOnly ? viewAsOff : t("inbox.action.markFollowUp")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}
                         >
@@ -1721,7 +1727,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => requestClassify(selected.id, "positive")}
-                        disabled={working}
+                        disabled={working || readOnly}
+                        title={readOnly ? viewAsOff : undefined}
                         className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
                         style={{ color: C.green, backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }}
                       >
@@ -1729,7 +1736,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                       </button>
                       <button
                         onClick={() => requestClassify(selected.id, "negative")}
-                        disabled={working}
+                        disabled={working || readOnly}
+                        title={readOnly ? viewAsOff : undefined}
                         className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
                         style={{ color: C.red, backgroundColor: `color-mix(in srgb, ${C.red} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
                       >
@@ -1737,7 +1745,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                       </button>
                       <button
                         onClick={() => requestClassify(selected.id, "follow_up")}
-                        disabled={working}
+                        disabled={working || readOnly}
+                        title={readOnly ? viewAsOff : undefined}
                         className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
                         style={{ color: C.blue, backgroundColor: `color-mix(in srgb, ${C.blue} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.blue} 30%, transparent)` }}
                       >
@@ -1761,10 +1770,10 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                     {selected.reviewStatus && selected.reviewStatus !== "pending" && (
                       <button
                         onClick={() => review("pending")}
-                        disabled={working}
+                        disabled={working || readOnly}
                         className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors hover:bg-black/[0.04]"
                         style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
-                        title={t("inbox.action.sendBack")}
+                        title={readOnly ? viewAsOff : t("inbox.action.sendBack")}
                       >
                         {t("inbox.reopen")}
                       </button>
@@ -1863,7 +1872,8 @@ export default function InboxView({ replies: rawReplies, mySellerNames = [], can
                   style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
                   {t("inbox.confirm.cancel")}
                 </button>
-                <button type="button" onClick={confirmClassifyNow} disabled={working || arPreview.loading}
+                <button type="button" onClick={confirmClassifyNow} disabled={working || arPreview.loading || readOnly}
+                  title={readOnly ? viewAsOff : undefined}
                   className="text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
                   style={{ color: "#fff", backgroundColor: color }}>
                   {(cls === "positive" || cls === "negative") && arPreview.send && arPreview.text.trim()

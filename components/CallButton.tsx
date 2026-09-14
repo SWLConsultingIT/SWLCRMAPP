@@ -8,6 +8,7 @@ import { C } from "@/shared/design/tokens";
 import { useToast } from "@/shared/ui/toast";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useAircallPhone } from "@/components/AircallPhoneProvider";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const DEFAULT_AIRCALL_USER_ID = process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID
   ? Number(process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID)
@@ -73,6 +74,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   const router = useRouter();
   const toast = useToast();
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   // Aircall Everywhere SDK provider — gives us in-app calling (no desktop
   // Aircall required). Calling dial() opens the SWL-branded phone modal
   // and routes the call through the embedded workspace. The legacy POST
@@ -209,6 +211,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   }
 
   async function handleDial() {
+    if (readOnly) return;
     if (state === "calling") return;
     if (busy) {
       toast.show({
@@ -315,8 +318,8 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
       <div className="inline-flex items-center gap-1.5 relative">
       <button
         onClick={handleDial}
-        disabled={state === "calling" || !selectedNumberId || !!busy}
-        title={busy ? t("call.busyHint", { name: busy.byName }) : undefined}
+        disabled={state === "calling" || !selectedNumberId || !!busy || readOnly}
+        title={readOnly ? viewAsOff : (busy ? t("call.busyHint", { name: busy.byName }) : undefined)}
         className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60 ${state === "idle" && variant === "solid" && pulse ? "animate-pulse" : ""}`}
         style={{
           ...baseStyle,

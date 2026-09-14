@@ -5,6 +5,7 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { useRouter } from "next/navigation";
 import { ThumbsUp, ThumbsDown, Clock, PhoneOff, Loader2, Sparkles, X, Voicemail } from "lucide-react";
 import { C } from "@/shared/design/tokens";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 // 2026-06-01: aligned with the 4 outcomes exposed by the post-call
 // popup (components/CallButton.tsx submitOutcome). Wire-format values
@@ -32,6 +33,7 @@ const meta: Record<Classification, { labelKey: string; color: string; bg: string
 
 export default function CallClassifier({ callId, current, aiConfidence, aiSummary }: Props) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const router = useRouter();
   const [loading, setLoading] = useState<Classification | "clear" | null>(null);
   const [state, setState] = useState(current);
@@ -39,6 +41,7 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
   const isAI = aiConfidence !== null && aiConfidence < 1;
 
   async function classify(c: Classification | null) {
+    if (readOnly) return;
     setLoading(c === null ? "clear" : c);
     try {
       const res = await fetch(`/api/calls/${callId}/classify`, {
@@ -82,10 +85,10 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
         </div>
         <button
           onClick={() => classify(null)}
-          disabled={loading !== null}
+          disabled={loading !== null || readOnly}
           className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded transition-colors hover:bg-white/50 disabled:opacity-50"
           style={{ color: m.color }}
-          title={t("clf.undo")}
+          title={readOnly ? viewAsOff : t("clf.undo")}
         >
           {loading === "clear" ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />} {t("clf.undoShort")}
         </button>
@@ -106,7 +109,8 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
           <button
             key={c}
             onClick={() => classify(c)}
-            disabled={loading !== null}
+            disabled={loading !== null || readOnly}
+            title={readOnly ? viewAsOff : undefined}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-85 disabled:opacity-50"
             style={{
               backgroundColor: m.bg,

@@ -5,6 +5,7 @@ import { useLocale } from "@/shared/i18n/i18n";
 import { createPortal } from "react-dom";
 import { Tag, X, Plus, Loader2, ChevronLeft } from "lucide-react";
 import { C } from "@/shared/design/tokens";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 // "Tagged teammates" on a lead — loop anyone on the team into a lead beyond the
 // single assigned owner. Tagging notifies them (in-app bell) and can carry an
@@ -17,6 +18,7 @@ type Member = { userId: string; name: string };
 
 export default function LeadSellerTags({ leadId, compact = false }: { leadId: string; compact?: boolean }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [tags, setTags] = useState<TeamTag[]>([]);
   const [roster, setRoster] = useState<Member[]>([]);
   const [open, setOpen] = useState(false);
@@ -49,6 +51,7 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
   function close() { setOpen(false); setPending(null); setReason(""); }
 
   async function commit() {
+    if (readOnly) return;
     if (!pending) return;
     const member = pending, r = reason.trim();
     close();
@@ -62,6 +65,7 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
   }
 
   async function removeTag(userId: string) {
+    if (readOnly) return;
     setTags(prev => prev.filter(t => t.userId !== userId));
     try { await fetch(`/api/leads/${leadId}/tags?userId=${encodeURIComponent(userId)}`, { method: "DELETE" }); } catch {}
   }
@@ -95,7 +99,7 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
               onKeyDown={e => { if (e.key === "Enter") commit(); }}
               placeholder={t("lst.reasonPh")}
               className="w-full text-xs px-2.5 py-2 rounded-lg border outline-none mb-2" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
-            <button onClick={commit} className="w-full text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.gold, color: "#04070d" }}>{t("lst.tag")}</button>
+            <button onClick={commit} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="w-full text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ backgroundColor: C.gold, color: "#04070d" }}>{t("lst.tag")}</button>
           </div>
         )}
       </div>
@@ -109,7 +113,7 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
           className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full cursor-default"
           style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 14%, transparent)`, color: C.gold, border: `1px solid color-mix(in srgb, ${C.gold} 30%, transparent)` }}>
           <Tag size={10} /> {tg.name}
-          <button onClick={() => removeTag(tg.userId)} className="hover:opacity-70" title={t("lst.removeTag")}><X size={11} /></button>
+          <button onClick={() => removeTag(tg.userId)} disabled={readOnly} className="hover:opacity-70 disabled:opacity-50" title={readOnly ? viewAsOff : t("lst.removeTag")}><X size={11} /></button>
         </span>
       ))}
       <button ref={btnRef} onClick={() => (open ? close() : setOpen(true))}

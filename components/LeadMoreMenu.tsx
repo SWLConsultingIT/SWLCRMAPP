@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Megaphone, FileDown, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 // "Mark result" was removed from this menu — it duplicated the hero's primary
 // "Set result" action (same LeadResultModal). More now holds only View flow /
@@ -29,6 +30,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
 }) {
   const { t } = useLocale();
   const router = useRouter();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -65,6 +67,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
   }, [open]);
 
   async function del() {
+    if (readOnly) return;
     setDeleting(true); setError(null);
     try {
       const res = await fetch(`/api/leads/${leadId}`, { method: "DELETE" });
@@ -95,7 +98,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
             <FileDown size={15} style={{ color: C.textMuted }} /> {t("lmm.exportPdf")}
           </a>
           <div className="my-1 h-px" style={{ backgroundColor: C.border }} />
-          <button type="button" className={item} style={{ color: C.red }} onClick={() => { setOpen(false); setConfirm(true); }}>
+          <button type="button" className={item} style={{ color: C.red }} disabled={readOnly} title={readOnly ? viewAsOff : undefined} onClick={() => { setOpen(false); setConfirm(true); }}>
             <Trash2 size={15} style={{ color: C.red }} /> {t("lmm.deleteLead")}
           </button>
         </div>,
@@ -121,7 +124,7 @@ export default function LeadMoreMenu({ leadId, leadName, campaignId }: {
             <div className="flex justify-end gap-2">
               <button onClick={() => { setConfirm(false); setError(null); }} disabled={deleting}
                 className="rounded-lg px-3.5 py-2 text-xs font-semibold border" style={{ borderColor: C.border, color: C.textBody }}>{t("lmm.cancel")}</button>
-              <button onClick={del} disabled={deleting}
+              <button onClick={del} disabled={deleting || readOnly} title={readOnly ? viewAsOff : undefined}
                 className="rounded-lg px-3.5 py-2 text-xs font-semibold inline-flex items-center gap-1.5" style={{ backgroundColor: C.red, color: "#fff" }}>
                 {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} {t("lmm.delete")}
               </button>

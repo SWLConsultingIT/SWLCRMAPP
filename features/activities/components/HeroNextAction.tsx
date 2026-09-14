@@ -19,6 +19,7 @@ import { Zap, Plus, Phone, RefreshCw, Mail, MessageSquare, Users, FileText, List
 import CallButton from "@/components/CallButton";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";
 import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 const gold = "var(--brand, #c9a83a)";
 const goldInk = "#8a6b18";
@@ -41,6 +42,7 @@ export default function HeroNextAction({
   canAssignActivities: boolean; localeTag: string;
 }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const router = useRouter();
   const toast = useToast();
   const [composer, setComposer] = useState(false);
@@ -76,6 +78,7 @@ export default function HeroNextAction({
   const Icon = nextAction ? (TYPE_ICON[nextAction.type] ?? ListTodo) : Zap;
 
   async function patch(body: Record<string, unknown>, msg: string) {
+    if (readOnly) return;
     if (!nextAction || busy) return;
     setBusy(true);
     try {
@@ -112,7 +115,7 @@ export default function HeroNextAction({
             <Zap size={15} style={{ color: C.textDim }} /> {t("activities.noNext")}
           </span>
           {!terminalLead && (
-            <button onClick={() => setComposer(true)} className={naBtn} style={{ background: `color-mix(in srgb, ${gold} 15%, transparent)`, color: goldInk }}>
+            <button onClick={() => setComposer(true)} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className={naBtn} style={{ background: `color-mix(in srgb, ${gold} 15%, transparent)`, color: goldInk }}>
               <Plus size={13} /> {t("activities.add")}
             </button>
           )}
@@ -154,7 +157,7 @@ export default function HeroNextAction({
           {nextAction.type === "call" && leadPhone && (
             <CallButton phone={leadPhone} leadId={leadId} size="sm" variant="soft" accent={gold} pulse={false} label={t("activities.callNow")} />
           )}
-          <button onClick={() => patch({ status: "completed" }, t("activities.toast.completed"))} disabled={busy}
+          <button onClick={() => patch({ status: "completed" }, t("activities.toast.completed"))} disabled={busy || readOnly} title={readOnly ? viewAsOff : undefined}
             className={naBtn} style={{ background: C.greenLight, color: C.green }}>
             <Check size={13} /> {t("activities.action.complete")}
           </button>
@@ -170,7 +173,7 @@ export default function HeroNextAction({
             <div className="flex items-center justify-end gap-3 mt-2">
               <button onClick={() => setResched(false)} className="text-[12px] font-semibold" style={{ color: C.textMuted }}>{t("activities.form.cancel")}</button>
               <button onClick={() => patch({ due_at: wallTimeToUtcIso(reschedVal.date, reschedVal.time || "10:00", reschedVal.tz), due_tz: reschedVal.tz }, t("activities.toast.updated"))}
-                disabled={busy} className="rounded-lg px-3 py-1.5 text-[12px] font-bold disabled:opacity-50" style={{ background: C.green, color: "#fff" }}>
+                disabled={busy || readOnly} title={readOnly ? viewAsOff : undefined} className="rounded-lg px-3 py-1.5 text-[12px] font-bold disabled:opacity-50" style={{ background: C.green, color: "#fff" }}>
                 {t("activities.form.save")}
               </button>
             </div>

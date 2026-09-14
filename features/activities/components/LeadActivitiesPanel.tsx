@@ -16,6 +16,7 @@ import { useToast } from "@/shared/ui/toast";
 import { bucketActivity, wallTimeToUtcIso, browserTimeZone, type ActivityType, type ActivityStatus } from "@/features/activities/lib/activities";
 import WhenScheduler, { type WhenValue } from "@/features/activities/components/WhenScheduler";
 import ActivityComposer from "@/features/activities/components/ActivityComposer";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 import CallButton from "@/components/CallButton";
 import {
   Check, Clock, Phone, Mail, MessageSquare, FileText, Users, ListTodo, RefreshCw,
@@ -56,6 +57,7 @@ export default function LeadActivitiesPanel({
   variant?: "full" | "next";
 }) {
   const { t, locale } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const toast = useToast();
   const router = useRouter();
   const [items, setItems] = useState<A[]>(initialActivities ?? []);
@@ -97,6 +99,7 @@ export default function LeadActivitiesPanel({
   }
 
   async function patch(id: string, body: Record<string, unknown>, msg?: string) {
+    if (readOnly) return;
     setBusyId(id);
     try {
       const r = await fetch(`/api/activities/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -127,7 +130,7 @@ export default function LeadActivitiesPanel({
         {a.type === "call" && leadPhone
           ? <CallButton phone={leadPhone} leadId={leadId} size="sm" variant="soft" label={t("activities.callNow")} />
           : null}
-        <button disabled={busyId === a.id} onClick={() => patch(a.id, { status: "completed" }, t("activities.toast.completed"))} title={t("activities.action.complete")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.greenLight, color: C.green }}><Check size={14} /></button>
+        <button disabled={busyId === a.id || readOnly} onClick={() => patch(a.id, { status: "completed" }, t("activities.toast.completed"))} title={readOnly ? viewAsOff : t("activities.action.complete")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.greenLight, color: C.green }}><Check size={14} /></button>
         <button disabled={busyId === a.id} onClick={() => openResched(a)} title={t("activities.action.reschedule")} className="w-7 h-7 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textMuted }}><CalendarClock size={13} /></button>
       </div>
     );
@@ -166,7 +169,7 @@ export default function LeadActivitiesPanel({
           <div className="flex items-center justify-between gap-3">
             <span className="text-[13px]" style={{ color: terminal ? C.textDim : C.textMuted }}>{t("activities.noNext")}</span>
             {!terminal && (
-              <button onClick={() => setComposerOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`, color: "#1a1205" }}>
+              <button onClick={() => setComposerOpen(true)} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`, color: "#1a1205" }}>
                 <Plus size={14} /> {t("activities.add")}
               </button>
             )}
@@ -177,7 +180,7 @@ export default function LeadActivitiesPanel({
             <WhenScheduler value={reschedVal} onChange={setReschedVal} showReminder={false} />
             <div className="flex justify-end gap-2 mt-2">
               <button onClick={() => setReschedId(null)} className="text-[12px] font-semibold" style={{ color: C.textMuted }}>{t("activities.form.cancel")}</button>
-              <button onClick={() => patch(nextAction!.id, whenToPatch(reschedVal), t("activities.toast.updated"))} className="rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: C.green, color: "#fff" }}>{t("activities.form.save")}</button>
+              <button onClick={() => patch(nextAction!.id, whenToPatch(reschedVal), t("activities.toast.updated"))} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: C.green, color: "#fff" }}>{t("activities.form.save")}</button>
             </div>
           </div>
         )}
@@ -190,7 +193,7 @@ export default function LeadActivitiesPanel({
       <div className="rounded-2xl border p-3.5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: C.shadow }}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-[13px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("activities.section.title")}</span>
-          <button onClick={() => setComposerOpen(true)} className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: gold }}><Plus size={13} /> {t("activities.add")}</button>
+          <button onClick={() => setComposerOpen(true)} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: gold }}><Plus size={13} /> {t("activities.add")}</button>
         </div>
 
         {pending.length > 0 && (
@@ -213,7 +216,7 @@ export default function LeadActivitiesPanel({
                     <WhenScheduler value={reschedVal} onChange={setReschedVal} showReminder={false} />
                     <div className="flex justify-end gap-2 mt-2">
                       <button onClick={() => setReschedId(null)} className="text-[12px] font-semibold" style={{ color: C.textMuted }}>{t("activities.form.cancel")}</button>
-                      <button onClick={() => patch(a.id, { ...whenToPatch(reschedVal) }, t("activities.toast.updated"))} className="rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: C.green, color: "#fff" }}>{t("activities.form.save")}</button>
+                      <button onClick={() => patch(a.id, { ...whenToPatch(reschedVal) }, t("activities.toast.updated"))} disabled={readOnly} title={readOnly ? viewAsOff : undefined} className="rounded-lg px-3 py-1.5 text-[12px] font-bold" style={{ background: C.green, color: "#fff" }}>{t("activities.form.save")}</button>
                     </div>
                   </div>
                 )}
@@ -231,7 +234,7 @@ export default function LeadActivitiesPanel({
               <div key={a.id} className="flex items-center gap-2.5 py-1.5" style={{ opacity: 0.65 }}>
                 {(() => { const I = TYPE_ICON[a.type] ?? ListTodo; return <I size={12} style={{ color: C.textDim }} />; })()}
                 <span className="text-[12px] flex-1 min-w-0 truncate" style={{ color: C.textPrimary, textDecoration: "line-through" }}>{a.title}</span>
-                <button onClick={() => patch(a.id, { status: "pending" })} title={t("activities.action.reopen")} className="w-6 h-6 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textMuted }}><RotateCcw size={11} /></button>
+                <button onClick={() => patch(a.id, { status: "pending" })} disabled={readOnly} title={readOnly ? viewAsOff : t("activities.action.reopen")} className="w-6 h-6 grid place-items-center rounded-md" style={{ background: C.surface, color: C.textMuted }}><RotateCcw size={11} /></button>
               </div>
             ))}
           </div>

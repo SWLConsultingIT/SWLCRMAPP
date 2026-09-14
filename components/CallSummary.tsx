@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocale } from "@/shared/i18n/i18n";
 import { Sparkles, Loader2 } from "lucide-react";
 import { C } from "@/shared/design/tokens";
+import { useViewAsReadOnly } from "@/shared/auth/use-view-as";
 
 /**
  * Brief 1-2 sentence call summary. Cheap (Haiku 4.5, ~$0.0005). Runs once
@@ -23,6 +24,7 @@ export default function CallSummary(props: {
   initialGeneratedAt: string | null;
 }) {
   const { t } = useLocale();
+  const { readOnly, label: viewAsOff } = useViewAsReadOnly();
   const [summary, setSummary] = useState<string | null>(props.initialSummary);
   const [generatedAt, setGeneratedAt] = useState<string | null>(props.initialGeneratedAt);
   const [loading, setLoading] = useState(false);
@@ -64,6 +66,7 @@ export default function CallSummary(props: {
   if (!props.hasTranscript) return null;
 
   async function generate() {
+    if (readOnly) return;
     if (loading || summary) return;
     setLoading(true);
     setError(null);
@@ -127,7 +130,8 @@ export default function CallSummary(props: {
       <button
         type="button"
         onClick={generate}
-        disabled={loading}
+        disabled={loading || readOnly}
+        title={readOnly ? viewAsOff : undefined}
         className="text-xs font-medium px-3 py-1 rounded-md inline-flex items-center gap-1.5 disabled:opacity-60 shrink-0"
         style={{ backgroundColor: C.green, color: "#fff" }}
       >
