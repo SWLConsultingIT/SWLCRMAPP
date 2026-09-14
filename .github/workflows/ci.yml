@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Gate duro: las suites de lógica pura pinean las reglas de negocio que
+      # ya rompieron producción (nombres en outbound, i18n, lead-outcome,
+      # identidad de llamadas, sender pool). Estas tienen que estar verdes.
+      - name: Tests
+        run: npm test
+
+      # Gate blando: mide tipos y lint contra un baseline congelado y falla sólo
+      # si la deuda crece. Ver scripts/ci-ratchet.mts para el porqué.
+      - name: Ratchet de calidad
+        run: npx tsx scripts/ci-ratchet.mts
+
+      # El build de Vercel corre con `typescript.ignoreBuildErrors: true`, así
+      # que este paso es la única cosa que compila de verdad el proyecto.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-time-placeholder
+          SUPABASE_SERVICE_KEY: build-time-placeholder
