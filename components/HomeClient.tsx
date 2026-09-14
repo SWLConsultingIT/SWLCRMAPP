@@ -5,7 +5,7 @@ import Link from "next/link";
 import CopilotChat from "@/components/CopilotChat";
 import { useLocale } from "@/shared/i18n/i18n";
 import type { HomeData } from "@/lib/home-data";
-import type { PriorityAction, PriorityReason } from "@/lib/home-priorities";
+import type { PriorityReason } from "@/lib/home-priorities";
 import { intlTag, type Locale } from "@/shared/i18n/dicts";
 
 const LOGO_URL = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
@@ -34,6 +34,7 @@ const REASON_STYLE: Record<PriorityReason, { icon: ReactElement; a: string; ab: 
 };
 
 const ARROW = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
+const CHEV = <svg className="hm-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}><path d="M9 6l6 6-6 6" /></svg>;
 
 /** "18 min ago" in the reader's locale. Coarse on purpose — the seller needs
  *  "is this hot or cold", not a stopwatch. */
@@ -67,53 +68,36 @@ export default function HomeClient() {
   const dateStr = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
   const nPrio = data?.priorities.length ?? 0;
 
-  const actionLabel = (a: PriorityAction) => t(`home.action.${a}`);
-
-  /** The explainable "why this lead is here" line. */
-  const whyLine = (reason: PriorityReason, ageMs: number | null, overdueDays: number | null): string => {
-    const why = t(`home.reason.${reason}`);
+  /** Timing only — the reason itself now lives in the badge beside it. */
+  const whenLabel = (ageMs: number | null, overdueDays: number | null): string => {
     if (overdueDays != null && overdueDays > 0) {
-      return `${why} · ${overdueDays === 1 ? t("home.prio.oneDay") : t("home.prio.nDays", { n: overdueDays })}`;
+      return overdueDays === 1 ? t("home.prio.oneDay") : t("home.prio.nDays", { n: overdueDays });
     }
-    if (ageMs != null && ageMs >= 0) return `${why} · ${relAge(ageMs, locale)}`;
-    return why;
+    if (ageMs != null && ageMs >= 0) return relAge(ageMs, locale);
+    return "";
   };
 
   const num = (n: number | null | undefined) => (n == null ? "—" : String(n));
 
   return (
     <div className="hm-wrap">
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="aurora-hero">
-        <div className="aurora-mesh" aria-hidden /><div className="aurora-mesh2" aria-hidden />
-        <div className="aurora-glass">
-          <div className="aurora-top">
-            <div className="aurora-head">
-              <div className="hm-brand">
-                <span className="hm-mark" style={{ backgroundImage: `url(${LOGO_URL})` }} aria-hidden />
-                <span className="hm-wm">Growth<b>AI</b></span>
-                <span className="hm-be">Sales Engine</span>
-              </div>
-              <h1 className="aurora-title">{greeting}{data?.firstName ? <>, <span className="hm-g">{data.firstName}</span></> : ""}</h1>
-              <p className="aurora-sub">
-                <span className="hm-date">{dateStr}</span>
-                {" · "}
-                {data ? (nPrio > 0 ? t("home.hero.actions", { n: nPrio }) : t("home.hero.allCaught")) : t("home.hero.loading")}
-              </p>
-            </div>
-            <div className="aurora-acts">
-              <div className="hm-ring">
-                <svg width="130" height="130" viewBox="0 0 150 150">
-                  <defs><linearGradient id="hmgg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#F0D889" /><stop offset="1" stopColor="#C99B2E" /></linearGradient></defs>
-                  <circle className="hm-rc" cx="75" cy="75" r="64" />
-                  <circle className="hm-rp" cx="75" cy="75" r="64" style={{ strokeDashoffset: data ? 0 : 402 }} />
-                </svg>
-                <div className="hm-rt"><b className="tnum">{data ? nPrio : "—"}</b><span>{t("home.ring.today")}</span></div>
-              </div>
-            </div>
-          </div>
+      {/* ── HERO · deliberately small ──────────────────────────────────
+           The old hero was a full aurora panel plus a 130px donut that said
+           "6 for today" — roughly a third of the viewport spent restating a
+           number the list below already shows, which pushed the actual work
+           under the fold. The greeting earns one line; "Start here" is the
+           hero now. */}
+      <div className="hm-top">
+        <div>
+          <h1 className="hm-hello">{greeting}{data?.firstName ? <>, <span className="hm-g">{data.firstName}</span></> : ""}</h1>
+          <p className="hm-sub">
+            <span className="hm-date">{dateStr}</span>
+            {" · "}
+            {data ? (nPrio > 0 ? t("home.hero.actions", { n: nPrio }) : t("home.hero.allCaught")) : t("home.hero.loading")}
+          </p>
         </div>
-      </section>
+        {data?.viewingAsSellerName && <span className="hm-viewas">{data.viewingAsSellerName}</span>}
+      </div>
 
       {/* ── PRIMARY · START HERE ─────────────────────────────────────────── */}
       <div className="hm-sec hm-sec-primary">
@@ -123,22 +107,46 @@ export default function HomeClient() {
       </div>
       <div className="hm-prio hm-prio-primary">
         {!data && !err && <div className="hm-prow hm-empty">{t("home.prio.loading")}</div>}
-        {data && data.priorities.length === 0 && <div className="hm-prow hm-empty">{t("home.prio.empty")}</div>}
-        {data?.priorities.map((p, i) => {
-          const s = REASON_STYLE[p.reason];
+        {data && data.priorities.length === 0 && (
+          /* An empty list is only "all clear" if the backlog is empty too.
+             With 12 older replies still pending, "nothing needs you" is a
+             lie — so the count comes along and links to where they live. */
+          <div className="hm-prow hm-empty">
+            <div>
+              <b>{t("home.prio.empty")}</b>
+              {(data.tasks.replies > 0 || data.tasks.calls > 0)
+                ? <p>{t("home.prio.emptyBacklog", { n: data.tasks.replies + data.tasks.calls })}</p>
+                : <p>{t("home.prio.emptySub")}</p>}
+            </div>
+            {(data.tasks.replies > 0 || data.tasks.calls > 0) && (
+              <Link className="hm-pbtn ghost" href="/queue?tab=inbox">{t("home.prio.viewInbox")}</Link>
+            )}
+          </div>
+        )}
+        {data?.priorities.map(p => {
+          const st = REASON_STYLE[p.reason];
           return (
             <div className="hm-prow" key={p.leadId}>
-              <span className="hm-pn">{i + 1}</span>
-              <span className="hm-pic" style={{ "--a": s.a, "--ab": s.ab } as CSSProperties}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>{s.icon}</svg>
+              <span className="hm-pic" style={{ "--a": st.a, "--ab": st.ab } as CSSProperties}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>{st.icon}</svg>
               </span>
               <div className="hm-pt">
-                <b>{actionLabel(p.action)} {p.name ?? p.company ?? t("home.prio.thisLead")}</b>
-                {p.company && p.name && <span className="hm-pco">{p.company}</span>}
-                <p>{whyLine(p.reason, p.ageMs, p.overdueDays)}</p>
+                {/* The REASON leads the row. It is the only part that explains
+                    why this lead is here at all, so it gets the colour and the
+                    first position; the name follows, the quote is support. */}
+                <div className="hm-pmeta">
+                  <span className="hm-badge" style={{ "--a": st.a, "--ab": st.ab } as CSSProperties}>
+                    {t(`home.reason.${p.reason}`)}
+                  </span>
+                  <span className="hm-page">{whenLabel(p.ageMs, p.overdueDays)}</span>
+                </div>
+                <div className="hm-pname">
+                  <b>{p.name ?? p.company ?? t("home.prio.thisLead")}</b>
+                  {p.name && p.company && <span className="hm-pco">{p.company}</span>}
+                </div>
                 {p.snippet && <p className="hm-psnip">“{p.snippet}”</p>}
               </div>
-              <Link className="hm-pbtn" href={p.href}>{actionLabel(p.action)}</Link>
+              <Link className="hm-pbtn" href={p.href}>{t(`home.cta.${p.action}`)}</Link>
             </div>
           );
         })}
@@ -186,11 +194,30 @@ export default function HomeClient() {
             </div>
             <div className="hm-scg">
               <h3>{t("home.queue.tasks")}</h3>
-              <Link className="hm-scrow hm-sclink" href="/queue?tab=inbox"><span>{t("home.queue.repliesPending")}</span><b className="tnum">{num(data?.tasks.replies)}</b></Link>
-              <Link className="hm-scrow hm-sclink" href="/queue?tab=calls"><span>{t("home.queue.callsPending")}</span><b className="tnum">{num(data?.tasks.calls)}</b></Link>
-              <Link className="hm-scrow hm-sclink" href="/activities"><span>{t("home.queue.followUps")}</span><b className="tnum">{num(data?.tasks.followUps)}</b></Link>
+              {/* Tasks are the clickable half: each one opens the filtered view
+                  that owns it. The chevron and hover state say so without a
+                  "click here". */}
+              <Link className="hm-scrow hm-sclink" href="/queue?tab=inbox">
+                <span>{t("home.queue.repliesPending")}</span>
+                <b className="tnum">{num(data?.tasks.replies)}</b>{CHEV}
+              </Link>
+              <Link className="hm-scrow hm-sclink" href="/queue?tab=calls">
+                <span>{t("home.queue.callsPending")}</span>
+                <b className="tnum">{num(data?.tasks.calls)}</b>{CHEV}
+              </Link>
+              <Link className="hm-scrow hm-sclink" href="/activities">
+                <span>{t("home.queue.followUps")}</span>
+                <b className="tnum">{num(data?.tasks.followUps)}</b>{CHEV}
+              </Link>
               {data?.toAssignHref && (
-                <Link className="hm-scrow hm-sclink" href={data.toAssignHref}><span>{t("home.queue.toAssign")}</span><b className="tnum">{num(data.tasks.toAssign)}</b></Link>
+                /* Workspace-level, not personal: a lead has no owner until it
+                   is in a flow. At 2,778 it was the biggest number on the
+                   screen and read as the seller's backlog, so it sits apart in
+                   a quieter treatment and says whose number it is. */
+                <Link className="hm-scrow hm-sclink hm-scwide" href={data.toAssignHref}>
+                  <span>{t("home.queue.toAssign")}<small>{t("home.queue.toAssignScope")}</small></span>
+                  <b className="tnum">{num(data.tasks.toAssign)}</b>{CHEV}
+                </Link>
               )}
             </div>
           </div>
@@ -198,7 +225,7 @@ export default function HomeClient() {
       </div>
 
       {/* ── TERTIARY · PERFORMANCE ───────────────────────────────────────── */}
-      <div className="hm-sec hm-sec-tertiary"><h2>{t("home.perf.title")}</h2></div>
+      <div className="hm-sec hm-sec-tertiary"><h2>{t("home.perf.title")}</h2><span className="hm-hint">{t("home.perf.hint")}</span></div>
       <div className="hm-perf">
         <div className="hm-pf"><b className="tnum">{num(data?.performance.reached)}</b><span>{t("home.perf.reached")}</span></div>
         <div className="hm-pf"><b className="tnum">{num(data?.performance.replies)}</b><span>{t("home.perf.replies")}</span></div>

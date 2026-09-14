@@ -7063,6 +7063,14 @@ export const en: Dict = {
   "home.perf.replies": "replies",
   "home.perf.positives": "positive replies",
   "home.perf.meetings": "meetings booked",
+  "home.cta.reply": "Reply",
+  "home.cta.call": "Call",
+  "home.cta.follow_up": "Follow up",
+  "home.cta.view": "View lead",
+  "home.prio.emptySub": "Replies and calls that are still open live in the Inbox.",
+  "home.perf.hint": "Monday to today",
+  "home.queue.toAssignScope": "Whole workspace",
+  "home.prio.emptyBacklog": "Nothing is urgent today. {n} older items are still open in your Inbox.",
   "tpl.invite": "Invite",
 };
 
@@ -14073,6 +14081,14 @@ export const es: Dict = {
   "home.perf.replies": "respuestas",
   "home.perf.positives": "respuestas positivas",
   "home.perf.meetings": "reuniones agendadas",
+  "home.cta.reply": "Responder",
+  "home.cta.call": "Llamar",
+  "home.cta.follow_up": "Seguimiento",
+  "home.cta.view": "Ver lead",
+  "home.prio.emptySub": "Las respuestas y llamadas que siguen abiertas están en el Inbox.",
+  "home.perf.hint": "De lunes a hoy",
+  "home.queue.toAssignScope": "Todo el workspace",
+  "home.prio.emptyBacklog": "Hoy no hay nada urgente. Te quedan {n} ítems más viejos abiertos en el Inbox.",
   "tpl.invite": "Invitación",
 };
 

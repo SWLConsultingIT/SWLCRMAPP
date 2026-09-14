@@ -74,7 +74,111 @@ export const DEFAULT_ACTION: Record<PriorityReason, PriorityAction> = {
 };
 
 /** Max rows the Home renders. A priority list nobody finishes is a backlog. */
-export const MAX_PRIORITIES = 6;
+export const MAX_PRIORITIES = 5;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ELIGIBILITY — runs BEFORE scoring.
+
+   Scoring answers "how urgent is this relative to that". It cannot answer "does
+   this belong on today's list at all", and conflating the two is what made the
+   first version useless: a positive reply from 81 days ago still scored ~99 and
+   sat at the top of the Home every morning, forever, because nothing had
+   changed about it. Measured on production 2026-09-14 — of 102 pending replies,
+   7 were under a week old and 54 were over thirty days. The list was almost
+   entirely archaeology.
+
+   So a signal must first EARN a slot in "today". Things that fail are not lost:
+   they stay in the Inbox and the Activities board, which is what a backlog is
+   for. The Home is a work surface, not a debt ledger.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * How long a signal stays "today's work", per reason.
+ *
+ * These are commercial shelf-lives, not storage policy. A positive reply is hot
+ * for about two weeks; after that, re-engaging is a different motion than
+ * replying and does not belong in a list titled "start here". A promise we made
+ * (callback) survives longer because breaking it is the seller's own doing, but
+ * a two-month-old overdue callback is a dead lead, not today's priority.
+ */
+export const MAX_AGE_DAYS: Record<PriorityReason, number> = {
+  meeting_intent: 21,
+  positive_reply: 21,
+  needs_info: 21,
+  callback_overdue: 30,
+  follow_up_reply: 21,
+  callback_today: 2,
+  call_overdue: 30,
+  connection_accepted_no_followup: 30,
+  not_now_matured: 90,
+};
+
+// CALIBRATION (production, 2026-09-14). The reply windows started at 10-14
+// days and that was too tight: dry-running the engine over real data gave
+// three of eight sellers a completely empty Home while they each had pending
+// work. Every excluded item was a `needs_info` — someone who asked about
+// pricing — aged between 10 and 105 days. Twelve days late answering a buying
+// question is still today's work, and arguably more urgent than a fresh one;
+// eighty days late is archaeology. 21 days keeps the first and drops the
+// second, and stays inside the "nothing from 27+ days" bound Fran set.
+// Re-measured after the change: Andrea 1 row, Juan 2, Lucho 2 (capped),
+// Lucia 4, Isaac 2 — lists that are short, varied and true.
+
+/**
+ * Reply classifications that are never work, at any age.
+ *
+ * `auto_reply` is the out-of-office / bounce bucket — the lead did not say
+ * anything, a mail server did. `unsubscribe` and `spam` are the opposite of a
+ * lead to chase, and acting on them is a compliance problem. `negative` is a
+ * clear no. `nurturing` is a long-horizon state the flow handles on its own.
+ * The full enum lives in app/api/replies/[id]/review/route.ts; anything not
+ * mapped by `reasonForReply` is already excluded, and this set makes the
+ * dangerous ones explicit so a future mapping cannot quietly let them in.
+ */
+export const NEVER_ACTIONABLE: ReadonlySet<string> = new Set([
+  "auto_reply", "unsubscribe", "spam", "negative", "nurturing",
+]);
+
+/** Rows sharing one reason, so the list does not become six of the same card. */
+export const MAX_PER_REASON = 2;
+
+/**
+ * Rows sharing one CTA. Four different reasons can all end in "Reply", which
+ * still reads as a wall of identical buttons — this caps the *shape* of the
+ * list, not just its labels.
+ */
+export const MAX_PER_ACTION = 3;
+
+/**
+ * Does this signal belong on today's list?
+ *
+ * Deliberately no backfill anywhere downstream: if only two things qualify,
+ * the Home shows two. "You have two things to do" is a useful, true statement.
+ * Padding it back to five with stale rows would rebuild the exact problem the
+ * filter exists to solve.
+ */
+export function isEligible(s: PrioritySignal, nowMs: number): boolean {
+  if (!(s.reason in REASON_WEIGHT)) return false;
+
+  // Overdue things are dated by their due date, which `at` already carries.
+  const ms = s.at ? Date.parse(s.at) : NaN;
+  if (Number.isNaN(ms)) {
+    // No timestamp: only the reasons that are defined by state rather than by
+    // a moment can qualify (an overdue call knows its own lateness).
+    return s.overdueDays != null && s.overdueDays >= 0
+      && s.overdueDays <= MAX_AGE_DAYS[s.reason];
+  }
+
+  const ageDays = (nowMs - ms) / MS_DAY;
+  if (ageDays < 0) return false;                       // dated in the future
+  if (ageDays > MAX_AGE_DAYS[s.reason]) return false;  // past its shelf life
+
+  // A "not now" is the one reason with a floor as well as a ceiling: it is not
+  // work until the lead's own window has passed.
+  if (s.reason === "not_now_matured" && ageDays < NOT_NOW_MATURE_DAYS) return false;
+
+  return true;
+}
 
 /** A "not now" only comes back around after this long. */
 export const NOT_NOW_MATURE_DAYS = 14;
@@ -174,7 +278,7 @@ export function rankPriorities(
   const best = new Map<string, { s: PrioritySignal; score: number }>();
   for (const s of signals) {
     if (!s.leadId || !leads.has(s.leadId)) continue;
-    if (!(s.reason in REASON_WEIGHT)) continue;
+    if (!isEligible(s, nowMs)) continue;   // shelf life FIRST, urgency second
     const score = scoreSignal(s, nowMs);
     const cur = best.get(s.leadId);
     if (!cur || score > cur.score) best.set(s.leadId, { s, score });
@@ -200,7 +304,24 @@ export function rankPriorities(
   }
 
   rows.sort((a, b) => (b.score - a.score) || a.leadId.localeCompare(b.leadId));
-  return rows.slice(0, limit);
+
+  // Variety pass. Without it the list degenerates into the same card repeated:
+  // four different reasons all resolve to "Reply", so a busy inbox produced six
+  // near-identical rows and the ranking stopped conveying anything. Taking the
+  // best two per reason and at most three per CTA keeps the strongest item of
+  // each KIND of work visible, which is what makes the list scannable.
+  const byReason = new Map<PriorityReason, number>();
+  const byAction = new Map<PriorityAction, number>();
+  const out: HomePriority[] = [];
+  for (const r of rows) {
+    if (out.length >= limit) break;
+    if ((byReason.get(r.reason) ?? 0) >= MAX_PER_REASON) continue;
+    if ((byAction.get(r.action) ?? 0) >= MAX_PER_ACTION) continue;
+    byReason.set(r.reason, (byReason.get(r.reason) ?? 0) + 1);
+    byAction.set(r.action, (byAction.get(r.action) ?? 0) + 1);
+    out.push(r);
+  }
+  return out;
 }
 
 /**
@@ -210,6 +331,9 @@ export function rankPriorities(
  * meeting_intent. `negative` is deliberately absent — a "no" is not a to-do.
  */
 export function reasonForReply(classification: string | null | undefined): PriorityReason | null {
+  // Explicit gate first: an out-of-office auto-reply, an unsubscribe or a spam
+  // flag must never become a task even if the mapping below grows later.
+  if (classification && NEVER_ACTIONABLE.has(classification)) return null;
   switch (classification) {
     case "meeting_intent": return "meeting_intent";
     case "positive": return "positive_reply";

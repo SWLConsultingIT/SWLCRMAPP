@@ -7028,5 +7028,13 @@ export const it: Record<string, string> = {
   "home.perf.replies": "risposte",
   "home.perf.positives": "risposte positive",
   "home.perf.meetings": "meeting fissati",
+  "home.cta.reply": "Rispondi",
+  "home.cta.call": "Chiama",
+  "home.cta.follow_up": "Follow-up",
+  "home.cta.view": "Apri lead",
+  "home.prio.emptySub": "Le risposte e le chiamate ancora aperte sono nell'Inbox.",
+  "home.perf.hint": "Da lunedì a oggi",
+  "home.queue.toAssignScope": "Tutto il workspace",
+  "home.prio.emptyBacklog": "Oggi non c'è nulla di urgente. Restano {n} elementi più vecchi aperti nell'Inbox.",
   "tpl.invite": "Invito",
 };
