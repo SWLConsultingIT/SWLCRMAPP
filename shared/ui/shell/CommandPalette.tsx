@@ -6,6 +6,7 @@ import { C } from "@/shared/design/tokens";
 import { useLocale } from "@/shared/i18n/i18n";
 import { useTheme } from "@/shared/design/theme";
 import { useAuthUser } from "@/shared/auth/auth-context";
+import { isAdminOnlyRoute } from "@/shared/auth/nav-access";
 import { LOCALES } from "@/shared/i18n/locale";
 import {
   Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2, Sparkles,
@@ -44,11 +45,13 @@ export default function CommandPalette() {
   const { t, locale, setLocale } = useLocale();
   const { theme, setTheme } = useTheme();
   const authUser = useAuthUser();
-  // Admin-only routes (Lead Miner, Company Bio, Admin) are server-gated to
+  // Admin-only routes (Company Bio, Admin) are server-gated to
   // owner/manager/super_admin. Hide them from the palette for an effective
   // seller — including an admin previewing as one (tier reads 'seller') — so we
   // never offer a route that would just redirect. Same tier signal the Sidebar
-  // uses, so nav parity holds between real seller and view-as.
+  // uses, so nav parity holds between real seller and view-as. Lead Miner (/icp)
+  // is NOT admin-only — it's a seller tool — so it stays in the palette for
+  // everyone (see shared/auth/nav-access.ts, the single source of truth).
   const isAdminTier = ["super_admin", "owner", "manager"].includes(authUser?.tier ?? "");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -87,7 +90,7 @@ export default function CommandPalette() {
       group: "actions" as const,
       keywords: ["language", "idioma", "lingua", "lang", l.id, l.label.toLowerCase()],
     })),
-  ] as NavCommand[]).filter(c => isAdminTier || !["icp", "company", "admin"].includes(c.id)), [t, locale, theme, setTheme, setLocale, isAdminTier]);
+  ] as NavCommand[]).filter(c => isAdminTier || !(c.href != null && isAdminOnlyRoute(c.href))), [t, locale, theme, setTheme, setLocale, isAdminTier]);
 
   // Filter nav commands by query (case-insensitive substring on label, hint, keywords).
   const filteredNav = useMemo(() => {

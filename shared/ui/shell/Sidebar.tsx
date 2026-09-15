@@ -63,7 +63,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
     items: [
       // "M" for Lead *M*iner — "L" belongs to Leads, so the Miner keeps the
       // next-best mnemonic from its own name.
-      { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI", shortcut: "M", adminOnly: true },
+      { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI", shortcut: "M" },
       { href: "/campaigns", labelKey: "", brandLabel: "Outreach Flow™", icon: Megaphone, tag: "AI", shortcut: "O" },
       { href: "/leads", labelKey: "nav.leads", icon: Users, shortcut: "L" },
       { href: "/activities", labelKey: "nav.activities", icon: CalendarCheck, shortcut: "Y" },

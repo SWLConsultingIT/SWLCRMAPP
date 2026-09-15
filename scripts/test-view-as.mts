@@ -21,6 +21,8 @@ import { resolveViewAsSeller, listViewAsSellers } from "../shared/auth/view-as.t
 import { leadInScope, scopeRowsToAssigned } from "../shared/auth/seller-scope.ts";
 import { isViewAsActive, setViewAsActive } from "../shared/auth/view-as-flag.ts";
 import { campaignWriteAuthz, getVisibleCampaign, type CampaignRow } from "../shared/auth/campaign-access.ts";
+import { isAdminOnlyRoute, ADMIN_ONLY_ROUTES } from "../shared/auth/nav-access.ts";
+import { canViewAllTenantData } from "../shared/auth/scope.ts";
 
 let pass = 0, fail = 0; const fails: string[] = [];
 const check = (l: string, ok: boolean, d = "") => {
@@ -240,6 +242,48 @@ eq("  peer's call (l3) invisible to Isaac", leadInScope(isaacLeads, "l3"), false
 // Admin normal — both own and peer calls visible (tenant-wide unchanged).
 eq("  admin sees own-lead call", leadInScope(null, "l1"), true);
 eq("  admin sees peer-lead call", leadInScope(null, "l3"), true);
+
+/* ── 10 · Lead Miner (/icp) nav + access — P0 regression 2026-09-14 ───────── */
+// Lead Miner is a SELLER tool. The View-As nav-parity pass wrongly bundled it
+// admin-only (Sidebar adminOnly + an /icp layout redirect on canViewAllTenantData),
+// so real sellers lost it from the Sidebar AND were server-redirected off /icp.
+// Correct model: Lead Miner is visible + reachable for real seller, View-As
+// seller, and admin alike; only tenant-config surfaces (Company Bio, Admin) gate.
+console.log("\n10. Lead Miner (/icp) nav + access — P0 regression");
+
+// Route classification: Lead Miner is NOT admin-only; tenant-config IS.
+eq("  /icp is NOT admin-only", isAdminOnlyRoute("/icp"), false);
+eq("  /icp/[id] is NOT admin-only", isAdminOnlyRoute("/icp/abc-123"), false);
+eq("  /company-bios IS admin-only", isAdminOnlyRoute("/company-bios"), true);
+eq("  /admin IS admin-only", isAdminOnlyRoute("/admin"), true);
+eq("  /admin/[id] IS admin-only (nested)", isAdminOnlyRoute("/admin/xyz"), true);
+check("  ADMIN_ONLY_ROUTES never lists /icp", !(ADMIN_ONLY_ROUTES as readonly string[]).includes("/icp"));
+
+// Sidebar visibility rule mirrored: an item shows when it's not admin-only OR
+// the viewer is an admin tier. Lead Miner carries no adminOnly flag now.
+const showAdmin = (tier: string) => tier === "super_admin" || tier === "owner" || tier === "manager";
+const navVisible = (adminOnly: boolean, tier: string) => !adminOnly || showAdmin(tier);
+const leadMinerAdminOnly = isAdminOnlyRoute("/icp"); // false — drives the Sidebar flag
+
+// Real seller — Lead Miner visible + reachable (no all-tenant requirement).
+eq("  real seller — Lead Miner in Sidebar", navVisible(leadMinerAdminOnly, "seller"), true);
+// A seller can't view all tenant data, yet Lead Miner is reachable — proving
+// /icp access does NOT depend on canViewAllTenantData (the deleted layout gate).
+eq("  sanity — seller lacks all-tenant access", canViewAllTenantData("seller"), false);
+check("  real seller — Lead Miner reachable despite that", !isAdminOnlyRoute("/icp"));
+// View-As seller — effective tier reads 'seller', so EXACTLY the same as above.
+eq("  view-as seller — Lead Miner in Sidebar (parity w/ real seller)", navVisible(leadMinerAdminOnly, "seller"), true);
+// Admin normal — still visible.
+eq("  admin — Lead Miner in Sidebar", navVisible(leadMinerAdminOnly, "owner"), true);
+
+// Command Palette gating parity: gated iff the route is admin-only.
+const paletteHidden = (href: string, tier: string) => !showAdmin(tier) && isAdminOnlyRoute(href);
+eq("  seller — Lead Miner shown in palette", paletteHidden("/icp", "seller"), false);
+eq("  seller — Company Bio hidden in palette", paletteHidden("/company-bios", "seller"), true);
+eq("  admin — Company Bio shown in palette", paletteHidden("/company-bios", "owner"), false);
+
+// The bug shape, pinned: had Lead Miner been admin-only, a seller would lose it.
+eq("  guard — an admin-only Lead Miner WOULD hide from sellers (the bug)", navVisible(true, "seller"), false);
 
 console.log(`\n${"─".repeat(70)}\n  ${pass} passed · ${fail} failed`);
 if (fail) { console.log("\nFAILURES:"); for (const f of fails) console.log(`  · ${f}`); process.exit(1); }
