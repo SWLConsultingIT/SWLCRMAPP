@@ -1127,22 +1127,20 @@ export default function LeadGenPage() {
 
   useEffect(() => { loadProfiles(); }, []);
 
+  // Writes go through /api/icp/profiles (RLS server client, real JWT) instead of
+  // a direct browser write, so proxy.ts enforces the View-As read-only block
+  // (403 read_only_seller_preview) and the same icp_profiles RLS still decides a
+  // real seller's access. Tenant + creator are stamped server-side.
   async function handleCreate(form: typeof emptyForm) {
-    const supabase = getSupabaseBrowser();
-    const bioId = await getScopedBioId();
-
-    if (!bioId) {
-      throw new Error(t("icpx.err.noBio"));
+    const res = await fetch("/api/icp/profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || t("icpx.err.noBio"));
     }
-
-    // Stamp the creator so the ICP shows who/which account made it.
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { error } = await supabase
-      .from("icp_profiles")
-      .insert({ ...form, company_bio_id: bioId, status: "pending", created_by: user?.id ?? null, created_by_email: user?.email ?? null });
-
-    if (error) throw error;
     setShowForm(false);
     setSavedMsg(t("icpx.ok.submitted"));
     setTimeout(() => setSavedMsg(null), 4000);
@@ -1150,9 +1148,15 @@ export default function LeadGenPage() {
   }
 
   async function handleUpdate(id: string, form: typeof emptyForm) {
-    const supabase = getSupabaseBrowser();
-    const { error } = await supabase.from("icp_profiles").update(form).eq("id", id);
-    if (error) throw error;
+    const res = await fetch(`/api/icp/profiles/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || t("icpx.err.noBio"));
+    }
     setEditingId(null);
     setSavedMsg(t("icpx.ok.updated"));
     setTimeout(() => setSavedMsg(null), 4000);
@@ -1160,8 +1164,11 @@ export default function LeadGenPage() {
   }
 
   async function handleDelete(id: string) {
-    const supabase = getSupabaseBrowser();
-    await supabase.from("icp_profiles").delete().eq("id", id);
+    const res = await fetch(`/api/icp/profiles/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j?.error || t("icpx.err.noBio"));
+    }
     setSelectedId(null);
     await loadProfiles();
   }

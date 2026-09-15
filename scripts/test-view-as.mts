@@ -23,6 +23,7 @@ import { isViewAsActive, setViewAsActive } from "../shared/auth/view-as-flag.ts"
 import { campaignWriteAuthz, getVisibleCampaign, type CampaignRow } from "../shared/auth/campaign-access.ts";
 import { isAdminOnlyRoute, ADMIN_ONLY_ROUTES } from "../shared/auth/nav-access.ts";
 import { canViewAllTenantData } from "../shared/auth/scope.ts";
+import { pickEditable, ICP_EDITABLE_KEYS } from "../shared/icp/editable-fields.ts";
 
 let pass = 0, fail = 0; const fails: string[] = [];
 const check = (l: string, ok: boolean, d = "") => {
@@ -284,6 +285,44 @@ eq("  admin — Company Bio shown in palette", paletteHidden("/company-bios", "o
 
 // The bug shape, pinned: had Lead Miner been admin-only, a seller would lose it.
 eq("  guard — an admin-only Lead Miner WOULD hide from sellers (the bug)", navVisible(true, "seller"), false);
+
+/* ── 11 · Lead Miner writes routed behind /api → View-As read-only ────────── */
+// /icp is seller-reachable again (the admin-only guard was removed), so its
+// writes must not be direct browser writes. They now go through
+// /api/icp/profiles, which proxy.ts covers: any mutating /api/* (non-/api/auth)
+// is refused with read_only_seller_preview while the view-as cookie is set.
+console.log("\n11. Lead Miner writes routed behind /api → View-As read-only");
+
+// Mirror of the proxy.ts read-only predicate (proxy.ts:121-123) — the single
+// rule that returns read_only_seller_preview while previewing as a seller.
+const MUTATING = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+const blockedDuringViewAs = (method: string, pathname: string) =>
+  MUTATING.has(method.toUpperCase()) && pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/");
+
+// The three relocated Lead Miner writes are all blocked under View-As.
+eq("  View-As — create ICP (POST /api/icp/profiles) blocked", blockedDuringViewAs("POST", "/api/icp/profiles"), true);
+eq("  View-As — edit ICP (PATCH /api/icp/profiles/[id]) blocked", blockedDuringViewAs("PATCH", "/api/icp/profiles/abc"), true);
+eq("  View-As — delete ICP (DELETE /api/icp/profiles/[id]) blocked", blockedDuringViewAs("DELETE", "/api/icp/profiles/abc"), true);
+// Reads still flow (a seller/effective-seller can browse Lead Miner).
+eq("  View-As — reading ICPs (GET) still allowed", blockedDuringViewAs("GET", "/api/icp/lifecycle"), false);
+// Returning to admin must stay writable.
+eq("  View-As — /api/auth/* stays writable (return to Admin)", blockedDuringViewAs("POST", "/api/auth/view-as"), false);
+
+// Server-side field whitelist: only profile fields survive; tenant/owner/status
+// /id can never be injected via the body (no cross-tenant move, no forged owner).
+const crafted = {
+  profile_name: "X", target_roles: ["CTO"], notes: "n",
+  company_bio_id: "other-tenant", created_by: "someone-else",
+  created_by_email: "evil@x.com", status: "approved", id: "hijack",
+};
+const picked = pickEditable(crafted);
+eq("  whitelist — profile_name kept", picked.profile_name, "X");
+eq("  whitelist — target_roles kept", (picked.target_roles as string[]).length, 1);
+check("  whitelist — company_bio_id stripped", !("company_bio_id" in picked));
+check("  whitelist — created_by stripped", !("created_by" in picked));
+check("  whitelist — status stripped", !("status" in picked));
+check("  whitelist — id stripped", !("id" in picked));
+check("  whitelist — never lists tenant/owner keys", !(ICP_EDITABLE_KEYS as readonly string[]).some(k => ["company_bio_id","created_by","created_by_email","status","id"].includes(k)));
 
 console.log(`\n${"─".repeat(70)}\n  ${pass} passed · ${fail} failed`);
 if (fail) { console.log("\nFAILURES:"); for (const f of fails) console.log(`  · ${f}`); process.exit(1); }
